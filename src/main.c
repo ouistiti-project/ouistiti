@@ -43,6 +43,7 @@
 
 #include "mod_mbedtls.h"
 #include "mod_static_file.h"
+#include "mod_cgi.h"
 
 #define __OUISTITI_CONFIG__
 #include "config.h"
@@ -54,6 +55,7 @@ typedef struct server_s
 	http_server_t *server;
 	void *mod_mbedtls;
 	void *mod_static_file;
+	void *mod_cgi;
 
 	struct server_s *next;
 } servert_t;
@@ -93,6 +95,8 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
+			if (server->config->cgi)
+				server->mod_cgi = mod_cgi_create(server->server, server->config->cgi);
 			if (server->config->mbedtls)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->mbedtls);
 			if (server->config->static_file)
