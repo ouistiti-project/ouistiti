@@ -1,0 +1,39 @@
+#!/bin/bash
+
+CONFIG=config
+out=$CONFIG
+
+PREFIX=/usr/local
+function argument {
+	echo ${1} | awk 'BEGIN { FS = "="} {print $2}'
+}
+
+while [ "${1}" != "" ]; do
+	case ${1} in
+		--prefix*)
+			PREFIX=$(argument ${1})
+			;;
+		--bindir*)
+			BINDIR=$(argument ${1})
+			;;
+		--libdir*)
+			LIBDIR=$(argument ${1})
+			;;
+		--host*)
+			CROSS_COMPILER=$(argument ${1})
+			;;
+	esac
+	shift
+done
+
+if [ -n BINDIR ]; then
+	BINDIR=${PREFIX}/bin
+fi
+if [ -n LIBDIR ]; then
+	LIBDIR=${PREFIX}/lib
+fi
+
+echo "PREFIX="$PREFIX >> $out
+echo "BINDIR="$BINDIR >> $out
+echo "LIBDIR="$LIBDIR >> $out
+echo "CROSS_COMPILER="$CROSS_COMPILER >> $out

@@ -239,7 +239,7 @@ _info:
 	@:
 
 _hostbuild: $(if $(hostbin-y) , $(hostobj) $(hostbin-target))
-_configbuild: $(if $(wildcard $(CONFIG)),$(join $(CURDIR),$(CONFIG:%=%.h)))
+_configbuild: $(if $(wildcard $(CONFIG)),$(join $(CURDIR)/,$(CONFIG:%=%.h)))
 
 _build: _info $(obj) _configbuild $(subdir-target) _hostbuild $(targets)
 	@:
@@ -290,7 +290,7 @@ default_action:
 
 all: default_action
 
-$(join $(CURDIR),$(CONFIG:%=%.h)): $(srcdir)$(CONFIG)
+$(join $(CURDIR)/,$(CONFIG:%=%.h)): $(srcdir)/$(CONFIG)
 	@$(call cmd,config)
 
 ##
