@@ -419,10 +419,12 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 					data[size] = '\n';
 					size++;
 				}
-				if (data[0] = '\r' && data[1] == '\n')
+				if (data[0] == '\r' && data[1] == '\n')
 					ctx->state = STATE_HEADERCOMPLETE;
 				if (ctx->state >= STATE_HEADERCOMPLETE)
+				{
 					httpmessage_addcontent(response, NULL,data, size);
+				}
 				else
 				{
 					char *key = data;
