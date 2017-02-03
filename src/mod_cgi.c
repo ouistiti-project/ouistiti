@@ -427,12 +427,14 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		{
 			char *ext;
 			char ext_str[64];
+			int filepathlength = strlen(filepath);
+			char *basename = filepath + filepathlength;
 
 			strncpy(ext_str, config->accepted_ext, 63);
 			ext = strtok(ext_str, ",");
 			while (ext != NULL)
 			{
-				snprintf(filepath, 511, "%s%s/index%s", config->docroot, uri_part(uri, "path"), ext);
+				snprintf(basename, 511 - filepathlength, "/index%s", ext);
 				ret = stat(filepath, &filestat);
 				if (ret == 0)
 					break;
