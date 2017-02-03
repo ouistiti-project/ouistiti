@@ -174,19 +174,27 @@ typedef struct httpenv_s httpenv_t;
 #define HTTP_ACCEPT_CB(msg) httpmessage_REQUEST(msg, "Accept")
 enum cgi_env_e
 {
+	DOCUMENT_ROOT,
 	SERVER_SOFTWARE,
 	SERVER_NAME,
 	GATEWAY_INTERFACE,
 	SERVER_PROTOCOL,
+	SERVER_ADDR,
 	SERVER_PORT,
 	REQUEST_METHOD,
+	REQUEST_SCHEME,
+	REQUEST_URI,
+	QUERY_STRING,
 	HTTP_ACCEPT,
+	HTTP_ACCEPT_ENCODING,
+	HTTP_ACCEPT_LANGUAGE,
 	PATH_INFO,
 	PATH_TRANSLATED,
+	SCRIPT_FILENAME,
 	SCRIPT_NAME,
-	QUERY_STRING,
 	REMOTE_HOST,
 	REMOTE_ADDR,
+	REMOTE_PORT,
 	REMOTE_USER,
 	AUTH_TYPE,
 
@@ -194,6 +202,10 @@ enum cgi_env_e
 };
 const httpenv_t cgi_env[] =
 {
+	{
+		.target = "DOCUMENT_ROOT=",
+		.length = 26,
+	},
 	{
 		.target = "SERVER_SOFTWARE=",
 		.length = 26,
@@ -208,6 +220,10 @@ const httpenv_t cgi_env[] =
 	},
 	{
 		.target = "SERVER_PROTOCOL=",
+		.length = 10,
+	},
+	{
+		.target = "SERVER_ADDR=",
 		.length = 26,
 	},
 	{
@@ -216,27 +232,47 @@ const httpenv_t cgi_env[] =
 	},
 	{
 		.target = "REQUEST_METHOD=",
-		.length = 26,
+		.length = 6,
 	},
 	{
-		.target = "HTTP_ACCEPT=",
-		.length = 26,
+		.target = "REQUEST_SCHEME=",
+		.length = 6,
 	},
 	{
-		.target = "PATH_INFO=",
-		.length = 26,
-	},
-	{
-		.target = "PATH_TRANSLATED=",
-		.length = 26,
-	},
-	{
-		.target = "SCRIPT_NAME=",
-		.length = 26,
+		.target = "REQUEST_URI=",
+		.length = 512,
 	},
 	{
 		.target = "QUERY_STRING=",
-		.length = 26,
+		.length = 256,
+	},
+	{
+		.target = "HTTP_ACCEPT=",
+		.length = 256,
+	},
+	{
+		.target = "HTTP_ACCEPT_ENCODING=",
+		.length = 256,
+	},
+	{
+		.target = "HTTP_ACCEPT_LANGUAGE=",
+		.length = 256,
+	},
+	{
+		.target = "PATH_INFO=",
+		.length = 512,
+	},
+	{
+		.target = "PATH_TRANSLATED=",
+		.length = 512,
+	},
+	{
+		.target = "SCRIPT_FILENAME=",
+		.length = 512,
+	},
+	{
+		.target = "SCRIPT_NAME=",
+		.length = 64,
 	},
 	{
 		.target = "REMOTE_HOST=",
@@ -244,6 +280,10 @@ const httpenv_t cgi_env[] =
 	},
 	{
 		.target = "REMOTE_ADDR=",
+		.length = INET6_ADDRSTRLEN,
+	},
+	{
+		.target = "REMOTE_PORT=",
 		.length = 26,
 	},
 	{
@@ -300,6 +340,9 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 			char *value = NULL;
 			switch (i)
 			{
+				case DOCUMENT_ROOT:
+					value = ctx->mod->config->docroot;
+				break;
 				case SERVER_SOFTWARE:
 				case SERVER_NAME:
 					value = httpmessage_SERVER(request, "name");
@@ -308,19 +351,49 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = SERVER_PROTOCOL_CB(request);
 				break;
 				case SERVER_PORT:
-					value = SERVER_PORT_CB(request);
+					value = httpmessage_SERVER(request, "port");
+				break;
+				case SERVER_ADDR:
+					value = httpmessage_SERVER(request, "addr");
 				break;
 				case REQUEST_METHOD:
-					value = REQUEST_METHOD_CB(request);
+					value = httpmessage_REQUEST(request, "method");
+				break;
+				case REQUEST_SCHEME:
+					value = httpmessage_REQUEST(request, "remote_port");
+				break;
+				case REQUEST_URI:
+					value = httpmessage_REQUEST(request, "uri");
+				break;
+				case QUERY_STRING:
+					value = httpmessage_REQUEST(request, "query");
 				break;
 				case HTTP_ACCEPT:
-					value = HTTP_ACCEPT_CB(request);
+					value = httpmessage_REQUEST(request, "Accept");
+				break;
+				case HTTP_ACCEPT_ENCODING:
+					value = httpmessage_REQUEST(request, "Accept-Encoding");
+				break;
+				case HTTP_ACCEPT_LANGUAGE:
+					value = httpmessage_REQUEST(request, "Accept-Language");
 				break;
 				case SCRIPT_NAME:
 					value = basename(ctx->cgipath);
 				break;
+				case SCRIPT_FILENAME:
+					value = ctx->cgipath;
+				break;
 				case PATH_INFO:
 					value = ctx->cgipath;
+				break;
+				case REMOTE_ADDR:
+					value = httpmessage_REQUEST(request, "remote_addr");;
+				break;
+				case REMOTE_HOST:
+					value = httpmessage_REQUEST(request, "remote_host");;
+				break;
+				case REMOTE_PORT:
+					value = httpmessage_REQUEST(request, "remote_port");;
 				break;
 			}
 			if (value)
