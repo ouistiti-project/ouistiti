@@ -348,6 +348,8 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = ctx->mod->config->docroot;
 				break;
 				case SERVER_SOFTWARE:
+					value = httpmessage_SERVER(request, "name");
+				break;
 				case SERVER_NAME:
 					value = httpmessage_SERVER(request, "name");
 				break;
@@ -383,7 +385,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_REQUEST(request, "Accept-Language");
 				break;
 				case SCRIPT_NAME:
-					value = basename(ctx->cgipath);
+					value = argv[0];
 				break;
 				case SCRIPT_FILENAME:
 					value = ctx->cgipath;
