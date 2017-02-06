@@ -413,61 +413,52 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 
 static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response)
 {
+	printf("mod_cgi %p\n", _cgi_connector);
 	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)arg;
 	mod_cgi_config_t *config = ctx->mod->config;
-	char *str = httpmessage_REQUEST(request,"uri");
 	if (ctx->pid == -1)
 		return EREJECT;
-	if (str && ctx->cgipath == NULL)
+	char *str = httpmessage_REQUEST(request,"uri");
+	if (str && config->docroot && ctx->cgipath == NULL)
 	{
-		char filepath[512];
-		uri_t *uri = NULL;
+		int length = 0;
+		char *query = strchr(str, '?');
+		if (query)
+			length = query - str + 1;
+		length = strlen(str) - length;
+		length += strlen(config->docroot) + 1;
 
-		uri = uri_create(str);
-		snprintf(filepath, 511, "%s/%s", config->docroot, uri_part(uri, "path"));
-		uri_free(uri);
+		char *filepath;
+		filepath = calloc(1, length + 1);
+		snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
+
 		struct stat filestat;
 		int ret = stat(filepath, &filestat);
-		if (S_ISDIR(filestat.st_mode))
-		{
-			char *ext;
-			char ext_str[64];
-			int filepathlength = strlen(filepath);
-			char *basename = filepath + filepathlength;
-
-			strncpy(ext_str, config->accepted_ext, 63);
-			ext = strtok(ext_str, ",");
-			while (ext != NULL)
-			{
-				snprintf(basename, 511 - filepathlength, "/index%s", ext);
-				ret = stat(filepath, &filestat);
-				if (ret == 0)
-					break;
-				ext = strtok(NULL, ",");
-			}
-		}
 		if (ret != 0)
 		{
 			ctx->pid = -1;
+			free(filepath);
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
-		if (filestat.st_mode & (S_IXUSR | S_IXGRP) == 0)
+		if (!S_ISREG(filestat.st_mode) || 
+			filestat.st_mode & (S_IXUSR | S_IXGRP) == 0)
 		{
 			ctx->pid = -1;
+			free(filepath);
 			return EREJECT;
 		}
-		ctx->cgipath = calloc(1, strlen(filepath) + 1);
-		strcpy(ctx->cgipath, filepath);
-
+		ctx->cgipath = filepath;
 	}
+
 	if (ctx->pid == 0)
 		ctx->pid = _mod_cgi_fork(ctx, request);
-	if (ctx->state <= STATE_INFINISH && ctx->input)
+	if (ctx->tocgi[1] > 0 && ctx->state <= STATE_INFINISH && ctx->input)
 	{
 		write(ctx->tocgi[1], ctx->input, ctx->inputlen);
 		ctx->input = NULL;
 		ctx->inputlen = 0;
+		
 		if (ctx->state <= STATE_INFINISH)
 		{
 			close(ctx->tocgi[1]);
