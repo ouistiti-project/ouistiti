@@ -17,6 +17,7 @@ serverconfig_t *config[] =
 	.user = "apache",
 	.server = 
 		&(http_server_config_t) {
+			.hostname = "www.ouistiti.net",
 			.port = 80,
 			.addr = NULL,
 			.keepalive = 1,
