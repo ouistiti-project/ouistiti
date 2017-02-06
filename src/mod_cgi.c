@@ -29,12 +29,14 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <libgen.h>
+#include <netinet/in.h>
 
 #include "httpserver.h"
 #include "uri.h"
@@ -332,6 +334,8 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		argv[1] = NULL;
 		char *env[NBENVS];
 		int i = 0;
+		char *uri = httpmessage_REQUEST(request, "uri");
+		char *query = strchr(uri,'?');
 
 		for (i = 0; i < NBENVS; i++)
 		{
@@ -363,10 +367,11 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_REQUEST(request, "remote_port");
 				break;
 				case REQUEST_URI:
-					value = httpmessage_REQUEST(request, "uri");
+					value = uri;
 				break;
 				case QUERY_STRING:
-					value = httpmessage_REQUEST(request, "query");
+					if (query != NULL)
+						value = query + 1;
 				break;
 				case HTTP_ACCEPT:
 					value = httpmessage_REQUEST(request, "Accept");
