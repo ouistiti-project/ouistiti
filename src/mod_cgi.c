@@ -505,15 +505,10 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				ctx->state = STATE_OUTFINISH;
 			else
 			{
-				if (data[size - 1] == '\n' && data[size - 2] != '\r')
-				{
-					data[size - 1] = '\r';
-					data[size] = '\n';
-					size++;
-				}
-				if (data[0] == '\r' && data[1] == '\n')
+				if ((data[0] == '\r' || data[0] == '\n') && 
+					(ctx->state < STATE_HEADERCOMPLETE))
 					ctx->state = STATE_HEADERCOMPLETE;
-				if (ctx->state >= STATE_HEADERCOMPLETE)
+				else if (ctx->state >= STATE_HEADERCOMPLETE)
 				{
 					httpmessage_addcontent(response, NULL,data, size);
 				}
@@ -521,6 +516,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				{
 					char *key = data;
 					char *value = strchr(data, ':');
+					char *end = strchr(value, '\n');
 					if (value == NULL)
 					{
 						ctx->state = STATE_HEADERCOMPLETE;
@@ -530,6 +526,9 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 					{
 						*value = '\0';
 						value++;
+						if (*value == ' ')
+							value++;
+						*end = '\0';
 						httpmessage_addheader(response, key, value);
 					}
 				}
