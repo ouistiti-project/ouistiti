@@ -415,11 +415,13 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 
 static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	printf("mod_cgi %p\n", _cgi_connector);
 	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)arg;
 	mod_cgi_config_t *config = ctx->mod->config;
 	if (ctx->pid == -1)
+	{
+		printf("cgi: pid -1\n");
 		return EREJECT;
+	}
 	char *str = httpmessage_REQUEST(request,"uri");
 	if (str && config->docroot && ctx->cgipath == NULL)
 	{
@@ -438,7 +440,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		int ret = stat(filepath, &filestat);
 		if (ret != 0)
 		{
-			ctx->pid = -1;
+			printf("cgi: %s not found\n", filepath);
 			free(filepath);
 			return EREJECT;
 		}
@@ -446,7 +448,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		if (!S_ISREG(filestat.st_mode) || 
 			filestat.st_mode & (S_IXUSR | S_IXGRP) == 0)
 		{
-			ctx->pid = -1;
+			printf("cgi: %s access denied\n", filepath);
 			free(filepath);
 			return EREJECT;
 		}
