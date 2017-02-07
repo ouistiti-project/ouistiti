@@ -542,6 +542,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 
 		ret = waitpid(ctx->pid, &status, WNOHANG);
 		ctx->state = STATE_END;
+		ctx->pid = 0;
+		httpclient_finish(ctx->ctl, 0);
 		return ESUCCESS;
 	}
 
