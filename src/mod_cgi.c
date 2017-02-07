@@ -143,6 +143,7 @@ static int _mod_cgi_recv(void *vctx, char *data, int size)
 	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)vctx;
 
 	ret = ctx->recvreq(ctx->oldctx, data, size);
+	
 	if (ret < size)
 		ctx->state = STATE_INFINISH;
 	ctx->input = data;
@@ -186,6 +187,8 @@ enum cgi_env_e
 	REQUEST_METHOD,
 	REQUEST_SCHEME,
 	REQUEST_URI,
+	CONTENT_LENGTH,
+	CONTENT_TYPE,
 	QUERY_STRING,
 	HTTP_ACCEPT,
 	HTTP_ACCEPT_ENCODING,
@@ -243,6 +246,14 @@ const httpenv_t cgi_env[] =
 	{
 		.target = "REQUEST_URI=",
 		.length = 512,
+	},
+	{
+		.target = "CONTENT_LENGTH=",
+		.length = 16,
+	},
+	{
+		.target = "CONTENT_TYPE=",
+		.length = 126,
 	},
 	{
 		.target = "QUERY_STRING=",
@@ -351,7 +362,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_SERVER(request, "name");
 				break;
 				case SERVER_NAME:
-					value = httpmessage_SERVER(request, "name");
+					value = httpmessage_SERVER(request, "software");
 				break;
 				case SERVER_PROTOCOL:
 					value = SERVER_PROTOCOL_CB(request);
@@ -370,6 +381,12 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 				break;
 				case REQUEST_URI:
 					value = uri;
+				break;
+				case CONTENT_LENGTH:
+					value = httpmessage_REQUEST(request, "Content-Length");
+				break;
+				case CONTENT_TYPE:
+					value = httpmessage_REQUEST(request, "Content-Type");
 				break;
 				case QUERY_STRING:
 					if (query != NULL)
@@ -394,13 +411,13 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = ctx->cgipath;
 				break;
 				case REMOTE_ADDR:
-					value = httpmessage_REQUEST(request, "remote_addr");;
+					value = httpmessage_REQUEST(request, "remote_addr");
 				break;
 				case REMOTE_HOST:
-					value = httpmessage_REQUEST(request, "remote_host");;
+					value = httpmessage_REQUEST(request, "remote_host");
 				break;
 				case REMOTE_PORT:
-					value = httpmessage_REQUEST(request, "remote_port");;
+					value = httpmessage_REQUEST(request, "remote_port");
 				break;
 			}
 			if (value)
