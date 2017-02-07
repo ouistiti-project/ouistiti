@@ -3,6 +3,10 @@ bin-y+=$(TARGET)
 $(TARGET)_CFLAGS+=-I../libhttpserver/include/httpserver
 $(TARGET)_LDFLAGS+=-L. -L../libhttpserver/src/httpserver -L../libhttpserver/src
 $(TARGET)_SOURCES+=main.c
+$(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
+$(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
+$(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
+
 $(TARGET)_LIBRARY+=httpserver pthread rt
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mod_mbedtls mbedtls mbedx509 mbedcrypto
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DMBEDTLS

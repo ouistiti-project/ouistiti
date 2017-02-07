@@ -45,13 +45,11 @@
 #include "mod_static_file.h"
 #include "mod_cgi.h"
 
-#define __OUISTITI_CONFIG__
 #include "config.h"
 
 typedef struct server_s
 {
 	serverconfig_t *config;
-	struct passwd *user;
 	http_server_t *server;
 	void *mod_mbedtls;
 	void *mod_static_file;
@@ -61,34 +59,49 @@ typedef struct server_s
 } servert_t;
 int main(int argc, char * const *argv)
 {
+	struct passwd *user;
 	servert_t *server, *first = NULL;
+	char *configfile = "/etc/ouistiti.conf";
+	ouistiticonfig_t *ouistiticonfig;
 	serverconfig_t *it;
 	int i;
 
 	setbuf(stdout, NULL);
 
-	for (i = 0, it = config[i]; it != NULL; i++, it = config[i])
+#ifdef STATIC_CONFIG
+	ouistiticonfig = &g_ouistiticonfig;
+#else
+	ouistiticonfig = ouistiticonfig_create(configfile);
+#endif
+
+	if (ouistiticonfig == NULL)
+		return -1;
+
+	if (ouistiticonfig->user)
 	{
-		server = calloc(1, sizeof(*server));
-		server->config = it;
-
-		if (server->config->user)
+		user = getpwnam(ouistiticonfig->user);
+		if (user == NULL)
 		{
-			server->user = getpwnam(server->config->user);
-			if (server->user == NULL)
+			fprintf(stderr, "Error: start as root\n");
+			return -1;
+		}
+	}
+
+	if (ouistiticonfig->servers)
+	{
+		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
+		{
+			server = calloc(1, sizeof(*server));
+			server->config = it;
+
+			server->server = httpserver_create(server->config->server);
+			if (server->server)
 			{
-				fprintf(stderr, "Error: start as root\n");
-				return -1;
+				httpserver_connect(server->server);
 			}
+			server->next = first;
+			first = server;
 		}
-
-		server->server = httpserver_create(server->config->server);
-		if (server->server)
-		{
-			httpserver_connect(server->server);
-		}
-		server->next = first;
-		first = server;
 	}
 	server = first;
 	while (server != NULL)
@@ -101,15 +114,11 @@ int main(int argc, char * const *argv)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->mbedtls);
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
-			if (server->user != NULL)
-			{
-				setgid(server->user->pw_gid);
-				setuid(server->user->pw_uid);
-
-			}
 		}
 		server = server->next;
 	}
+	setgid(user->pw_gid);
+	setuid(user->pw_uid);
 	while (1)
 	{
 		sleep(1);
@@ -125,5 +134,8 @@ int main(int argc, char * const *argv)
 		httpserver_destroy(server->server);
 		server = server->next;
 	}
+#ifndef __OUISTITI_CONFIG__
+	ouistiticonfig_destroy(ouistiticonfig);
+#endif
 	return 0;
 }
