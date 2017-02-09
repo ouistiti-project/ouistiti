@@ -30,6 +30,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <errno.h>
 
 #include "httpserver.h"
 #include "uri.h"
@@ -109,13 +112,15 @@ static const mime_entry_t *mime_entry[] =
 	NULL
 };
 
+#define CONTENTSIZE 63
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	mod_static_file_t *config = (mod_static_file_t *)arg;
-	char content[64];
+	char content[CONTENTSIZE];
 	char ext_str[64];
 	char *ext;
 	int size;
+	int ret;
 	struct _static_file_connector_s *private = httpmessage_private(request, NULL);
 
 	do
