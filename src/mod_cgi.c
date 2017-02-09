@@ -42,6 +42,14 @@
 #include "uri.h"
 #include "mod_cgi.h"
 
+#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#ifdef DEBUG
+#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#else
+#define dbg(...)
+#endif
+
 typedef struct _mod_cgi_config_s _mod_cgi_config_t;
 typedef struct _mod_cgi_s _mod_cgi_t;
 typedef struct mod_cgi_ctx_s mod_cgi_ctx_t;
@@ -436,7 +444,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	mod_cgi_config_t *config = ctx->mod->config;
 	if (ctx->pid == -1)
 	{
-		printf("cgi: pid -1\n");
+		warn("cgi: pid -1");
 		return EREJECT;
 	}
 	char *str = httpmessage_REQUEST(request,"uri");
@@ -457,7 +465,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		int ret = stat(filepath, &filestat);
 		if (ret != 0)
 		{
-			printf("cgi: %s not found\n", filepath);
+			warn("cgi: %s not found", filepath);
 			free(filepath);
 			return EREJECT;
 		}
@@ -465,10 +473,11 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		if (!S_ISREG(filestat.st_mode) || 
 			filestat.st_mode & (S_IXUSR | S_IXGRP) == 0)
 		{
-			printf("cgi: %s access denied\n", filepath);
+			warn("cgi: %s access denied", filepath);
 			free(filepath);
 			return EREJECT;
 		}
+		dbg("cgi: run %s", filepath);
 		ctx->cgipath = filepath;
 	}
 
