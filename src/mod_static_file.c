@@ -29,10 +29,19 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "httpserver.h"
 #include "uri.h"
 #include "mod_static_file.h"
+
+#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#ifdef DEBUG
+#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#else
+#define dbg(...)
+#endif
 
 static mod_static_file_t default_config = 
 {
@@ -130,7 +139,9 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				snprintf(filepath, length + extlength + 1, "%s/%s/index%s", config->docroot, str, ext);
 				ret = stat(filepath, &filestat);
 				if (ret == 0)
+				{
 					break;
+				}
 				ext = strtok(NULL, ",");
 			}
 		}
