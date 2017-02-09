@@ -35,6 +35,7 @@
 # include <sys/socket.h>
 # include <sys/types.h>
 # include <unistd.h>
+# define HAVE_GETOPT
 #else
 # include <winsock2.h>
 #endif
@@ -47,6 +48,8 @@
 
 #include "config.h"
 
+#define DEFAULT_CONFIGPATH sysconfdir"/ouistiti.conf"
+
 typedef struct server_s
 {
 	serverconfig_t *config;
@@ -57,17 +60,41 @@ typedef struct server_s
 
 	struct server_s *next;
 } servert_t;
+
+void display_help(char * const *argv)
+{
+	fprintf(stderr, "%s [-f <configfile>]\n", argv[0]);
+	fprintf(stderr, "\t-f <configfile>\tset the cofniguration file path\n");
+}
+
 int main(int argc, char * const *argv)
 {
 	struct passwd *user;
 	servert_t *server, *first = NULL;
-	char *configfile = "/etc/ouistiti.conf";
+	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
 	serverconfig_t *it;
 	int i;
 
 	setbuf(stdout, NULL);
 
+#ifdef HAVE_GETOPT
+	int opt;
+	do
+	{
+		opt = getopt(argc, argv, "f:");
+		switch (opt)
+		{
+			case 'f':
+				configfile = optarg;
+			break;
+			case 'h':
+				display_help(argv);
+				return -1;
+			break;
+		}
+	} while(opt != -1);
+#endif
 #ifdef STATIC_CONFIG
 	ouistiticonfig = &g_ouistiticonfig;
 #else
