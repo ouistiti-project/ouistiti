@@ -54,7 +54,9 @@ struct _static_file_connector_s
 {
 	int type;
 	void *previous;
-	FILE *fileno;
+	int fd;
+	unsigned int size;
+	unsigned int offset;
 };
 
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
@@ -86,10 +88,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		}
 	} while(0);
 
-	if (private->fileno == (void *)-1)
+	if (private->fd == -1)
 		return EREJECT;
 
-	if (private->fileno == NULL)
+	if (private->fd == 0)
 	{
 		char *str = httpmessage_REQUEST(request,"uri");
 
@@ -118,7 +120,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				{
 					free(filepath);
 					free(private);
-					private->fileno = (void *)-1;
+					private->fd = 0;
 					return EREJECT;
 				}
 				ext = strtok(NULL, ",");
@@ -170,27 +172,39 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		}
 		if (ret != 0)
 		{
-			printf("file: %s not found\n", filepath);
+			warn("static file: %s not found", filepath);
 			free(filepath);
 			free(private);
-			private->fileno = (void *)-1;
+			private->fd = 0;
 			return EREJECT;
 		}
-		private->fileno = fopen(filepath, "rb");
+		private->fd = open(filepath, O_RDONLY);
+		private->offset = 0;
+		if (private->fd > 0)
+			dbg("static file: send %s (%d)", filepath, filestat.st_size);
 		httpmessage_private(request, (void *)private);
-		httpmessage_addcontent(response, "text/html", NULL, filestat.st_size);
+		private->size = filestat.st_size;
+		if (mime)
+			httpmessage_addcontent(response, (char *)_mimetype[mime->type], NULL, private->size);
+		else
+			httpmessage_addcontent(response, "", NULL, private->size);
 		return ECONTINUE;
 	}
-	if (feof(private->fileno))
+	size = sizeof(content) - 1;
+	ret = read(private->fd, content, size);
+	if (ret < 1)
 	{
-		fclose(private->fileno);
-		private->fileno = NULL;
+		close(private->fd);
+		private->fd = 0;
 		free(private);
-		return ESUCCESS;
+		if (ret == 0)
+			return ESUCCESS;
+		else
+			return EREJECT;
 	}
-	size = fread(content, 1, sizeof(content) - 1, private->fileno);
+	private->offset += ret;
 	content[size] = 0;
-	httpmessage_addcontent(response, NULL, content, -1);
+	httpmessage_addcontent(response, NULL, content, ret);
 	return ECONTINUE;
 }
 
