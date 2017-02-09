@@ -1,0 +1,7 @@
+* php module
+* auth module
+* use server->chunksize every where and add configuration
+* connection code break reception part from emission part
+* http2 module
+* KeepAlive only for HTTP/1.0 and over
+* pipelining only for HTTP/1.1 and over
