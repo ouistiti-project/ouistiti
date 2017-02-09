@@ -3,7 +3,7 @@
 CONFIG=config
 out=$CONFIG
 
-PREFIX=/usr/local
+prefix=/usr/local
 function argument {
 	echo ${1} | awk 'BEGIN { FS = "="} {print $2}'
 }
@@ -11,13 +11,22 @@ function argument {
 while [ "${1}" != "" ]; do
 	case ${1} in
 		--prefix*)
-			PREFIX=$(argument ${1})
+			prefix=$(argument ${1})
 			;;
 		--bindir*)
-			BINDIR=$(argument ${1})
+			bindir=$(argument ${1})
+			;;
+		--sbindir*)
+			sbindir=$(argument ${1})
+			;;
+		--includedir*)
+			includedir=$(argument ${1})
 			;;
 		--libdir*)
-			LIBDIR=$(argument ${1})
+			libdir=$(argument ${1})
+			;;
+		--sysconfdir*)
+			sysconfdir=$(argument ${1})
 			;;
 		--host*)
 			CROSS_COMPILER=$(argument ${1})
@@ -26,14 +35,28 @@ while [ "${1}" != "" ]; do
 	shift
 done
 
-if [ -n BINDIR ]; then
-	BINDIR=${PREFIX}/bin
+if [ -z ${bindir} ]; then
+	bindir=${prefix}/bin
 fi
-if [ -n LIBDIR ]; then
-	LIBDIR=${PREFIX}/lib
+if [ -z ${sbindir} ]; then
+	sbindir=${prefix}/sbin
+fi
+if [ -z ${includedir} ]; then
+	includedir=${prefix}/include
+fi
+if [ -z ${libdir} ]; then
+	libdir=${prefix}/lib
+fi
+if [ -z ${sysconfdir} ]; then
+	sysconfdir=${prefix}/etc
 fi
 
-echo "PREFIX="$PREFIX >> $out
-echo "BINDIR="$BINDIR >> $out
-echo "LIBDIR="$LIBDIR >> $out
-echo "CROSS_COMPILER="$CROSS_COMPILER >> $out
+echo "prefix=\""$prefix"\"" >> $out
+echo "bindir=\""$bindir"\"" >> $out
+echo "sbindir=\""$sbindir"\"" >> $out
+echo "includedir=\""$includedir"\"" >> $out
+echo "libdir=\""$libdir"\"" >> $out
+echo "sysconfdir=\""$sysconfdir"\"" >> $out
+if [ $CROSS_COMPILER ]; then
+	echo "CROSS_COMPILER="$CROSS_COMPILER >> $out
+fi
