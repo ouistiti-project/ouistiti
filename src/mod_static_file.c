@@ -59,6 +59,56 @@ struct _static_file_connector_s
 	unsigned int offset;
 };
 
+typedef enum
+{
+	MIME_TEXTPLAIN,
+	MIME_TEXTHTML,
+	MIME_TEXTCSS,
+	MIME_APPLICATIONOCTETSTREAM,
+} _mimetype_enum;
+static const char *_mimetype[] =
+{
+	"text/plain",
+	"text/html",
+	"text/css",
+	"application/octet-stream",
+};
+
+typedef struct mime_entry_s
+{
+	char *ext;
+	_mimetype_enum type;
+} mime_entry_t;
+
+static const mime_entry_t *mime_entry[] =
+{ 
+	&(mime_entry_t){
+		.ext = ".html",
+		.type = MIME_TEXTHTML,
+	},
+	&(mime_entry_t){
+		.ext = ".xhtml",
+		.type = MIME_TEXTHTML,
+	},
+	&(mime_entry_t){
+		.ext = ".htm",
+		.type = MIME_TEXTHTML,
+	},
+	&(mime_entry_t){
+		.ext = ".css",
+		.type = MIME_TEXTCSS,
+	},
+	&(mime_entry_t){
+		.ext = ".text",
+		.type = MIME_TEXTPLAIN,
+	},
+	&(mime_entry_t){
+		.ext = "*",
+		.type = MIME_APPLICATIONOCTETSTREAM,
+	},
+	NULL
+};
+
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	mod_static_file_t *config = (mod_static_file_t *)arg;
@@ -151,6 +201,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		 * file is found
 		 * check the extension
 		 */
+		mime_entry_t *mime = (mime_entry_t *)mime_entry[0];
 		if (ret == 0)
 		{
 			ret = -1;
@@ -161,8 +212,16 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				ext = strtok(ext_str, ",");
 				while (ext != NULL)
 				{
-					if (!strcmp(ext, fileext))
+					if (!strcmp(ext, fileext) || !strcmp(ext, "*"))
 					{
+						while (mime)
+						{
+							if (!strcmp(mime->ext, fileext) || !strcmp(mime->ext, "*"))
+							{
+								break;
+							}
+							mime++;
+						} 
 						ret = 0;
 						break;
 					}
