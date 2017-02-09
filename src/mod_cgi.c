@@ -367,10 +367,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = ctx->mod->config->docroot;
 				break;
 				case SERVER_SOFTWARE:
-					value = httpmessage_SERVER(request, "name");
+					value = httpmessage_SERVER(request, "software");
 				break;
 				case SERVER_NAME:
-					value = httpmessage_SERVER(request, "software");
+					value = httpmessage_SERVER(request, "name");
 				break;
 				case SERVER_PROTOCOL:
 					value = SERVER_PROTOCOL_CB(request);
