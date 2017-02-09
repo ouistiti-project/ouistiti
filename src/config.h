@@ -17,6 +17,51 @@ typedef struct ouistiticonfig_s
 	serverconfig_t *servers[MAX_SERVERS];
 } ouistiticonfig_t;
 
+/**
+user="apache";
+servers={
+	({
+		server = {
+			hostname = "www.ouistiti.net";
+			port = 80;
+			keepalive = true;
+			maxclients = 10;
+		};
+		static_file = {
+			docroot = "/srv/www/htdocs";
+			accepted_ext = ".html,.htm,.css,.js,.txt";
+			ignored_ext = ".htaccess,.php";
+		};
+		cgi = {
+			docroot = "/srv/www/cgi-bin";
+			accepted_ext = ",.cgi,.sh";
+			ignored_ext = ".htaccess";
+		};
+	},
+	{
+		server = {
+			hostname = "www.ouistiti.net";
+			port = 443;
+			keepalive = true;
+		};
+		mbedtls =  {
+			pers = "httpserver-mbedtls",
+			crtfile = "/etc/ssl/private/server.pem",
+			dhmfile = "/etc/ssl/private/dhparam.pem",
+		};
+		static_file = {
+			docroot = "/srv/www/htdocs";
+			accepted_ext = ".html,.htm,.css,.js,.txt";
+			ignored_ext = ".htaccess,.php";
+		};
+		cgi = {
+			docroot = "/srv/www/cgi-bin";
+			accepted_ext = ",.cgi,.sh";
+			ignored_ext = ".htaccess";
+		};
+	})
+};
+**/
 #ifdef STATIC_CONFIG
 ouistiticonfig_t g_ouistiticonfig =
 {
