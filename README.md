@@ -4,9 +4,9 @@ Ouistiti - Small HTTP server
 The main goal of Ouistiti is a very small HTTP server to be embedded into
 very small devices.
 
- all features statically linked:   47ko
- with the features as modules: 33ko
- in embedded configuration:    29ko
+ all features statically linked:   47ko  
+ with the features as modules: 33ko  
+ in embedded configuration:    29ko  
 
 libhttpserver
 =============
@@ -65,6 +65,10 @@ Features
 
 Build and installation
 ======================
+
+The first step is to add the libhttpserver source tree.
+
+    git clone https://github.com/mchalain/libhttpserver
 
 The project configuration may be done with the "config" file edition
 (a "default.config" file is available). Or it may be done with "configure"
