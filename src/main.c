@@ -135,10 +135,14 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
+#ifdef CGI
 			if (server->config->cgi)
 				server->mod_cgi = mod_cgi_create(server->server, server->config->cgi);
+#endif
+#ifdef MBEDTLS
 			if (server->config->mbedtls)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->mbedtls);
+#endif
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
 		}
