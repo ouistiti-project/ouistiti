@@ -1,14 +1,14 @@
 TARGET=ouistiti
 bin-y+=$(TARGET)
 $(TARGET)_CFLAGS+=-I../libhttpserver/include/httpserver
-$(TARGET)_LDFLAGS+=-L. -L../libhttpserver/src/httpserver -L../libhttpserver/src
+$(TARGET)_LDFLAGS+=-L. -L../libhttpserver/src ../libhttpserver/src/httpserver/libhttpserver.a
+$(TARGET)_LIBRARY+=pthread rt
 $(TARGET)_SOURCES+=main.c
 main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
 $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 
-$(TARGET)_LIBRARY+=httpserver pthread rt
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mod_mbedtls mbedtls mbedx509 mbedcrypto
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DMBEDTLS
 $(TARGET)_LIBRARY-$(STATIC_FILE)+=mod_static_file

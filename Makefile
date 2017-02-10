@@ -1,6 +1,8 @@
 include scripts.mk
 
-subdir-y:=libhttpserver/src/httpserver
-subdir-$(MBEDTLS)+=libhttpserver/src/mod_mbedtls.mk
+#libhttpserver has to be static in all configuration
+SLIB_HTTPSERVER=y
+
+subdir-y:=libhttpserver
 subdir-y+=src
 
