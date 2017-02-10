@@ -8,6 +8,16 @@ very small devices.
  with the features as modules: 33ko
  in embedded configuration:    29ko
 
+libhttpserver
+=============
+
+Ouistiti is build over the libhttpserver library. This library is an
+external project and may be use into other projects.
+
+The project is available on github
+
+    https://github.com/mchalain/libhttpserver
+
 Dependencies
 ============
 
