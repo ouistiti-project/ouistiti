@@ -193,8 +193,8 @@ modules-target:=$(addprefix $(obj),$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
 bin-target:=$(addprefix $(obj),$(addsuffix $(bin-ext:%=.%),$(bin-y) $(sbin-y)))
 hostbin-target:=$(addprefix $(hostobj),$(addsuffix $(bin-ext:%=.%),$(hostbin-y)))
 subdir-target:=$(wildcard $(addsuffix /Makefile,$(subdir-y)))
+subdir-dir:=$(dir $(subdir-target))
 subdir-target+=$(wildcard $(addsuffix /*$(makefile-ext:%=.%),$(subdir-y)))
-subdir-dir:=$(dir $(wildcard $(addsuffix /Makefile,$(subdir-y))))
 subdir-target+=$(wildcard $(filter-out $(subdir-dir:%/=%),$(subdir-y)))
 
 targets:=
