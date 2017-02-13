@@ -40,6 +40,14 @@
 
 #include "config.h"
 
+#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#ifdef DEBUG
+#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#else
+# define dbg(...)
+#endif
+
 config_t configfile;
 
 ouistiticonfig_t *ouistiticonfig_create(char *filepath)
