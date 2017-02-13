@@ -125,6 +125,19 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						config_setting_lookup_string(configcgi, "docroot", (const char **)&config->cgi->docroot);
 						config_setting_lookup_string(configcgi, "accepted_ext", (const char **)&config->cgi->accepted_ext);
 						config_setting_lookup_string(configcgi, "ignored_ext", (const char **)&config->cgi->ignored_ext);
+						config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
+						if (cgienv)
+						{
+							int count = config_setting_length(cgienv);
+							int i;
+							config->cgi->env = calloc(sizeof(char *), count);
+							for (i = 0; i < count; i++)
+							{
+								config_setting_t *iterator = config_setting_get_elem(cgienv, i);
+								config->cgi->env[i] = config_setting_get_string(iterator);
+							}
+							config->cgi->nbenvs = count;
+						}
 					}
 				}
 			}

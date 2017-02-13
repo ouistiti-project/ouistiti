@@ -351,14 +351,15 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		char *argv[2];
 		argv[0] = basename(ctx->cgipath);
 		argv[1] = NULL;
-		char *env[NBENVS];
+		char **env;
 		int i = 0;
 		char *uri = httpmessage_REQUEST(request, "uri");
 		char *query = strchr(uri,'?');
 
+		env = calloc(sizeof(char *), NBENVS + ctx->mod->config->nbenvs);
 		for (i = 0; i < NBENVS; i++)
 		{
-			env[i] = calloc(1, strlen(cgi_env[i].target) + cgi_env[i].length + 1);
+			env[i] = (char *)calloc(1, strlen(cgi_env[i].target) + cgi_env[i].length + 1);
 			sprintf(env[i], "%s", cgi_env[i].target);
 			char *value = NULL;
 			switch (i)
@@ -430,6 +431,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 			}
 			if (value)
 				strncat(env[i], value, cgi_env[i].length);
+		}
+		for (; i < NBENVS + ctx->mod->config->nbenvs; i++)
+		{
+			env[i] = (char *)ctx->mod->config->env[i - NBENVS];
 		}
 		env[i] = NULL;
 		execve(ctx->cgipath, argv, env);
@@ -525,7 +530,6 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				{
 					char *key = data;
 					char *value = strchr(data, ':');
-					char *end = strchr(value, '\n');
 					if (value == NULL)
 					{
 						ctx->state = STATE_HEADERCOMPLETE;
@@ -533,6 +537,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 					}
 					else
 					{
+						char *end = strchr(value, '\n');
 						*value = '\0';
 						value++;
 						if (*value == ' ')

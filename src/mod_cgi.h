@@ -38,6 +38,8 @@ typedef struct mod_cgi_config_s
 	char *docroot;
 	char *accepted_ext;
 	char *ignored_ext;
+	const char **env;
+	int nbenvs;
 } mod_cgi_config_t;
 
 void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig);
