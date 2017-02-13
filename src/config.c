@@ -77,6 +77,18 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->server->maxclients = 10;
 					config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
 					config->server->version = HTTP11;
+					const char *version = NULL;
+					config_setting_lookup_string(iterator, "version", &version);
+					if (version && !strncmp(version, "HTTP", 4))
+					{
+						if (version[4] == '0' && version[5] == '9')
+							config->server->version = HTTP09;
+						if (version[4] == '1' && version[5] == '0')
+							config->server->version = HTTP09;
+						if (version[6] == 'P' && version[7] == 'I' &&
+							version[8] == 'P' && version[9] == 'E')
+							config->server->version |= HTTP_PIPELINE;
+					}
 
 					config_setting_t *configmbedtls = config_setting_lookup(iterator, "mbedtls");
 					if (configmbedtls)
