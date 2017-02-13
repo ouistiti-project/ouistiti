@@ -165,7 +165,7 @@ int main(int argc, char * const *argv)
 		httpserver_destroy(server->server);
 		server = server->next;
 	}
-#ifndef __OUISTITI_CONFIG__
+#ifndef STATIC_CONFIG
 	ouistiticonfig_destroy(ouistiticonfig);
 #endif
 	return 0;
