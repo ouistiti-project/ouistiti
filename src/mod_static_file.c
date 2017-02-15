@@ -112,13 +112,43 @@ static const mime_entry_t *mime_entry[] =
 	NULL
 };
 
+int searchext(char *filepath, char *extlist)
+{
+	int ret = EREJECT;
+	char *fileext = strrchr(filepath,'.');
+	char ext_str[64];
+	ext_str[63] = 0;
+	if (fileext != NULL)
+	{
+		strncpy(ext_str, extlist, 63);
+		char *ext = ext_str;
+		char *ext_end = strchr(ext, ',');
+		if (ext_end)
+			*ext_end = 0;
+		while (ext != NULL)
+		{
+			if (!strcmp(ext, fileext))
+			{
+				ret = ESUCCESS;
+				break;
+			}
+			if (ext_end)
+				ext = ext_end + 1;
+			else
+				break;
+			ext_end = strchr(ext, ',');
+			if (ext_end)
+				*ext_end = 0;
+		}
+	}
+	return ret;
+}
+
 #define CONTENTSIZE 63
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	mod_static_file_t *config = (mod_static_file_t *)arg;
 	char content[CONTENTSIZE];
-	char ext_str[64];
-	char *ext;
 	int size;
 	int ret;
 	struct _static_file_connector_s *private = httpmessage_private(request, NULL);
@@ -164,31 +194,24 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		filepath = calloc(1, length + 1);
 		snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
 
-		char *fileext = strrchr(filepath,'.');
-		if (fileext != NULL)
+		if (searchext(filepath,config->ignored_ext) == ESUCCESS)
 		{
-			strncpy(ext_str, config->ignored_ext, 63);
-			ext = strtok(ext_str, ",");
-			while (ext != NULL)
-			{
-				if (!strcmp(ext, fileext))
-				{
-					free(filepath);
-					free(private);
-					private->fd = 0;
-					return EREJECT;
-				}
-				ext = strtok(NULL, ",");
-			}
+			warn("static file: forbidden extension");
+			free(filepath);
+			free(private);
+			private->fd = 0;
+			return EREJECT;
 		}
 		struct stat filestat;
 		int ret = stat(filepath, &filestat);
 		if (S_ISDIR(filestat.st_mode))
 		{
+			char ext_str[64];
+			ext_str[63] = 0;
 			strncpy(ext_str, config->accepted_ext, 63);
-			ext = strtok(ext_str, ",");
+			char *ext = strtok(ext_str, ",");
 			length += sizeof("/index");
-			while (ext != NULL)
+			while(ext != NULL)
 			{
 				int extlength = strlen(ext);
 				free(filepath);
@@ -209,34 +232,24 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		mime_entry_t *mime = (mime_entry_t *)mime_entry[0];
 		if (ret == 0)
 		{
-			ret = -1;
-			fileext = strrchr(filepath,'.');
-			if (fileext != NULL)
+			if (searchext(filepath,config->accepted_ext) == ESUCCESS)
 			{
-				strncpy(ext_str, config->accepted_ext, 63);
-				ext = strtok(ext_str, ",");
-				while (ext != NULL)
+				char *fileext = strrchr(filepath,'.');
+				while (mime)
 				{
-					if (!strcmp(ext, fileext) || !strcmp(ext, "*"))
+					if (!strcmp(mime->ext, fileext) || !strcmp(mime->ext, "*"))
 					{
-						while (mime)
-						{
-							if (!strcmp(mime->ext, fileext) || !strcmp(mime->ext, "*"))
-							{
-								break;
-							}
-							mime++;
-						} 
-						ret = 0;
 						break;
 					}
-					ext = strtok(NULL, ",");
+					mime++;
 				}
 			}
+			else
+				ret = -1;
 		}
 		if (ret != 0)
 		{
-			warn("static file: %s not found", filepath);
+			warn("static file: %s not found %s", filepath, strerror(errno));
 			free(filepath);
 			free(private);
 			private->fd = 0;
