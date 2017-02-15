@@ -45,6 +45,7 @@
 #include "mod_mbedtls.h"
 #include "mod_static_file.h"
 #include "mod_cgi.h"
+#include "mod_authn.h"
 
 #include "config.h"
 
@@ -57,6 +58,7 @@ typedef struct server_s
 	void *mod_mbedtls;
 	void *mod_static_file;
 	void *mod_cgi;
+	void *mod_authn;
 
 	struct server_s *next;
 } servert_t;
@@ -145,6 +147,10 @@ int main(int argc, char * const *argv)
 #endif
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
+#ifdef AUTHN
+			if (server->config->authn)
+				server->mod_authn = mod_authn_create(server->server, server->config->authn);
+#endif
 		}
 		server = server->next;
 	}

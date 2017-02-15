@@ -17,6 +17,8 @@ $(TARGET)_LIBRARY-$(CGI)+=mod_cgi
 $(TARGET)_CFLAGS-$(CGI)+=-DCGI
 $(TARGET)_LIBRARY-$(SENDFILE)+=mod_sendfile
 $(TARGET)_CFLAGS-$(SENDFILE)+=-DSTATIC_FILE
+$(TARGET)_LIBRARY-$(AUTHN)+=mod_authn
+$(TARGET)_CFLAGS-$(AUTHN)+=-DAUTHN
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -40,3 +42,11 @@ mod_sendfile_SOURCES+=mod_sendfile.c
 mod_sendfile_CFLAGS+=-I../libhttpserver/include/httpserver
 
 mod_sendfile_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
+LIBB64_DIR=../libb64
+lib-$(DYNAMIC)+=mod_authn
+slib-$(STATIC)+=mod_authn
+mod_authn_SOURCES+=mod_authn.c ../utils/libb64.a
+mod_authn_CFLAGS+=-I../libhttpserver/include -I$(LIBB64_DIR)/include
+
+mod_authn_CFLAGS-$(DEBUG)+=-g -DDEBUG

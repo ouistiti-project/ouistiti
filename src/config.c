@@ -37,6 +37,7 @@
 #include "mod_mbedtls.h"
 #include "mod_static_file.h"
 #include "mod_cgi.h"
+#include "mod_authn.h"
 
 #include "config.h"
 
@@ -116,6 +117,15 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						config_setting_lookup_string(configstaticfile, "docroot", (const char **)&config->static_file->docroot);
 						config_setting_lookup_string(configstaticfile, "accepted_ext", (const char **)&config->static_file->accepted_ext);
 						config_setting_lookup_string(configstaticfile, "ignored_ext", (const char **)&config->static_file->ignored_ext);
+					}
+
+					config_setting_t *configauthn = config_setting_lookup(iterator, "authn");
+					if (configauthn)
+					{
+						config->authn = calloc(1, sizeof(*config->authn));
+						config_setting_lookup_string(configauthn, "realm", (const char **)&config->authn->realm);
+						config_setting_lookup_string(configauthn, "user", (const char **)&config->authn->user);
+						config_setting_lookup_string(configauthn, "passwd", (const char **)&config->authn->passwd);
 					}
 
 					config_setting_t *configcgi = config_setting_lookup(iterator, "cgi");
