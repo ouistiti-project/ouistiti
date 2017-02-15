@@ -1,0 +1,6 @@
+[submodule "libhttpserver"]
+	path = libhttpserver
+	url = https://github.com/mchalain/libhttpserver
+[submodule "libb64"]
+	path = libb64
+	url = https://github.com/mchalain/libb64
