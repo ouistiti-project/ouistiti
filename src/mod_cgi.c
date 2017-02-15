@@ -443,6 +443,38 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return pid;
 }
 
+int searchext(char *filepath, char *extlist)
+{
+	int ret = EREJECT;
+	char *fileext = strrchr(filepath,'.');
+	char ext_str[64];
+	ext_str[63] = 0;
+	if (fileext != NULL)
+	{
+		strncpy(ext_str, extlist, 63);
+		char *ext = ext_str;
+		char *ext_end = strchr(ext, ',');
+		if (ext_end)
+			*ext_end = 0;
+		while (ext != NULL)
+		{
+			if (!strcmp(ext, fileext))
+			{
+				ret = ESUCCESS;
+				break;
+			}
+			if (ext_end)
+				ext = ext_end + 1;
+			else
+				break;
+			ext_end = strchr(ext, ',');
+			if (ext_end)
+				*ext_end = 0;
+		}
+	}
+	return ret;
+}
+
 static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)arg;
@@ -466,11 +498,23 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		filepath = calloc(1, length + 1);
 		snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
 
+		if (searchext(filepath, config->ignored_ext) == ESUCCESS)
+		{
+			warn("cgi: forbidden extension");
+			free(filepath);
+			return EREJECT;
+		}
+		if (searchext(filepath, config->accepted_ext) != ESUCCESS)
+		{
+			warn("cgi: forbidden extension");
+			free(filepath);
+			return EREJECT;
+		}
 		struct stat filestat;
 		int ret = stat(filepath, &filestat);
 		if (ret != 0)
 		{
-			warn("cgi: %s not found", filepath);
+			//warn("cgi: %s not found", filepath);
 			free(filepath);
 			return EREJECT;
 		}
