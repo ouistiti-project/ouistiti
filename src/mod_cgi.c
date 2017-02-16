@@ -559,12 +559,17 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			int size = 64;
 			size = read(ctx->fromcgi[0], data, size);
 			if (size < 1)
+			{
 				ctx->state = STATE_OUTFINISH;
+			}
 			else
 			{
 				if ((data[0] == '\r' || data[0] == '\n') && 
 					(ctx->state < STATE_HEADERCOMPLETE))
+				{
 					ctx->state = STATE_HEADERCOMPLETE;
+					httpmessage_addcontent(response, "text/html", NULL, -1);
+				}
 				else if (ctx->state >= STATE_HEADERCOMPLETE)
 				{
 					httpmessage_addcontent(response, NULL,data, size);
