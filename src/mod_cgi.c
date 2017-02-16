@@ -500,13 +500,13 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 
 		if (searchext(filepath, config->ignored_ext) == ESUCCESS)
 		{
-			warn("cgi: forbidden extension");
+			//warn("cgi: forbidden extension");
 			free(filepath);
 			return EREJECT;
 		}
 		if (searchext(filepath, config->accepted_ext) != ESUCCESS)
 		{
-			warn("cgi: forbidden extension");
+			//warn("cgi: forbidden extension");
 			free(filepath);
 			return EREJECT;
 		}
@@ -543,13 +543,12 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			close(ctx->tocgi[1]);
 			ctx->tocgi[1] = -1;
 		}
-		httpmessage_addcontent(response, "text/html", NULL, -1);
 	}
 	if (ctx->state >= STATE_INFINISH)
 	{
 		int ret;
 		fd_set rfds;
-		struct timeval timeout = { 0, 10000 };
+		struct timeval timeout = { 0, 100000 };
 
 		FD_ZERO(&rfds);
 		FD_SET(ctx->fromcgi[0], &rfds);
