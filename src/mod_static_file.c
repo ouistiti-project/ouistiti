@@ -127,7 +127,7 @@ int searchext(char *filepath, char *extlist)
 			*ext_end = 0;
 		while (ext != NULL)
 		{
-			if (!strcmp(ext, fileext))
+			if (!strcmp(ext, fileext) || !strcmp(ext, "*"))
 			{
 				ret = ESUCCESS;
 				break;
