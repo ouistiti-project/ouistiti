@@ -206,17 +206,27 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		int ret = stat(filepath, &filestat);
 		if (S_ISDIR(filestat.st_mode))
 		{
+#ifndef HTTP_STATUS_PARTIAL
+			if (filepath[length - 1] != '/')
+			{
+				httpmessage_result(response, RESULT_301);
+				free(filepath);
+				free(private);
+				private->fd = 0;
+				return ESUCCESS;
+			}
+#endif
 			char ext_str[64];
 			ext_str[63] = 0;
 			strncpy(ext_str, config->accepted_ext, 63);
 			char *ext = strtok(ext_str, ",");
-			length += sizeof("/index");
+			length += sizeof("index");
 			while(ext != NULL)
 			{
 				int extlength = strlen(ext);
 				free(filepath);
 				filepath = calloc(1, length + extlength + 1);
-				snprintf(filepath, length + extlength + 1, "%s/%s/index%s", config->docroot, str, ext);
+				snprintf(filepath, length + extlength + 1, "%s/%sindex%s", config->docroot, str, ext);
 				ret = stat(filepath, &filestat);
 				if (ret == 0)
 				{
