@@ -578,38 +578,25 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			}
 			else
 			{
-				if ((data[0] == '\r' || data[0] == '\n') && 
-					(ctx->state < STATE_HEADERCOMPLETE))
+				ret = httpmessage_parsecgi(response, data, size);
+				if (ret == ESUCCESS)
 				{
-					ctx->state = STATE_HEADERCOMPLETE;
-					httpmessage_addcontent(response, "text/html", NULL, -1);
-				}
-				else if (ctx->state >= STATE_HEADERCOMPLETE)
-				{
-					httpmessage_addcontent(response, NULL,data, size);
-				}
-				else
-				{
-					char *key = data;
-					char *value = strchr(data, ':');
-					if (value == NULL)
+					char *offset = data;
+					httpmessage_addcontent(response, NULL, NULL, -1);
+					if (*offset == 0)
 					{
-						ctx->state = STATE_HEADERCOMPLETE;
-						httpmessage_addcontent(response, NULL,data, size);
+						httpmessage_addcontent(response, NULL, "\r\n", 2);
 					}
-					else
+					else if (size > 0)
 					{
-						char *end = strchr(value, '\n');
-						*value = '\0';
-						value++;
-						if (*value == ' ')
-							value++;
-						*end = '\0';
-						httpmessage_addheader(response, key, value);
+						httpmessage_addcontent(response, NULL, offset, size);
+						ret = ECONTINUE;
 					}
 				}
 			}
 		}
+		else
+			ctx->state = STATE_OUTFINISH;
 	}
 
 	if (ctx->state >= STATE_OUTFINISH)
