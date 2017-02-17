@@ -569,9 +569,10 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		sret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &timeout);
 		if (sret > 0 && FD_ISSET(ctx->fromcgi[0], &rfds))
 		{
-			char data[65];
-			int size = 64;
+			char data[64];
+			int size = 63;
 			size = read(ctx->fromcgi[0], data, size);
+			data[63] = 0;
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
