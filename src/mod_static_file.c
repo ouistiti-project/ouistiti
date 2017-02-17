@@ -213,6 +213,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			return EREJECT;
 		}
 		struct stat filestat;
+		memset(&filestat, 0, sizeof(filestat));
 		int ret = stat(filepath, &filestat);
 		if (S_ISDIR(filestat.st_mode))
 		{
@@ -271,8 +272,8 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		{
 			warn("static file: %s not found %s", filepath, strerror(errno));
 			free(filepath);
-			free(private);
 			private->fd = 0;
+			free(private);
 			return EREJECT;
 		}
 		private->fd = open(filepath, O_RDONLY);
