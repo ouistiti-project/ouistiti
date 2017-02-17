@@ -92,15 +92,7 @@ typedef struct mime_entry_s
 static const mime_entry_t *mime_entry[] =
 { 
 	&(mime_entry_t){
-		.ext = ".html",
-		.type = MIME_TEXTHTML,
-	},
-	&(mime_entry_t){
-		.ext = ".xhtml",
-		.type = MIME_TEXTHTML,
-	},
-	&(mime_entry_t){
-		.ext = ".htm",
+		.ext = ".html,.xhtml,.htm",
 		.type = MIME_TEXTHTML,
 	},
 	&(mime_entry_t){
@@ -265,7 +257,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				char *fileext = strrchr(filepath,'.');
 				while (mime)
 				{
-					if (!strcmp(mime->ext, fileext) || !strcmp(mime->ext, "*"))
+					if (searchext(fileext,mime->ext) == ESUCCESS)
 					{
 						break;
 					}
