@@ -67,6 +67,9 @@ typedef enum
 	MIME_TEXTPLAIN,
 	MIME_TEXTHTML,
 	MIME_TEXTCSS,
+	MIME_APPLICATIONJAVASCRIPT,
+	MIME_IMAGEPNG,
+	MIME_IMAGEJPEG,
 	MIME_APPLICATIONOCTETSTREAM,
 } _mimetype_enum;
 static const char *_mimetype[] =
@@ -74,6 +77,9 @@ static const char *_mimetype[] =
 	"text/plain",
 	"text/html",
 	"text/css",
+	"application/javascript",
+	"image/png",
+	"image/jpeg",
 	"application/octet-stream",
 };
 
@@ -102,8 +108,20 @@ static const mime_entry_t *mime_entry[] =
 		.type = MIME_TEXTCSS,
 	},
 	&(mime_entry_t){
+		.ext = ".js",
+		.type = MIME_APPLICATIONJAVASCRIPT,
+	},
+	&(mime_entry_t){
 		.ext = ".text",
 		.type = MIME_TEXTPLAIN,
+	},
+	&(mime_entry_t){
+		.ext = ".png",
+		.type = MIME_IMAGEPNG,
+	},
+	&(mime_entry_t){
+		.ext = ".jpg",
+		.type = MIME_IMAGEJPEG,
 	},
 	&(mime_entry_t){
 		.ext = "*",
