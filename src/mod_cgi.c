@@ -528,12 +528,17 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
-		if (!S_ISREG(filestat.st_mode) || 
-			filestat.st_mode & (S_IXUSR | S_IXGRP) == 0)
+		if (S_ISDIR(filestat.st_mode))
 		{
-			warn("cgi: %s access denied", filepath);
 			free(filepath);
 			return EREJECT;
+		}
+		if (filestat.st_mode & (S_IXUSR | S_IXGRP) != (S_IXUSR | S_IXGRP))
+		{
+			httpmessage_result(response, RESULT_404);
+			warn("cgi: %s access denied", filepath);
+			free(filepath);
+			return ESUCCESS;
 		}
 		dbg("cgi: run %s", filepath);
 		ctx->cgipath = filepath;
