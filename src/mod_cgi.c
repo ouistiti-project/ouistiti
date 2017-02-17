@@ -485,6 +485,7 @@ int searchext(char *filepath, char *extlist)
 
 static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response)
 {
+	int ret = EINCOMPLETE;
 	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)arg;
 	mod_cgi_config_t *config = ctx->mod->config;
 	if (ctx->pid == -1)
@@ -554,14 +555,14 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	}
 	if (ctx->state >= STATE_INFINISH)
 	{
-		int ret;
+		int sret;
 		fd_set rfds;
-		struct timeval timeout = { 0, 100000 };
+		struct timeval timeout = { 3,0 };
 
 		FD_ZERO(&rfds);
 		FD_SET(ctx->fromcgi[0], &rfds);
-		ret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &timeout);
-		if (ret > 0 && FD_ISSET(ctx->fromcgi[0], &rfds))
+		sret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &timeout);
+		if (sret > 0 && FD_ISSET(ctx->fromcgi[0], &rfds))
 		{
 			char data[65];
 			int size = 64;
@@ -617,8 +618,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		return ESUCCESS;
 	}
 
-	/* this mod returns INCOMPLETE 
+	/* this mod returns EINCOMPLETE 
 	 * because it needs to wait the end 
 	 * to know the length of the content */
-	return EINCOMPLETE;
+	return ret;
 }
