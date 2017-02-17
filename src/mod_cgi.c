@@ -437,7 +437,15 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 			env[i] = (char *)ctx->mod->config->env[i - NBENVS];
 		}
 		env[i] = NULL;
-		execve(ctx->cgipath, argv, env);
+		char *dirpath;
+		dirpath = dirname(ctx->cgipath);
+		if (dirpath)
+		{
+			chdir(dirpath);
+		}
+		setbuf(stdout, 0);
+		execve(argv[0], argv, env);
+		err("cgi error: %s", strerror(errno));
 		exit(0);
 	}
 	return pid;
