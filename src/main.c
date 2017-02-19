@@ -156,9 +156,10 @@ int main(int argc, char * const *argv)
 	}
 	setgid(user->pw_gid);
 	setuid(user->pw_uid);
-	while (1)
+	char c = 0;
+	while (c != 'q')
 	{
-		sleep(1);
+		c = getc(stdin);
 	}
 	server = first;
 	while (server != NULL)
