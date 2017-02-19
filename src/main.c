@@ -137,17 +137,17 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
-#ifdef CGI
+#if defined CGI && CGI == y
 			if (server->config->cgi)
 				server->mod_cgi = mod_cgi_create(server->server, server->config->cgi);
 #endif
-#ifdef MBEDTLS
+#if defined MBEDTLS && MBEDTLS == y
 			if (server->config->mbedtls)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->mbedtls);
 #endif
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
-#ifdef AUTHN
+#if defined AUTHN && AUTHN == y
 			if (server->config->authn)
 				server->mod_authn = mod_authn_create(server->server, server->config->authn);
 #endif
@@ -163,10 +163,20 @@ int main(int argc, char * const *argv)
 	server = first;
 	while (server != NULL)
 	{
+#if defined MBEDTLS && MBEDTLS == y
 		if (server->mod_mbedtls)
 			mod_mbedtls_destroy(server->mod_mbedtls);
+#endif
 		if (server->mod_static_file)
 			mod_static_file_destroy(server->mod_static_file);
+#if defined CGI && CGI == y
+		if (server->mod_cgi)
+			mod_cgi_destroy(server->mod_cgi);
+#endif
+#if defined AUTHN && AUTHN == y
+		if (server->mod_authn)
+			mod_cgi_destroy(server->mod_authn);
+#endif
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
 		server = server->next;
