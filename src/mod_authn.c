@@ -151,6 +151,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	if (authorization == NULL || authorization[0] == '\0')
 	{
+		httpmessage_addheader(request, "%user", mod->config->user);
+		httpmessage_addheader(request, "%authtype", "Basic");
 		httpmessage_addheader(response, str_authenticate, ctx->authenticate);
 		httpmessage_result(response, RESULT_401);
 		httpmessage_keepalive(response);
