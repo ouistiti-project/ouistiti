@@ -428,6 +428,12 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 				case REMOTE_PORT:
 					value = httpmessage_REQUEST(request, "remote_port");
 				break;
+				case REMOTE_USER:
+					value = httpmessage_REQUEST(request, "%user");
+				break;
+				case AUTH_TYPE:
+					value = httpmessage_REQUEST(request, "%authtype");
+				break;
 			}
 			if (value)
 				strncat(env[i], value, cgi_env[i].length);
