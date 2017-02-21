@@ -237,20 +237,32 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			char ext_str[64];
 			ext_str[63] = 0;
 			strncpy(ext_str, config->accepted_ext, 63);
-			char *ext = strtok(ext_str, ",");
-			length += sizeof("index");
+			char *ext = ext_str;
+			char *ext_end = strchr(ext, ',');
+			if (ext_end)
+				*ext_end = 0;
+			
 			while(ext != NULL)
 			{
 				int extlength = strlen(ext);
-				free(filepath);
-				filepath = calloc(1, length + extlength + 1);
-				snprintf(filepath, length + extlength + 1, "%s/%sindex%s", config->docroot, str, ext);
-				ret = stat(filepath, &filestat);
+				extlength += sizeof("index");
+				char *tempopath = calloc(1, length + extlength + 1);
+				snprintf(tempopath, length + extlength, "%sindex%s", filepath, ext);
+				ret = stat(tempopath, &filestat);
 				if (ret == 0)
 				{
+					free(filepath);
+					filepath = tempopath;
 					break;
 				}
-				ext = strtok(NULL, ",");
+				if (ext_end)
+					ext = ext_end + 1;
+				else
+					break;
+				ext_end = strchr(ext, ',');
+				if (ext_end)
+					*ext_end = 0;
+				free(tempopath);
 			}
 		}
 		/**
