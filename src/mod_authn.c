@@ -78,7 +78,7 @@ void *mod_authn_create(http_server_t *server, mod_authn_t *config)
 
 	if (config->realm == NULL)
 	{
-		mod->realm = str_realm;
+		mod->realm = (char *)str_realm;
 	}
 	else
 		mod->realm = config->realm;
@@ -138,7 +138,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_authn_t *mod = ctx->mod;
 
 	char *authorization;
-	authorization = httpmessage_REQUEST(request, str_authorization);
+	authorization = httpmessage_REQUEST(request, (char *)str_authorization);
 	if (authorization != NULL && !strncmp(authorization, "Basic", 5))
 	{
 		char *base64 = strchr(authorization, ' ');
@@ -151,9 +151,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	if (authorization == NULL || authorization[0] == '\0')
 	{
-		httpmessage_addheader(request, "%user", mod->config->user);
-		httpmessage_addheader(request, "%authtype", "Basic");
-		httpmessage_addheader(response, str_authenticate, ctx->authenticate);
+		httpmessage_SESSION(request, "%user", mod->config->user);
+		httpmessage_SESSION(request, "%authtype", "Basic");
+		httpmessage_addheader(response, (char *)str_authenticate, ctx->authenticate);
 		httpmessage_result(response, RESULT_401);
 		httpmessage_keepalive(response);
 		ret = ESUCCESS;
