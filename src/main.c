@@ -164,6 +164,7 @@ int main(int argc, char * const *argv)
 	server = first;
 	while (server != NULL)
 	{
+		servert_t *next = server->next;
 #if defined MBEDTLS
 		if (server->mod_mbedtls)
 			mod_mbedtls_destroy(server->mod_mbedtls);
@@ -181,7 +182,8 @@ int main(int argc, char * const *argv)
 #endif
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
-		server = server->next;
+		free(server);
+		server = next;
 	}
 #ifndef STATIC_CONFIG
 	ouistiticonfig_destroy(ouistiticonfig);
