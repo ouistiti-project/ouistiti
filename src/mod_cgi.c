@@ -588,15 +588,21 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			else
 			{
 				ret = httpmessage_parsecgi(response, data, size);
+				//dbg("data %d\n%s#\n", ret, data);
 				if (ret == ESUCCESS)
 				{
 					char *offset = data;
-					httpmessage_addcontent(response, NULL, NULL, -1);
-					if (*offset == 0)
+					if (ctx->state < STATE_HEADERCOMPLETE)
 					{
+						httpmessage_addcontent(response, NULL, NULL, -1);
+						if (*offset == 0)
+						{
+							size = 0;
+						}
 						httpmessage_addcontent(response, NULL, "\r\n", 2);
 					}
-					else if (size > 0)
+					ctx->state = STATE_HEADERCOMPLETE;
+					if (size > 0)
 					{
 						httpmessage_addcontent(response, NULL, offset, size);
 						ret = ECONTINUE;
