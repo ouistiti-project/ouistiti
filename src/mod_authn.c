@@ -105,10 +105,12 @@ void *mod_authn_create(http_server_t *server, mod_authn_t *config)
 	return mod;
 }
 
-void mod_authn_destroy(void *mod)
+void mod_authn_destroy(void *arg)
 {
-	_mod_authn_t *config = (_mod_authn_t *)mod;
-	free(config);
+	_mod_authn_t *mod = (_mod_authn_t *)arg;
+	if (mod->base64)
+		free(mod->base64);
+	free(mod);
 }
 
 static void *_mod_authn_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
