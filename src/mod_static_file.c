@@ -184,26 +184,33 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	} while(0);
 
 	if (private->fd == -1)
+	{
+		warn("static file: -1");
 		return EREJECT;
+	}
 
 	if (private->fd == 0)
 	{
 		char *str = httpmessage_REQUEST(request,"uri");
 
 		if (str == NULL)
+		{
+			warn("static file: uri == NULL");
 			return EREJECT;
+		}
 
 		int length = 0;
 		char *query = strchr(str, '?');
 		if (query)
-			length = query - str + 1;
-		length = strlen(str) - length;
-		length += strlen(config->docroot) + 1;
+			length = query - str;
+		else
+			length = strlen(str);
+		length += strlen(config->docroot) + 1; /* for the '/' separator */
 
 		char *filepath;
 		filepath = calloc(1, length + 1);
 		snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
-
+		filepath[length] = '\0';
 		if (searchext(filepath,config->ignored_ext) == ESUCCESS)
 		{
 			warn("static file: forbidden extension");
