@@ -305,6 +305,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			httpmessage_addcontent(response, (char *)_mimetype[mime->type], NULL, private->size);
 		else
 			httpmessage_addcontent(response, "", NULL, private->size);
+		free(filepath);
 		return ECONTINUE;
 	}
 	size = sizeof(content) - 1;
