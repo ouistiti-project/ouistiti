@@ -429,10 +429,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_REQUEST(request, "remote_port");
 				break;
 				case REMOTE_USER:
-					value = httpmessage_REQUEST(request, "%user");
+					value = httpmessage_SESSION(request, "%user", NULL);
 				break;
 				case AUTH_TYPE:
-					value = httpmessage_REQUEST(request, "%authtype");
+					value = httpmessage_SESSION(request, "%authtype", NULL);
 				break;
 			}
 			if (value)
