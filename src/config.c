@@ -162,5 +162,32 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
+	int i;
 	config_destroy(&configfile);
+
+	for (i = 0; i < MAX_SERVERS; i++)
+	{
+		serverconfig_t *config = ouistiticonfig->servers[i];
+		if (ouistiticonfig->servers[i])
+		{
+			if (config->server)
+				free(config->server);
+			if (config->mbedtls)
+				free(config->mbedtls);
+			if (config->static_file)
+				free(config->static_file);
+			if (config->authn)
+				free(config->authn);
+			if (config->cgi)
+			{
+				if (config->cgi->env)
+					free(config->cgi->env);
+				free(config->cgi);
+			}
+			free(ouistiticonfig->servers[i]);
+			ouistiticonfig->servers[i] = NULL;
+		}
+	}
+
+	free(ouistiticonfig);
 }
