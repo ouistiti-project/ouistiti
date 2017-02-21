@@ -499,14 +499,16 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		warn("cgi: pid -1");
 		return EREJECT;
 	}
+
 	char *str = httpmessage_REQUEST(request,"uri");
 	if (str && config->docroot && ctx->cgipath == NULL)
 	{
 		int length = 0;
 		char *query = strchr(str, '?');
 		if (query)
-			length = query - str + 1;
-		length = strlen(str) - length;
+			length = query - str;
+		else
+			length = strlen(str);
 		length += strlen(config->docroot) + 1;
 
 		char *filepath;
