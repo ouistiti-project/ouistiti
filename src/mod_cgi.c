@@ -319,16 +319,19 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		char *uri = httpmessage_REQUEST(request, "uri");
 		char *query = strchr(uri,'?');
 
-		env = calloc(sizeof(char *), NBENVS + ctx->mod->config->nbenvs);
+		env = calloc(sizeof(char *), NBENVS + ctx->mod->config->nbenvs + 1);
 		for (i = 0; i < NBENVS; i++)
 		{
-			env[i] = (char *)calloc(1, strlen(cgi_env[i].target) + cgi_env[i].length + 1);
-			sprintf(env[i], "%s", cgi_env[i].target);
+			int length = strlen(cgi_env[i].target) + cgi_env[i].length;
+			env[i] = (char *)calloc(1, length + 1);
 			char *value = NULL;
 			switch (i)
 			{
 				case DOCUMENT_ROOT:
 					value = ctx->mod->config->docroot;
+				break;
+				case GATEWAY_INTERFACE:
+					value = str_gatewayinterface;
 				break;
 				case SERVER_SOFTWARE:
 					value = httpmessage_SERVER(request, "software");
@@ -337,7 +340,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_SERVER(request, "name");
 				break;
 				case SERVER_PROTOCOL:
-					value = SERVER_PROTOCOL_CB(request);
+					value = httpmessage_SERVER(request, "protocol");
 				break;
 				case SERVER_PORT:
 					value = httpmessage_SERVER(request, "port");
@@ -397,9 +400,12 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 				case AUTH_TYPE:
 					value = httpmessage_SESSION(request, "%authtype", NULL);
 				break;
+				default:
+					value = str_null;
 			}
-			if (value)
-				strncat(env[i], value, cgi_env[i].length);
+			if (value == NULL)
+				value = str_null;
+			snprintf(env[i], length + 1, "%s%s", cgi_env[i].target, value);
 		}
 		for (; i < NBENVS + ctx->mod->config->nbenvs; i++)
 		{
@@ -480,13 +486,13 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 
 		if (searchext(filepath, config->ignored_ext) == ESUCCESS)
 		{
-			//warn("cgi: forbidden extension");
+			warn("cgi: forbidden extension");
 			free(filepath);
 			return EREJECT;
 		}
 		if (searchext(filepath, config->accepted_ext) != ESUCCESS)
 		{
-			//warn("cgi: forbidden extension");
+			warn("cgi: forbidden extension");
 			free(filepath);
 			return EREJECT;
 		}
@@ -494,13 +500,14 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		int ret = stat(filepath, &filestat);
 		if (ret != 0)
 		{
-			//warn("cgi: %s not found", filepath);
+			warn("cgi: %s not found", filepath);
 			free(filepath);
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
 		if (S_ISDIR(filestat.st_mode))
 		{
+			warn("cgi: %s is directory", filepath);
 			free(filepath);
 			return EREJECT;
 		}
