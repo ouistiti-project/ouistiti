@@ -43,23 +43,23 @@
 #include "mod_cgi.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
+#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #else
+#define warn(...)
 #define dbg(...)
 #endif
+
+static char str_null[] = "";
+static char str_gatewayinterface[] = "CGI/1.1";
 
 typedef struct _mod_cgi_config_s _mod_cgi_config_t;
 typedef struct _mod_cgi_s _mod_cgi_t;
 typedef struct mod_cgi_ctx_s mod_cgi_ctx_t;
 
-static http_server_config_t mod_cgi_config;
-
 static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 static void _mod_cgi_freectx(void *vctx);
-static int _mod_cgi_recv(void *vctx, char *data, int size);
-static int _mod_cgi_send(void *vctx, char *data, int size);
 static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response);
 
 struct mod_cgi_ctx_s
@@ -74,11 +74,6 @@ struct mod_cgi_ctx_s
 	} state;
 	_mod_cgi_t *mod;
 	http_client_t *ctl;
-	void *oldctx;
-	http_recv_t recvreq;
-	http_send_t sendresp;
-	char *input;
-	int inputlen;
 
 	char *cgipath;
 	
@@ -122,10 +117,7 @@ static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *add
 
 	ctx->ctl = ctl;
 	ctx->mod = mod;
-	ctx->oldctx = httpclient_context(ctl);
 	httpclient_addconnector(ctl, NULL, _cgi_connector, ctx);
-	ctx->recvreq = httpclient_addreceiver(ctl, _mod_cgi_recv, ctx);
-	ctx->sendresp = httpclient_addsender(ctl, _mod_cgi_send, ctx);
 
 	return ctx;
 }
@@ -145,28 +137,6 @@ static void _mod_cgi_freectx(void *vctx)
 	free(ctx);
 }
 
-static int _mod_cgi_recv(void *vctx, char *data, int size)
-{
-	int ret;
-	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)vctx;
-
-	ret = ctx->recvreq(ctx->oldctx, data, size);
-	
-	if (ret < size)
-		ctx->state = STATE_INFINISH;
-	ctx->input = data;
-	ctx->inputlen = size;
-	return ret;
-}
-
-static int _mod_cgi_send(void *vctx, char *data, int size)
-{
-	int ret = 0;
-	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)vctx;
-	ret = ctx->sendresp(ctx->oldctx, data, size);
-	return ret;
-}
-
 typedef char *(*httpenv_callback_t)(http_message_t request);
 struct httpenv_s
 {
@@ -176,13 +146,6 @@ struct httpenv_s
 };
 typedef struct httpenv_s httpenv_t;
 
-#define SERVER_SOFTWARE_CB(msg) httpmessage_SERVER(msg, "name")
-#define SERVER_NAME_CB(msg) httpmessage_SERVER(msg, "name")
-#define GATEWAY_INTERFACE_CB(msg) httpmessage_SERVER(msg, "gw")
-#define SERVER_PROTOCOL_CB(msg) httpmessage_SERVER(msg, "protocol")
-#define SERVER_PORT_CB(msg) httpmessage_SERVER(msg, "port")
-#define REQUEST_METHOD_CB(msg) httpmessage_REQUEST(msg, "method")
-#define HTTP_ACCEPT_CB(msg) httpmessage_REQUEST(msg, "Accept")
 enum cgi_env_e
 {
 	DOCUMENT_ROOT,
@@ -550,17 +513,24 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		}
 		dbg("cgi: run %s", filepath);
 		ctx->cgipath = filepath;
+		warn("cgi path %p", ctx->cgipath);
 	}
 
 	if (ctx->pid == 0)
 		ctx->pid = _mod_cgi_fork(ctx, request);
-	if (ctx->tocgi[1] > 0 && ctx->state <= STATE_INFINISH && ctx->input)
+	if (ctx->tocgi[1] > 0 && ctx->state <= STATE_INFINISH)
 	{
-		write(ctx->tocgi[1], ctx->input, ctx->inputlen);
-		ctx->input = NULL;
-		ctx->inputlen = 0;
-		
-		if (ctx->state <= STATE_INFINISH)
+		char *input;
+		int inputlen;
+		int rest;
+		rest = httpmessage_content(request, &input, &inputlen);
+		if (rest > 0)
+		{
+			write(ctx->tocgi[1], input, inputlen);
+		}
+		else
+			ctx->state = STATE_INFINISH;
+		if (ctx->state == STATE_INFINISH)
 		{
 			close(ctx->tocgi[1]);
 			ctx->tocgi[1] = -1;
