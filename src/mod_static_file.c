@@ -46,6 +46,10 @@
 #define dbg(...)
 #endif
 
+typedef struct _static_file_connector_s static_file_connector_t;
+
+int mod_send(static_file_connector_t *private, http_message_t *response);
+
 static mod_static_file_t default_config = 
 {
 	.docroot = "/srv/www/htdocs",
@@ -53,14 +57,6 @@ static mod_static_file_t default_config =
 	.ignored_ext = ".php",
 };
 #define CONNECTOR_TYPE 0xAABBCCDD
-struct _static_file_connector_s
-{
-	int type;
-	void *previous;
-	int fd;
-	unsigned int size;
-	unsigned int offset;
-};
 
 typedef enum
 {
@@ -154,12 +150,9 @@ int searchext(char *filepath, char *extlist)
 	return ret;
 }
 
-#define CONTENTSIZE 63
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	mod_static_file_t *config = (mod_static_file_t *)arg;
-	char content[CONTENTSIZE];
-	int size;
 	int ret;
 	struct _static_file_connector_s *private = httpmessage_private(request, NULL);
 
@@ -308,8 +301,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		free(filepath);
 		return ECONTINUE;
 	}
-	size = sizeof(content) - 1;
-	ret = read(private->fd, content, size);
+	ret = mod_send(private, response);
 	if (ret < 1)
 	{
 		close(private->fd);
@@ -320,11 +312,27 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		else
 			return EREJECT;
 	}
-	private->offset += ret;
-	content[size] = 0;
-	httpmessage_addcontent(response, NULL, content, ret);
+	else
+		private->offset += ret;
 	return ECONTINUE;
 }
+
+int mod_send_read(static_file_connector_t *private, http_message_t *response)
+{
+	int ret, size;
+
+	char content[CONTENTCHUNK];
+	size = sizeof(content) - 1;
+	ret = read(private->fd, content, size);
+	if (ret > 0)
+	{
+		content[size] = 0;
+		httpmessage_addcontent(response, NULL, content, ret);
+	}
+	return ret;
+}
+
+int mod_send(static_file_connector_t *private, http_message_t *response) __attribute__ ((weak, alias ("mod_send_read")));
 
 void *mod_static_file_create(http_server_t *server, mod_static_file_t *config)
 {
