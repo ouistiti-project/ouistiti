@@ -52,7 +52,12 @@ typedef int (*mod_transfert_t)(static_file_connector_t *private, http_message_t 
 
 struct _static_file_connector_s
 {
+	/**
+	 * to use with PRIVATE value of message
+	 * type is mandatory at the first place
+	 */
 	int type;
+	mod_static_file_t *config;
 	void *previous;
 	int fd;
 	unsigned int size;

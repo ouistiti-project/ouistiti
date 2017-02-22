@@ -46,6 +46,10 @@
 #define dbg(...)
 #endif
 
+/**
+ * USE_PRIVATE is used to keep a sample of cade which uses
+ * the httpmessage_private function
+ */
 typedef struct _static_file_connector_s static_file_connector_t;
 
 int mod_send(static_file_connector_t *private, http_message_t *response);
@@ -152,9 +156,10 @@ int searchext(char *filepath, char *extlist)
 
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	mod_static_file_t *config = (mod_static_file_t *)arg;
 	int ret;
-	struct _static_file_connector_s *private = httpmessage_private(request, NULL);
+#ifdef USE_PRIVATE
+	mod_static_file_t *config = (mod_static_file_t *)arg;
+	static_file_connector_t *private = httpmessage_private(request, NULL);
 
 	do
 	{
@@ -175,6 +180,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			private = private->previous;
 		}
 	} while(0);
+#else
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	mod_static_file_t *config = (mod_static_file_t *)private->config;
+#endif
 
 	if (private->fd == -1)
 	{
@@ -208,8 +217,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		{
 			warn("static file: forbidden extension");
 			free(filepath);
-			free(private);
+#ifdef USE_PRIVATE
 			private->fd = 0;
+			free(private);
+#endif
 			return EREJECT;
 		}
 		struct stat filestat;
@@ -222,8 +233,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			{
 				httpmessage_result(response, RESULT_301);
 				free(filepath);
-				free(private);
+#ifdef USE_PRIVATE
 				private->fd = 0;
+				free(private);
+#endif
 				return ESUCCESS;
 			}
 #endif
@@ -285,7 +298,9 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			warn("static file: %s not found %s", filepath, strerror(errno));
 			free(filepath);
 			private->fd = 0;
+#ifdef USE_PRIVATE
 			free(private);
+#endif
 			return EREJECT;
 		}
 		private->fd = open(filepath, O_RDONLY);
@@ -305,8 +320,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	if (ret < 1)
 	{
 		close(private->fd);
+#ifndef USE_PRIVATE
 		private->fd = 0;
 		free(private);
+#endif
 		if (ret == 0)
 			return ESUCCESS;
 		else
@@ -334,6 +351,24 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response)
 
 int mod_send(static_file_connector_t *private, http_message_t *response) __attribute__ ((weak, alias ("mod_send_read")));
 
+#ifndef USE_PRIVATE
+static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+{
+	mod_static_file_t *config = (mod_static_file_t *)arg;
+	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
+
+	ctx->config = config;
+	httpclient_addconnector(ctl, NULL, static_file_connector, ctx);
+
+	return ctx;
+}
+
+static void _mod_static_file_freectx(void *vctx)
+{
+	free(vctx);
+}
+#endif
+
 void *mod_static_file_create(http_server_t *server, mod_static_file_t *config)
 {
 	if (!config)
@@ -344,7 +379,11 @@ void *mod_static_file_create(http_server_t *server, mod_static_file_t *config)
 		config->accepted_ext = default_config.accepted_ext;
 	if (!config->ignored_ext)
 		config->ignored_ext = default_config.ignored_ext;
+#ifdef USE_PRIVATE
 	httpserver_addconnector(server, NULL, static_file_connector, config);
+#else
+	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, config);
+#endif
 	return config;
 }
 
