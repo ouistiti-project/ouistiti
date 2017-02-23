@@ -83,6 +83,8 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config_setting_lookup_int(iterator, "port", &config->server->port);
 					config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
 					config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
+					config->server->chunksize = 64;
+					config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
 					config->server->maxclients = 10;
 					config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
 					config->server->version = HTTP11;
