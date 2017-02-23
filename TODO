@@ -1,5 +1,4 @@
 * php module
 * auth module
-* use server->chunksize every where and add configuration
 * http2 module
 * date and expired file module
