@@ -314,7 +314,8 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		char *argv[2];
 		argv[0] = basename(ctx->cgipath);
 		argv[1] = NULL;
-		char **env;
+		char **env = NULL;
+
 		int i = 0;
 		char *uri = httpmessage_REQUEST(request, "uri");
 		char *query = strchr(uri,'?');
@@ -412,6 +413,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 			env[i] = (char *)ctx->mod->config->env[i - NBENVS];
 		}
 		env[i] = NULL;
+
 		char *dirpath;
 		dirpath = dirname(ctx->cgipath);
 		if (dirpath)
@@ -564,7 +566,14 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			}
 			else
 			{
-				ret = httpmessage_parsecgi(response, data, size);
+				/**
+				 * if content_length is not null, parcgi is able to
+				 * create the content.
+				 * But the cgi know the length at the end, is too late
+				 * to set the header. And the parsecgi is ended just
+				 * after the header.
+				 */
+				ret = httpmessage_parsecgi(response, data, &size);
 				//dbg("data %d\n%s#\n", ret, data);
 				if (ret == ESUCCESS)
 				{
@@ -576,7 +585,6 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 						{
 							size = 0;
 						}
-						httpmessage_addcontent(response, NULL, "\r\n", 2);
 					}
 					ctx->state = STATE_HEADERCOMPLETE;
 					if (size > 0)
