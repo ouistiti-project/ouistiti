@@ -428,7 +428,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return pid;
 }
 
-int searchext(char *filepath, char *extlist)
+static int searchext(char *filepath, char *extlist)
 {
 	int ret = EREJECT;
 	char *fileext = strrchr(filepath,'.');

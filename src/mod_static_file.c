@@ -122,7 +122,7 @@ static const mime_entry_t *mime_entry[] =
 	NULL
 };
 
-int searchext(char *filepath, char *extlist)
+static int searchext(char *filepath, char *extlist)
 {
 	int ret = EREJECT;
 	char *fileext = strrchr(filepath,'.');
@@ -218,7 +218,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			warn("static file: forbidden extension");
 			free(filepath);
 #ifdef USE_PRIVATE
-			private->fd = 0;
 			free(private);
 #endif
 			return EREJECT;
@@ -234,7 +233,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				httpmessage_result(response, RESULT_301);
 				free(filepath);
 #ifdef USE_PRIVATE
-				private->fd = 0;
 				free(private);
 #endif
 				return ESUCCESS;
@@ -297,7 +295,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		{
 			warn("static file: %s not found %s", filepath, strerror(errno));
 			free(filepath);
-			private->fd = 0;
 #ifdef USE_PRIVATE
 			free(private);
 #endif
@@ -320,8 +317,8 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	if (ret < 1)
 	{
 		close(private->fd);
-#ifndef USE_PRIVATE
 		private->fd = 0;
+#ifdef USE_PRIVATE
 		free(private);
 #endif
 		if (ret == 0)
