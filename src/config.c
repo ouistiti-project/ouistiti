@@ -54,6 +54,8 @@
 #endif
 
 static config_t configfile;
+static char *logfile = NULL;
+static int logfd = 0;
 static char *pidfile = NULL;
 static int pidfd = 0;
 
@@ -69,6 +71,18 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 		ouistiticonfig = calloc(1, sizeof(*ouistiticonfig));
 
 		config_lookup_string(&configfile, "user", (const char **)&ouistiticonfig->user);
+		config_lookup_string(&configfile, "log-file", (const char **)&logfile);
+		if (logfile != NULL && logfile[0] != '\0')
+		{
+			logfd = open(logfile, O_WRONLY | O_CREAT);
+			if (logfd > 0)
+			{
+				dup2(logfd, 1);
+				dup2(logfd, 2);
+			}
+			else
+				err("log file error %s", strerror(errno));
+		}
 		config_lookup_string(&configfile, "pid-file", (const char **)&pidfile);
 		if (pidfile != NULL && pidfile[0] != '\0')
 		{
@@ -90,7 +104,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 			}
 			else
 			{
-				warn("fopen %s", strerror(errno));
+				err("pid file error %s", strerror(errno));
 				pidfile = NULL;
 			}
 		}
@@ -215,6 +229,8 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 
 	if (pidfd > 0)
 		close(pidfd);
+	if (logfd > 0)
+		close(logfd);
 	config_destroy(&configfile);
 
 	for (i = 0; i < MAX_SERVERS; i++)
