@@ -77,6 +77,7 @@ int main(int argc, char * const *argv)
 	ouistiticonfig_t *ouistiticonfig;
 	serverconfig_t *it;
 	int i;
+	int daemonize = 0;
 
 	setbuf(stdout, NULL);
 
@@ -84,7 +85,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "f:h");
+		opt = getopt(argc, argv, "f:hD");
 		switch (opt)
 		{
 			case 'f':
@@ -93,6 +94,9 @@ int main(int argc, char * const *argv)
 			case 'h':
 				display_help(argv);
 				return -1;
+			break;
+			case 'D':
+				daemonize = 1;
 			break;
 		}
 	} while(opt != -1);
@@ -105,6 +109,11 @@ int main(int argc, char * const *argv)
 
 	if (ouistiticonfig == NULL)
 		return -1;
+
+	if (daemonize && fork() != 0)
+	{
+		return 0;
+	}
 
 	if (ouistiticonfig->user)
 	{
@@ -158,10 +167,17 @@ int main(int argc, char * const *argv)
 	}
 	setgid(user->pw_gid);
 	setuid(user->pw_uid);
-	char c = 0;
-	while (c != 'q')
+	if (!daemonize)
 	{
-		c = getc(stdin);
+		char c = 0;
+		while (c != 'q')
+		{
+			c = getc(stdin);
+		}
+	}
+	else
+	{
+		while(1) sleep(120);
 	}
 	server = first;
 	while (server != NULL)
