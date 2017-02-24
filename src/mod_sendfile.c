@@ -60,7 +60,7 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 }
 
 /**
- * this method is replaced by the transfert type selector in config
+ * this method is replaced by the transfer type selector in config
  */
 /**
  * mod_send is defined into mod_static_file.c too.

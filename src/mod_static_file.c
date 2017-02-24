@@ -55,7 +55,7 @@ typedef struct _static_file_connector_s static_file_connector_t;
 struct _mod_static_file_mod_s
 {
 	mod_static_file_t *config;
-	mod_transfert_t transfert;
+	mod_transfer_t transfer;
 };
 
 int mod_send(static_file_connector_t *private, http_message_t *response);
@@ -322,7 +322,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		free(filepath);
 		return ECONTINUE;
 	}
-	ret = mod->transfert(private, response);
+	ret = mod->transfer(private, response);
 	//ret = mod_send(private, response);
 	if (ret < 1)
 	{
@@ -390,7 +390,7 @@ void *mod_static_file_create(http_server_t *server, mod_static_file_t *config)
 	if (!config->ignored_ext)
 		config->ignored_ext = default_config.ignored_ext;
 	mod->config = config;
-	mod->transfert = mod_send_read;
+	mod->transfer = mod_send_read;
 #ifdef USE_PRIVATE
 	httpserver_addconnector(server, NULL, static_file_connector, mod);
 #else
@@ -398,7 +398,7 @@ void *mod_static_file_create(http_server_t *server, mod_static_file_t *config)
 #endif
 
 	int length;
-	char *ext = config->transferttype;
+	char *ext = config->transfertype;
 	while (ext != NULL)
 	{
 		length = strlen(ext);
@@ -408,7 +408,7 @@ void *mod_static_file_create(http_server_t *server, mod_static_file_t *config)
 #ifdef SENDFILE
 		if (!strncmp(ext, "sendfile", length))
 		{
-			mod->transfert = mod_send_sendfile;
+			mod->transfer = mod_send_sendfile;
 			break;
 		}
 #endif
