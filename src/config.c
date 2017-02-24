@@ -29,6 +29,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
 
 #include <libconfig.h>
 
@@ -50,7 +53,9 @@
 # define dbg(...)
 #endif
 
-config_t configfile;
+static config_t configfile;
+static char *pidfile = NULL;
+static int pidfd = 0;
 
 ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 {
@@ -64,6 +69,31 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 		ouistiticonfig = calloc(1, sizeof(*ouistiticonfig));
 
 		config_lookup_string(&configfile, "user", (const char **)&ouistiticonfig->user);
+		config_lookup_string(&configfile, "pid-file", (const char **)&pidfile);
+		if (pidfile != NULL && pidfile[0] != '\0')
+		{
+			pidfd = open(pidfile,O_RDWR|O_CREAT,0640);
+			if (pidfd > 0)
+			{
+				char buffer[32];
+				int length;
+				pid_t pid = 1;
+
+				if (lockf(pidfd, F_TLOCK,0)<0)
+				{
+					err("server already running");
+					exit(0);
+				}
+				pid = getpid();
+				length = snprintf(buffer, 32, "%d\n", pid);
+				write(pidfd, buffer, length);
+			}
+			else
+			{
+				warn("fopen %s", strerror(errno));
+				pidfile = NULL;
+			}
+		}
 		config_setting_t *configservers = config_lookup(&configfile, "servers");
 		if (configservers)
 		{
@@ -182,6 +212,9 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
 	int i;
+
+	if (pidfd > 0)
+		close(pidfd);
 	config_destroy(&configfile);
 
 	for (i = 0; i < MAX_SERVERS; i++)
