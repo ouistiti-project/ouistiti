@@ -1,1 +1,1 @@
-subdir-$(AUTHN)+=libb64.mk
+subdir-$(AUTH)+=libb64.mk
