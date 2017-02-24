@@ -4,9 +4,9 @@ Ouistiti - Small HTTP server
 The main goal of Ouistiti is a very small HTTP server to be embedded into
 very small devices.
 
- all features statically linked:   47ko  
- with the features as modules: 33ko  
- in embedded configuration:    29ko  
+ all features statically linked:   66ko
+ with the features as modules: 35ko
+ in embedded configuration:    29ko
 
 libhttpserver
 =============
@@ -17,6 +17,9 @@ external project and may be use into other projects.
 The project is available on github
 
     https://github.com/mchalain/libhttpserver
+
+This library may be integrated into another application to allows
+a HTTP service.
 
 Dependencies
 ============
@@ -31,6 +34,7 @@ For an optimal featured solution, Ouistiti needs:
 
 Some modules need external libraries:
  * mbedtls library
+ * libb64 library (as a git submodule)
 
 The memory allocation is dynamic, but the functions "calloc" and "free" are
 inside macros, to allow the specific implementation.
@@ -49,10 +53,10 @@ Features
   HTTP/2.0 may be possible with a future modules.
 
  2) Keep Alive connection: The client connection may be keep between
- several request.
+ several requests.
 
  3) HTTP pipelining: The server in HTTP/1.1 and over may receive several
- requests and send response in the same time.
+ requests and send the responses in the same time.
  
  5) HTTP streaming: A module may send big binary file or live streaming.
 
@@ -61,7 +65,7 @@ Features
  5) CGI/1.1: CGI scripts may be call from the client. The server may
  run "webmin".
 
- 6) Authentication: to do
+ 6) Authentication: Basic authentication is available.
 
 Build and installation
 ======================
@@ -86,3 +90,10 @@ may be changed during the project configuration (see below)
 
     make DESTDIR=~/packages/ouistiti install
 
+Configurations
+==============
+
+Each option may be set with "y" to be included. Other value disables the
+feature.
+
+STATIC_CONFIG use the configuration defined into the src/config.h file.
