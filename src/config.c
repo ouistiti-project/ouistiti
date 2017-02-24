@@ -119,6 +119,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						config_setting_lookup_string(configstaticfile, "docroot", (const char **)&config->static_file->docroot);
 						config_setting_lookup_string(configstaticfile, "accepted_ext", (const char **)&config->static_file->accepted_ext);
 						config_setting_lookup_string(configstaticfile, "ignored_ext", (const char **)&config->static_file->ignored_ext);
+						config_setting_lookup_string(configstaticfile, "transfert_type", (const char **)&config->static_file->transferttype);
 					}
 
 					config_setting_t *configauthn = config_setting_lookup(iterator, "authn");

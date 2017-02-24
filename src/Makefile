@@ -12,7 +12,7 @@ $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mod_mbedtls mbedtls mbedx509 mbedcrypto
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DMBEDTLS
 $(TARGET)_LIBRARY-$(SENDFILE)+=mod_sendfile
-$(TARGET)_CFLAGS-$(SENDFILE)+=-DSTATIC_FILE
+$(TARGET)_CFLAGS-$(SENDFILE)+=-DSTATIC_FILE -DSENDFILE
 $(TARGET)_LIBRARY-$(STATIC_FILE)+=mod_static_file
 $(TARGET)_CFLAGS-$(STATIC_FILE)+=-DSTATIC_FILE
 $(TARGET)_LIBRARY-$(CGI)+=mod_cgi
@@ -33,6 +33,8 @@ lib-$(DYNAMIC)+=mod_static_file
 slib-$(STATIC)+=mod_static_file
 mod_static_file_SOURCES+=mod_static_file.c
 mod_static_file_CFLAGS+=-I../libhttpserver/include/httpserver
+mod_static_file_CFLAGS-$(SENDFILE)+=-DSENDFILE
+
 
 mod_static_file_CFLAGS-$(DEBUG)+=-g -DDEBUG
 

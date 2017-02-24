@@ -37,6 +37,7 @@ typedef struct mod_static_file_s
 	char *docroot;
 	char *accepted_ext;
 	char *ignored_ext;
+	char *transferttype;
 } mod_static_file_t;
 
 void *mod_static_file_create(http_server_t *server, mod_static_file_t *config);
@@ -47,6 +48,7 @@ void mod_static_file_destroy(void *data);
  */
 #define CONTENTCHUNK 63
 
+typedef struct _mod_static_file_mod_s _mod_static_file_mod_t;
 typedef struct _static_file_connector_s static_file_connector_t;
 typedef int (*mod_transfert_t)(static_file_connector_t *private, http_message_t *response);
 
@@ -57,12 +59,16 @@ struct _static_file_connector_s
 	 * type is mandatory at the first place
 	 */
 	int type;
-	mod_static_file_t *config;
+	_mod_static_file_mod_t *mod;
 	void *previous;
 	int fd;
 	unsigned int size;
 	unsigned int offset;
 };
+
+#ifdef SENDFILE
+int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
+#endif
 
 #ifdef __cplusplus
 }
