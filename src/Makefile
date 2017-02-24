@@ -17,8 +17,9 @@ $(TARGET)_LIBRARY-$(STATIC_FILE)+=mod_static_file
 $(TARGET)_CFLAGS-$(STATIC_FILE)+=-DSTATIC_FILE
 $(TARGET)_LIBRARY-$(CGI)+=mod_cgi
 $(TARGET)_CFLAGS-$(CGI)+=-DCGI
-$(TARGET)_LIBRARY-$(AUTHN)+=mod_authn
-$(TARGET)_CFLAGS-$(AUTHN)+=-DAUTHN
+$(TARGET)_LIBRARY-$(AUTH)+=mod_auth
+$(TARGET)_CFLAGS-$(AUTH)+=-DAUTH
+$(TARGET)_CFLAGS-$(AUTHN_BASIC_CONF)+=-DAUTHN_BASIC_CONF
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -46,9 +47,12 @@ mod_sendfile_CFLAGS+=-I../libhttpserver/include/httpserver
 mod_sendfile_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 LIBB64_DIR=../libb64
-lib-$(DYNAMIC)+=mod_authn
-slib-$(STATIC)+=mod_authn
-mod_authn_SOURCES+=mod_authn.c ../utils/libb64.a
-mod_authn_CFLAGS+=-I../libhttpserver/include -I$(LIBB64_DIR)/include
+lib-$(DYNAMIC)+=mod_auth
+slib-$(STATIC)+=mod_auth
+mod_auth_SOURCES+=mod_auth.c
+mod_auth_CFLAGS+=-I../libhttpserver/include
 
-mod_authn_CFLAGS-$(DEBUG)+=-g -DDEBUG
+mod_auth_SOURCES-$(AUTHN_BASIC_CONF)+=authn_basic_conf.c ../utils/libb64.a
+mod_auth_CFLAGS-$(AUTHN_BASIC_CONF)+=-DAUTHN_BASIC_CONF -I$(LIBB64_DIR)/include
+
+mod_auth_CFLAGS-$(DEBUG)+=-g -DDEBUG

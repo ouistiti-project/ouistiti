@@ -45,7 +45,7 @@
 #include "mod_mbedtls.h"
 #include "mod_static_file.h"
 #include "mod_cgi.h"
-#include "mod_authn.h"
+#include "mod_auth.h"
 
 #include "config.h"
 
@@ -58,7 +58,7 @@ typedef struct server_s
 	void *mod_mbedtls;
 	void *mod_static_file;
 	void *mod_cgi;
-	void *mod_authn;
+	void *mod_auth;
 
 	struct server_s *next;
 } servert_t;
@@ -66,7 +66,7 @@ typedef struct server_s
 void display_help(char * const *argv)
 {
 	fprintf(stderr, "%s [-f <configfile>]\n", argv[0]);
-	fprintf(stderr, "\t-f <configfile>\tset the cofniguration file path\n");
+	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
 }
 
 int main(int argc, char * const *argv)
@@ -84,7 +84,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "f:");
+		opt = getopt(argc, argv, "f:h");
 		switch (opt)
 		{
 			case 'f':
@@ -137,6 +137,12 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
+#if defined AUTH
+			if (server->config->authn)
+			{
+				server->mod_auth = mod_auth_create(server->server, server->config->authn);
+			}
+#endif
 #if defined CGI
 			if (server->config->cgi)
 				server->mod_cgi = mod_cgi_create(server->server, server->config->cgi);
@@ -147,10 +153,6 @@ int main(int argc, char * const *argv)
 #endif
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
-#if defined AUTHN
-			if (server->config->authn)
-				server->mod_authn = mod_authn_create(server->server, server->config->authn);
-#endif
 		}
 		server = server->next;
 	}
@@ -176,9 +178,9 @@ int main(int argc, char * const *argv)
 		if (server->mod_cgi)
 			mod_cgi_destroy(server->mod_cgi);
 #endif
-#if defined AUTHN
-		if (server->mod_authn)
-			mod_authn_destroy(server->mod_authn);
+#if defined AUTH
+		if (server->mod_auth)
+			mod_auth_destroy(server->mod_auth);
 #endif
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);

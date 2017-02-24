@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_skeleton.h: Simple HTTP module
+ * mod_auth.h: Simple HTTP module
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -25,23 +25,40 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_AUTHN_H__
-#define __MOD_AUTHN_H__
+#ifndef __MOD_AUTH_H__
+#define __MOD_AUTH_H__
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-typedef struct mod_authn_s
+typedef void *(*authn_rule_create_t)(void *config);
+typedef char *(*authn_rule_check_t)(void *arg, char *string);
+typedef void (*authn_rule_destroy_t)(void *arg);
+typedef struct authn_rule_s authn_rule_t;
+struct authn_rule_s
+{
+	void *config;
+	void *ctx;
+	authn_rule_create_t create;
+	authn_rule_check_t check;
+	authn_rule_destroy_t destroy;
+	enum
+	{
+		AUTHN_BASIC,
+		AUTHN_DIGEST,
+	} type;
+};
+
+typedef struct mod_auth_s
 {
 	char *realm;
-	char *user;
-	char *passwd;
-} mod_authn_t;
+	authn_rule_t *rule;
+} mod_auth_t;
 
-void *mod_authn_create(http_server_t *server, mod_authn_t *modconfig);
-void mod_authn_destroy(void *mod);
+void *mod_auth_create(http_server_t *server, mod_auth_t *modconfig);
+void mod_auth_destroy(void *mod);
 
 #ifdef __cplusplus
 }

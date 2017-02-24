@@ -37,7 +37,8 @@
 #include "mod_mbedtls.h"
 #include "mod_static_file.h"
 #include "mod_cgi.h"
-#include "mod_authn.h"
+#include "mod_auth.h"
+#include "authn_basic_conf.h"
 
 #include "config.h"
 
@@ -127,8 +128,23 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					{
 						config->authn = calloc(1, sizeof(*config->authn));
 						config_setting_lookup_string(configauthn, "realm", (const char **)&config->authn->realm);
-						config_setting_lookup_string(configauthn, "user", (const char **)&config->authn->user);
-						config_setting_lookup_string(configauthn, "passwd", (const char **)&config->authn->passwd);
+						char *type = NULL;
+						config_setting_lookup_string(configauthn, "type", (const char **)&type);
+						if (type != NULL && !strncmp(type, "Basic", 5))
+						{
+							void *authn_basic_config = NULL;
+							authn_rule_t *rule = NULL;
+#ifdef AUTHN_BASIC_CONF
+							authn_basic_config_t *authn_basic_config_config;
+							authn_basic_config_config = calloc(1, sizeof(*authn_basic_config));
+							config_setting_lookup_string(configauthn, "user", (const char **)&authn_basic_config_config->user);
+							config_setting_lookup_string(configauthn, "passwd", (const char **)&authn_basic_config_config->passwd);
+							authn_basic_config = authn_basic_config_config;
+							rule = &authn_basic_rule;
+#endif
+							config->authn->rule = rule;
+							config->authn->rule->config = authn_basic_config;
+						}
 					}
 
 					config_setting_t *configcgi = config_setting_lookup(iterator, "cgi");
