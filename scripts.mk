@@ -206,6 +206,7 @@ targets+=$(bin-target)
 ##
 # install recipes generation
 ##
+sysconf-install:=$(addprefix $(sysconfdir)/,$(sysconf-y))
 data-install:=$(addprefix $(datadir)/,$(data-y))
 include-install:=$(addprefix $(includedir)/,$(include-y))
 lib-dynamic-install:=$(addprefix $(libdir)/,$(addsuffix $(dlib-ext:%=.%),$(lib-y)))
@@ -221,6 +222,7 @@ install+=$(sbin-install)
 install+=$(lib-dynamic-install)
 install+=$(modules-install)
 install+=$(data-install)
+install+=$(sysconf-install)
 endif
 else
 install+=$(bin-install)
@@ -228,6 +230,7 @@ install+=$(sbin-install)
 install+=$(lib-dynamic-install)
 install+=$(modules-install)
 install+=$(data-install)
+install+=$(sysconf-install)
 endif
 
 ##
@@ -403,6 +406,8 @@ quiet_cmd_install_bin=INSTALL $*
 # install rules
 ##
 $(include-install): $(includedir)/%: %
+	@$(call cmd,install_data)
+$(sysconf-install): $(sysconfdir)/%: %
 	@$(call cmd,install_data)
 $(data-install): $(datadir)/%: %
 	@$(call cmd,install_data)
