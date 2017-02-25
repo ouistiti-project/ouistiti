@@ -165,8 +165,8 @@ int main(int argc, char * const *argv)
 				server->mod_cgi = mod_cgi_create(server->server, server->config->cgi);
 #endif
 #if defined MBEDTLS
-			if (server->config->mbedtls)
-				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->mbedtls);
+			if (server->config->tls)
+				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
 #endif
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);

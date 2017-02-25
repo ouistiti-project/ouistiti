@@ -146,14 +146,14 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							config->server->version |= HTTP_PIPELINE;
 					}
 
-					config_setting_t *configmbedtls = config_setting_lookup(iterator, "mbedtls");
-					if (configmbedtls)
+					config_setting_t *configtls = config_setting_lookup(iterator, "mbedtls");
+					if (configtls)
 					{
-						config->mbedtls = calloc(1, sizeof(*config->mbedtls));
-						config_setting_lookup_string(configmbedtls, "crtfile", (const char **)&config->mbedtls->crtfile);
-						config_setting_lookup_string(configmbedtls, "pemfile",(const char **) &config->mbedtls->pemfile);
-						config_setting_lookup_string(configmbedtls, "cachain", (const char **)&config->mbedtls->cachain);
-						config_setting_lookup_string(configmbedtls, "dhmfile", (const char **)&config->mbedtls->dhmfile);
+						config->tls = calloc(1, sizeof(*config->tls));
+						config_setting_lookup_string(configtls, "crtfile", (const char **)&config->tls->crtfile);
+						config_setting_lookup_string(configtls, "pemfile",(const char **) &config->tls->pemfile);
+						config_setting_lookup_string(configtls, "cachain", (const char **)&config->tls->cachain);
+						config_setting_lookup_string(configtls, "dhmfile", (const char **)&config->tls->dhmfile);
 					}
 
 					config_setting_t *configstaticfile = config_setting_lookup(iterator, "static_file");
@@ -239,8 +239,8 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 		{
 			if (config->server)
 				free(config->server);
-			if (config->mbedtls)
-				free(config->mbedtls);
+			if (config->tls)
+				free(config->tls);
 			if (config->static_file)
 				free(config->static_file);
 			if (config->authn)

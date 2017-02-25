@@ -6,7 +6,7 @@
 typedef struct serverconfig_s
 {
 	http_server_config_t *server;
-	mod_mbedtls_t *mbedtls;
+	mod_tls_t *tls;
 	mod_static_file_t *static_file;
 	mod_cgi_config_t *cgi;
 	mod_auth_t *authn;
@@ -46,7 +46,6 @@ servers={
 			keepalive = true;
 		};
 		mbedtls =  {
-			pers = "httpserver-mbedtls",
 			crtfile = "/etc/ssl/private/server.pem",
 			dhmfile = "/etc/ssl/private/dhparam.pem",
 		};
@@ -75,10 +74,10 @@ ouistiticonfig_t g_ouistiticonfig =
 				.hostname = "www.ouistiti.net",
 				.port = 80,
 				.addr = NULL,
-				.keepalive = 1,
-				.version = HTTP10
+				.keepalive = 10,
+				.version = HTTP11
 			},
-		.mbedtls = NULL,
+		.tls = NULL,
 		.static_file = 
 			&(mod_static_file_t) {
 				.docroot = "/srv/www/htdocs",
@@ -97,12 +96,11 @@ ouistiticonfig_t g_ouistiticonfig =
 			&(http_server_config_t) {
 				.port = 443,
 				.addr = NULL,
-				.keepalive = 1,
-				.version = HTTP10
+				.keepalive = 10,
+				.version = HTTP11,
 			},
-		.mbedtls = 
-			&(mod_mbedtls_t) {
-				.pers = "httpserver-mbedtls",
+		.tls = 
+			&(mod_tls_t) {
 				.crtfile = "/etc/ssl/private/server.pem",
 				.pemfile = NULL,
 				.cachain = NULL,
