@@ -1,5 +1,5 @@
 TARGET=ouistiti
-bin-y+=$(TARGET)
+sbin-y+=$(TARGET)
 $(TARGET)_CFLAGS+=-I../libhttpserver/include/httpserver
 $(TARGET)_LDFLAGS+=-L. -L../libhttpserver/src ../libhttpserver/src/httpserver/libhttpserver.a
 $(TARGET)_LIBRARY+=pthread rt
