@@ -150,7 +150,6 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					if (configmbedtls)
 					{
 						config->mbedtls = calloc(1, sizeof(*config->mbedtls));
-						config_setting_lookup_string(configmbedtls, "pers", (const char **)&config->mbedtls->pers);
 						config_setting_lookup_string(configmbedtls, "crtfile", (const char **)&config->mbedtls->crtfile);
 						config_setting_lookup_string(configmbedtls, "pemfile",(const char **) &config->mbedtls->pemfile);
 						config_setting_lookup_string(configmbedtls, "cachain", (const char **)&config->mbedtls->cachain);
