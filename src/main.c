@@ -141,10 +141,6 @@ int main(int argc, char * const *argv)
 			server->config = it;
 
 			server->server = httpserver_create(server->config->server);
-			if (server->server)
-			{
-				httpserver_connect(server->server);
-			}
 			server->next = first;
 			first = server;
 		}
@@ -170,6 +166,10 @@ int main(int argc, char * const *argv)
 #endif
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
+		}
+		if (server->server)
+		{
+			httpserver_connect(server->server);
 		}
 		server = server->next;
 	}
