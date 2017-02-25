@@ -1,12 +1,14 @@
 Ouistiti - Small HTTP server
 ============================
 
+Ouistiti is the french name of [Marmoset](https://en.wikipedia.org/wiki/Marmoset) a little Monkey of the New world. The choice of the name comes from the size of this monkey and the pronunciation _(ˈwistiti)_ which remembers HTTP.
+ 
 The main goal of Ouistiti is a very small HTTP server to be embedded into
 very small devices.
 
- all features statically linked:   66ko
- with the features as modules: 35ko
- in embedded configuration:    29ko
+ all features statically linked:   66ko  
+ with the features as modules: 35ko  
+ in embedded configuration:    29ko  
 
 libhttpserver
 =============
@@ -80,6 +82,8 @@ script.
 
     ./configure --prefix=/usr --libdir=/usr/lib64/ouistiti --sysconfdir=/etc
 
+Other build setup are available into the "config" file (see Build Setup chapter).
+
 The compilation is done with make and accept configuration in command line.
 
     make DEBUG=y
@@ -90,10 +94,32 @@ may be changed during the project configuration (see below)
 
     make DESTDIR=~/packages/ouistiti install
 
-Configurations
+Build setup
 ==============
 
 Each option may be set with "y" to be included. Other value disables the
 feature.
 
-STATIC_CONFIG use the configuration defined into the src/config.h file.
+DEBUG : allow more debug traces and add debugger symbols.
+
+STATIC_CONFIG : use the configuration defined into the src/config.h file.
+FILE_CONFIG : use the ouistiti.conf file for the configuration.
+
+VTHREAD : enable the multithreading into the server.
+STATIC : build the application and the modules into one binary file.
+DYNAMIC :  allow to load dynamicly the modules.
+
+MBEDTLS : build the SSL/TLS support with mbedtls.
+CGI : build the CGI/1.1 support.
+STATIC_FILE : build the delivery of static files.
+SENDFILE : build the extension of STATIC_FILE to increase the speed.
+AUTH : build the support of the authentication.
+AUTHN_BASIC_CONF : build a Basic authentication method with simple configuration.
+
+Configuration
+=============
+
+Ouistiti uses [libconfig](http://www.hyperrealm.com/libconfig/) for the configuration. The configuration file
+looks like a C file, with variables and structure.
+
+
