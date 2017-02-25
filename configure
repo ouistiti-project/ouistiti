@@ -1,7 +1,8 @@
 #!/bin/bash
 
 CONFIG=config
-out=$CONFIG
+CONFIGURE_STATUS=configure.status
+out=$CONFIGURE_STATUS
 
 prefix=/usr/local
 function argument {
@@ -25,12 +26,30 @@ while [ "${1}" != "" ]; do
 		--libdir*)
 			libdir=$(argument ${1})
 			;;
+		--datadir*)
+			datadir=$(argument ${1})
+			;;
 		--sysconfdir*)
 			sysconfdir=$(argument ${1})
 			;;
 		--host*)
 			CROSS_COMPILER=$(argument ${1})
 			;;
+		--help*)
+			echo "${0} [options]"
+			printf "Configuration:\n"
+			printf "\t--help\tdisplay this help and exit\n"
+			printf "Installation directories:\n"
+			printf "\t--prefix=PREFIX\tinstall architecture-independent files in PREFIX [/usr/local]"
+			printf "\t--bindir=DIR\tuser executables [PREFIX/bin]"
+			printf "\t--sbindir=DIR\system admin executables [PREFIX/sbin]"
+			printf "\t--sysconfdir=DIR\tread-only single-machine data [PREFIX/etc]"
+			printf "\t--libdir=DIR\tobject code libraries [PREFIX/lib]"
+			printf "\t--includedir=DIR\tC header files [PREFIX/include]"
+			printf "\t--datadir=DIR\tread-only architecture-independent data [PREFIX/share]"
+			printf "System types:\n"
+			printf "\t--build=BUILD\tconfigure for building on BUILD [guessed]"
+			printf "\t--host=HOST\tcross-compile to build programs to run on HOST [BUILD]"
 	esac
 	shift
 done

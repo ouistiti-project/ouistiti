@@ -38,6 +38,11 @@ file?=$(notdir $(firstword $(MAKEFILE_LIST)))
 
 # CONFIG could define LD CC or/and CFLAGS
 # CONFIG must be included before "Commands for build and link"
+CONFIGURE_STATUS:=configure.status
+ifneq ($(wildcard $(srcdir)$(CONFIGURE_STATUS)),)
+include $(srcdir)$(CONFIGURE_STATUS)
+endif
+
 CONFIG?=config
 ifneq ($(wildcard $(srcdir)$(CONFIG)),)
 include $(srcdir)$(CONFIG)
@@ -206,13 +211,13 @@ targets+=$(bin-target)
 ##
 # install recipes generation
 ##
-sysconf-install:=$(addprefix $(sysconfdir)/,$(sysconf-y))
-data-install:=$(addprefix $(datadir)/,$(data-y))
-include-install:=$(addprefix $(includedir)/,$(include-y))
-lib-dynamic-install:=$(addprefix $(libdir)/,$(addsuffix $(dlib-ext:%=.%),$(lib-y)))
-modules-install:=$(addprefix $(pkglibdir)/,$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
-bin-install:=$(addprefix $(bindir)/,$(addsuffix $(bin-ext:%=.%),$(bin-y)))
-sbin-install:=$(addprefix $(sbindir)/,$(addsuffix $(bin-ext:%=.%),$(sbin-y)))
+sysconf-install:=$(addprefix $(DESTDIR:%=%/)$(sysconfdir)/,$(sysconf-y))
+data-install:=$(addprefix $(DESTDIR:%=%/)$(datadir)/,$(data-y))
+include-install:=$(addprefix $(DESTDIR:%=%/)$(includedir)/,$(include-y))
+lib-dynamic-install:=$(addprefix $(DESTDIR:%=%/)$(libdir)/,$(addsuffix $(dlib-ext:%=.%),$(lib-y)))
+modules-install:=$(addprefix $(DESTDIR:%=%/)$(pkglibdir)/,$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
+bin-install:=$(addprefix $(DESTDIR:%=%/)$(bindir)/,$(addsuffix $(bin-ext:%=.%),$(bin-y)))
+sbin-install:=$(addprefix $(DESTDIR:%=%/)$(sbindir)/,$(addsuffix $(bin-ext:%=.%),$(sbin-y)))
 
 install:=
 ifneq ($(CROSS_COMPILE),)
@@ -398,26 +403,26 @@ $(LIBRARY) $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)
 # Commands for install
 ##
 quiet_cmd_install_data=INSTALL $*
- cmd_install_data=$(INSTALL_DATA) -D $< $(DESTDIR:%=%/)$@
+ cmd_install_data=$(INSTALL_DATA) -D $< $@
 quiet_cmd_install_bin=INSTALL $*
- cmd_install_bin=$(INSTALL_PROGRAM) -D $< $(DESTDIR:%=%/)$@
+ cmd_install_bin=$(INSTALL_PROGRAM) -D $< $@
 
 ##
 # install rules
 ##
-$(include-install): $(includedir)/%: %
+$(include-install): $(DESTDIR:%=%/)$(includedir)/%: %
 	@$(call cmd,install_data)
-$(sysconf-install): $(sysconfdir)/%: %
+$(sysconf-install): $(DESTDIR:%=%/)$(sysconfdir)/%: %
 	@$(call cmd,install_data)
-$(data-install): $(datadir)/%: %
+$(data-install): $(DESTDIR:%=%/)$(datadir)/%: %
 	@$(call cmd,install_data)
-$(lib-dynamic-install): $(libdir)/lib%$(dlib-ext:%=.%): $(obj)lib%$(dlib-ext:%=.%)
+$(lib-dynamic-install): $(DESTDIR:%=%/)$(libdir)/lib%$(dlib-ext:%=.%): $(obj)lib%$(dlib-ext:%=.%)
 	@$(call cmd,install_bin)
-$(modules-install): $(pkglibdir)/%$(dlib-ext:%=.%): $(obj)%$(dlib-ext:%=.%)
+$(modules-install): $(DESTDIR:%=%/)$(pkglibdir)/%$(dlib-ext:%=.%): $(obj)%$(dlib-ext:%=.%)
 	@$(call cmd,install_bin)
-$(bin-install): $(bindir)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
+$(bin-install): $(DESTDIR:%=%/)$(bindir)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
-$(sbin-install): $(sbindir)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
+$(sbin-install): $(DESTDIR:%=%/)$(sbindir)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
 
 ##
