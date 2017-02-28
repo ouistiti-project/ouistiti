@@ -1,7 +1,9 @@
 Ouistiti - Small HTTP server
 ============================
 
-Ouistiti is the french name of [Marmoset](https://en.wikipedia.org/wiki/Marmoset) a little Monkey of the New world. The choice of the name comes from the size of this monkey and the pronunciation _(ˈwistiti)_ which remembers HTTP.
+Ouistiti is the french name of [Marmoset](https://en.wikipedia.org/wiki/Marmoset)
+a little Monkey of the New world. The choice of the name comes from the size of
+this monkey and the pronunciation _(ˈwistiti)_ which remembers HTTP.
  
 The main goal of Ouistiti is a very small HTTP server to be embedded into
 very small devices.
@@ -26,17 +28,17 @@ a HTTP service.
 Dependencies
 ============
 
-Ouistiti is written to be build on a maximum of system. The code is 
+Ouistiti is written to be built on a maximum of system. The code is 
 C standard, the threads may be disabled and the configuration may be
 loaded from memory.
 
 For an optimal featured solution, Ouistiti needs:
  * pthread library
- * libconfig library
+ * [libconfig](http://www.hyperrealm.com/libconfig/) library
 
 Some modules need external libraries:
- * mbedtls library
- * libb64 library (as a git submodule)
+ * [mbedtls](https://tls.mbed.org/) library
+ * [libb64](http://libb64.sourceforge.net/) library (as a git submodule)
 
 The memory allocation is dynamic, but the functions "calloc" and "free" are
 inside macros, to allow the specific implementation.
@@ -119,7 +121,8 @@ AUTHN_BASIC_CONF : build a Basic authentication method with simple configuration
 Configuration
 =============
 
-Ouistiti uses [libconfig](http://www.hyperrealm.com/libconfig/) for the configuration. The configuration file
-looks like a C file, with variables and structure.
+Ouistiti uses [libconfig](http://www.hyperrealm.com/libconfig/) for 
+the configuration. The configuration file looks like a C file, with variables
+and structure.
 
 
