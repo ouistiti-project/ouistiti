@@ -48,7 +48,9 @@
 #include "mod_auth.h"
 
 #include "config.h"
+#include "../version.h"
 
+#define PACKAGEVERSION PACKAGE " " VERSION
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
@@ -73,10 +75,13 @@ typedef struct server_s
 
 void display_help(char * const *argv)
 {
-	fprintf(stderr, "%s [-f <configfile>]\n", argv[0]);
+	fprintf(stderr, "%s [-h][-V][-f <configfile>]\n", argv[0]);
+	fprintf(stderr, "\t-h \tshow this help and exit\n");
+	fprintf(stderr, "\t-V \treturn the version and exit\n");
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
 }
 
+static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
 	struct passwd *user;
@@ -89,11 +94,13 @@ int main(int argc, char * const *argv)
 
 	setbuf(stdout, NULL);
 
+	httpserver_software = servername;
+
 #ifdef HAVE_GETOPT
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "f:hD");
+		opt = getopt(argc, argv, "f:hDV");
 		switch (opt)
 		{
 			case 'f':
@@ -101,6 +108,10 @@ int main(int argc, char * const *argv)
 			break;
 			case 'h':
 				display_help(argv);
+				return -1;
+			break;
+			case 'V':
+				printf("%s\n",PACKAGEVERSION);
 				return -1;
 			break;
 			case 'D':
