@@ -296,7 +296,7 @@ check: action:=_check
 check: build:=$(action) -f $(srcdir)$(makemore) file
 check: $(.DEFAULT_GOAL)
 
-default_action:
+default_action: $(srcdir)version.h
 	$(Q)$(MAKE) $(build)=$(file)
 	@:
 
@@ -305,6 +305,12 @@ all: default_action
 $(join $(CURDIR)/,$(CONFIG:%=%.h)): $(srcdir)/$(CONFIG)
 	@$(call cmd,config)
 
+$(srcdir)version.h:
+	@echo "#ifndef __VERSION_H__" > $@
+	@echo "#define __VERSION_H__" >> $@
+	@echo "#define VERSION \"$(version)\"" >> $@
+	@echo "#define PACKAGE \"$(package)\"" >> $@
+	@echo "#endif" >> $@
 ##
 # Commands for clean
 ##
