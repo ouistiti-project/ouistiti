@@ -559,13 +559,13 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			char data[64];
 			int size = 63;
 			size = read(ctx->fromcgi[0], data, size);
-			data[63] = 0;
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
 			}
 			else
 			{
+				data[size] = 0;
 				/**
 				 * if content_length is not null, parcgi is able to
 				 * create the content.
@@ -574,8 +574,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				 * after the header.
 				 */
 				ret = httpmessage_parsecgi(response, data, &size);
-				//dbg("data %d\n%s#\n", ret, data);
-				if (ret == ESUCCESS)
+				//dbg("data %d\n%s#\n", size, data);
+				if (ret != EINCOMPLETE)
 				{
 					char *offset = data;
 					if (ctx->state < STATE_HEADERCOMPLETE)
@@ -590,8 +590,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 					if (size > 0)
 					{
 						httpmessage_addcontent(response, NULL, offset, size);
-						ret = ECONTINUE;
 					}
+					ret = ECONTINUE;
 				}
 			}
 		}
