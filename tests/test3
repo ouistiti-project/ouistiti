@@ -1,0 +1,13 @@
+CONFIG=test1.conf
+
+FILE="data.html"
+FILEDATA="azertyuiopqsdfghjklmwxcvbn"
+for i in 1 2 3 4 5 6 8
+do
+FILEDATA=$FILEDATA$FILEDATA
+done
+
+CURLPARAM="http://127.0.0.1/$FILE"
+TESTCODE=200
+TESTHEADERLEN=66
+TESTCONTENTLEN=$(echo $FILEDATA | wc -c)

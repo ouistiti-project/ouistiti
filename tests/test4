@@ -1,0 +1,6 @@
+# test HEADER with a length of 64 bytes
+CONFIG=test1.conf
+TESTREQUEST=test4_rq.txt
+TESTCODE=200
+TESTHEADERLEN=64
+TESTCONTENTLEN=40
