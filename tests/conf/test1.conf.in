@@ -5,7 +5,7 @@ servers= ({
 		keepalivetimeout = 5;
 		version="HTTP11";
 		static_file = {
-			docroot = "/run/media/eva/mchdata/ouistiti/tests/htdocs";
+			docroot = "%PWD%/tests/htdocs";
 			accepted_ext = ".html,.htm,.css,.js,.txt,*";
 			ignored_ext = ".htaccess,.php";
 		};

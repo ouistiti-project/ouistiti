@@ -1,14 +1,31 @@
 #!/bin/sh
 
-. $1
+while [ -n "$1" ]; do
+case $1 in
+	-D)
+		DEBUG=1
+		;;
+	*)
+		TEST=$1
+		;;
+esac
+shift
+done
+
+. $TEST
 
 CURL=curl
-SRCDIR=./src/
-TESTDIR=./tests/
+TESTDIR=$(dirname $TEST)/
+SRCDIR=$TESTDIR../src/
 PWD=$(pwd)
-USER=$(ls -l $1 | gawk '{print $3}')
+USER=$(ls -l $TEST | gawk '{print $3}')
 TESTCLIENT=./utils/testclient
-HTTPPARSER=./utils/httpparser
+if [ -z "$DEBUG" ]; then
+HTTPPARSER="./utils/httpparser"
+CURLOUT="-o /dev/null"
+else
+HTTPPARSER="tee /dev/null"
+fi
 
 TARGET=ouistiti
 
@@ -28,15 +45,20 @@ echo "${TARGET} started with pid ${PID}"
 sleep 0.5
 
 if [ -n "$CURLPARAM" ]; then
-	result=$($CURL -o /dev/null -f -s -S -w "%{http_code} %{size_header} %{size_download}" $CURLPARAM)
+	result=$($CURL $CURLOUT -f -s -S -w "%{http_code} %{size_header} %{size_download}" $CURLPARAM)
 
 fi
 if [ -n "$TESTREQUEST" ]; then
 	result=$(cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT | $HTTPPARSER)
 fi
-rescode=$(echo $result | gawk '{print $1}')
-resheaderlen=$(echo $result | gawk '{print $2}')
-rescontentlen=$(echo $result | gawk '{print $3}')
+
+if [ -n "$DEBUG" ]; then
+	echo $result
+else
+	rescode=$(echo $result | gawk '{print $1}')
+	resheaderlen=$(echo $result | gawk '{print $2}')
+	rescontentlen=$(echo $result | gawk '{print $3}')
+fi
 
 echo ""
 
