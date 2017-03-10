@@ -13,15 +13,23 @@ $(TARGET)_LIBRARY-$(MBEDTLS)+=mod_mbedtls mbedtls mbedx509 mbedcrypto
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DMBEDTLS
 $(TARGET)_LIBRARY-$(SENDFILE)+=mod_sendfile
 $(TARGET)_CFLAGS-$(SENDFILE)+=-DSTATIC_FILE -DSENDFILE
-$(TARGET)_LIBRARY-$(STATIC_FILE)+=mod_static_file
+$(TARGET)_LIBRARY-$(STATIC_FILE)+=mod_static_file utils_mod
 $(TARGET)_CFLAGS-$(STATIC_FILE)+=-DSTATIC_FILE
-$(TARGET)_LIBRARY-$(CGI)+=mod_cgi
+$(TARGET)_LIBRARY-$(CGI)+=mod_cgi utils_mod
 $(TARGET)_CFLAGS-$(CGI)+=-DCGI
 $(TARGET)_LIBRARY-$(AUTH)+=mod_auth
 $(TARGET)_CFLAGS-$(AUTH)+=-DAUTH
 $(TARGET)_CFLAGS-$(AUTHN_BASIC_CONF)+=-DAUTHN_BASIC_CONF
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
+
+lib-$(DYNAMIC)+=utils_mod
+slib-$(STATIC)+=utils_mod
+utils_mod_SOURCES=utils.c
+utils_mod_CFLAGS+=-I../libhttpserver/include 
+
+utils_mod_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 lib-$(DYNAMIC)+=mod_cgi
 slib-$(STATIC)+=mod_cgi

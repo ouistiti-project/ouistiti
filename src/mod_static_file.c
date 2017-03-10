@@ -36,6 +36,7 @@
 
 #include "httpserver.h"
 #include "uri.h"
+#include "utils.h"
 #include "mod_static_file.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -128,38 +129,6 @@ static const mime_entry_t *mime_entry[] =
 	NULL
 };
 
-static int searchext(char *filepath, char *extlist)
-{
-	int ret = EREJECT;
-	char *fileext = strrchr(filepath,'.');
-	char ext_str[64];
-	ext_str[63] = 0;
-	if (fileext != NULL)
-	{
-		strncpy(ext_str, extlist, 63);
-		char *ext = ext_str;
-		char *ext_end = strchr(ext, ',');
-		if (ext_end)
-			*ext_end = 0;
-		while (ext != NULL)
-		{
-			if (!strcmp(ext, fileext) || !strcmp(ext, "*"))
-			{
-				ret = ESUCCESS;
-				break;
-			}
-			if (ext_end)
-				ext = ext_end + 1;
-			else
-				break;
-			ext_end = strchr(ext, ',');
-			if (ext_end)
-				*ext_end = 0;
-		}
-	}
-	return ret;
-}
-
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret;
@@ -210,19 +179,14 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			return EREJECT;
 		}
 
-		int length = 0;
-		char *query = strchr(str, '?');
-		if (query)
-			length = query - str;
-		else
-			length = strlen(str);
+		int length = strlen(str);
 		length += strlen(config->docroot) + 1; /* for the '/' separator */
 
 		char *filepath;
 		filepath = calloc(1, length + 1);
 		snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
 		filepath[length] = '\0';
-		if (searchext(filepath,config->ignored_ext) == ESUCCESS)
+		if (utils_searchext(filepath,config->ignored_ext) == ESUCCESS)
 		{
 			warn("static file: forbidden extension");
 			free(filepath);
@@ -285,12 +249,12 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		mime_entry_t *mime = (mime_entry_t *)mime_entry[0];
 		if (ret == 0)
 		{
-			if (searchext(filepath,config->accepted_ext) == ESUCCESS)
+			if (utils_searchext(filepath,config->accepted_ext) == ESUCCESS)
 			{
 				char *fileext = strrchr(filepath,'.');
 				while (mime)
 				{
-					if (searchext(fileext,mime->ext) == ESUCCESS)
+					if (utils_searchext(fileext,mime->ext) == ESUCCESS)
 					{
 						break;
 					}
