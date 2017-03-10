@@ -575,7 +575,12 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	if (ctx->state >= STATE_OUTFINISH)
 	{
 		int status, ret;
-
+		/**
+		 * RFC 3875 : 6.2.3
+		 */
+		char *location = httpmessage_REQUEST(response, "Location");
+		if (location != NULL && location[0] != '\0')
+			httpmessage_result(response, RESULT_302);
 		ret = waitpid(ctx->pid, &status, WNOHANG);
 		ctx->state = STATE_END;
 		ctx->pid = 0;
