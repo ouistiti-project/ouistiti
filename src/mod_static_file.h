@@ -61,6 +61,7 @@ struct _static_file_connector_s
 	int type;
 	_mod_static_file_mod_t *mod;
 	void *previous;
+	char *path_info;
 	int fd;
 	unsigned int size;
 	unsigned int offset;

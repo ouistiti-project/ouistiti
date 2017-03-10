@@ -171,7 +171,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 
 	if (private->fd == 0)
 	{
-		char *str = httpmessage_REQUEST(request,"uri");
+		if (private->path_info)
+			free(private->path_info);
+		private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+		char *str = private->path_info;
 
 		if (str == NULL)
 		{
@@ -337,7 +340,10 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 
 static void _mod_static_file_freectx(void *vctx)
 {
-	free(vctx);
+	static_file_connector_t *ctx = vctx;
+	if (ctx->path_info)
+		free(ctx->path_info);
+	free(ctx);
 }
 #endif
 
