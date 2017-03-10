@@ -34,23 +34,22 @@ utils_mod_CFLAGS-$(DEBUG)+=-g -DDEBUG
 lib-$(DYNAMIC)+=mod_cgi
 slib-$(STATIC)+=mod_cgi
 mod_cgi_SOURCES+=mod_cgi.c
-mod_cgi_CFLAGS+=-I../libhttpserver/include/httpserver 
+mod_cgi_CFLAGS+=-I../libhttpserver/include/
 
 mod_cgi_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 lib-$(DYNAMIC)+=mod_static_file
 slib-$(STATIC)+=mod_static_file
 mod_static_file_SOURCES+=mod_static_file.c
-mod_static_file_CFLAGS+=-I../libhttpserver/include/httpserver
+mod_static_file_CFLAGS+=-I../libhttpserver/include
 mod_static_file_CFLAGS-$(SENDFILE)+=-DSENDFILE
-
 
 mod_static_file_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 lib-$(DYNAMIC)+=mod_sendfile
 slib-$(STATIC)+=mod_sendfile
 mod_sendfile_SOURCES+=mod_sendfile.c
-mod_sendfile_CFLAGS+=-I../libhttpserver/include/httpserver
+mod_sendfile_CFLAGS+=-I../libhttpserver/include
 
 mod_sendfile_CFLAGS-$(DEBUG)+=-g -DDEBUG
 

@@ -34,8 +34,8 @@
 #include <sys/types.h>
 #include <errno.h>
 
-#include "httpserver.h"
-#include "uri.h"
+#include "httpserver/httpserver.h"
+#include "httpserver/uri.h"
 #include "utils.h"
 #include "mod_static_file.h"
 

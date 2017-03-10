@@ -35,8 +35,8 @@
 #include <sys/sendfile.h>
 #include <errno.h>
 
-#include "httpserver.h"
-#include "uri.h"
+#include "httpserver/httpserver.h"
+#include "httpserver/uri.h"
 #include "mod_static_file.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)

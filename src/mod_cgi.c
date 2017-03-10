@@ -38,8 +38,8 @@
 #include <libgen.h>
 #include <netinet/in.h>
 
-#include "httpserver.h"
-#include "uri.h"
+#include "httpserver/httpserver.h"
+#include "httpserver/uri.h"
 #include "utils.h"
 #include "mod_cgi.h"
 
