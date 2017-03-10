@@ -76,6 +76,7 @@ struct mod_cgi_ctx_s
 	http_client_t *ctl;
 
 	char *cgipath;
+	char *path_info;
 	
 	pid_t pid;
 	int tocgi[2];
@@ -127,6 +128,8 @@ static void _mod_cgi_freectx(void *vctx)
 	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)vctx;
 	if (ctx->cgipath)
 		free(ctx->cgipath);
+	if (ctx->path_info)
+		free(ctx->path_info);
 	if (ctx->fromcgi[0])
 	{
 		if (ctx->fromcgi[0])
@@ -384,6 +387,9 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = ctx->cgipath;
 				break;
 				case PATH_INFO:
+					value = ctx->path_info;
+				break;
+				case PATH_TRANSLATED:
 					value = ctx->cgipath;
 				break;
 				case REMOTE_ADDR:
@@ -471,62 +477,60 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		return EREJECT;
 	}
 
-	char *str = httpmessage_REQUEST(request,"uri");
-	if (str && config->docroot && ctx->cgipath == NULL)
-	{
-		int length = 0;
-		char *query = strchr(str, '?');
-		if (query)
-			length = query - str;
-		else
-			length = strlen(str);
-		length += strlen(config->docroot) + 1;
-
-		char *filepath;
-		filepath = calloc(1, length + 1);
-		snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
-
-		if (searchext(filepath, config->ignored_ext) == ESUCCESS)
-		{
-			warn("cgi: forbidden extension");
-			free(filepath);
-			return EREJECT;
-		}
-		if (searchext(filepath, config->accepted_ext) != ESUCCESS)
-		{
-			warn("cgi: forbidden extension");
-			free(filepath);
-			return EREJECT;
-		}
-		struct stat filestat;
-		int ret = stat(filepath, &filestat);
-		if (ret != 0)
-		{
-			warn("cgi: %s not found", filepath);
-			free(filepath);
-			return EREJECT;
-		}
-		/* at least user or group may execute the CGI */
-		if (S_ISDIR(filestat.st_mode))
-		{
-			warn("cgi: %s is directory", filepath);
-			free(filepath);
-			return EREJECT;
-		}
-		if (filestat.st_mode & (S_IXUSR | S_IXGRP) != (S_IXUSR | S_IXGRP))
-		{
-			httpmessage_result(response, RESULT_404);
-			warn("cgi: %s access denied", filepath);
-			free(filepath);
-			return ESUCCESS;
-		}
-		dbg("cgi: run %s", filepath);
-		ctx->cgipath = filepath;
-		warn("cgi path %p", ctx->cgipath);
-	}
-
 	if (ctx->pid == 0)
+	{
+		if (ctx->path_info)
+			free(ctx->path_info);
+		ctx->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+		char *str = ctx->path_info;
+		if (str && config->docroot && ctx->cgipath == NULL)
+		{
+			int length = strlen(str);
+			length += strlen(config->docroot) + 1;
+
+			char *filepath;
+			filepath = calloc(1, length + 1);
+			snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
+
+			if (utils_searchext(filepath, config->ignored_ext) == ESUCCESS)
+			{
+				warn("cgi: forbidden extension");
+				free(filepath);
+				return EREJECT;
+			}
+			if (utils_searchext(filepath, config->accepted_ext) != ESUCCESS)
+			{
+				warn("cgi: forbidden extension");
+				free(filepath);
+				return EREJECT;
+			}
+			struct stat filestat;
+			int ret = stat(filepath, &filestat);
+			if (ret != 0)
+			{
+				warn("cgi: %s not found", filepath);
+				free(filepath);
+				return EREJECT;
+			}
+			/* at least user or group may execute the CGI */
+			if (S_ISDIR(filestat.st_mode))
+			{
+				warn("cgi: %s is directory", filepath);
+				free(filepath);
+				return EREJECT;
+			}
+			if (filestat.st_mode & (S_IXUSR | S_IXGRP) != (S_IXUSR | S_IXGRP))
+			{
+				httpmessage_result(response, RESULT_404);
+				warn("cgi: %s access denied", filepath);
+				free(filepath);
+				return ESUCCESS;
+			}
+			dbg("cgi: run %s", filepath);
+			ctx->cgipath = filepath;
+		}
 		ctx->pid = _mod_cgi_fork(ctx, request);
+	}
 	if (ctx->tocgi[1] > 0 && ctx->state <= STATE_INFINISH)
 	{
 		char *input;
