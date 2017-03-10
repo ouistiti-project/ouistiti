@@ -40,6 +40,7 @@
 
 #include "httpserver.h"
 #include "uri.h"
+#include "utils.h"
 #include "mod_cgi.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -432,38 +433,6 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		exit(0);
 	}
 	return pid;
-}
-
-static int searchext(char *filepath, char *extlist)
-{
-	int ret = EREJECT;
-	char *fileext = strrchr(filepath,'.');
-	char ext_str[64];
-	ext_str[63] = 0;
-	if (fileext != NULL)
-	{
-		strncpy(ext_str, extlist, 63);
-		char *ext = ext_str;
-		char *ext_end = strchr(ext, ',');
-		if (ext_end)
-			*ext_end = 0;
-		while (ext != NULL)
-		{
-			if (!strcmp(ext, fileext))
-			{
-				ret = ESUCCESS;
-				break;
-			}
-			if (ext_end)
-				ext = ext_end + 1;
-			else
-				break;
-			ext_end = strchr(ext, ',');
-			if (ext_end)
-				*ext_end = 0;
-		}
-	}
-	return ret;
 }
 
 static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response)
