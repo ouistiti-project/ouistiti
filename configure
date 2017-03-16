@@ -35,21 +35,25 @@ while [ "${1}" != "" ]; do
 		--host*)
 			CROSS_COMPILER=$(argument ${1})
 			;;
+		--sysroot*)
+			sysroot=$(argument ${1})
+			;;
 		--help*)
 			echo "${0} [options]"
 			printf "Configuration:\n"
 			printf "\t--help\tdisplay this help and exit\n"
 			printf "Installation directories:\n"
-			printf "\t--prefix=PREFIX\tinstall architecture-independent files in PREFIX [/usr/local]"
-			printf "\t--bindir=DIR\tuser executables [PREFIX/bin]"
-			printf "\t--sbindir=DIR\system admin executables [PREFIX/sbin]"
-			printf "\t--sysconfdir=DIR\tread-only single-machine data [PREFIX/etc]"
-			printf "\t--libdir=DIR\tobject code libraries [PREFIX/lib]"
-			printf "\t--includedir=DIR\tC header files [PREFIX/include]"
-			printf "\t--datadir=DIR\tread-only architecture-independent data [PREFIX/share]"
+			printf "\t--prefix=PREFIX\tinstall architecture-independent files in PREFIX [/usr/local]\n"
+			printf "\t--bindir=DIR\tuser executables [PREFIX/bin]\n"
+			printf "\t--sbindir=DIR\system admin executables [PREFIX/sbin]\n"
+			printf "\t--sysconfdir=DIR\tread-only single-machine data [PREFIX/etc]\n"
+			printf "\t--libdir=DIR\tobject code libraries [PREFIX/lib]\n"
+			printf "\t--includedir=DIR\tC header files [PREFIX/include]\n"
+			printf "\t--datadir=DIR\tread-only architecture-independent data [PREFIX/share]\n"
 			printf "System types:\n"
-			printf "\t--build=BUILD\tconfigure for building on BUILD [guessed]"
-			printf "\t--host=HOST\tcross-compile to build programs to run on HOST [BUILD]"
+			printf "\t--build=BUILD\tconfigure for building on BUILD [guessed]\n"
+			printf "\t--host=HOST\tcross-compile to build programs to run on HOST [BUILD]\n"
+			printf "\t--sysroot=DIR\tcross-compiler root directory [none]\n"
 	esac
 	shift
 done
