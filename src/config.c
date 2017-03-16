@@ -197,6 +197,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						config_setting_lookup_string(configcgi, "docroot", (const char **)&config->cgi->docroot);
 						config_setting_lookup_string(configcgi, "accepted_ext", (const char **)&config->cgi->accepted_ext);
 						config_setting_lookup_string(configcgi, "ignored_ext", (const char **)&config->cgi->ignored_ext);
+						config->cgi->nbenvs = 0;
 						config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
 						if (cgienv)
 						{
