@@ -96,7 +96,7 @@ int utils_searchext(char *filepath, char *extlist)
 			*ext_end = 0;
 		while (ext != NULL)
 		{
-			if (!strcmp(ext, fileext))
+			if (!strcmp(ext, fileext) || ext[0] == '*')
 			{
 				ret = ESUCCESS;
 				break;
