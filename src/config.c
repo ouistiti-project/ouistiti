@@ -146,7 +146,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							config->server->version |= HTTP_PIPELINE;
 					}
 
-					config_setting_t *configtls = config_setting_lookup(iterator, "mbedtls");
+					config_setting_t *configtls = config_setting_lookup(iterator, "tls");
 					if (configtls)
 					{
 						config->tls = calloc(1, sizeof(*config->tls));
