@@ -27,39 +27,37 @@ $(TARGET)_CFLAGS-$(AUTHN_BASIC_CONF)+=-DAUTHN_BASIC_CONF
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
+ifeq ($(STATIC),y)
+	static=s
+endif
 
-lib-$(DYNAMIC)+=utils_mod
-slib-$(STATIC)+=utils_mod
+$(static)lib-$(STATIC)+=utils_mod
 utils_mod_SOURCES=utils.c
 utils_mod_CFLAGS+=-I../libhttpserver/include 
 
 utils_mod_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
-lib-$(DYNAMIC)+=mod_cgi
-slib-$(STATIC)+=mod_cgi
+$(static)lib-$(CGI)+=mod_cgi
 mod_cgi_SOURCES+=mod_cgi.c
 mod_cgi_CFLAGS+=-I../libhttpserver/include/
 
 mod_cgi_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
-lib-$(DYNAMIC)+=mod_static_file
-slib-$(STATIC)+=mod_static_file
+$(static)lib-$(STATIC_FILE)+=mod_static_file
 mod_static_file_SOURCES+=mod_static_file.c
 mod_static_file_CFLAGS+=-I../libhttpserver/include
 mod_static_file_CFLAGS-$(SENDFILE)+=-DSENDFILE
 
 mod_static_file_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
-lib-$(DYNAMIC)+=mod_sendfile
-slib-$(STATIC)+=mod_sendfile
+$(static)lib-$(SENDFILE)+=mod_sendfile
 mod_sendfile_SOURCES+=mod_sendfile.c
 mod_sendfile_CFLAGS+=-I../libhttpserver/include
 
 mod_sendfile_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 LIBB64_DIR=../libb64
-lib-$(DYNAMIC)+=mod_auth
-slib-$(STATIC)+=mod_auth
+$(static)lib-$(AUTH)+=mod_auth
 mod_auth_SOURCES+=mod_auth.c
 mod_auth_CFLAGS+=-I../libhttpserver/include
 
