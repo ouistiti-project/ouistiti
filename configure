@@ -11,9 +11,9 @@ function argument {
 
 function help {
 	echo "${0} [options]"
-	printf "Configuration:\n"
+	printf "\nConfiguration:\n"
 	printf "\t--help\t\t\tdisplay this help and exit\n"
-	printf "Installation directories:\n"
+	printf "\nInstallation directories:\n"
 	printf "\t--prefix=PREFIX\t\tinstall architecture-independent files in PREFIX [/usr/local]\n"
 	printf "\t--bindir=DIR\t\tuser executables [PREFIX/bin]\n"
 	printf "\t--sbindir=DIR\t\tsystem admin executables [PREFIX/sbin]\n"
@@ -21,12 +21,40 @@ function help {
 	printf "\t--libdir=DIR\t\tobject code libraries [PREFIX/lib]\n"
 	printf "\t--includedir=DIR\tC header files [PREFIX/include]\n"
 	printf "\t--datadir=DIR\t\tread-only architecture-independent data [PREFIX/share]\n"
-	printf "System types:\n"
+	printf "\nSystem types:\n"
 	printf "\t--build=BUILD\t\tconfigure for building on BUILD [guessed]\n"
 	printf "\t--host=HOST\t\tcross-compile to build programs to run on HOST [BUILD]\n"
 	printf "\t--sysroot=DIR\t\tcross-compiler root directory [none]\n"
+	printf "\nFeatures enabling:\n"
+	for option in $OPTIONS
+	do
+		default=$(echo $option | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print $2}')
+		if [ "$default" == "y" -o  "$default" == "n" ]; then
+			enable=$(echo $option | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--enable-"tolower($1)}')
+			if [ $(echo $enable | wc -c) -ge 17 ]; then
+				printf "\t$enable\tdefault:$default\n"
+			else
+				printf "\t$enable\t\tdefault:$default\n"
+			fi
+		fi
+	done
+	printf "\nFeatures:\n"
+	for option in $OPTIONS
+	do
+		default=$(echo $option | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print $2}')
+		if [ "$default" != "y" -a  "$default" != "n" ]; then
+			with=$(echo $option | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--with-"tolower($1)}')
+			printf "\t$with=<value>\tdefault:$default\n"
+		fi
+	done
 	exit
 }
+
+if [ ! -e ${CONFIG} -a -e default.config ]; then
+	cp default.config ${CONFIG}
+fi
+
+OPTIONS=$(cat ${CONFIG} | sed 's/\#.*//g')
 
 while [ "${1}" != "" ]; do
 	case ${1} in
@@ -61,8 +89,37 @@ while [ "${1}" != "" ]; do
 			help
 			;;
 		*)
-			printf "\x1B[31m\n\tbad argument: ${1}\n\n\x1B[0m"
-			help
+			found=n
+			OPTION=$(echo ${1} | sed 's/=/ /g' | gawk '{print $1}')
+			for opt in $OPTIONS
+			do
+				default=$(echo $opt | sed 's/=/ /g' | gawk '{print $2}')
+				option=$(echo $opt | sed 's/=/ /g' | gawk '{print $1}')
+
+				enable=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--enable-"tolower($1)}')
+				disable=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--disable-"tolower($1)}')
+				with=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--with-"tolower($1)}')
+
+				if [ "$enable" == "$OPTION" ]; then
+					default=y
+					found=y
+				fi
+				if [ "$disable" == "$OPTION" ]; then
+					default=n
+					found=y
+				fi
+				if [ "$with" == "$OPTION" ]; then
+					default=$(argument ${1})
+					found=y
+				fi
+				NEWOPTIONS="$NEWOPTIONS ${option}=${default}"
+			done
+			OPTIONS=$NEWOPTIONS
+			if [ $found == n ]; then
+				printf "\x1B[31m\n\tbad argument: ${1}\n\n\x1B[0m"
+				help
+			fi
+			;;
 	esac
 	shift
 done
@@ -83,25 +140,47 @@ if [ -z ${sysconfdir} ]; then
 	sysconfdir=${prefix}/etc
 fi
 
-echo "#Makemore 1.0" > $out
-echo "prefix=\""$prefix"\"" >> $out
-echo "bindir=\""$bindir"\"" >> $out
-echo "sbindir=\""$sbindir"\"" >> $out
-echo "includedir=\""$includedir"\"" >> $out
-echo "libdir=\""$libdir"\"" >> $out
-echo "sysconfdir=\""$sysconfdir"\"" >> $out
-if [ $sysroot ]; then
-	echo "sysroot=\""$sysroot"\"" >> $out
-fi
-if [ $CROSS_COMPILER ]; then
-	echo "CROSS_COMPILER="$CROSS_COMPILER >> $out
-fi
-
-if [ ! -e config -a -e default.config ]; then
-	cp default.config config
-fi
 make check
 if [ $? != 0 ]; then
 	echo "binary dependences failed"
 	exit -1
 fi
+
+echo "#Makemore 1.0" > $out
+printf "\nInstallation:\n"
+echo "prefix=\""$prefix"\"" >> $out
+printf " prefix:\t$prefix\n"
+echo "bindir=\""$bindir"\"" >> $out
+printf " bindir:\t$bindir\n"
+echo "sbindir=\""$sbindir"\"" >> $out
+printf " sbindir:\t$sbindir\n"
+echo "includedir=\""$includedir"\"" >> $out
+printf " includedir:\t$includedir\n"
+echo "libdir=\""$libdir"\"" >> $out
+printf " libdir:\t$libdir\n"
+echo "sysconfdir=\""$sysconfdir"\"" >> $out
+printf " sysconfdir:\t$sysconfdir\n"
+if [ $sysroot ]; then
+	echo "sysroot=\""$sysroot"\"" >> $out
+	printf " sysroot:\t$sysroot\n"
+fi
+if [ $CROSS_COMPILER ]; then
+	echo "CROSS_COMPILER="$CROSS_COMPILER >> $out
+	printf " host:\t$CROSS_COMPILER\n"
+fi
+
+echo "# Configuration file set with ./configure" > ${CONFIG}
+printf "\nConfiguration:\n"
+for opt in $OPTIONS
+do
+	default=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print $2}')
+	option=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print $1}')
+	if [ $(echo $option | wc -c) -ge 15 ]; then
+		printf " $option:\t$default\n"
+	elif [ $(echo $option | wc -c) -ge 7 ]; then
+		printf " $option:\t\t$default\n"
+	else
+		printf " $option:\t\t\t$default\n"
+	fi
+	echo $opt >> ${CONFIG}
+done

@@ -284,7 +284,7 @@ _distclean: $(subdir-target) _clean_objs
 	$(Q)$(call cmd,clean_dir,$(filter-out $(src),$(obj)))
 
 _check: action:=_check
-_check: build:=$(action) -f $(srcdir)$(makemore) file
+_check: build:=$(action) -s -f $(srcdir)$(makemore) file
 _check: $(subdir-target) $(LIBRARY) $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))
 
 clean: action:=_clean
@@ -302,7 +302,7 @@ install: build:=$(action) -f $(srcdir)$(makemore) file
 install: $(.DEFAULT_GOAL)
 
 check: action:=_check
-check: build:=$(action) -f $(srcdir)$(makemore) file
+check: build:=$(action) -s -f $(srcdir)$(makemore) file
 check: $(.DEFAULT_GOAL)
 
 default_action:
@@ -349,11 +349,11 @@ quiet_cmd_ld_dlib=LD $*
  cmd_ld_dlib=$(LD) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(notdir $@)) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 
 checkoption:=--exact-version
-quiet_cmd_check2_lib=CHECK $*
+quiet_cmd_check_lib=CHECK $*
+cmd_check_lib=$(CC) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.c) $(LDFLAGS) $(addprefix -l, $2)
 prepare_check=$(if $(filter %-, $2),$(eval checkoption:=--atleast-version),$(if $(filter -%, $2),$(eval checkoption:=--max-version)))
-cmd_check_lib=$(if $(findstring $(3:%-=%), $3),$(if $(findstring $(3:-%=%), $3),,$(eval checkoption:=--atleast-version),$(eval checkoption:=--max-version))) \
+cmd_check2_lib=$(if $(findstring $(3:%-=%), $3),$(if $(findstring $(3:-%=%), $3),,$(eval checkoption:=--atleast-version),$(eval checkoption:=--max-version))) \
 	$(PKGCONFIG) --print-errors $(checkoption) $(subst -,,$3) lib$2
-cmd_check2_lib=$(CC) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.c) $(LDFLAGS) $(addprefix -l, $2)
 
 ##
 # build rules
@@ -402,20 +402,20 @@ $(hostbin-target): $(hostobj)%$(bin-ext:%=.%): $$(if $$(%-objs), $$(addprefix $(
 	@$(call cmd,hostld_bin)
 
 .PHONY:$(subdir-target) $(subdir-project)
-$(subdir-project): %:
-	$(Q)cd $(dir $*) && autoreconf -i
-	$(Q)cd $(dir $*) && ./configure
-	$(Q)cd $(dir $*) && $(MAKE)
+#$(subdir-project): %:
+#	$(Q)cd $(dir $*) && autoreconf -i
+#	$(Q)cd $(dir $*) && ./configure
+#	$(Q)cd $(dir $*) && $(MAKE)
 
 $(subdir-target): %:
 	$(Q)$(MAKE) -C $(dir $*) cwdir=$(cwd)$(dir $*) builddir=$(builddir) $(build)=$(notdir $*)
 
 $(LIBRARY) $(sort $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))): %:
-	@$(call prepare_check,$(lastword $(subst {, ,$(subst },,$@))))
 	@$(RM) $(TMPDIR)/$(TESTFILE:%=%.c) $(TMPDIR)/$(TESTFILE)
 	@echo "int main(){}" > $(TMPDIR)/$(TESTFILE:%=%.c)
-	@$(call cmd,check2_lib,$(firstword $(subst {, ,$(subst },,$@))))
-	@$(if $(findstring $(words $(subst {, ,$(subst },,$@))),2),$(call cmd,check_lib,$(firstword $(subst {, ,$(subst },,$@))),$(lastword $(subst {, ,$(subst },,$@)))))
+	@$(call cmd,check_lib,$(firstword $(subst {, ,$(subst },,$@))))
+	@$(call prepare_check,$(lastword $(subst {, ,$(subst },,$@))))
+	@$(if $(findstring $(words $(subst {, ,$(subst },,$@))),2),$(call cmd,check2_lib,$(firstword $(subst {, ,$(subst },,$@))),$(lastword $(subst {, ,$(subst },,$@)))))
 
 ##
 # Commands for install
