@@ -145,7 +145,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							version[8] == 'P' && version[9] == 'E')
 							config->server->version |= HTTP_PIPELINE;
 					}
-
+#if defined(MBEDTLS)
 					config_setting_t *configtls = config_setting_lookup(iterator, "tls");
 					if (configtls)
 					{
@@ -155,7 +155,8 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						config_setting_lookup_string(configtls, "cachain", (const char **)&config->tls->cachain);
 						config_setting_lookup_string(configtls, "dhmfile", (const char **)&config->tls->dhmfile);
 					}
-
+#endif
+#ifdef STATIC_FILE
 					config_setting_t *configstaticfile = config_setting_lookup(iterator, "static_file");
 					if (configstaticfile)
 					{
@@ -165,7 +166,8 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						config_setting_lookup_string(configstaticfile, "ignored_ext", (const char **)&config->static_file->ignored_ext);
 						config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&config->static_file->transfertype);
 					}
-
+#endif
+#ifdef AUTH
 					config_setting_t *configauthn = config_setting_lookup(iterator, "authn");
 					if (configauthn)
 					{
@@ -189,7 +191,8 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							config->authn->rule->config = authn_basic_config;
 						}
 					}
-
+#endif
+#ifdef CGI
 					config_setting_t *configcgi = config_setting_lookup(iterator, "cgi");
 					if (configcgi)
 					{
@@ -212,6 +215,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							config->cgi->nbenvs = count;
 						}
 					}
+#endif
 				}
 			}
 			ouistiticonfig->servers[i] = NULL;
