@@ -1,23 +1,27 @@
 TARGET=ouistiti
 sbin-y+=$(TARGET)
 $(TARGET)_CFLAGS+=-I../libhttpserver/include/httpserver
-$(TARGET)_LDFLAGS+=-L. -L../libhttpserver/src ../libhttpserver/src/httpserver/libhttpserver.a
-$(TARGET)_LIBRARY+=pthread rt
-$(TARGET)_SOURCES+=main.c
+$(TARGET)_LDFLAGS+=-L. -L../libhttpserver/src
+$(TARGET)_LIBS+=httpserver
+ifeq ($(VTHREAD_TYPE),vthread)
+$(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
+endif
+$(TARGET)_SOURCES+=main.c ../libhttpserver/src/httpserver/libhttpserver.a
 main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
 $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 
-$(TARGET)_LIBRARY-$(MBEDTLS)+=mod_mbedtls mbedtls mbedx509 mbedcrypto
+$(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
+$(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DMBEDTLS
-$(TARGET)_LIBRARY-$(SENDFILE)+=mod_sendfile
+$(TARGET)_LIBS-$(SENDFILE)+=mod_sendfile
 $(TARGET)_CFLAGS-$(SENDFILE)+=-DSTATIC_FILE -DSENDFILE
-$(TARGET)_LIBRARY-$(STATIC_FILE)+=mod_static_file utils_mod
+$(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
 $(TARGET)_CFLAGS-$(STATIC_FILE)+=-DSTATIC_FILE
-$(TARGET)_LIBRARY-$(CGI)+=mod_cgi utils_mod
+$(TARGET)_LIBS-$(CGI)+=mod_cgi utils_mod
 $(TARGET)_CFLAGS-$(CGI)+=-DCGI
-$(TARGET)_LIBRARY-$(AUTH)+=mod_auth
+$(TARGET)_LIBS-$(AUTH)+=mod_auth
 $(TARGET)_CFLAGS-$(AUTH)+=-DAUTH
 $(TARGET)_CFLAGS-$(AUTHN_BASIC_CONF)+=-DAUTHN_BASIC_CONF
 
