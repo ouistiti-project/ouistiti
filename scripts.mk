@@ -36,6 +36,8 @@ hostbin-y:=
 srcdir?=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 file?=$(notdir $(firstword $(MAKEFILE_LIST)))
 
+VERSIONFILE=version
+
 # CONFIG could define LD CC or/and CFLAGS
 # CONFIG must be included before "Commands for build and link"
 CONFIGURE_STATUS:=configure.status
@@ -131,8 +133,7 @@ pkglibdir?=$(libdir)/$(PACKAGE_NAME:"%"=%)
 pkglibdir:=$(pkglibdir:"%"=%)
 
 ifneq ($(sysroot),)
-CFLAGS+=-I$(sysroot)/usr/include
-LDFLAGS+=-L$(sysroot)/lib -L$(sysroot)/usr/lib
+SYSROOT+=--sysroot=$(sysroot)
 endif
 
 ifneq ($(file),)
@@ -261,8 +262,9 @@ _info:
 
 _hostbuild: $(if $(hostbin-y) , $(hostobj) $(hostbin-target))
 _configbuild: $(if $(wildcard $(CONFIG)),$(join $(CURDIR)/,$(CONFIG:%=%.h)))
+_versionbuild: $(if $(package) $(version), $(join $(CURDIR)/,$(VERSIONFILE:%=%.h)))
 
-_build: _info $(obj) _configbuild $(subdir-project) $(subdir-target) _hostbuild $(targets)
+_build: _info $(obj) $(subdir-project) $(subdir-target) _hostbuild $(targets)
 	@:
 
 _install: action:=_install
@@ -295,7 +297,8 @@ distclean: action:=_distclean
 distclean: build:=$(action) -f $(srcdir)$(makemore) file
 distclean: $(.DEFAULT_GOAL)
 distclean:
-	$(Q)$(call cmd,clean,$(wildcard $(CURDIR)$(CONFIG:%=%.h)))
+	$(Q)$(call cmd,clean,$(wildcard $(join $(CURDIR)/,$(CONFIG:%=%.h))))
+	$(Q)$(call cmd,clean,$(wildcard $(join $(CURDIR)/,$(VERSIONFILE:%=%.h))))
 
 install: action:=_install
 install: build:=$(action) -f $(srcdir)$(makemore) file
@@ -305,7 +308,7 @@ check: action:=_check
 check: build:=$(action) -s -f $(srcdir)$(makemore) file
 check: $(.DEFAULT_GOAL)
 
-default_action:
+default_action:  _configbuild _versionbuild
 	$(Q)$(MAKE) $(build)=$(file)
 	@:
 
@@ -313,6 +316,13 @@ all: default_action
 
 $(join $(CURDIR)/,$(CONFIG:%=%.h)): $(srcdir)/$(CONFIG)
 	@$(call cmd,config)
+
+$(join $(CURDIR)/,$(VERSIONFILE:%=%.h)):
+	@echo '#ifndef __VERSION_H__' >> $@
+	@echo '#define __VERSION_H__' >> $@
+	@$(if $(version), echo '#define VERSION "'$(version)'"' >> $@)
+	@$(if $(package), echo '#define PACKAGE "'$(package)'"' >> $@)
+	@echo '#endif' >> $@
 
 ##
 # Commands for clean
@@ -328,25 +338,25 @@ RPATH=$(wildcard $(addsuffix /.,$(wildcard $(CURDIR:%/=%)/* $(obj)*)))
 quiet_cmd_yacc_y=YACC $*
  cmd_yacc_y=$(YACC) -o $@ $<
 quiet_cmd_as_o_s=AS $*
- cmd_as_o_s=$(AS) $(ASFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
+ cmd_as_o_s=$(AS) $(SYSROOT) $(ASFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
 quiet_cmd_cc_o_c=CC $*
- cmd_cc_o_c=$(CC) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
+ cmd_cc_o_c=$(CC) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
 quiet_cmd_cc_o_cpp=CXX $*
- cmd_cc_o_cpp=$(CXX) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
+ cmd_cc_o_cpp=$(CXX) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
 quiet_cmd_ld_bin=LD $*
- cmd_ld_bin=$(LD) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
+ cmd_ld_bin=$(LD) $(SYSROOT) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 quiet_cmd_hostcc_o_c=HOSTCC $*
  cmd_hostcc_o_c=$(HOSTCC) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
 quiet_hostcmd_cc_o_cpp=HOSTCXX $*
  cmd_hostcc_o_cpp=$(HOSTCXX) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
 quiet_cmd_hostld_bin=HOSTLD $*
- cmd_hostld_bin=$(HOSTLD) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
+ cmd_hostld_bin=$(HOSTLD) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 quiet_cmd_ld_slib=LD $*
  cmd_ld_slib=$(RM) $@ && \
 	$(AR) -cvq $@ $^ > /dev/null && \
 	$(RANLIB) $@
 quiet_cmd_ld_dlib=LD $*
- cmd_ld_dlib=$(LD) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(notdir $@)) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+ cmd_ld_dlib=$(LD) $(SYSROOT) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(notdir $@)) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 
 checkoption:=--exact-version
 quiet_cmd_check_lib=CHECK $*

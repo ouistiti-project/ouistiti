@@ -55,6 +55,7 @@ if [ ! -e ${CONFIG} -a -e default.config ]; then
 fi
 
 OPTIONS=$(cat ${CONFIG} | sed 's/\#.*//g')
+error=n
 
 while [ "${1}" != "" ]; do
 	case ${1} in
@@ -84,6 +85,9 @@ while [ "${1}" != "" ]; do
 			;;
 		--sysroot*)
 			sysroot=$(argument ${1})
+			;;
+		--disable-error)
+			error=disable
 			;;
 		--help*)
 			help
@@ -115,14 +119,18 @@ while [ "${1}" != "" ]; do
 				NEWOPTIONS="$NEWOPTIONS ${option}=${default}"
 			done
 			OPTIONS=$NEWOPTIONS
-			if [ $found == n ]; then
-				printf "\x1B[31m\n\tbad argument: ${1}\n\n\x1B[0m"
-				help
+			if [ $found == n -a $error == n]; then
+				error=${1}
 			fi
 			;;
 	esac
 	shift
 done
+
+if [ $error != n  -a $error != disable ]; then
+	printf "\x1B[31m\n\tbad argument: ${error}\n\n\x1B[0m"
+	help
+fi
 
 if [ -z ${bindir} ]; then
 	bindir=${prefix}/bin
