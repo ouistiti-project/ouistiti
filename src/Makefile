@@ -30,7 +30,7 @@ ifeq ($(STATIC),y)
 	static=s
 endif
 
-$(static)lib-$(STATIC)+=utils_mod
+$(static)lib-$(STATIC_FILE)+=utils_mod
 utils_mod_SOURCES=utils.c
 utils_mod_CFLAGS+=-I../libhttpserver/include 
 
