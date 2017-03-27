@@ -2,7 +2,6 @@ TARGET=ouistiti
 sbin-y+=$(TARGET)
 $(TARGET)_CFLAGS+=-I../libhttpserver/include/httpserver
 $(TARGET)_LDFLAGS+=-L. -L../libhttpserver/src
-$(TARGET)_LIBS+=httpserver
 ifeq ($(VTHREAD_TYPE),pthread)
 $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
