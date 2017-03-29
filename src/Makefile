@@ -8,6 +8,7 @@ endif
 $(TARGET)_SOURCES+=main.c
 $(TARGET)_SOURCES-$(STATIC)+=../libhttpserver/src/httpserver/libhttpserver.a
 $(TARGET)_LIBS-$(DYNAMIC)+=httpserver
+$(TARGET)_LDFLAGS-$(DYNAMIC)+=-L../libhttpserver/src/httpserver
 main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
 $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
