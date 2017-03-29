@@ -1,12 +1,16 @@
 #!/bin/bash
 
+AWK=awk
+GREP=grep
+SED=sed
+MAKE=make
 CONFIG=config
 CONFIGURE_STATUS=configure.status
 out=$CONFIGURE_STATUS
 
 prefix=/usr/local
 function argument {
-	echo ${1} | awk 'BEGIN { FS = "="} {print $2}'
+	echo ${1} | ${AWK} 'BEGIN { FS = "="} {print $2}'
 }
 
 function help {
@@ -22,15 +26,15 @@ function help {
 	printf "\t--includedir=DIR\tC header files [PREFIX/include]\n"
 	printf "\t--datadir=DIR\t\tread-only architecture-independent data [PREFIX/share]\n"
 	printf "\nSystem types:\n"
-	printf "\t--build=BUILD\t\tconfigure for building on BUILD [guessed]\n"
+	printf "\t--build=BUILD\t\tconfigure for building on BUILD [gues${SED}]\n"
 	printf "\t--host=HOST\t\tcross-compile to build programs to run on HOST [BUILD]\n"
 	printf "\t--sysroot=DIR\t\tcross-compiler root directory [none]\n"
 	printf "\nFeatures enabling:\n"
 	for option in $OPTIONS
 	do
-		default=$(echo $option | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print $2}')
+		default=$(echo $option | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print $2}')
 		if [ "$default" == "y" -o  "$default" == "n" ]; then
-			enable=$(echo $option | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--enable-"tolower($1)}')
+			enable=$(echo $option | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--enable-"tolower($1)}')
 			if [ $(echo $enable | wc -c) -ge 17 ]; then
 				printf "\t$enable\tdefault:$default\n"
 			else
@@ -41,9 +45,9 @@ function help {
 	printf "\nFeatures:\n"
 	for option in $OPTIONS
 	do
-		default=$(echo $option | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print $2}')
+		default=$(echo $option | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print $2}')
 		if [ "$default" != "y" -a  "$default" != "n" ]; then
-			with=$(echo $option | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--with-"tolower($1)}')
+			with=$(echo $option | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--with-"tolower($1)}')
 			printf "\t$with=<value>\tdefault:$default\n"
 		fi
 	done
@@ -54,7 +58,7 @@ if [ ! -e ${CONFIG} -a -e default.config ]; then
 	cp default.config ${CONFIG}
 fi
 
-OPTIONS=$(cat ${CONFIG} | sed 's/\#.*//g')
+OPTIONS=$(cat ${CONFIG} | ${SED} 's/\#.*//g')
 error=n
 
 while [ "${1}" != "" ]; do
@@ -94,15 +98,15 @@ while [ "${1}" != "" ]; do
 			;;
 		*)
 			found=n
-			OPTION=$(echo ${1} | sed 's/=/ /g' | gawk '{print $1}')
+			OPTION=$(echo ${1} | ${SED} 's/=/ /g' | ${AWK} '{print $1}')
 			for opt in $OPTIONS
 			do
-				default=$(echo $opt | sed 's/=/ /g' | gawk '{print $2}')
-				option=$(echo $opt | sed 's/=/ /g' | gawk '{print $1}')
+				default=$(echo $opt | ${SED} 's/=/ /g' | ${AWK} '{print $2}')
+				option=$(echo $opt | ${SED} 's/=/ /g' | ${AWK} '{print $1}')
 
-				enable=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--enable-"tolower($1)}')
-				disable=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--disable-"tolower($1)}')
-				with=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print "--with-"tolower($1)}')
+				enable=$(echo $opt | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--enable-"tolower($1)}')
+				disable=$(echo $opt | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--disable-"tolower($1)}')
+				with=$(echo $opt | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--with-"tolower($1)}')
 
 				if [ "$enable" == "$OPTION" ]; then
 					default=y
@@ -119,7 +123,8 @@ while [ "${1}" != "" ]; do
 				NEWOPTIONS="$NEWOPTIONS ${option}=${default}"
 			done
 			OPTIONS=$NEWOPTIONS
-			if [ $found == n -a $error == n]; then
+			NEWOPTIONS=""
+			if [ $found == n -a $error == n ]; then
 				error=${1}
 			fi
 			;;
@@ -148,12 +153,6 @@ if [ -z ${sysconfdir} ]; then
 	sysconfdir=${prefix}/etc
 fi
 
-make check
-if [ $? != 0 ]; then
-	echo "binary dependences failed"
-	exit -1
-fi
-
 echo "#Makemore 1.0" > $out
 printf "\nInstallation:\n"
 echo "prefix=\""$prefix"\"" >> $out
@@ -178,11 +177,22 @@ if [ $CROSS_COMPILER ]; then
 fi
 
 echo "# Configuration file set with ./configure" > ${CONFIG}
+for opt in $OPTIONS
+do
+	echo $opt >> ${CONFIG}
+done
+
+${MAKE} check 2> /dev/null
+if [ $? != 0 ]; then
+	echo "binary dependences failed"
+	exit -1
+fi
+
 printf "\nConfiguration:\n"
 for opt in $OPTIONS
 do
-	default=$(echo $opt | sed 's/=/ /g' | gawk '{print $2}')
-	option=$(echo $opt | sed 's/=/ /g' | gawk '{print $1}')
+	default=$(echo $opt | ${SED} 's/=/ /g' | ${AWK} '{print $2}')
+	option=$(echo $opt | ${SED} 's/=/ /g' | ${AWK} '{print $1}')
 	if [ $(echo $option | wc -c) -ge 15 ]; then
 		printf " $option:\t$default\n"
 	elif [ $(echo $option | wc -c) -ge 7 ]; then
@@ -190,5 +200,4 @@ do
 	else
 		printf " $option:\t\t\t$default\n"
 	fi
-	echo $opt >> ${CONFIG}
 done

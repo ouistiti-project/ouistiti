@@ -72,6 +72,20 @@ INSTALL_DATA?=$(INSTALL) -m 644
 PKGCONFIG?=pkg-config
 YACC=bison
 
+CC?=gcc
+CXX?=g++
+LD?=gcc
+AR?=ar
+RANLIB?=ranlib
+HOSTCC=$(CC)
+HOSTCXX=$(CXX)
+HOSTLD=$(LD)
+HOSTAR=$(AR)
+HOSTRANLIB=$(RANLIB)
+
+ldgcc=$(1) $(2)
+LDFLAGS+=-lc
+
 ifneq ($(CROSS_COMPILE),)
 	AS=$(CROSS_COMPILE:%-=%)-as
 	CC=$(CROSS_COMPILE:%-=%)-gcc
@@ -79,41 +93,15 @@ ifneq ($(CROSS_COMPILE),)
 	LD=$(CROSS_COMPILE:%-=%)-gcc
 	AR=$(CROSS_COMPILE:%-=%)-ar
 	RANLIB=$(CROSS_COMPILE:%-=%)-ranlib
-	HOSTCC=gcc
-	HOSTCXX=g++
-	HOSTLD=gcc
-	HOSTAR=ar
-	HOSTRANLIB=ranlib
-else
-ifeq ($(CC),)
-# CC is not set use gcc as default compiler
-	AS=as
-	CC=gcc
-	CXX=g++
-	LD=gcc
-	AR=ar
-	RANLIB=ranlib
+	ldgcc=-Wl,$(1),$(2)
 else ifeq ($(CC),cc)
 # if cc is a link on gcc, prefer to use directly gcc for ld
-CCVERSION=$(shell $(CC) --version)
+CCVERSION=$(shell $(CC) -v 2>&1)
 ifneq ($(findstring GCC,$(CCVERSION)), )
-	CC=gcc
-	CXX=g++
-	LD=gcc
-	AR=ar
-	RANLIB=ranlib
-endif
-endif 
-	HOSTCC=$(CC)
-	HOSTCXX=$(CXX)
+	LD=cc
 	HOSTLD=$(LD)
-	HOSTAR=$(AR)
-	HOSTRANLIB=$(RANLIB)
-endif
-ifeq ($(findstring gcc,$(LD)),gcc)
-ldgcc=-Wl,$(1),$(2)
-else
-ldgcc=$(1) $(2)
+	ldgcc=-Wl,$(1),$(2)
+endif 
 endif
 
 prefix?=/usr/local
@@ -144,7 +132,7 @@ LIBRARY+=
 ifneq ($(builddir),)
 LDFLAGS+=-L$(builddir)
 endif
-LDFLAGS+=$(call ldgcc,-rpath,$(libdir))
+LDFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
 else
 export prefix bindir sbindir libdir includedir datadir pkglibdir srcdir
 endif
@@ -363,11 +351,12 @@ quiet_cmd_ld_slib=LD $*
 	$(AR) -cvq $@ $^ > /dev/null && \
 	$(RANLIB) $@
 quiet_cmd_ld_dlib=LD $*
- cmd_ld_dlib=$(LD) $(SYSROOT) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(notdir $@)) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+ cmd_ld_dlib=$(LD) $(SYSROOT) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(strip $(notdir $@))) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 
 checkoption:=--exact-version
 quiet_cmd_check_lib=CHECK $*
-cmd_check_lib=$(CC) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.c) $(LDFLAGS) $(addprefix -l, $2)
+cmd_check_lib=$(CC) -c -o $(TMPDIR)/$(TESTFILE:%=%.o) $(TMPDIR)/$(TESTFILE:%=%.c) $(CFLAGS) && \
+	$(LD) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.o) $(LDFLAGS) $(addprefix -l, $2) > /dev/null 2>&1
 prepare_check=$(if $(filter %-, $2),$(eval checkoption:=--atleast-version),$(if $(filter -%, $2),$(eval checkoption:=--max-version)))
 cmd_check2_lib=$(if $(findstring $(3:%-=%), $3),$(if $(findstring $(3:-%=%), $3),,$(eval checkoption:=--atleast-version),$(eval checkoption:=--max-version))) \
 	$(PKGCONFIG) --print-errors $(checkoption) $(subst -,,$3) lib$2
