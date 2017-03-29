@@ -1,0 +1,2 @@
+# From https://github.com/ouistiti-net/ouistiti
+sha256	c05f8a90b8cd910b196b77971f1bcf1aef5b7907b90fdc4112045bb79c8e51d3	ouistiti-full-1.0.tar.xz

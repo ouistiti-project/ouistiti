@@ -1,0 +1,18 @@
+config BR2_PACKAGE_OUISTITI
+	bool "ouistiti"
+	depends on BR2_USE_MMU
+	select BR2_PACKAGE_LIBCONFIG
+	help
+	  ouistiti small, fast and secure webserver.
+
+	  https://github.com/ouistiti-net
+
+if BR2_PACKAGE_OUISTITI
+
+config BR2_PACKAGE_OUISTITI_MBEDTLS
+	bool "ssl support with mbedtls"
+	select BR2_PACKAGE_MBEDTLS
+	help
+	  Enable SSL/TLS support for ouistiti.
+
+endif
