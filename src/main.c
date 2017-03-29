@@ -175,8 +175,10 @@ int main(int argc, char * const *argv)
 			if (server->config->tls)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
 #endif
+#if defined STATIC_FILE
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
+#endif
 		}
 		if (server->server)
 		{
@@ -206,8 +208,10 @@ int main(int argc, char * const *argv)
 		if (server->mod_mbedtls)
 			mod_mbedtls_destroy(server->mod_mbedtls);
 #endif
+#if defined STATIC_FILE
 		if (server->mod_static_file)
 			mod_static_file_destroy(server->mod_static_file);
+#endif
 #if defined CGI
 
 		if (server->mod_cgi)
