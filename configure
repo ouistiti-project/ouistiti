@@ -181,8 +181,8 @@ echo "# Configuration file set with ./configure" > ${CONFIG}
 printf "\nConfiguration:\n"
 for opt in $OPTIONS
 do
-	default=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print $2}')
-	option=$(echo $opt | sed 's/_/-/g' | sed 's/=/ /g' | gawk '{print $1}')
+	default=$(echo $opt | sed 's/=/ /g' | gawk '{print $2}')
+	option=$(echo $opt | sed 's/=/ /g' | gawk '{print $1}')
 	if [ $(echo $option | wc -c) -ge 15 ]; then
 		printf " $option:\t$default\n"
 	elif [ $(echo $option | wc -c) -ge 7 ]; then
