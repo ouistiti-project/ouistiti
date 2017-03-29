@@ -1,6 +1,6 @@
 subdir-$(AUTH)+=libb64.mk
 
-hostbin-y+=testclient httpparser
+hostbin-$(HOST_UTILS)+=testclient httpparser
 testclient_SOURCES+=testclient.c
 httpparser_SOURCES+=httpparser.c
 httpparser_SOURCES+=../libhttpserver/src/httpserver/libhttpserver.a
