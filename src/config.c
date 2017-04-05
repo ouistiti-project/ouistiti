@@ -146,7 +146,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							config->server->version |= HTTP_PIPELINE;
 					}
 #if defined(MBEDTLS)
+#if LIBCONFIG_VER_MINOR < 5
+					config_setting_t *configtls = config_setting_get_member(iterator, "tls");
+#else
 					config_setting_t *configtls = config_setting_lookup(iterator, "tls");
+#endif
 					if (configtls)
 					{
 						config->tls = calloc(1, sizeof(*config->tls));
@@ -157,7 +161,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					}
 #endif
 #ifdef STATIC_FILE
+#if LIBCONFIG_VER_MINOR < 5
+					config_setting_t *configstaticfile = config_setting_get_member(iterator, "static_file");
+#else
 					config_setting_t *configstaticfile = config_setting_lookup(iterator, "static_file");
+#endif
 					if (configstaticfile)
 					{
 						config->static_file = calloc(1, sizeof(*config->static_file));
@@ -168,7 +176,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					}
 #endif
 #ifdef AUTH
+#if LIBCONFIG_VER_MINOR < 5
+					config_setting_t *configauthn = config_setting_get_member(iterator, "authn");
+#else
 					config_setting_t *configauthn = config_setting_lookup(iterator, "authn");
+#endif
 					if (configauthn)
 					{
 						config->authn = calloc(1, sizeof(*config->authn));
@@ -193,7 +205,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					}
 #endif
 #ifdef CGI
+#if LIBCONFIG_VER_MINOR < 5
+					config_setting_t *configcgi = config_setting_get_member(iterator, "cgi");
+#else
 					config_setting_t *configcgi = config_setting_lookup(iterator, "cgi");
+#endif
 					if (configcgi)
 					{
 						config->cgi = calloc(1, sizeof(*config->cgi));
@@ -201,7 +217,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						config_setting_lookup_string(configcgi, "accepted_ext", (const char **)&config->cgi->accepted_ext);
 						config_setting_lookup_string(configcgi, "ignored_ext", (const char **)&config->cgi->ignored_ext);
 						config->cgi->nbenvs = 0;
+#if LIBCONFIG_VER_MINOR < 5
+						config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
+#else
 						config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
+#endif
 						if (cgienv)
 						{
 							int count = config_setting_length(cgienv);
