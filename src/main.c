@@ -31,11 +31,15 @@
 #include <sys/stat.h>
 
 #ifndef WIN32
-# include <pwd.h>
 # include <sys/socket.h>
 # include <sys/types.h>
 # include <unistd.h>
 # define HAVE_GETOPT
+# define HAVE_PWD_H
+# ifdef HAVE_PWD_H
+#  include <pwd.h>
+#  include <grp.h>
+# endif
 #else
 # include <winsock2.h>
 #endif
@@ -84,7 +88,8 @@ void display_help(char * const *argv)
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
-	struct passwd *user;
+	struct passwd *user = NULL;
+	struct group *grp = NULL;
 	servert_t *server, *first = NULL;
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
@@ -134,6 +139,7 @@ int main(int argc, char * const *argv)
 		return 0;
 	}
 
+#ifdef HAVE_PWD_H
 	if (ouistiticonfig->user)
 	{
 		user = getpwnam(ouistiticonfig->user);
@@ -142,8 +148,14 @@ int main(int argc, char * const *argv)
 			fprintf(stderr, "Error: start as root\n");
 			return -1;
 		}
+		grp = getgrgid(user->pw_gid);
+		if (grp == NULL)
+		{
+			fprintf(stderr, "Error: start as root\n");
+			return -1;
+		}
 	}
-
+#endif
 	if (ouistiticonfig->servers)
 	{
 		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
@@ -186,8 +198,10 @@ int main(int argc, char * const *argv)
 		}
 		server = server->next;
 	}
+#ifdef HAVE_PWD_H
 	setgid(user->pw_gid);
 	setuid(user->pw_uid);
+#endif
 	if (!daemonize)
 	{
 		char c = 0;
