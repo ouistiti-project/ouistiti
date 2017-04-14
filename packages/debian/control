@@ -1,0 +1,9 @@
+Source: ouistiti
+Section: net
+Priority: extra
+Version: 1.0
+Package: ouistiti
+Description: lightweight and fast HTTP server
+Maintainer: marc.chalain@gmail.com
+Architecture: any
+Depends: libconfig
