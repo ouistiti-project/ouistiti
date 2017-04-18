@@ -488,7 +488,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				free(filepath);
 				return EREJECT;
 			}
-			if (filestat.st_mode & (S_IXUSR | S_IXGRP) != (S_IXUSR | S_IXGRP))
+			if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
 			{
 				httpmessage_result(response, RESULT_404);
 				warn("cgi: %s access denied", filepath);
