@@ -156,17 +156,14 @@ int main(int argc, char * const *argv)
 		}
 	}
 #endif
-	if (ouistiticonfig->servers)
+	for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
 	{
-		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
-		{
-			server = calloc(1, sizeof(*server));
-			server->config = it;
+		server = calloc(1, sizeof(*server));
+		server->config = it;
 
-			server->server = httpserver_create(server->config->server);
-			server->next = first;
-			first = server;
-		}
+		server->server = httpserver_create(server->config->server);
+		server->next = first;
+		first = server;
 	}
 	server = first;
 	while (server != NULL)
