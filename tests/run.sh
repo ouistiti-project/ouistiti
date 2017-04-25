@@ -37,6 +37,7 @@ TARGET=ouistiti
 if [ -n "$FILEDATA" ]; then
 	cp ${TESTDIR}htdocs/${FILE}.in ${TESTDIR}htdocs/${FILE}
 	sed -i "s/\%FILEDATA\%/$(echo $FILEDATA | sed 's/\//\\\//g')/g" ${TESTDIR}htdocs/${FILE}
+	TESTCONTENTLEN=$(cat ${TESTDIR}htdocs/${FILE} | wc -c)
 fi
 
 cp ${TESTDIR}conf/${CONFIG}.in ${TESTDIR}conf/${CONFIG}
