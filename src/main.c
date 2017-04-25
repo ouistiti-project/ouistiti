@@ -190,16 +190,27 @@ int main(int argc, char * const *argv)
 				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
 #endif
 		}
+		server = server->next;
+	}
+
+#ifdef HAVE_PWD_H
+	setgid(user->pw_gid);
+	setuid(user->pw_uid);
+#endif
+	server = first;
+
+	/**
+	 * connection must be after the owner change
+	 */
+	while (server != NULL)
+	{
 		if (server->server)
 		{
 			httpserver_connect(server->server);
 		}
 		server = server->next;
 	}
-#ifdef HAVE_PWD_H
-	setgid(user->pw_gid);
-	setuid(user->pw_uid);
-#endif
+
 	if (!daemonize)
 	{
 		char c = 0;
@@ -212,6 +223,7 @@ int main(int argc, char * const *argv)
 	{
 		while(1) sleep(120);
 	}
+
 	server = first;
 	while (server != NULL)
 	{
