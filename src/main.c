@@ -227,18 +227,7 @@ int main(int argc, char * const *argv)
 		server = server->next;
 	}
 
-	if (!daemonize)
-	{
-		char c = 0;
-		while (c != 'q')
-		{
-			c = getc(stdin);
-		}
-	}
-	else
-	{
-		while(1) sleep(120);
-	}
+	while(run != 'q') sleep(120);
 
 	server = first;
 	while (server != NULL)
