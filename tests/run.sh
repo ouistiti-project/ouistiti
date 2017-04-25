@@ -43,6 +43,9 @@ cp ${TESTDIR}conf/${CONFIG}.in ${TESTDIR}conf/${CONFIG}
 sed -i "s/\%PWD\%/$(echo $PWD | sed 's/\//\\\//g')/g" ${TESTDIR}conf/${CONFIG}
 sed -i "s/\%USER\%/$USER/g" ${TESTDIR}conf/${CONFIG}
 
+if [ -n "$DEBUG" ]; then
+	echo LD_LIBRARY_PATH=${LD_LIBRARY_PATH} ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG}
+fi
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH} ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG} &
 PID=$!
 
@@ -59,11 +62,10 @@ fi
 
 if [ -n "$DEBUG" ]; then
 	echo $result
-else
-	rescode=$(echo $result | gawk '{print $1}')
-	resheaderlen=$(echo $result | gawk '{print $2}')
-	rescontentlen=$(echo $result | gawk '{print $3}')
 fi
+rescode=$(echo $result | gawk '{print $1}')
+resheaderlen=$(echo $result | gawk '{print $2}')
+rescontentlen=$(echo $result | gawk '{print $3}')
 
 echo ""
 
