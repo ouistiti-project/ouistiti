@@ -41,7 +41,6 @@
 #include "mod_static_file.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
-#include "authn_basic_conf.h"
 
 #include "config.h"
 
@@ -177,31 +176,37 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 #endif
 #ifdef AUTH
 #if LIBCONFIG_VER_MINOR < 5
-					config_setting_t *configauthn = config_setting_get_member(iterator, "authn");
+					config_setting_t *configauth = config_setting_get_member(iterator, "auth");
 #else
-					config_setting_t *configauthn = config_setting_lookup(iterator, "authn");
+					config_setting_t *configauth = config_setting_lookup(iterator, "auth");
 #endif
-					if (configauthn)
+					if (configauth)
 					{
-						config->authn = calloc(1, sizeof(*config->authn));
-						config_setting_lookup_string(configauthn, "realm", (const char **)&config->authn->realm);
+						config->auth = calloc(1, sizeof(*config->auth));
+						config_setting_lookup_string(configauth, "realm", (const char **)&config->auth->realm);
+#ifdef AUTHZ_SIMPLE
+						char *user = NULL;
+						config_setting_lookup_string(configauth, "user", (const char **)&user);
+						if (user != NULL && user[0] != '0')
+						{
+							char *passwd;
+							config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
+							config->auth->authz_type = AUTHZ_SIMPLE_E;
+							authz_simple_t *authz_config = calloc(1, sizeof(*authz_config));
+							authz_config->user = user;
+							authz_config->passwd = passwd;
+							config->auth->authz_config = authz_config;
+						}
+#endif
 						char *type = NULL;
-						config_setting_lookup_string(configauthn, "type", (const char **)&type);
+						config_setting_lookup_string(configauth, "type", (const char **)&type);
+#ifdef AUTHN_BASIC
 						if (type != NULL && !strncmp(type, "Basic", 5))
 						{
-							void *authn_basic_config = NULL;
-							authn_rule_t *rule = NULL;
-#ifdef AUTHN_BASIC_CONF
-							authn_basic_config_t *authn_basic_config_config;
-							authn_basic_config_config = calloc(1, sizeof(*authn_basic_config));
-							config_setting_lookup_string(configauthn, "user", (const char **)&authn_basic_config_config->user);
-							config_setting_lookup_string(configauthn, "passwd", (const char **)&authn_basic_config_config->passwd);
-							authn_basic_config = authn_basic_config_config;
-							rule = &authn_basic_rule;
-#endif
-							config->authn->rule = rule;
-							config->authn->rule->config = authn_basic_config;
+							config->auth->authn_type = AUTHN_BASIC_E;
+							config->auth->authn_config = NULL;
 						}
+#endif
 					}
 #endif
 #ifdef CGI
@@ -268,8 +273,14 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 				free(config->tls);
 			if (config->static_file)
 				free(config->static_file);
-			if (config->authn)
-				free(config->authn);
+			if (config->auth)
+			{
+				if (config->auth->authn_config)
+					free(config->auth->authn_config);
+				if (config->auth->authz_config)
+					free(config->auth->authz_config);
+				free(config->auth);
+			}
 			if (config->cgi)
 			{
 				if (config->cgi->env)

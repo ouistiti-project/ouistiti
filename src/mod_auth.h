@@ -33,28 +33,67 @@ extern "C"
 {
 #endif
 
-typedef void *(*authn_rule_create_t)(void *config);
+typedef struct authz_simple_s authz_simple_t;
+struct authz_simple_s
+{
+	char *user;
+	char *passwd;
+};
+
+typedef void *(*authz_rule_create_t)(void *config);
+typedef int (*authz_rule_check_t)(void *arg, char *user, char *passwd);
+typedef char *(*authz_rule_passwd_t)(void *arg, char *user);
+typedef void (*authz_rule_destroy_t)(void *arg);
+typedef struct authz_rules_s authz_rules_t;
+struct authz_rules_s
+{
+	authz_rule_create_t create;
+	authz_rule_check_t check;
+	authz_rule_passwd_t passwd;
+	authz_rule_destroy_t destroy;
+};
+typedef enum
+{
+	AUTHZ_SIMPLE_E = 1,
+} authz_type_t;
+struct authz_s
+{
+	void *ctx;
+	authz_rules_t *rules;
+	authz_type_t type;
+};
+typedef struct authz_s authz_t;
+
+typedef void *(*authn_rule_create_t)(authz_t *authz, void *config);;
 typedef char *(*authn_rule_check_t)(void *arg, char *string);
 typedef void (*authn_rule_destroy_t)(void *arg);
-typedef struct authn_rule_s authn_rule_t;
-struct authn_rule_s
+typedef struct authn_rules_s authn_rules_t;
+struct authn_rules_s
 {
-	void *config;
-	void *ctx;
 	authn_rule_create_t create;
 	authn_rule_check_t check;
 	authn_rule_destroy_t destroy;
-	enum
-	{
-		AUTHN_BASIC,
-		AUTHN_DIGEST,
-	} type;
+};
+typedef enum
+{
+	AUTHN_BASIC_E = 1,
+	AUTHN_DIGEST_E,
+} authn_type_t;
+typedef struct authn_s authn_t;
+struct authn_s
+{
+	void *ctx;
+	authn_rules_t *rules;
+	authn_type_t type;
 };
 
 typedef struct mod_auth_s
 {
 	char *realm;
-	authn_rule_t *rule;
+	void *authn_config;
+	authn_type_t authn_type;
+	void *authz_config;
+	authz_type_t authz_type;
 } mod_auth_t;
 
 void *mod_auth_create(http_server_t *server, mod_auth_t *modconfig);

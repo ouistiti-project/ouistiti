@@ -166,14 +166,15 @@ int main(int argc, char * const *argv)
 		first = server;
 	}
 	server = first;
+
 	while (server != NULL)
 	{
 		if (server->server)
 		{
 #if defined AUTH
-			if (server->config->authn)
+			if (server->config->auth)
 			{
-				server->mod_auth = mod_auth_create(server->server, server->config->authn);
+				server->mod_auth = mod_auth_create(server->server, server->config->auth);
 			}
 #endif
 #if defined CGI

@@ -25,17 +25,10 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __AUTHN_BASIC_CONF_H__
-#define __AUTHN_BASIC_CONF_H__
+#ifndef __AUTHN_BASIC_H__
+#define __AUTHN_BASIC_H__
 
 #include "mod_auth.h"
 
-typedef struct authn_basic_config_s authn_basic_config_t;
-struct authn_basic_config_s
-{
-	char *user;
-	char *passwd;
-};
-
-extern authn_rule_t authn_basic_rule;
+extern authn_rules_t authn_basic_rules;
 #endif

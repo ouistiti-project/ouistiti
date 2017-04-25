@@ -40,6 +40,8 @@
 
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
+#include "authn_basic.h"
+#include "authz_simple.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -70,7 +72,8 @@ struct _mod_auth_s
 	mod_auth_t	*config;
 	char *realm;
 	const char *type;
-	authn_rule_t *rule;
+	authn_t *authn;
+	authz_t *authz;
 	int typelength;
 };
 
@@ -79,6 +82,7 @@ static const char *str_authorization = "Authorization";
 static const char *str_realm = "ouistiti";
 static const char *str_types[] =
 {
+	"None",
 	"Basic",
 	"Digest",
 };
@@ -93,22 +97,36 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 
-	mod->rule = config->rule;
-	if (mod->rule)
-	{
-		mod->rule->ctx = mod->rule->create(mod->rule->config);
-		mod->type = str_types[config->rule->type];
-	}
-	else
-		mod->type = str_types[0];
-	mod->typelength = strlen(mod->type);
-
 	if (config->realm == NULL)
 	{
 		mod->realm = (char *)str_realm;
 	}
 	else
 		mod->realm = config->realm;
+
+	mod->authz = calloc(1, sizeof(*mod->authz));
+	mod->authz->type = config->authz_type;
+	switch (config->authz_type)
+	{
+	case AUTHZ_SIMPLE_E:
+		mod->authz->rules = &authz_simple_rules;
+		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
+	break;
+	}
+
+	mod->authn = calloc(1, sizeof(*mod->authn));
+	mod->authn->type = config->authn_type;
+	switch (config->authn_type)
+	{
+	case AUTHN_BASIC_E:
+		mod->authn->rules = &authn_basic_rules;
+		mod->authn->ctx = mod->authn->rules->create(mod->authz, config->authn_config);
+		mod->type = str_types[config->authn_type];
+	break;
+	default:
+		mod->type = str_types[0];
+	}
+	mod->typelength = strlen(mod->type);
 
 	httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
 
@@ -118,9 +136,13 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 void mod_auth_destroy(void *arg)
 {
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
-	if (mod->rule && mod->rule->ctx)
+	if (mod->authn->ctx  && mod->authn->rules->destroy)
 	{
-		mod->rule->destroy(mod->rule->ctx);
+		mod->authn->rules->destroy(mod->authn->ctx);
+	}
+	if (mod->authz->ctx && mod->authz->rules->destroy)
+	{
+		mod->authz->rules->destroy(mod->authz->ctx);
 	}
 	free(mod);
 }
@@ -150,23 +172,26 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	int ret = ECONTINUE;
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
-
 	char *authorization;
 	authorization = httpmessage_REQUEST(request, (char *)str_authorization);
-	if (mod->rule && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
+	if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
 	{
-		char *base64 = strchr(authorization, ' ');
-		if (base64)
-			base64++;
-		char *user = mod->rule->check(mod->rule->ctx, base64);
+		char *authentication = strchr(authorization, ' ');
+		if (authentication)
+			authentication++;
+		char *user = mod->authn->rules->check(mod->authn->ctx, authentication);
 		if (user != NULL)
 		{
+			dbg("user \"%s\" accepted", user);
 			httpmessage_SESSION(request, "%user", user);
 			httpmessage_SESSION(request, "%authtype", (char *)mod->type);
 			ret = EREJECT;
 		}
 		else
+		{
+			dbg("bad passwd");
 			authorization = NULL;
+		}
 	}
 	else
 		authorization = NULL;
@@ -177,6 +202,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		httpmessage_result(response, RESULT_401);
 		httpmessage_keepalive(response);
 		ret = ESUCCESS;
+		dbg("error 401");
 	}
 	return ret;
 }

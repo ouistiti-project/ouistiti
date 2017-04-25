@@ -9,7 +9,7 @@ typedef struct serverconfig_s
 	mod_tls_t *tls;
 	mod_static_file_t *static_file;
 	mod_cgi_config_t *cgi;
-	mod_auth_t *authn;
+	mod_auth_t *auth;
 } serverconfig_t;
 
 typedef struct ouistiticonfig_s

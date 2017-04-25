@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_auth.c: callbacks and management of connection
+ * authn_basic.c: Basic Authentication mode
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -31,8 +31,9 @@
 
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
-#include "authn_basic_conf.h"
+#include "authn_basic.h"
 #include "b64/cencode.h"
+#include "b64/cdecode.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -45,41 +46,36 @@
 typedef struct authn_basic_s authn_basic_t;
 struct authn_basic_s
 {
-	authn_basic_config_t *config;
+	authz_t *authz;
 	char *base64;
 };
 
-void *authn_basic_config_create(void *arg)
+void *authn_basic_create(authz_t *authz, void*unused)
 {
-	authn_basic_config_t *config = (authn_basic_config_t *)arg;
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
+	mod->authz = authz;
 
-	mod->config = config;
-
-	int length = 0;
-	int ulength = strlen(config->user);
-	int plength = strlen(config->passwd);
-	mod->base64 = calloc(1, (ulength + plength + 1 + 1) * 2);
-	base64_encodestate encoder;
-	base64_init_encodestate(&encoder);
-	length += base64_encode_block(config->user, ulength, mod->base64 + length, &encoder);
-	length += base64_encode_block(":", 1, mod->base64 + length, &encoder);
-	length += base64_encode_block(config->passwd, plength, mod->base64 + length, &encoder);
-	length += base64_encode_blockend(mod->base64 + length, &encoder);
-	char *end = strrchr(mod->base64, '=');
-	if (end)
-	{
-		end++;
-		*end = 0;
-	}
 	return mod;
 }
 
+static char user[256] = {0};
 char *authn_basic_config_check(void *arg, char *string)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
-	if (!strcmp(string, mod->base64))
-		return mod->config->user;
+	char *passwd;
+
+	memset(user, 0, 256);
+	base64_decodestate decoder;
+	base64_init_decodestate(&decoder);
+	base64_decode_block(string, strlen(string), user, &decoder);
+	passwd = strchr(user, ':');
+	passwd[0] = 0;
+	passwd++;
+
+	if (mod->authz->rules->check(mod->authz->ctx, user, passwd))
+	{
+		return user;
+	}
 	return NULL;
 }
 
@@ -91,10 +87,9 @@ void authn_basic_config_destroy(void *arg)
 	free(mod);
 }
 
-authn_rule_t authn_basic_rule =
+authn_rules_t authn_basic_rules =
 {
-	.create = authn_basic_config_create,
+	.create = authn_basic_create,
 	.check = authn_basic_config_check,
 	.destroy = authn_basic_config_destroy,
-	.type = AUTHN_BASIC,
 };
