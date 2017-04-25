@@ -1,9 +1,13 @@
 #!/bin/sh
 
+CONTINUE=0
 while [ -n "$1" ]; do
 case $1 in
 	-D)
 		DEBUG=1
+		;;
+	-C)
+		CONTINUE=1
 		;;
 	*)
 		TEST=$1
@@ -62,20 +66,24 @@ fi
 
 echo ""
 
+ERR=0
 if [ -n "$TESTCODE" -a x$rescode != x$TESTCODE ]; then
 	echo "result code error $rescode instead $TESTCODE"
+	ERR=-1
 	kill $PID 2> /dev/null
-	exit -1
 fi
 if [ -n "$TESTHEADERLEN" -a x$resheaderlen != x$TESTHEADERLEN ]; then
 	echo "header error receive $resheaderlen instead $TESTHEADERLEN"
+	ERR=-1
 	kill $PID 2> /dev/null
-	exit -1
 fi
 if [ -n "$TESTCONTENTLEN" -a x$rescontentlen != x$TESTCONTENTLEN ]; then
 	echo "content error receive $rescontentlen instead $TESTCONTENTLEN"
+	ERR=-1
 	kill $PID 2> /dev/null
-	exit -1
 fi
-echo "test $1 complete"
-kill $PID 2> /dev/null
+if [ $CONTINUE -eq 0 -a $ERR -eq 0 ]; then
+	echo "test $1 complete"
+	kill $PID 2> /dev/null
+fi
+exit $ERR
