@@ -1,0 +1,20 @@
+user="%USER%";
+servers= ({
+		hostname = "www.ouistiti.net";
+		addr="127.0.0.1";
+		port = 80;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		auth = {
+			type="Basic";
+			user="test";
+			passwd="test";
+		};
+		static_file = {
+			docroot = "%PWD%/tests/htdocs";
+			accepted_ext = ".html,.htm,.css,.js,.txt,*";
+			ignored_ext = ".htaccess,.php";
+		};
+	});
+
+
