@@ -1,0 +1,14 @@
+user="%USER%";
+servers= ({
+		hostname = "www.ouistiti.net";
+		port = 80;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		cgi = {
+			docroot = "%PWD%/tests/htdocs";
+			accepted_ext = ".cgi";
+			ignored_ext = ".htaccess,.php";
+		};
+	});
+
+
