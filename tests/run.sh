@@ -24,6 +24,7 @@ SRCDIR=$TESTDIR../src/
 PWD=$(pwd)
 USER=$(ls -l $TEST | gawk '{print $3}')
 TESTCLIENT=./host/testclient
+LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
 if [ -z "$DEBUG" ]; then
 HTTPPARSER="./host/httpparser"
 CURLOUT="-o /dev/null"
@@ -42,7 +43,7 @@ cp ${TESTDIR}conf/${CONFIG}.in ${TESTDIR}conf/${CONFIG}
 sed -i "s/\%PWD\%/$(echo $PWD | sed 's/\//\\\//g')/g" ${TESTDIR}conf/${CONFIG}
 sed -i "s/\%USER\%/$USER/g" ${TESTDIR}conf/${CONFIG}
 
-${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG} &
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH} ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG} &
 PID=$!
 
 echo "${TARGET} started with pid ${PID}"
