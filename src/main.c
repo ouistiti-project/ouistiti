@@ -28,12 +28,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/stat.h>
 
 #ifndef WIN32
 # include <sys/socket.h>
 # include <sys/types.h>
 # include <unistd.h>
+# include <fcntl.h>
 # define HAVE_GETOPT
 # define HAVE_PWD_H
 # ifdef HAVE_PWD_H
@@ -83,6 +85,14 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-h \tshow this help and exit\n");
 	fprintf(stderr, "\t-V \treturn the version and exit\n");
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
+}
+
+static char run = 0;
+static void
+handler(int sig, siginfo_t *si, void *unused)
+{
+	run = 'q';
+	kill(0, SIGQUIT);
 }
 
 static char servername[] = PACKAGEVERSION;
@@ -138,6 +148,12 @@ int main(int argc, char * const *argv)
 	{
 		return 0;
 	}
+
+	struct sigaction action;
+	action.sa_flags = SA_SIGINFO;
+	sigemptyset(&action.sa_mask);
+	action.sa_sigaction = handler;
+	sigaction(SIGTERM, &action, NULL);
 
 #ifdef HAVE_PWD_H
 	if (ouistiticonfig->user)
