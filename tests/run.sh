@@ -23,9 +23,9 @@ TESTDIR=$(dirname $TEST)/
 SRCDIR=$TESTDIR../src/
 PWD=$(pwd)
 USER=$(ls -l $TEST | gawk '{print $3}')
-TESTCLIENT=./utils/testclient
+TESTCLIENT=./host/testclient
 if [ -z "$DEBUG" ]; then
-HTTPPARSER="./utils/httpparser"
+HTTPPARSER="./host/httpparser"
 CURLOUT="-o /dev/null"
 else
 HTTPPARSER="tee /dev/null"
