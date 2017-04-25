@@ -50,7 +50,7 @@ LD_LIBRARY_PATH=${LD_LIBRARY_PATH} ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG
 PID=$!
 
 echo "${TARGET} started with pid ${PID}"
-sleep 0.5
+sleep 2
 
 if [ -n "$CURLPARAM" ]; then
 	result=$($CURL $CURLOUT -f -s -S -w "%{http_code} %{size_header} %{size_download}" $CURLPARAM)
@@ -76,12 +76,12 @@ if [ -n "$TESTCODE" -a x$rescode != x$TESTCODE ]; then
 	kill $PID 2> /dev/null
 fi
 if [ -n "$TESTHEADERLEN" -a x$resheaderlen != x$TESTHEADERLEN ]; then
-	echo "header error receive $resheaderlen instead $TESTHEADERLEN"
+	echo "header error received $resheaderlen instead $TESTHEADERLEN"
 	ERR=-1
 	kill $PID 2> /dev/null
 fi
 if [ -n "$TESTCONTENTLEN" -a x$rescontentlen != x$TESTCONTENTLEN ]; then
-	echo "content error receive $rescontentlen instead $TESTCONTENTLEN"
+	echo "content error received $rescontentlen instead $TESTCONTENTLEN"
 	ERR=-1
 	kill $PID 2> /dev/null
 fi
