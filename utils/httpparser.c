@@ -84,6 +84,7 @@ int main(int argc, char ** argv)
 	{
 		length = CHUNKSIZE;
 		length = read(fd, buffer, length);
+		buffer[length] = 0;
 		if (length > 0)
 		{
 			int ret;
