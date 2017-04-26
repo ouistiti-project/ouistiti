@@ -192,7 +192,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							char *passwd;
 							config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
 							config->auth->authz_type = AUTHZ_SIMPLE_E;
-							authz_simple_t *authz_config = calloc(1, sizeof(*authz_config));
+							authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
 							authz_config->user = user;
 							authz_config->passwd = passwd;
 							config->auth->authz_config = authz_config;
@@ -203,8 +203,10 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 #ifdef AUTHN_BASIC
 						if (type != NULL && !strncmp(type, "Basic", 5))
 						{
+							authn_basic_config_t *authn_config = calloc(1, sizeof(*authn_config));
 							config->auth->authn_type = AUTHN_BASIC_E;
-							config->auth->authn_config = NULL;
+							authn_config->realm = config->auth->realm;
+							config->auth->authn_config = authn_config;
 						}
 #endif
 					}

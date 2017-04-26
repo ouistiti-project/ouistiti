@@ -34,8 +34,8 @@ extern "C"
 #endif
 extern const char *str_authenticate;
 
-typedef struct authz_simple_s authz_simple_t;
-struct authz_simple_s
+typedef struct authz_simple_config_s authz_simple_config_t;
+struct authz_simple_config_s
 {
 	char *user;
 	char *passwd;
