@@ -154,6 +154,8 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 
 	ctx->mod = mod;
 
+	if(mod->authn->rules->setup)
+		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
 	httpclient_addconnector(ctl, NULL, _authn_connector, ctx);
 	return ctx;
 }
