@@ -54,7 +54,7 @@ struct authn_basic_s
 void *authn_basic_create(authz_t *authz, void *arg)
 {
 	char format_realm[] = "%s realm=\"%s\"";
-	char format[] = "Basic";
+	const char *format = str_authenticate_types[AUTHN_BASIC_E];
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
 	mod->authz = authz;
 	mod->config = (authn_basic_config_t *)arg;
@@ -90,7 +90,7 @@ int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *re
 }
 
 static char user[256] = {0};
-char *authn_basic_check(void *arg, char *string)
+char *authn_basic_check(void *arg, char *method, char *string)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
 	char *passwd;

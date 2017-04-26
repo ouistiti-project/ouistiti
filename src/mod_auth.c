@@ -171,13 +171,15 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
 	char *authorization;
+
 	authorization = httpmessage_REQUEST(request, (char *)str_authorization);
 	if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
 	{
 		char *authentication = strchr(authorization, ' ');
 		if (authentication)
 			authentication++;
-		char *user = mod->authn->rules->check(mod->authn->ctx, authentication);
+		char *method = httpmessage_REQUEST(request, "method");
+		char *user = mod->authn->rules->check(mod->authn->ctx, method, authentication);
 		if (user != NULL)
 		{
 			dbg("user \"%s\" accepted", user);
@@ -187,7 +189,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else
 		{
-			dbg("bad passwd");
 			authorization = NULL;
 		}
 	}
