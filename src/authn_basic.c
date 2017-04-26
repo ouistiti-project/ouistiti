@@ -98,9 +98,11 @@ char *authn_basic_check(void *arg, char *method, char *string)
 	memset(user, 0, 256);
 	base64_decodestate decoder;
 	base64_init_decodestate(&decoder);
-	base64_decode_block(string, strlen(string), user, &decoder);
+	passwd = user;
+	passwd += base64_decode_block(string, strlen(string), user, &decoder);
+	*passwd = 0;
 	passwd = strchr(user, ':');
-	passwd[0] = 0;
+	*passwd = 0;
 	passwd++;
 
 	if (mod->authz->rules->check(mod->authz->ctx, user, passwd))
