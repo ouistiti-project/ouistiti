@@ -77,7 +77,7 @@ struct _mod_auth_s
 	int typelength;
 };
 
-static const char *str_authenticate = "WWW-Authenticate";
+const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
 static const char *str_realm = "ouistiti";
 static const char *str_types[] =
@@ -153,8 +153,6 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
 
 	ctx->mod = mod;
-	ctx->authenticate = calloc(1, strlen(mod->type) + sizeof(" realm=\"\"") + strlen(mod->realm) + 1);
-	sprintf(ctx->authenticate, "%s realm=\"%s\"", mod->type, mod->realm);
 
 	httpclient_addconnector(ctl, NULL, _authn_connector, ctx);
 	return ctx;
@@ -198,11 +196,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (authorization == NULL || authorization[0] == '\0')
 	{
-		httpmessage_addheader(response, (char *)str_authenticate, ctx->authenticate);
-		httpmessage_result(response, RESULT_401);
-		httpmessage_keepalive(response);
-		ret = ESUCCESS;
-		dbg("error 401");
+		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 	}
 	return ret;
 }
