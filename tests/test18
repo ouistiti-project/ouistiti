@@ -1,0 +1,3 @@
+CONFIG=test1.conf
+TESTREQUEST=test18_rq.txt
+TESTCODE=405

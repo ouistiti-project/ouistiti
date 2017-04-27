@@ -1,0 +1,4 @@
+PUT /dir/index.html HTTP/1.1
+HOST: 127.0.0.1
+Authorization: Digest username="Mufasa" , realm="testrealm@host.com", nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093", nc=00000001, uri="/dir/index.html", qop=auth, cnonce="0a4f113b", response="f5238449891c346a847bd9b70fac681a", opaque="5ccc069c403ebaf9f0171e9517f40e41"
+
