@@ -196,6 +196,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			dbg("user \"%s\" accepted", user);
 			httpmessage_SESSION(request, "%user", user);
 			httpmessage_SESSION(request, "%authtype", (char *)mod->type);
+
+			if (mod->authz->rules->rights)
+			{
+				httpmessage_SESSION(request, "%authrights",
+					mod->authz->rules->rights(mod->authz->ctx, user));
+			}
 			ret = EREJECT;
 		}
 		else

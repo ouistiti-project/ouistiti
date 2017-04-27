@@ -186,7 +186,13 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						config_setting_lookup_string(configauth, "realm", (const char **)&config->auth->realm);
 #ifdef AUTHZ_SIMPLE
 						char *user = NULL;
+						int rights = 5;
 						config_setting_lookup_string(configauth, "user", (const char **)&user);
+						if (user == NULL || user[0] == '0')
+						{
+							config_setting_lookup_string(configauth, "superuser", (const char **)&user);
+							rights = 11;
+						}
 						if (user != NULL && user[0] != '0')
 						{
 							char *passwd;
@@ -195,6 +201,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
 							authz_config->user = user;
 							authz_config->passwd = passwd;
+							authz_config->rights = rights;
 							config->auth->authz_config = authz_config;
 						}
 #endif

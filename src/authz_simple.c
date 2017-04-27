@@ -70,10 +70,24 @@ int authz_simple_check(void *arg, char *user, char *passwd)
 	return 0;
 }
 
+char *authz_simple_rights(void *arg, char *user)
+{
+	authz_simple_t *config = (authz_simple_t *)arg;
+	if (!strcmp(user, config->user))
+	{
+		if (config->rights > 10)
+			return "superuser";
+		else
+			return "user";
+	}
+	return "anonymous";
+}
+
 authz_rules_t authz_simple_rules =
 {
 	.create = authz_simple_create,
 	.check = authz_simple_check,
 	.passwd = authz_simple_passwd,
+	.rights = authz_simple_rights,
 	.destroy = NULL,
 };

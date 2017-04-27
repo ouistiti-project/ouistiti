@@ -40,11 +40,13 @@ struct authz_simple_config_s
 {
 	char *user;
 	char *passwd;
+	int rights;
 };
 
 typedef void *(*authz_rule_create_t)(void *config);
 typedef int (*authz_rule_check_t)(void *arg, char *user, char *passwd);
 typedef char *(*authz_rule_passwd_t)(void *arg, char *user);
+typedef char *(*authz_rule_rights_t)(void *arg, char *user);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
 struct authz_rules_s
@@ -52,6 +54,7 @@ struct authz_rules_s
 	authz_rule_create_t create;
 	authz_rule_check_t check;
 	authz_rule_passwd_t passwd;
+	authz_rule_rights_t rights;
 	authz_rule_destroy_t destroy;
 };
 typedef enum
