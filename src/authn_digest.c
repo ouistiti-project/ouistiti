@@ -37,7 +37,30 @@
 #include "b64/cdecode.h"
 
 #if defined(MBEDTLS)
-#include <mbedtls/md5.h>
+# include <mbedtls/md5.h>
+# define MD5_ctx mbedtls_md5_context
+# define MD5_init(pctx) \
+	do { \
+		mbedtls_md5_init(pctx); \
+		mbedtls_md5_starts(pctx); \
+	} while(0)
+# define MD5_update(pctx, in, len) \
+	mbedtls_md5_update(pctx, in, len)
+# define MD5_finish(out, pctx)
+	mbedtls_md5_finish(pctx, out)
+#elif defined (MD5_RONRIVEST)
+# include "../utils/md5-c/global.h"
+# include "../utils/md5-c/md5.h"
+# define MD5_ctx MD5_CTX
+# define MD5_init MD5Init
+# define MD5_update MD5Update
+# define MD5_finish MD5Final
+#else
+# include "../utils/md5/md5.h"
+# define MD5_ctx md5_state_t
+# define MD5_init md5_init
+# define MD5_update md5_append
+# define MD5_finish(out, pctx) md5_finish(pctx, out)
 #endif
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -183,80 +206,78 @@ struct authn_digest_computing_s
 	char *(*a1)(char *username, char *realm, char *passwd);
 	char *(*a2)(char *method, char *uri, char *entity);
 };
-#if defined(MBEDTLS)
-static char *authn_digest_mbedtls_md5_digest(char *a1, char *nonce, char *nc, char *cnonce, char *qop, char *a2)
+
+static char *authn_digest_md5_digest(char *a1, char *nonce, char *nc, char *cnonce, char *qop, char *a2)
 {
 	char digest[16];
-	mbedtls_md5_context ctx;
-	mbedtls_md5_init(&ctx);
-	mbedtls_md5_starts(&ctx);
-	mbedtls_md5_update(&ctx, a1, strlen(a1));
-	mbedtls_md5_update(&ctx, ":", 1);
-	mbedtls_md5_update(&ctx, nonce, strlen(nonce));
+	MD5_ctx ctx;
+
+	MD5_init(&ctx);
+	MD5_update(&ctx, a1, strlen(a1));
+	MD5_update(&ctx, ":", 1);
+	MD5_update(&ctx, nonce, strlen(nonce));
 	if (qop && !strcmp(qop, "auth"))
 	{
 		if (nc)
 		{
-			mbedtls_md5_update(&ctx, ":", 1);
-			mbedtls_md5_update(&ctx, nc, strlen(nc));
+			MD5_update(&ctx, ":", 1);
+			MD5_update(&ctx, nc, strlen(nc));
 		}
 		if (cnonce)
 		{
-			mbedtls_md5_update(&ctx, ":", 1);
-			mbedtls_md5_update(&ctx, cnonce, strlen(cnonce));
+			MD5_update(&ctx, ":", 1);
+			MD5_update(&ctx, cnonce, strlen(cnonce));
 		}
-		mbedtls_md5_update(&ctx, ":", 1);
-		mbedtls_md5_update(&ctx, qop, strlen(qop));
+		MD5_update(&ctx, ":", 1);
+		MD5_update(&ctx, qop, strlen(qop));
 	}
-	mbedtls_md5_update(&ctx, ":", 1);
-	mbedtls_md5_update(&ctx, a2, strlen(a2));
-	mbedtls_md5_finish(&ctx, digest);
+	MD5_update(&ctx, ":", 1);
+	MD5_update(&ctx, a2, strlen(a2));
+	MD5_finish(digest, &ctx);
 	return utils_stringify(digest, 16);
 }
 
-static char *authn_digest_mbedtls_md5_a1(char *username, char *realm, char *passwd)
+static char *authn_digest_md5_a1(char *username, char *realm, char *passwd)
 {
 	char A1[16];
-	mbedtls_md5_context ctx;
-	mbedtls_md5_init(&ctx);
-	mbedtls_md5_starts(&ctx);
-	mbedtls_md5_update(&ctx, username, strlen(username));
-	mbedtls_md5_update(&ctx, ":", 1);
-	mbedtls_md5_update(&ctx, realm, strlen(realm));
-	mbedtls_md5_update(&ctx, ":", 1);
-	mbedtls_md5_update(&ctx, passwd, strlen(passwd));
-	mbedtls_md5_finish(&ctx, A1);
+	MD5_ctx ctx;
+
+	MD5_init(&ctx);
+	MD5_update(&ctx, username, strlen(username));
+	MD5_update(&ctx, ":", 1);
+	MD5_update(&ctx, realm, strlen(realm));
+	MD5_update(&ctx, ":", 1);
+	MD5_update(&ctx, passwd, strlen(passwd));
+	MD5_finish(A1, &ctx);
 	return utils_stringify(A1, 16);
 }
 
-static char *authn_digest_mbedtls_md5_a2(char *method, char *uri, char *entity)
+static char *authn_digest_md5_a2(char *method, char *uri, char *entity)
 {
 	char A2[16];
-	mbedtls_md5_context ctx;
-	mbedtls_md5_init(&ctx);
-	mbedtls_md5_starts(&ctx);
-	mbedtls_md5_update(&ctx, method, strlen(method));
-	mbedtls_md5_update(&ctx, ":", 1);
-	mbedtls_md5_update(&ctx, uri, strlen(uri));
+	MD5_ctx ctx;
+
+	MD5_init(&ctx);
+	MD5_update(&ctx, method, strlen(method));
+	MD5_update(&ctx, ":", 1);
+	MD5_update(&ctx, uri, strlen(uri));
 	if (entity)
 	{
-	mbedtls_md5_update(&ctx, ":", 1);
-		mbedtls_md5_update(&ctx, entity, strlen(entity));
+	MD5_update(&ctx, ":", 1);
+		MD5_update(&ctx, entity, strlen(entity));
 	}
-	mbedtls_md5_finish(&ctx, A2);
+	MD5_finish(A2, &ctx);
 	return utils_stringify(A2, 16);
 }
-struct authn_digest_computing_s authn_digest_mbedtls_md5_computing = 
+struct authn_digest_computing_s authn_digest_md5_computing = 
 {
-	.digest = authn_digest_mbedtls_md5_digest,
-	.a1 = authn_digest_mbedtls_md5_a1,
-	.a2 = authn_digest_mbedtls_md5_a2,
+	.digest = authn_digest_md5_digest,
+	.a1 = authn_digest_md5_a1,
+	.a2 = authn_digest_md5_a2,
 };
 
-struct authn_digest_computing_s *authn_digest_computing = &authn_digest_mbedtls_md5_computing;
-#else
-struct authn_digest_computing_s *authn_digest_computing = NULL;
-#endif
+struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
+
 char *authn_digest_check(void *arg, char *method, char *string)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
@@ -317,6 +338,7 @@ char *authn_digest_check(void *arg, char *method, char *string)
 		char *a1 = authn_digest_computing->a1(user, realm, passwd);
 		char *a2 = authn_digest_computing->a2(method, uri, NULL);
 		char *digest = authn_digest_computing->digest(a1, nonce, nc, cnonce, qop, a2);
+
 		if (digest && !strcmp(digest, response))
 		{
 			free (a1);
