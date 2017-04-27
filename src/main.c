@@ -94,6 +94,36 @@ handler(int sig, siginfo_t *si, void *unused)
 	run = 'q';
 	kill(0, SIGQUIT);
 }
+static int _access_method_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret = ESUCCESS;
+	char *method = httpmessage_REQUEST(request, "method");
+	if (method && (method[0] == 'G' || !strcmp(method, "POST")))
+	{
+		ret = EREJECT;
+	}
+	else
+	{
+		char *rights = httpmessage_SESSION(request, "%authrights", NULL);
+		if (!strcmp(rights, "superuser"))
+		{
+			ret = EREJECT;
+		}
+		else
+		{
+			warn("access %s", method);
+			httpmessage_addheader(response, "Allow", "GET, POST, HEAD");
+			httpmessage_result(response, RESULT_405);
+		}
+	}
+	return ret;
+}
+
+static void *_access_method_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+{
+	httpclient_addconnector(ctl, NULL, _access_method_connector, NULL);
+	return NULL;
+}
 
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
@@ -193,6 +223,7 @@ int main(int argc, char * const *argv)
 				server->mod_auth = mod_auth_create(server->server, server->config->auth);
 			}
 #endif
+			httpserver_addmod(server->server, _access_method_getctx, NULL, NULL);
 #if defined CGI
 			if (server->config->cgi)
 				server->mod_cgi = mod_cgi_create(server->server, server->config->cgi);
