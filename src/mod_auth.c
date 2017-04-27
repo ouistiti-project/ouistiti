@@ -41,6 +41,7 @@
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
 #include "authn_basic.h"
+#include "authn_digest.h"
 #include "authz_simple.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -80,11 +81,24 @@ struct _mod_auth_s
 const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
 static const char *str_realm = "ouistiti";
-static const char *str_types[] =
+const char *str_authenticate_types[] =
 {
 	"None",
 	"Basic",
 	"Digest",
+};
+authn_rules_t *authn_rules[] = {
+	NULL,
+#ifdef AUTHN_BASIC
+	&authn_basic_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHN_DIGEST
+	&authn_digest_rules,
+#else
+	NULL,
+#endif
 };
 
 void *mod_auth_create(http_server_t *server, mod_auth_t *config)
@@ -116,20 +130,15 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->type = config->authn_type;
-	switch (config->authn_type)
+	mod->authn->rules = authn_rules[config->authn_type];
+	if (mod->authn->rules && mod->authz->rules)
 	{
-	case AUTHN_BASIC_E:
-		mod->authn->rules = &authn_basic_rules;
 		mod->authn->ctx = mod->authn->rules->create(mod->authz, config->authn_config);
-		mod->type = str_types[config->authn_type];
-	break;
-	default:
-		mod->type = str_types[0];
+		mod->type = str_authenticate_types[config->authn_type];
+		mod->typelength = strlen(mod->type);
+
+		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
 	}
-	mod->typelength = strlen(mod->type);
-
-	httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
-
 	return mod;
 }
 

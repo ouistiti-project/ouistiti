@@ -209,6 +209,16 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							config->auth->authn_config = authn_config;
 						}
 #endif
+#ifdef AUTHN_DIGEST
+						if (type != NULL && !strncmp(type, "Digest", 5))
+						{
+							authn_digest_config_t *authn_config = calloc(1, sizeof(*authn_config));
+							config->auth->authn_type = AUTHN_DIGEST_E;
+							authn_config->realm = config->auth->realm;
+							config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
+							config->auth->authn_config = authn_config;
+						}
+#endif
 					}
 #endif
 #ifdef CGI
