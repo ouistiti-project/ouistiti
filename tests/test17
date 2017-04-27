@@ -1,0 +1,3 @@
+CONFIG=test4.conf
+TESTREQUEST=test17_rq.txt
+TESTCODE=404
