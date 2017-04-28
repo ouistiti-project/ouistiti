@@ -88,9 +88,10 @@ struct _mod_cgi_s
 {
 	http_server_t *server;
 	mod_cgi_config_t *config;
+	char *vhost;
 };
 
-void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
+void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig)
 {
 	_mod_cgi_t *mod;
 
@@ -99,6 +100,7 @@ void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = modconfig;
+	mod->vhost = vhost;
 	mod->server = server;
 
 	httpserver_addmod(server, _mod_cgi_getctx, _mod_cgi_freectx, mod);
@@ -119,7 +121,7 @@ static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *add
 
 	ctx->ctl = ctl;
 	ctx->mod = mod;
-	httpclient_addconnector(ctl, NULL, _cgi_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, _cgi_connector, ctx);
 
 	return ctx;
 }

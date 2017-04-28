@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_cgi.h: Simple HTTP module
+ * authn_digest.h: Simple HTTP module
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -25,28 +25,10 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_SKELETON_H__
-#define __MOD_SKELETON_H__
+#ifndef __AUTHN_DIGEST_H__
+#define __AUTHN_DIGEST_H__
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include "mod_auth.h"
 
-typedef struct mod_cgi_config_s
-{
-	char *docroot;
-	char *accepted_ext;
-	char *ignored_ext;
-	const char **env;
-	int nbenvs;
-} mod_cgi_config_t;
-
-void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);
-void mod_cgi_destroy(void *mod);
-
-#ifdef __cplusplus
-}
-#endif
-
+extern authn_rules_t authn_digest_rules;
 #endif

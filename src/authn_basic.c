@@ -46,20 +46,51 @@
 typedef struct authn_basic_s authn_basic_t;
 struct authn_basic_s
 {
+	authn_basic_config_t *config;
 	authz_t *authz;
-	char *base64;
+	char *challenge;
 };
 
-void *authn_basic_create(authz_t *authz, void*unused)
+void *authn_basic_create(authz_t *authz, void *arg)
 {
+	char format_realm[] = "%s realm=\"%s\"";
+	const char *format = str_authenticate_types[AUTHN_BASIC_E];
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
 	mod->authz = authz;
+	mod->config = (authn_basic_config_t *)arg;
+	if (mod->config->realm)
+	{
+		mod->challenge = calloc(1, sizeof(format)
+							+ sizeof(format_realm) - 4
+							+ strlen(mod->config->realm) + 1);
+		if (mod->challenge)
+			sprintf(mod->challenge, format_realm, format, mod->config->realm);
+	}
+	else
+	{
+		mod->challenge = calloc(1, sizeof(format) + 1);
+		if (mod->challenge)
+			sprintf(mod->challenge, format);
+	}
 
 	return mod;
 }
 
+int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret;
+	authn_basic_t *mod = (authn_basic_t *)arg;
+
+	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
+	httpmessage_result(response, RESULT_401);
+	httpmessage_keepalive(response);
+	ret = ESUCCESS;
+	dbg("error 401");
+	return ret;
+}
+
 static char user[256] = {0};
-char *authn_basic_config_check(void *arg, char *string)
+char *authn_basic_check(void *arg, char *method, char *string)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
 	char *passwd;
@@ -67,9 +98,11 @@ char *authn_basic_config_check(void *arg, char *string)
 	memset(user, 0, 256);
 	base64_decodestate decoder;
 	base64_init_decodestate(&decoder);
-	base64_decode_block(string, strlen(string), user, &decoder);
+	passwd = user;
+	passwd += base64_decode_block(string, strlen(string), user, &decoder);
+	*passwd = 0;
 	passwd = strchr(user, ':');
-	passwd[0] = 0;
+	*passwd = 0;
 	passwd++;
 
 	if (mod->authz->rules->check(mod->authz->ctx, user, passwd))
@@ -79,17 +112,18 @@ char *authn_basic_config_check(void *arg, char *string)
 	return NULL;
 }
 
-void authn_basic_config_destroy(void *arg)
+void authn_basic_destroy(void *arg)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
-	if (mod->base64)
-		free(mod->base64);
+	if (mod->challenge)
+		free(mod->challenge);
 	free(mod);
 }
 
 authn_rules_t authn_basic_rules =
 {
 	.create = authn_basic_create,
-	.check = authn_basic_config_check,
-	.destroy = authn_basic_config_destroy,
+	.challenge = authn_basic_challenge,
+	.check = authn_basic_check,
+	.destroy = authn_basic_destroy,
 };

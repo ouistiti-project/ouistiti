@@ -18,11 +18,13 @@ done
 
 . $TEST
 
+TARGET=ouistiti
+
 CURL=curl
 TESTDIR=$(dirname $TEST)/
 SRCDIR=$TESTDIR../src/
 PWD=$(pwd)
-USER=$(ls -l $TEST | gawk '{print $3}')
+USER=$(ls -l ${SRCDIR}/${TARGET} | gawk '{print $3}')
 TESTCLIENT=./host/testclient
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
 if [ -z "$DEBUG" ]; then
@@ -31,8 +33,6 @@ CURLOUT="-o /dev/null"
 else
 HTTPPARSER="tee /dev/null"
 fi
-
-TARGET=ouistiti
 
 if [ -n "$FILEDATA" ]; then
 	cp ${TESTDIR}htdocs/${FILE}.in ${TESTDIR}htdocs/${FILE}

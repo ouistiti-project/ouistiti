@@ -32,17 +32,21 @@
 extern "C"
 {
 #endif
+extern const char *str_authenticate;
+extern const char *str_authenticate_types[];
 
-typedef struct authz_simple_s authz_simple_t;
-struct authz_simple_s
+typedef struct authz_simple_config_s authz_simple_config_t;
+struct authz_simple_config_s
 {
 	char *user;
 	char *passwd;
+	int rights;
 };
 
 typedef void *(*authz_rule_create_t)(void *config);
 typedef int (*authz_rule_check_t)(void *arg, char *user, char *passwd);
 typedef char *(*authz_rule_passwd_t)(void *arg, char *user);
+typedef char *(*authz_rule_rights_t)(void *arg, char *user);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
 struct authz_rules_s
@@ -50,6 +54,7 @@ struct authz_rules_s
 	authz_rule_create_t create;
 	authz_rule_check_t check;
 	authz_rule_passwd_t passwd;
+	authz_rule_rights_t rights;
 	authz_rule_destroy_t destroy;
 };
 typedef enum
@@ -64,13 +69,30 @@ struct authz_s
 };
 typedef struct authz_s authz_t;
 
+typedef struct authn_basic_config_s authn_basic_config_t;
+struct authn_basic_config_s
+{
+	char *realm;
+};
+
+typedef struct authn_digest_config_s authn_digest_config_t;
+struct authn_digest_config_s
+{
+	char *realm;
+	char *opaque;
+};
+
 typedef void *(*authn_rule_create_t)(authz_t *authz, void *config);;
-typedef char *(*authn_rule_check_t)(void *arg, char *string);
+typedef int (*authn_rule_setup_t)(void *arg, struct sockaddr *addr, int addrsize);
+typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);
+typedef char *(*authn_rule_check_t)(void *arg, char *method, char *string);
 typedef void (*authn_rule_destroy_t)(void *arg);
 typedef struct authn_rules_s authn_rules_t;
 struct authn_rules_s
 {
 	authn_rule_create_t create;
+	authn_rule_setup_t setup;
+	authn_rule_challenge_t challenge;
 	authn_rule_check_t check;
 	authn_rule_destroy_t destroy;
 };
@@ -96,7 +118,7 @@ typedef struct mod_auth_s
 	authz_type_t authz_type;
 } mod_auth_t;
 
-void *mod_auth_create(http_server_t *server, mod_auth_t *modconfig);
+void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *modconfig);
 void mod_auth_destroy(void *mod);
 
 #ifdef __cplusplus

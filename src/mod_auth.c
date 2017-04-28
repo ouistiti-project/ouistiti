@@ -41,6 +41,7 @@
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
 #include "authn_basic.h"
+#include "authn_digest.h"
 #include "authz_simple.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -70,6 +71,7 @@ struct _mod_auth_ctx_s
 struct _mod_auth_s
 {
 	mod_auth_t	*config;
+	char *vhost;
 	char *realm;
 	const char *type;
 	authn_t *authn;
@@ -77,17 +79,30 @@ struct _mod_auth_s
 	int typelength;
 };
 
-static const char *str_authenticate = "WWW-Authenticate";
+const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
 static const char *str_realm = "ouistiti";
-static const char *str_types[] =
+const char *str_authenticate_types[] =
 {
 	"None",
 	"Basic",
 	"Digest",
 };
+authn_rules_t *authn_rules[] = {
+	NULL,
+#ifdef AUTHN_BASIC
+	&authn_basic_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHN_DIGEST
+	&authn_digest_rules,
+#else
+	NULL,
+#endif
+};
 
-void *mod_auth_create(http_server_t *server, mod_auth_t *config)
+void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
 
@@ -96,6 +111,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
+	mod->vhost = vhost;
 
 	if (config->realm == NULL)
 	{
@@ -116,20 +132,15 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->type = config->authn_type;
-	switch (config->authn_type)
+	mod->authn->rules = authn_rules[config->authn_type];
+	if (mod->authn->rules && mod->authz->rules)
 	{
-	case AUTHN_BASIC_E:
-		mod->authn->rules = &authn_basic_rules;
 		mod->authn->ctx = mod->authn->rules->create(mod->authz, config->authn_config);
-		mod->type = str_types[config->authn_type];
-	break;
-	default:
-		mod->type = str_types[0];
+		mod->type = str_authenticate_types[config->authn_type];
+		mod->typelength = strlen(mod->type);
+
+		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
 	}
-	mod->typelength = strlen(mod->type);
-
-	httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
-
 	return mod;
 }
 
@@ -153,10 +164,10 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
 
 	ctx->mod = mod;
-	ctx->authenticate = calloc(1, strlen(mod->type) + sizeof(" realm=\"\"") + strlen(mod->realm) + 1);
-	sprintf(ctx->authenticate, "%s realm=\"%s\"", mod->type, mod->realm);
 
-	httpclient_addconnector(ctl, NULL, _authn_connector, ctx);
+	if(mod->authn->rules->setup)
+		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
+	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx);
 	return ctx;
 }
 
@@ -173,23 +184,30 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
 	char *authorization;
+
 	authorization = httpmessage_REQUEST(request, (char *)str_authorization);
 	if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
 	{
 		char *authentication = strchr(authorization, ' ');
 		if (authentication)
 			authentication++;
-		char *user = mod->authn->rules->check(mod->authn->ctx, authentication);
+		char *method = httpmessage_REQUEST(request, "method");
+		char *user = mod->authn->rules->check(mod->authn->ctx, method, authentication);
 		if (user != NULL)
 		{
 			dbg("user \"%s\" accepted", user);
 			httpmessage_SESSION(request, "%user", user);
 			httpmessage_SESSION(request, "%authtype", (char *)mod->type);
+
+			if (mod->authz->rules->rights)
+			{
+				httpmessage_SESSION(request, "%authrights",
+					mod->authz->rules->rights(mod->authz->ctx, user));
+			}
 			ret = EREJECT;
 		}
 		else
 		{
-			dbg("bad passwd");
 			authorization = NULL;
 		}
 	}
@@ -198,11 +216,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (authorization == NULL || authorization[0] == '\0')
 	{
-		httpmessage_addheader(response, (char *)str_authenticate, ctx->authenticate);
-		httpmessage_result(response, RESULT_401);
-		httpmessage_keepalive(response);
-		ret = ESUCCESS;
-		dbg("error 401");
+		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 	}
 	return ret;
 }

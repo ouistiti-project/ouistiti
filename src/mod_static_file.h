@@ -40,7 +40,7 @@ typedef struct mod_static_file_s
 	char *transfertype;
 } mod_static_file_t;
 
-void *mod_static_file_create(http_server_t *server, mod_static_file_t *config);
+void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config);
 void mod_static_file_destroy(void *data);
 
 /**

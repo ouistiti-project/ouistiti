@@ -56,6 +56,7 @@ typedef struct _static_file_connector_s static_file_connector_t;
 struct _mod_static_file_mod_s
 {
 	mod_static_file_t *config;
+	void *vhost;
 	mod_transfer_t transfer;
 };
 
@@ -333,7 +334,7 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
 
 	ctx->mod = mod;
-	httpclient_addconnector(ctl, NULL, static_file_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx);
 
 	return ctx;
 }
@@ -347,7 +348,7 @@ static void _mod_static_file_freectx(void *vctx)
 }
 #endif
 
-void *mod_static_file_create(http_server_t *server, mod_static_file_t *config)
+void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config)
 {
 	_mod_static_file_mod_t *mod = calloc(1, sizeof(*mod));
 
@@ -360,9 +361,10 @@ void *mod_static_file_create(http_server_t *server, mod_static_file_t *config)
 	if (!config->ignored_ext)
 		config->ignored_ext = default_config.ignored_ext;
 	mod->config = config;
+	mod->vhost = vhost;
 	mod->transfer = mod_send_read;
 #ifdef USE_PRIVATE
-	httpserver_addconnector(server, NULL, static_file_connector, mod);
+	httpserver_addconnector(server, vhost, static_file_connector, mod);
 #else
 	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, mod);
 #endif

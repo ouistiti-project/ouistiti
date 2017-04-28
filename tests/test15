@@ -1,0 +1,3 @@
+CONFIG=test4.conf
+TESTREQUEST=test15_rq.txt
+TESTCODE=401

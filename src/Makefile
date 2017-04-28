@@ -19,6 +19,7 @@ $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
 $(TARGET)_LIBS-$(CGI)+=mod_cgi utils_mod
 $(TARGET)_LIBS-$(AUTH)+=mod_auth
+$(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts
 endif
 
 ifeq ($(STATIC),y)
@@ -26,6 +27,7 @@ $(TARGET)_SOURCES-$(MBEDTLS)+=../libhttpserver/src/libmod_mbedtls.a
 $(TARGET)_SOURCES-$(STATIC_FILE)+=libmod_static_file.a libutils_mod.a
 $(TARGET)_SOURCES-$(CGI)+=libmod_cgi.a libutils_mod.a
 $(TARGET)_SOURCES-$(AUTH)+=libmod_auth.a ../utils/libb64.a
+$(TARGET)_SOURCES-$(VHOSTS)+=libmod_vhosts.a
 endif
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
@@ -35,10 +37,13 @@ $(TARGET)_CFLAGS-$(STATIC_FILE)+=-DSTATIC_FILE
 $(TARGET)_CFLAGS-$(CGI)+=-DCGI
 $(TARGET)_CFLAGS-$(AUTH)+=-DAUTH
 $(TARGET)_CFLAGS-$(AUTHN_BASIC)+=-DAUTHN_BASIC
+$(TARGET)_CFLAGS-$(AUTHN_DIGEST)+=-DAUTHN_DIGEST
 $(TARGET)_CFLAGS-$(AUTHZ_SIMPLE)+=-DAUTHZ_SIMPLE
+$(TARGET)_CFLAGS-$(VHOSTS)+=-DVHOSTS
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
-subdir-${CGI}+=mod_cgi.mk
-subdir-${STATIC_FILE}+=mod_static_file.mk
-subdir-${AUTH}+=mod_auth.mk
+subdir-$(CGI)+=mod_cgi.mk
+subdir-$(STATIC_FILE)+=mod_static_file.mk
+subdir-$(AUTH)+=mod_auth.mk
+subdir-$(VHOSTS)+=mod_vhosts.mk

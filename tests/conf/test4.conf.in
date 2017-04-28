@@ -1,0 +1,21 @@
+user="%USER%";
+servers= ({
+		hostname = "www.ouistiti.net";
+		port = 80;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		auth = {
+			type="Digest";
+			realm="testrealm@host.com";
+			opaque="hello world";
+			superuser="Mufasa";
+			passwd="Circle Of Life";
+		};
+		static_file = {
+			docroot = "%PWD%/tests/htdocs";
+			accepted_ext = ".html,.htm,.css,.js,.txt,*";
+			ignored_ext = ".htaccess,.php";
+		};
+	});
+
+
