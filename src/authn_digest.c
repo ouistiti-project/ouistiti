@@ -46,7 +46,7 @@
 	} while(0)
 # define MD5_update(pctx, in, len) \
 	mbedtls_md5_update(pctx, in, len)
-# define MD5_finish(out, pctx)
+# define MD5_finish(out, pctx) \
 	mbedtls_md5_finish(pctx, out)
 #elif defined (MD5_RONRIVEST)
 # include "../utils/md5-c/global.h"

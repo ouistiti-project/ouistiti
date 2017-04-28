@@ -22,10 +22,10 @@ mod_auth_CFLAGS-$(AUTHZ_SIMPLE)+=-DAUTHZ_SIMPLE
 mod_auth_SOURCES-$(AUTHN_BASIC)+= ../utils/libb64.a
 mod_auth_SOURCES-$(AUTHN_DIGEST)+= ../utils/libb64.a
 ifneq ($(MBEDTLS),y)
-ifneq ($(MD5_RONRIVEST),y)
-mod_auth_SOURCES-$(AUTHN_DIGEST)+= ../utils/md5/libmd5.a
-else
+ifeq ($(MD5_RONRIVEST),y)
 mod_auth_SOURCES-$(AUTHN_DIGEST)+= ../utils/md5-c/libmd5.a
+else
+mod_auth_SOURCES-$(AUTHN_DIGEST)+= ../utils/md5/libmd5.a
 endif
 endif
 

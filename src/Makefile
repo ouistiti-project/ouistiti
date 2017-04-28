@@ -31,6 +31,13 @@ $(TARGET)_SOURCES-$(MBEDTLS)+=../libhttpserver/src/libmod_mbedtls.a
 $(TARGET)_SOURCES-$(STATIC_FILE)+=libmod_static_file.a libutils_mod.a
 $(TARGET)_SOURCES-$(CGI)+=libmod_cgi.a libutils_mod.a
 $(TARGET)_SOURCES-$(AUTH)+=libmod_auth.a ../utils/libb64.a
+ifneq ($(MBEDTLS),y)
+ifeq ($(MD5_RONRIVEST),y)
+$(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5-c/libmd5.a
+else
+$(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5/libmd5.a
+endif
+endif
 $(TARGET)_SOURCES-$(VHOSTS)+=libmod_vhosts.a
 endif
 
