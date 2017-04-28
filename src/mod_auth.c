@@ -71,6 +71,7 @@ struct _mod_auth_ctx_s
 struct _mod_auth_s
 {
 	mod_auth_t	*config;
+	char *vhost;
 	char *realm;
 	const char *type;
 	authn_t *authn;
@@ -101,7 +102,7 @@ authn_rules_t *authn_rules[] = {
 #endif
 };
 
-void *mod_auth_create(http_server_t *server, mod_auth_t *config)
+void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
 
@@ -110,6 +111,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
+	mod->vhost = vhost;
 
 	if (config->realm == NULL)
 	{
@@ -165,7 +167,7 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
-	httpclient_addconnector(ctl, NULL, _authn_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx);
 	return ctx;
 }
 

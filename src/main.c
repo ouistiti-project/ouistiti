@@ -220,13 +220,13 @@ int main(int argc, char * const *argv)
 #if defined AUTH
 			if (server->config->auth)
 			{
-				server->mod_auth = mod_auth_create(server->server, server->config->auth);
+				server->mod_auth = mod_auth_create(server->server, NULL, server->config->auth);
 			}
 #endif
 			httpserver_addmod(server->server, _access_method_getctx, NULL, NULL);
 #if defined CGI
 			if (server->config->cgi)
-				server->mod_cgi = mod_cgi_create(server->server, server->config->cgi);
+				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->cgi);
 #endif
 #if defined MBEDTLS
 			if (server->config->tls)
@@ -234,7 +234,7 @@ int main(int argc, char * const *argv)
 #endif
 #if defined STATIC_FILE
 			if (server->config->static_file)
-				server->mod_static_file = mod_static_file_create(server->server, server->config->static_file);
+				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->static_file);
 #endif
 		}
 		server = server->next;

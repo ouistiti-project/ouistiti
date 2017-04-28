@@ -118,7 +118,7 @@ typedef struct mod_auth_s
 	authz_type_t authz_type;
 } mod_auth_t;
 
-void *mod_auth_create(http_server_t *server, mod_auth_t *modconfig);
+void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *modconfig);
 void mod_auth_destroy(void *mod);
 
 #ifdef __cplusplus

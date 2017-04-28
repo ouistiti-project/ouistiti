@@ -42,7 +42,7 @@ typedef struct mod_cgi_config_s
 	int nbenvs;
 } mod_cgi_config_t;
 
-void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig);
+void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);
 void mod_cgi_destroy(void *mod);
 
 #ifdef __cplusplus
