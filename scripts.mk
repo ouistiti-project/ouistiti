@@ -198,10 +198,11 @@ hostslib-target:=$(addprefix $(hostobj),$(addsuffix $(slib-ext:%=.%),$(addprefix
 hostbin-target:=$(addprefix $(hostobj),$(addsuffix $(bin-ext:%=.%),$(hostbin-y)))
 subdir-target:=$(wildcard $(addsuffix /Makefile,$(subdir-y)))
 subdir-dir:=$(dir $(subdir-target))
+subdir-y:=$(filter-out $(subdir-dir:%/=%),$(subdir-y))
 subdir-target+=$(wildcard $(addsuffix /*$(makefile-ext:%=.%),$(subdir-y)))
-subdir-target+=$(wildcard $(filter-out $(subdir-dir:%/=%),$(subdir-y)))
-subdir-project:=$(wildcard $(addsuffix /configure,$(subdir-y)))
-subdir-target:=$(filter-out $(subdir-project),$(subdir-target))
+subdir-target+=$(wildcard $(subdir-y))
+#subdir-project:=$(wildcard $(addsuffix /configure,$(subdir-y)))
+#subdir-target:=$(filter-out $(subdir-project),$(subdir-target))
 
 targets:=
 targets+=$(lib-dynamic-target)
@@ -410,13 +411,13 @@ $(hostbin-target): $(hostobj)%$(bin-ext:%=.%): $$(if $$(%-objs), $$(addprefix $(
 $(hostslib-target): $(hostobj)lib%$(slib-ext:%=.%): $$(if $$(%-objs), $$(addprefix $(hostobj),$$(%-objs)), $(hostobj)%.o)
 	@$(call cmd,hostld_slib)
 
-.PHONY:$(subdir-target) $(subdir-project)
+.PHONY:$(subdir-target) $(subdir-project) FORCE
 #$(subdir-project): %:
 #	$(Q)cd $(dir $*) && autoreconf -i
 #	$(Q)cd $(dir $*) && ./configure
 #	$(Q)cd $(dir $*) && $(MAKE)
 
-$(subdir-target): %:
+$(subdir-target): %: FORCE
 	$(Q)$(MAKE) -C $(dir $*) cwdir=$(cwd)$(dir $*) builddir=$(builddir) $(build)=$(notdir $*)
 
 $(LIBRARY) $(sort $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))): %:
