@@ -1,6 +1,3 @@
 * php module
 * http2 module
 * date and expired file module
-* create deb package
-* create yocto recipe
-* create buildroot recipe
