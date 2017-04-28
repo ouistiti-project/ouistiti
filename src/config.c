@@ -58,6 +58,154 @@ static int logfd = 0;
 static char *pidfile = NULL;
 static int pidfd = 0;
 
+#ifdef STATIC_FILE
+static mod_static_file_t *static_file_config(config_setting_t *iterator)
+{
+	mod_static_file_t * static_file = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configstaticfile = config_setting_get_member(iterator, "static_file");
+#else
+	config_setting_t *configstaticfile = config_setting_lookup(iterator, "static_file");
+#endif
+	if (configstaticfile)
+	{
+		static_file = calloc(1, sizeof(*static_file));
+		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
+		config_setting_lookup_string(configstaticfile, "accepted_ext", (const char **)&static_file->accepted_ext);
+		config_setting_lookup_string(configstaticfile, "ignored_ext", (const char **)&static_file->ignored_ext);
+		config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&static_file->transfertype);
+	}
+	return static_file;
+}
+#else
+#define static_file_config(...) NULL
+#endif
+
+#if defined(MBEDTLS)
+static mod_tls_t *tls_config(config_setting_t *iterator)
+{
+	mod_tls_t *tls = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configtls = config_setting_get_member(iterator, "tls");
+#else
+	config_setting_t *configtls = config_setting_lookup(iterator, "tls");
+#endif
+	if (configtls)
+	{
+		tls = calloc(1, sizeof(*tls));
+		config_setting_lookup_string(configtls, "crtfile", (const char **)&tls->crtfile);
+		config_setting_lookup_string(configtls, "pemfile",(const char **) &tls->pemfile);
+		config_setting_lookup_string(configtls, "cachain", (const char **)&tls->cachain);
+		config_setting_lookup_string(configtls, "dhmfile", (const char **)&tls->dhmfile);
+	}
+	return tls;
+}
+#else
+#define tls_config(...) NULL
+#endif
+
+#ifdef AUTH
+static mod_auth_t *auth_config(config_setting_t *iterator)
+{
+	mod_auth_t *auth = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+					config_setting_t *configauth = config_setting_get_member(iterator, "auth");
+#else
+					config_setting_t *configauth = config_setting_lookup(iterator, "auth");
+#endif
+	if (configauth)
+	{
+		auth = calloc(1, sizeof(*auth));
+		config_setting_lookup_string(configauth, "realm", (const char **)&auth->realm);
+#ifdef AUTHZ_SIMPLE
+		char *user = NULL;
+		int rights = 5;
+		config_setting_lookup_string(configauth, "user", (const char **)&user);
+		if (user == NULL || user[0] == '0')
+		{
+			config_setting_lookup_string(configauth, "superuser", (const char **)&user);
+			rights = 11;
+		}
+		if (user != NULL && user[0] != '0')
+		{
+			char *passwd;
+			config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
+			auth->authz_type = AUTHZ_SIMPLE_E;
+			authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
+			authz_config->user = user;
+			authz_config->passwd = passwd;
+			authz_config->rights = rights;
+			auth->authz_config = authz_config;
+		}
+#endif
+		char *type = NULL;
+		config_setting_lookup_string(configauth, "type", (const char **)&type);
+#ifdef AUTHN_BASIC
+		if (type != NULL && !strncmp(type, "Basic", 5))
+		{
+			authn_basic_config_t *authn_config = calloc(1, sizeof(*authn_config));
+			auth->authn_type = AUTHN_BASIC_E;
+			authn_config->realm = auth->realm;
+			auth->authn_config = authn_config;
+		}
+#endif
+#ifdef AUTHN_DIGEST
+		if (type != NULL && !strncmp(type, "Digest", 5))
+		{
+			authn_digest_config_t *authn_config = calloc(1, sizeof(*authn_config));
+			auth->authn_type = AUTHN_DIGEST_E;
+			authn_config->realm = auth->realm;
+			config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
+			auth->authn_config = authn_config;
+		}
+#endif
+	}
+	return auth;
+}
+#else
+#define auth_config(...) NULL
+#endif
+
+#ifdef CGI
+static mod_cgi_config_t *cgi_config(config_setting_t *iterator)
+{
+	mod_cgi_config_t *cgi = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configcgi = config_setting_get_member(iterator, "cgi");
+#else
+	config_setting_t *configcgi = config_setting_lookup(iterator, "cgi");
+#endif
+	if (configcgi)
+	{
+		cgi = calloc(1, sizeof(*cgi));
+		config_setting_lookup_string(configcgi, "docroot", (const char **)&cgi->docroot);
+		config_setting_lookup_string(configcgi, "accepted_ext", (const char **)&cgi->accepted_ext);
+		config_setting_lookup_string(configcgi, "ignored_ext", (const char **)&cgi->ignored_ext);
+		cgi->nbenvs = 0;
+#if LIBCONFIG_VER_MINOR < 5
+		config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
+#else
+		config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
+#endif
+		if (cgienv)
+		{
+			int count = config_setting_length(cgienv);
+			int i;
+			cgi->env = calloc(sizeof(char *), count);
+			for (i = 0; i < count; i++)
+			{
+				config_setting_t *iterator = config_setting_get_elem(cgienv, i);
+				cgi->env[i] = config_setting_get_string(iterator);
+			}
+			cgi->nbenvs = count;
+		}
+	}
+	return cgi;
+}
+#else
+#define cgi_config(...) NULL
+#endif
+
 ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 {
 	int ret;
@@ -144,122 +292,10 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							version[8] == 'P' && version[9] == 'E')
 							config->server->version |= HTTP_PIPELINE;
 					}
-#if defined(MBEDTLS)
-#if LIBCONFIG_VER_MINOR < 5
-					config_setting_t *configtls = config_setting_get_member(iterator, "tls");
-#else
-					config_setting_t *configtls = config_setting_lookup(iterator, "tls");
-#endif
-					if (configtls)
-					{
-						config->tls = calloc(1, sizeof(*config->tls));
-						config_setting_lookup_string(configtls, "crtfile", (const char **)&config->tls->crtfile);
-						config_setting_lookup_string(configtls, "pemfile",(const char **) &config->tls->pemfile);
-						config_setting_lookup_string(configtls, "cachain", (const char **)&config->tls->cachain);
-						config_setting_lookup_string(configtls, "dhmfile", (const char **)&config->tls->dhmfile);
-					}
-#endif
-#ifdef STATIC_FILE
-#if LIBCONFIG_VER_MINOR < 5
-					config_setting_t *configstaticfile = config_setting_get_member(iterator, "static_file");
-#else
-					config_setting_t *configstaticfile = config_setting_lookup(iterator, "static_file");
-#endif
-					if (configstaticfile)
-					{
-						config->static_file = calloc(1, sizeof(*config->static_file));
-						config_setting_lookup_string(configstaticfile, "docroot", (const char **)&config->static_file->docroot);
-						config_setting_lookup_string(configstaticfile, "accepted_ext", (const char **)&config->static_file->accepted_ext);
-						config_setting_lookup_string(configstaticfile, "ignored_ext", (const char **)&config->static_file->ignored_ext);
-						config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&config->static_file->transfertype);
-					}
-#endif
-#ifdef AUTH
-#if LIBCONFIG_VER_MINOR < 5
-					config_setting_t *configauth = config_setting_get_member(iterator, "auth");
-#else
-					config_setting_t *configauth = config_setting_lookup(iterator, "auth");
-#endif
-					if (configauth)
-					{
-						config->auth = calloc(1, sizeof(*config->auth));
-						config_setting_lookup_string(configauth, "realm", (const char **)&config->auth->realm);
-#ifdef AUTHZ_SIMPLE
-						char *user = NULL;
-						int rights = 5;
-						config_setting_lookup_string(configauth, "user", (const char **)&user);
-						if (user == NULL || user[0] == '0')
-						{
-							config_setting_lookup_string(configauth, "superuser", (const char **)&user);
-							rights = 11;
-						}
-						if (user != NULL && user[0] != '0')
-						{
-							char *passwd;
-							config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
-							config->auth->authz_type = AUTHZ_SIMPLE_E;
-							authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
-							authz_config->user = user;
-							authz_config->passwd = passwd;
-							authz_config->rights = rights;
-							config->auth->authz_config = authz_config;
-						}
-#endif
-						char *type = NULL;
-						config_setting_lookup_string(configauth, "type", (const char **)&type);
-#ifdef AUTHN_BASIC
-						if (type != NULL && !strncmp(type, "Basic", 5))
-						{
-							authn_basic_config_t *authn_config = calloc(1, sizeof(*authn_config));
-							config->auth->authn_type = AUTHN_BASIC_E;
-							authn_config->realm = config->auth->realm;
-							config->auth->authn_config = authn_config;
-						}
-#endif
-#ifdef AUTHN_DIGEST
-						if (type != NULL && !strncmp(type, "Digest", 5))
-						{
-							authn_digest_config_t *authn_config = calloc(1, sizeof(*authn_config));
-							config->auth->authn_type = AUTHN_DIGEST_E;
-							authn_config->realm = config->auth->realm;
-							config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
-							config->auth->authn_config = authn_config;
-						}
-#endif
-					}
-#endif
-#ifdef CGI
-#if LIBCONFIG_VER_MINOR < 5
-					config_setting_t *configcgi = config_setting_get_member(iterator, "cgi");
-#else
-					config_setting_t *configcgi = config_setting_lookup(iterator, "cgi");
-#endif
-					if (configcgi)
-					{
-						config->cgi = calloc(1, sizeof(*config->cgi));
-						config_setting_lookup_string(configcgi, "docroot", (const char **)&config->cgi->docroot);
-						config_setting_lookup_string(configcgi, "accepted_ext", (const char **)&config->cgi->accepted_ext);
-						config_setting_lookup_string(configcgi, "ignored_ext", (const char **)&config->cgi->ignored_ext);
-						config->cgi->nbenvs = 0;
-#if LIBCONFIG_VER_MINOR < 5
-						config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
-#else
-						config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
-#endif
-						if (cgienv)
-						{
-							int count = config_setting_length(cgienv);
-							int i;
-							config->cgi->env = calloc(sizeof(char *), count);
-							for (i = 0; i < count; i++)
-							{
-								config_setting_t *iterator = config_setting_get_elem(cgienv, i);
-								config->cgi->env[i] = config_setting_get_string(iterator);
-							}
-							config->cgi->nbenvs = count;
-						}
-					}
-#endif
+					config->tls = tls_config(iterator);
+					config->static_file = static_file_config(iterator);
+					config->auth = auth_config(iterator);
+					config->cgi = cgi_config(iterator);
 				}
 			}
 			ouistiticonfig->servers[i] = NULL;
