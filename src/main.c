@@ -52,6 +52,7 @@
 #include "mod_static_file.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
+#include "mod_vhosts.h"
 
 #include "config.h"
 #include "../version.h"
@@ -75,6 +76,7 @@ typedef struct server_s
 	void *mod_static_file;
 	void *mod_cgi;
 	void *mod_auth;
+	void *mod_vhosts[MAX_SERVERS - 1];
 
 	struct server_s *next;
 } servert_t;
@@ -217,6 +219,13 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
+#if defined VHOSTS
+			for (i = 0; i < (MAX_SERVERS - 1); i++)
+			{
+				if (server->config->vhosts[i])
+					server->mod_vhosts[i] = mod_vhost_create(server->server,server->config->vhosts[i]);
+			}
+#endif
 #if defined AUTH
 			if (server->config->auth)
 			{

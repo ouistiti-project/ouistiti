@@ -41,6 +41,7 @@
 #include "mod_static_file.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
+#include "mod_vhosts.h"
 
 #include "config.h"
 
@@ -206,6 +207,32 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator)
 #define cgi_config(...) NULL
 #endif
 
+#ifdef VHOSTS
+static mod_vhost_t *vhost_config(config_setting_t *iterator)
+{
+	mod_vhost_t *vhost = NULL;
+	char *hostname;
+
+	config_setting_lookup_string(iterator, "hostname", (const char **)&hostname);
+	if (hostname && hostname[0] != '0')
+	{
+		vhost = calloc(1, sizeof(*vhost));
+		vhost->hostname = hostname;
+		vhost->static_file = static_file_config(iterator);
+		vhost->auth = auth_config(iterator);
+		vhost->cgi = cgi_config(iterator);
+	}
+	else
+	{
+		warn("vhost configuration without hostname");
+	}
+
+	return vhost;
+}
+#else
+#define vhost_config(...) NULL
+#endif
+
 ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 {
 	int ret;
@@ -296,6 +323,24 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->static_file = static_file_config(iterator);
 					config->auth = auth_config(iterator);
 					config->cgi = cgi_config(iterator);
+#ifdef VHOSTS
+#if LIBCONFIG_VER_MINOR < 5
+					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
+#else
+					config_setting_t *configvhosts = config_setting_lookup(iterator, "vhosts");
+#endif
+					if (configvhosts)
+					{
+						int count = config_setting_length(configvhosts);
+						int j;
+
+						for (j = 0; j < count && (j + i) < MAX_SERVERS; i++)
+						{
+							config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
+							config->vhosts[j] = vhost_config(iterator);
+						}
+					}
+#endif
 				}
 			}
 			ouistiticonfig->servers[i] = NULL;
