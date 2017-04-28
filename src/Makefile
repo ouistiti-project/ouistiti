@@ -14,6 +14,10 @@ $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 
+ifneq ($(MAX_SERVERS),)
+$(TARGET)_CFLAGS+=-DMAX_SERVERS=$(MAX_SERVERS)
+endif
+
 ifeq ($(DYNAMIC),y)
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
