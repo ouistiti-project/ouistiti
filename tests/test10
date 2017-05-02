@@ -1,4 +1,4 @@
-# test HEADER with a length of 64 bytes
+DESC="tes a request without Basic authentication"
 CONFIG=test2.conf
 TESTREQUEST=test10_rq.txt
 TESTCODE=401

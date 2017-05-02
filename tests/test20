@@ -1,3 +1,4 @@
+DESC="test a request on regular file on a vhost"
 CONFIG=test5.conf
 TESTREQUEST=test20_rq.txt
 TESTCODE=200

@@ -1,3 +1,4 @@
+DESC="test a PUT request with bad authentication"
 CONFIG=test1.conf
 TESTREQUEST=test18_rq.txt
 TESTCODE=405

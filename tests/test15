@@ -1,3 +1,4 @@
+DESC="test a request without Digest authentication"
 CONFIG=test4.conf
 TESTREQUEST=test15_rq.txt
 TESTCODE=401

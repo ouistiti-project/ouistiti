@@ -1,3 +1,4 @@
+DESC="test a request on an existing empty file"
 CONFIG=test1.conf
 CURLPARAM="http://127.0.0.1/empty.html"
 TESTCODE=200
