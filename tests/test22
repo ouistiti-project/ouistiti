@@ -1,0 +1,4 @@
+DESC="test a request to list the directory"
+CONFIG=test1.conf
+TESTREQUEST=test22_rq.txt
+TESTCODE=200
