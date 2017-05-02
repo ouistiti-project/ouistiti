@@ -133,36 +133,9 @@ static const mime_entry_t *mime_entry[] =
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret;
-#ifdef USE_PRIVATE
-	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;
-	mod_static_file_t *config = mod->config;
-	static_file_connector_t *private = httpmessage_private(request, NULL);
-	private->mod = mod;
-
-	do
-	{
-		if (!private)
-		{
-			private = calloc(1, sizeof(*private));
-			private->type = CONNECTOR_TYPE;
-		}
-		else if (private->type != CONNECTOR_TYPE)
-		{
-			if (private->previous)
-			{
-				private = private->previous;
-				continue;
-			}
-			private->previous = calloc(1, sizeof(*private));
-			private->type = CONNECTOR_TYPE;
-			private = private->previous;
-		}
-	} while(0);
-#else
 	static_file_connector_t *private = (static_file_connector_t *)arg;
 	_mod_static_file_mod_t *mod = private->mod;
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
-#endif
 
 	if (private->fd == -1)
 	{
@@ -194,9 +167,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		{
 			warn("static file: forbidden extension");
 			free(filepath);
-#ifdef USE_PRIVATE
-			free(private);
-#endif
 			return EREJECT;
 		}
 		struct stat filestat;
@@ -209,9 +179,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			{
 				httpmessage_result(response, RESULT_301);
 				free(filepath);
-#ifdef USE_PRIVATE
-				free(private);
-#endif
 				return ESUCCESS;
 			}
 #endif
@@ -272,9 +239,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		{
 			warn("static file: %s not found %s", filepath, strerror(errno));
 			free(filepath);
-#ifdef USE_PRIVATE
-			free(private);
-#endif
 			return EREJECT;
 		}
 		private->fd = open(filepath, O_RDONLY);
@@ -296,9 +260,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	{
 		close(private->fd);
 		private->fd = 0;
-#ifdef USE_PRIVATE
-		free(private);
-#endif
 		if (ret == 0)
 			return ESUCCESS;
 		else
@@ -326,7 +287,6 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response)
 
 //int mod_send(static_file_connector_t *private, http_message_t *response) __attribute__ ((weak, alias ("mod_send_read")));
 
-#ifndef USE_PRIVATE
 static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;
@@ -346,7 +306,6 @@ static void _mod_static_file_freectx(void *vctx)
 		free(ctx->path_info);
 	free(ctx);
 }
-#endif
 
 void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config)
 {
@@ -363,11 +322,7 @@ void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file
 	mod->config = config;
 	mod->vhost = vhost;
 	mod->transfer = mod_send_read;
-#ifdef USE_PRIVATE
-	httpserver_addconnector(server, vhost, static_file_connector, mod);
-#else
 	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, mod);
-#endif
 
 	int length;
 	char *ext = config->transfertype;
