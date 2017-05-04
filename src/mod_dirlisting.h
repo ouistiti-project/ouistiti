@@ -25,53 +25,21 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_STATIC_FILE_H__
-#define __MOD_STATIC_FILE_H__
+#ifndef __MOD_DIRLISTING_H__
+#define __MOD_DIRLISTING_H__
 
-#include <dirent.h>
+#include "mod_static_file.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-typedef struct mod_static_file_s
-{
-	char *docroot;
-	char *accepted_ext;
-	char *ignored_ext;
-	char *transfertype;
-} mod_static_file_t;
 
-void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config);
-void mod_static_file_destroy(void *data);
+int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
 
-/**
- * interface to change the data transfer function
- */
-#define CONTENTCHUNK 63
-
-typedef struct _mod_static_file_mod_s _mod_static_file_mod_t;
-typedef struct _static_file_connector_s static_file_connector_t;
-typedef int (*mod_transfer_t)(static_file_connector_t *private, http_message_t *response);
-
-struct _static_file_connector_s
-{
-	/**
-	 * to use with PRIVATE value of message
-	 * type is mandatory at the first place
-	 */
-	int type;
-	_mod_static_file_mod_t *mod;
-	void *previous;
-	char *path_info;
-	int fd;
-	DIR *dir;
-	unsigned int size;
-	unsigned int offset;
-};
-
-#ifdef SENDFILE
-int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
+#ifndef STATIC_FILE
+void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_static_file_t *config);
+void mod_dirlisting_destroy(void *data);
 #endif
 
 #ifdef __cplusplus

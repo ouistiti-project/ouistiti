@@ -38,6 +38,7 @@
 #include "httpserver/uri.h"
 #include "utils.h"
 #include "mod_static_file.h"
+#include "mod_dirlisting.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -239,6 +240,12 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 		if (!strncmp(ext, "sendfile", length))
 		{
 			mod->transfer = mod_send_sendfile;
+		}
+#endif
+#ifdef DIRLISTING
+		if (!strncmp(ext, "dirlisting", length))
+		{
+			httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
 		}
 #endif
 		ext = ext_end;
