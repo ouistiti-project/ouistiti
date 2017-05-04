@@ -63,31 +63,35 @@ fi
 
 if [ -n "$DEBUG" ]; then
 	echo $result
-fi
-rescode=$(echo $result | gawk '{print $1}')
-resheaderlen=$(echo $result | gawk '{print $2}')
-rescontentlen=$(echo $result | gawk '{print $3}')
+else
+	rescode=$(echo $result | gawk '{print $1}')
+	resheaderlen=$(echo $result | gawk '{print $2}')
+	rescontentlen=$(echo $result | gawk '{print $3}')
 
-echo ""
+	echo ""
 
-ERR=0
-if [ -n "$TESTCODE" -a x$rescode != x$TESTCODE ]; then
-	echo "result code error $rescode instead $TESTCODE"
-	ERR=-1
+	ERR=0
+	if [ -n "$TESTCODE" -a x$rescode != x$TESTCODE ]; then
+		echo "result code error $rescode instead $TESTCODE"
+		ERR=-1
+		kill $PID 2> /dev/null
+	fi
+	if [ -n "$TESTHEADERLEN" -a x$resheaderlen != x$TESTHEADERLEN ]; then
+		echo "header error received $resheaderlen instead $TESTHEADERLEN"
+		ERR=-1
+		kill $PID 2> /dev/null
+	fi
+	if [ -n "$TESTCONTENTLEN" -a x$rescontentlen != x$TESTCONTENTLEN ]; then
+		echo "content error received $rescontentlen instead $TESTCONTENTLEN"
+		ERR=-1
+		kill $PID 2> /dev/null
+	fi
+	if [ $ERR -eq -1 ]; then
+		exit $ERR
+	else
+		echo "test $1 complete"
+	fi
+fi
+if [ $CONTINUE -eq 0 ]; then
 	kill $PID 2> /dev/null
 fi
-if [ -n "$TESTHEADERLEN" -a x$resheaderlen != x$TESTHEADERLEN ]; then
-	echo "header error received $resheaderlen instead $TESTHEADERLEN"
-	ERR=-1
-	kill $PID 2> /dev/null
-fi
-if [ -n "$TESTCONTENTLEN" -a x$rescontentlen != x$TESTCONTENTLEN ]; then
-	echo "content error received $rescontentlen instead $TESTCONTENTLEN"
-	ERR=-1
-	kill $PID 2> /dev/null
-fi
-if [ $CONTINUE -eq 0 -a $ERR -eq 0 ]; then
-	echo "test $1 complete"
-	kill $PID 2> /dev/null
-fi
-exit $ERR
