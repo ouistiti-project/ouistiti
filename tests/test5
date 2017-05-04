@@ -1,4 +1,4 @@
-# test HEADER with a length of 64 bytes
+DESC="test request for file out the root documents"
 CONFIG=test1.conf
 TESTREQUEST=test5_rq.txt
 TESTCODE=404

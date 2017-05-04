@@ -1,4 +1,4 @@
-
+DESC="test a request on simple CGI script"
 CONFIG=test3.conf
 TESTREQUEST=test13_rq.txt
 TESTCODE=200

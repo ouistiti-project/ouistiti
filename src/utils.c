@@ -26,7 +26,90 @@
  *****************************************************************************/
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <sys/stat.h>
+
 #include "httpserver/httpserver.h"
+#include "utils.h"
+
+#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#ifdef DEBUG
+#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#else
+#define dbg(...)
+#endif
+
+static const char *_mimetype[] =
+{
+	"text/plain",
+	"text/html",
+	"text/css",
+	"application/javascript",
+	"image/png",
+	"image/jpeg",
+	"application/octet-stream",
+};
+
+typedef struct mime_entry_s
+{
+	char *ext;
+	utils_mimetype_enum type;
+} mime_entry_t;
+
+static const mime_entry_t *mime_entry[] =
+{
+	&(mime_entry_t){
+		.ext = ".html,.xhtml,.htm",
+		.type = MIME_TEXTHTML,
+	},
+	&(mime_entry_t){
+		.ext = ".css",
+		.type = MIME_TEXTCSS,
+	},
+	&(mime_entry_t){
+		.ext = ".js",
+		.type = MIME_APPLICATIONJAVASCRIPT,
+	},
+	&(mime_entry_t){
+		.ext = ".text",
+		.type = MIME_TEXTPLAIN,
+	},
+	&(mime_entry_t){
+		.ext = ".png",
+		.type = MIME_IMAGEPNG,
+	},
+	&(mime_entry_t){
+		.ext = ".jpg",
+		.type = MIME_IMAGEJPEG,
+	},
+	&(mime_entry_t){
+		.ext = "*",
+		.type = MIME_APPLICATIONOCTETSTREAM,
+	},
+	NULL
+};
+
+const char *utils_getmime(char *filepath)
+{
+	mime_entry_t *mime = (mime_entry_t *)mime_entry[0];
+	char *fileext = strrchr(filepath,'.');
+	if (fileext == NULL)
+		return NULL;
+	while (mime)
+	{
+		if (utils_searchext(fileext, mime->ext) == ESUCCESS)
+		{
+			break;
+		}
+		mime++;
+	}
+	if (mime)
+		return _mimetype[mime->type];
+	return NULL;
+}
+
+char *str_location = "Location";
 
 char *utils_urldecode(char *encoded)
 {
@@ -113,3 +196,25 @@ int utils_searchext(char *filepath, char *extlist)
 	return ret;
 }
 
+char *utils_buildpath(char *docroot, char *path_info, char *filename, char *ext, struct stat *filestat)
+{
+	char *filepath;
+	int length;
+
+	length = strlen(docroot) + 1;
+	length += strlen(path_info) + 1;
+	length += strlen(filename);
+	length += strlen(ext);
+	filepath = calloc(1, length + 1);
+	snprintf(filepath, length + 1, "%s/%s%s%s", docroot, path_info, filename, ext);
+
+	filepath[length] = '\0';
+
+	memset(filestat, 0, sizeof(*filestat));
+	if (stat(filepath, filestat))
+	{
+		free(filepath);
+		return NULL;
+	}
+	return filepath;
+}

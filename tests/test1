@@ -1,3 +1,4 @@
+DESC="test request an 'index.html' file"
 CONFIG=test1.conf
 CURLPARAM=http://127.0.0.1/index.html
 TESTCODE=200

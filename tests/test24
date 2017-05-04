@@ -1,0 +1,4 @@
+DESC="test automatic relocation on directory without /"
+CONFIG=test1.conf
+TESTREQUEST=test24_rq.txt
+TESTCODE=301

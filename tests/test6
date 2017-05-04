@@ -1,4 +1,4 @@
-# test HEADER with a length of 64 bytes
+DESC="test request with empty URI"
 CONFIG=test1.conf
 TESTREQUEST=test6_rq.txt
 TESTCODE=400

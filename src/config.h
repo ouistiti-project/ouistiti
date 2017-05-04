@@ -1,7 +1,9 @@
 #ifndef __OUISTITI_CONFIG_H__
 #define __OUISTITI_CONFIG_H__
 
+#ifndef MAX_SERVERS
 #define MAX_SERVERS 4
+#endif
 
 typedef struct serverconfig_s
 {

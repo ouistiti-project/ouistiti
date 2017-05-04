@@ -1,4 +1,4 @@
-# test HEADER with a length of 64 bytes
+DESC="test a request on a file out of the root documents '/test/../index.html'"
 CONFIG=test1.conf
 TESTREQUEST=test8_rq.txt
 TESTCODE=200
