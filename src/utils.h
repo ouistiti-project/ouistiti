@@ -28,6 +28,21 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+extern char *str_location;
+
+typedef enum
+{
+	MIME_TEXTPLAIN,
+	MIME_TEXTHTML,
+	MIME_TEXTCSS,
+	MIME_APPLICATIONJAVASCRIPT,
+	MIME_IMAGEPNG,
+	MIME_IMAGEJPEG,
+	MIME_APPLICATIONOCTETSTREAM,
+} utils_mimetype_enum;
+const char *utils_getmime(char *path);
+
 char *utils_urldecode(char *encoded);
 int utils_searchext(char *filepath, char *extlist);
+char *utils_buildpath(char *docroot, char *path_info, char *filename, char *ext, struct stat *filestat);
 #endif
