@@ -132,7 +132,7 @@ MBEDTLS : build the SSL/TLS support with mbedtls.
 CGI : build the CGI/1.1 support.  
 STATIC_FILE : build the delivery of static files.  
 SENDFILE : build the extension of STATIC_FILE to increase the speed.  
-DIRLISTING : build the extention of STATIC_FILE to display the directory content.
+DIRLISTING : build the extention of STATIC_FILE to display the directory content.  
 AUTH : build the support of the authentication.  
 AUTHN_BASIC : add a Basic challenge method for AUTH.  
 AUTHN_DIGEST : add a Digest challenge method for AUTH.  
