@@ -580,7 +580,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		/**
 		 * RFC 3875 : 6.2.3
 		 */
-		char *location = httpmessage_REQUEST(response, "Location");
+		char *location = httpmessage_REQUEST(response, str_location);
 		if (location != NULL && location[0] != '\0')
 			httpmessage_result(response, RESULT_302);
 		ret = waitpid(ctx->pid, &status, WNOHANG);
