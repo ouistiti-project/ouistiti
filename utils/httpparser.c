@@ -87,20 +87,15 @@ int main(int argc, char ** argv)
 		buffer[length] = 0;
 		if (length > 0)
 		{
-			int ret;
+			int ret = 0;
 			if (state & HEADER)
 			{
 				headerlength += length;
 			}
 			ret = httpmessage_parsecgi(message, buffer, &length);
-			if (state & CONTENT)
-			{
-				contentlength += length;
-			}
 			if (ret != EINCOMPLETE)
 			{
-				char *data;
-				int size;
+				contentlength += length;
 				if (state & HEADER)
 				{
 					state &= ~HEADER;
