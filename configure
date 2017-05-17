@@ -26,7 +26,7 @@ function help {
 	printf "\t--includedir=DIR\tC header files [PREFIX/include]\n"
 	printf "\t--datadir=DIR\t\tread-only architecture-independent data [PREFIX/share]\n"
 	printf "\nSystem types:\n"
-	printf "\t--build=BUILD\t\tconfigure for building on BUILD [gues${SED}]\n"
+	printf "\t--build=BUILD\t\tconfigure for building on BUILD [guessed]\n"
 	printf "\t--host=HOST\t\tcross-compile to build programs to run on HOST [BUILD]\n"
 	printf "\t--sysroot=DIR\t\tcross-compiler root directory [none]\n"
 	printf "\nFeatures enabling:\n"
@@ -137,36 +137,32 @@ if [ $error != n  -a $error != disable ]; then
 	help
 fi
 
-if [ -z ${bindir} ]; then
-	bindir=${prefix}/bin
-fi
-if [ -z ${sbindir} ]; then
-	sbindir=${prefix}/sbin
-fi
-if [ -z ${includedir} ]; then
-	includedir=${prefix}/include
-fi
-if [ -z ${libdir} ]; then
-	libdir=${prefix}/lib
-fi
-if [ -z ${sysconfdir} ]; then
-	sysconfdir=${prefix}/etc
-fi
-
 echo "#Makemore 1.0" > $out
 printf "\nInstallation:\n"
-echo "prefix=\""$prefix"\"" >> $out
-printf " prefix:\t$prefix\n"
-echo "bindir=\""$bindir"\"" >> $out
-printf " bindir:\t$bindir\n"
-echo "sbindir=\""$sbindir"\"" >> $out
-printf " sbindir:\t$sbindir\n"
-echo "includedir=\""$includedir"\"" >> $out
-printf " includedir:\t$includedir\n"
-echo "libdir=\""$libdir"\"" >> $out
-printf " libdir:\t$libdir\n"
-echo "sysconfdir=\""$sysconfdir"\"" >> $out
-printf " sysconfdir:\t$sysconfdir\n"
+if [ $prefix ]; then
+	echo "prefix=\""$prefix"\"" >> $out
+	printf " prefix:\t$prefix\n"
+fi
+if [ $bindir ]; then
+	echo "bindir=\""$bindir"\"" >> $out
+	printf " bindir:\t$bindir\n"
+fi
+if [ $sbindir ]; then
+	echo "sbindir=\""$sbindir"\"" >> $out
+	printf " sbindir:\t$sbindir\n"
+fi
+if [ $includedir ]; then
+	echo "includedir=\""$includedir"\"" >> $out
+	printf " includedir:\t$includedir\n"
+fi
+if [ $libdir ]; then
+	echo "libdir=\""$libdir"\"" >> $out
+	printf " libdir:\t$libdir\n"
+fi
+if [ $sysconfdir ]; then
+	echo "sysconfdir=\""$sysconfdir"\"" >> $out
+	printf " sysconfdir:\t$sysconfdir\n"
+fi
 if [ $sysroot ]; then
 	echo "sysroot=\""$sysroot"\"" >> $out
 	printf " sysroot:\t$sysroot\n"

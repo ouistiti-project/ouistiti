@@ -84,7 +84,6 @@ HOSTAR=$(AR)
 HOSTRANLIB=$(RANLIB)
 
 ldgcc=$(1) $(2)
-LDFLAGS+=-lc
 
 ifneq ($(CROSS_COMPILE),)
 	AS=$(CROSS_COMPILE:%-=%)-as
@@ -101,8 +100,14 @@ ifneq ($(findstring GCC,$(CCVERSION)), )
 	LD=cc
 	HOSTLD=$(LD)
 	ldgcc=-Wl,$(1),$(2)
-endif 
 endif
+else ifneq ($(findstring gcc,$(CC)),)
+	LD=$(CC)
+	ldgcc=-Wl,$(1),$(2)
+endif
+
+ARCH?=$(shell LANG=C $(CC) -v 2>&1 | grep Target | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
+libsuffix=$(findstring 64,$(ARCH))
 
 prefix?=/usr/local
 prefix:=$(prefix:"%"=%)
@@ -110,22 +115,21 @@ bindir?=$(prefix)/bin
 bindir:=$(bindir:"%"=%)
 sbindir?=$(prefix)/sbin
 sbindir:=$(sbindir:"%"=%)
-libdir?=$(prefix)/lib
+libdir?=$(word 1,$(wildcard $(prefix)/lib$(libsuffix) $(prefix)/lib))
 libdir:=$(libdir:"%"=%)
 sysconfdir?=$(prefix)/etc
 sysconfdir:=$(sysconfdir:"%"=%)
 includedir?=$(prefix)/include
 includedir:=$(includedir:"%"=%)
-datadir?=$(prefix)/share/$(PACKAGE_NAME:"%"=%)
+datadir?=$(prefix)/share/$(package:"%"=%)
 datadir:=$(datadir:"%"=%)
-pkglibdir?=$(libdir)/$(PACKAGE_NAME:"%"=%)
+pkglibdir?=$(libdir)/$(package:"%"=%)
 pkglibdir:=$(pkglibdir:"%"=%)
 
 ifneq ($(sysroot),)
 SYSROOT+=--sysroot=$(sysroot)
 endif
 
-ifneq ($(file),)
 #CFLAGS+=$(foreach macro,$(DIRECTORIES_LIST),-D$(macro)=\"$($(macro))\")
 CFLAGS+=-I$(src) -I$(CURDIR) -I.
 LIBRARY+=
@@ -133,9 +137,9 @@ ifneq ($(builddir),)
 LDFLAGS+=-L$(builddir)
 endif
 LDFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
-else
-export prefix bindir sbindir libdir includedir datadir pkglibdir srcdir
-endif
+LDFLAGS+=$(if $(strip $(pkglibdir)),$(call ldgcc,-rpath,$(strip $(pkglibdir))))
+
+export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir
 
 ##
 # objects recipes generation
@@ -300,7 +304,7 @@ check: action:=_check
 check: build:=$(action) -s -f $(srcdir)$(makemore) file
 check: $(.DEFAULT_GOAL)
 
-default_action:  _configbuild _versionbuild
+default_action: _info _configbuild _versionbuild
 	$(Q)$(MAKE) $(build)=$(file)
 	@:
 
@@ -336,13 +340,13 @@ quiet_cmd_cc_o_c=CC $*
 quiet_cmd_cc_o_cpp=CXX $*
  cmd_cc_o_cpp=$(CXX) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
 quiet_cmd_ld_bin=LD $*
- cmd_ld_bin=$(LD) $(SYSROOT) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+ cmd_ld_bin=$(LD) $(SYSROOT) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 quiet_cmd_hostcc_o_c=HOSTCC $*
  cmd_hostcc_o_c=$(HOSTCC) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
 quiet_hostcmd_cc_o_cpp=HOSTCXX $*
  cmd_hostcc_o_cpp=$(HOSTCXX) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
 quiet_cmd_hostld_bin=HOSTLD $*
- cmd_hostld_bin=$(HOSTLD) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+ cmd_hostld_bin=$(HOSTLD) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 quiet_cmd_hostld_slib=HOSTLD $*
  cmd_hostld_slib=$(RM) $@ && \
 	$(HOSTAR) -cvq $@ $^ > /dev/null && \
