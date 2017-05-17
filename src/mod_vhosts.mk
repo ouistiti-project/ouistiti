@@ -1,4 +1,4 @@
-lib-$(DYNAMIC)+=mod_vhosts
+modules-$(DYNAMIC)+=mod_vhosts
 slib-$(STATIC)+=mod_vhosts
 mod_vhosts_SOURCES+=mod_vhosts.c
 mod_vhosts_CFLAGS+=-I../libhttpserver/include

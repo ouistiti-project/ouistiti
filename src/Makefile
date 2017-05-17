@@ -19,11 +19,11 @@ $(TARGET)_CFLAGS+=-DMAX_SERVERS=$(MAX_SERVERS)
 endif
 
 ifeq ($(DYNAMIC),y)
-$(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
-$(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
-$(TARGET)_LIBS-$(CGI)+=mod_cgi utils_mod
-$(TARGET)_LIBS-$(AUTH)+=mod_auth
-$(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts
+$(TARGET)_LIBS-$(MBEDTLS)+=:mod_mbedtls.so
+$(TARGET)_LIBS-$(STATIC_FILE)+=:mod_static_file.so :utils_mod.so
+$(TARGET)_LIBS-$(CGI)+=:mod_cgi.so :utils_mod.so
+$(TARGET)_LIBS-$(AUTH)+=:mod_auth.so
+$(TARGET)_LIBS-$(VHOSTS)+=:mod_vhosts.so
 endif
 
 ifeq ($(STATIC),y)
