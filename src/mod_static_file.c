@@ -95,19 +95,21 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		}
 		else if (S_ISDIR(filestat.st_mode))
 		{
-#ifndef HTTP_STATUS_PARTIAL
 			int length = strlen(filepath);
 			if (filepath[length - 1] != '/')
 			{
 				free(filepath);
+#ifndef HTTP_STATUS_PARTIAL
 				char *location = calloc(1, strlen(private->path_info) + 2);
 				sprintf(location, "%s/", private->path_info);
 				httpmessage_addheader(response, str_location, location);
 				httpmessage_result(response, RESULT_301);
 				free(location);
 				return ESUCCESS;
-			}
+#else
+				return EREJECT;
 #endif
+			}
 			char ext_str[64];
 			ext_str[63] = 0;
 			strncpy(ext_str, config->accepted_ext, 63);
