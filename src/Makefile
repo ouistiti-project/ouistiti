@@ -24,6 +24,7 @@ $(TARGET)_LIBS-$(STATIC_FILE)+=:mod_static_file.so :utils_mod.so
 $(TARGET)_LIBS-$(CGI)+=:mod_cgi.so :utils_mod.so
 $(TARGET)_LIBS-$(AUTH)+=:mod_auth.so
 $(TARGET)_LIBS-$(VHOSTS)+=:mod_vhosts.so
+$(TARGET)_LIBS-$(METHODLOCK)+=:mod_methodlock.so
 endif
 
 ifeq ($(STATIC),y)
@@ -39,6 +40,7 @@ $(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5/libmd5.a
 endif
 endif
 $(TARGET)_SOURCES-$(VHOSTS)+=libmod_vhosts.a
+$(TARGET)_SOURCES-$(METHODLOCK)+=libmod_methodlock.a
 endif
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
@@ -51,6 +53,7 @@ $(TARGET)_CFLAGS-$(AUTHN_BASIC)+=-DAUTHN_BASIC
 $(TARGET)_CFLAGS-$(AUTHN_DIGEST)+=-DAUTHN_DIGEST
 $(TARGET)_CFLAGS-$(AUTHZ_SIMPLE)+=-DAUTHZ_SIMPLE
 $(TARGET)_CFLAGS-$(VHOSTS)+=-DVHOSTS
+$(TARGET)_CFLAGS-$(METHODLOCK)+=-DMETHODLOCK
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -58,3 +61,4 @@ subdir-$(CGI)+=mod_cgi.mk
 subdir-$(STATIC_FILE)+=mod_static_file.mk
 subdir-$(AUTH)+=mod_auth.mk
 subdir-$(VHOSTS)+=mod_vhosts.mk
+subdir-$(METHODLOCK)+=mod_methodlock.mk

@@ -53,6 +53,7 @@
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
+#include "mod_methodlock.h"
 
 #include "config.h"
 #include "../version.h"
@@ -76,6 +77,7 @@ typedef struct server_s
 	void *mod_static_file;
 	void *mod_cgi;
 	void *mod_auth;
+	void *mod_methodlock;
 	void *mod_vhosts[MAX_SERVERS - 1];
 
 	struct server_s *next;
@@ -95,36 +97,6 @@ handler(int sig, siginfo_t *si, void *unused)
 {
 	run = 'q';
 	kill(0, SIGQUIT);
-}
-static int _access_method_connector(void *arg, http_message_t *request, http_message_t *response)
-{
-	int ret = ESUCCESS;
-	char *method = httpmessage_REQUEST(request, "method");
-	if (method && (method[0] == 'G' || !strcmp(method, "POST")))
-	{
-		ret = EREJECT;
-	}
-	else
-	{
-		char *rights = httpmessage_SESSION(request, "%authrights", NULL);
-		if (!strcmp(rights, "superuser"))
-		{
-			ret = EREJECT;
-		}
-		else
-		{
-			warn("access %s", method);
-			httpmessage_addheader(response, "Allow", "GET, POST, HEAD");
-			httpmessage_result(response, RESULT_405);
-		}
-	}
-	return ret;
-}
-
-static void *_access_method_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
-{
-	httpclient_addconnector(ctl, NULL, _access_method_connector, NULL);
-	return NULL;
 }
 
 static char servername[] = PACKAGEVERSION;
@@ -232,7 +204,9 @@ int main(int argc, char * const *argv)
 				server->mod_auth = mod_auth_create(server->server, NULL, server->config->auth);
 			}
 #endif
-			httpserver_addmod(server->server, _access_method_getctx, NULL, NULL);
+#if defined METHODLOCK
+			server->mod_methodlock = mod_methodlock_create(server->server, NULL, server->config->cgi);
+#endif
 #if defined CGI
 			if (server->config->cgi)
 				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->cgi);
@@ -281,8 +255,11 @@ int main(int argc, char * const *argv)
 		if (server->mod_static_file)
 			mod_static_file_destroy(server->mod_static_file);
 #endif
+#if defined METHODLOCK
+		if (server->mod_methodlock)
+			mod_methodlock_destroy(server->mod_methodlock);
+#endif
 #if defined CGI
-
 		if (server->mod_cgi)
 			mod_cgi_destroy(server->mod_cgi);
 #endif
