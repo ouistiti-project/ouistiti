@@ -49,10 +49,6 @@
 #define dbg(...)
 #endif
 
-/**
- * USE_PRIVATE is used to keep a sample of cade which uses
- * the httpmessage_private function
- */
 typedef struct _static_file_connector_s static_file_connector_t;
 
 struct _mod_static_file_mod_s
@@ -61,16 +57,6 @@ struct _mod_static_file_mod_s
 	void *vhost;
 	mod_transfer_t transfer;
 };
-
-int mod_send(static_file_connector_t *private, http_message_t *response);
-
-static mod_static_file_t default_config = 
-{
-	.docroot = "/srv/www/htdocs",
-	.accepted_ext = ".html,.xhtml,.htm,.css",
-	.ignored_ext = ".php",
-};
-#define CONNECTOR_TYPE 0xAABBCCDD
 
 #define DIRLISTING_HEADER "<html><head><link rel=\"stylesheet\" type=\"text/css\" href=\"%s\"/></head><body><h1>%s</h1><ul>\n"
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 4)
@@ -208,7 +194,10 @@ static void _mod_dirlisting_freectx(void *vctx)
 {
 	static_file_connector_t *ctx = vctx;
 	if (ctx->path_info)
+	{
 		free(ctx->path_info);
+		ctx->path_info = NULL;
+	}
 	free(ctx);
 }
 
@@ -216,14 +205,9 @@ void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_static_file_
 {
 	_mod_static_file_mod_t *mod = calloc(1, sizeof(*mod));
 
-	if (!config)
-		config = &default_config;
-	if (!config->docroot)
-		config->docroot = default_config.docroot;
-	if (!config->accepted_ext)
-		config->accepted_ext = default_config.accepted_ext;
-	if (!config->ignored_ext)
-		config->ignored_ext = default_config.ignored_ext;
+	if (config == NULL)
+		return NULL;
+
 	mod->config = config;
 	mod->vhost = vhost;
 	httpserver_addmod(server, _mod_dirlisting_getctx, _mod_dirlisting_freectx, mod);

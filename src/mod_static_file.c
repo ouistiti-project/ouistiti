@@ -237,7 +237,10 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 		length = strlen(ext);
 		char *ext_end = strchr(ext, ',');
 		if (ext_end)
+		{
 			length -= strlen(ext_end + 1);
+			ext_end++;
+		}
 #ifdef SENDFILE
 		if (!strncmp(ext, "sendfile", length))
 		{
