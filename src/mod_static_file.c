@@ -105,8 +105,18 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				httpmessage_addheader(response, str_location, location);
 				httpmessage_result(response, RESULT_301);
 				free(location);
+				if (private->path_info)
+				{
+					free(private->path_info);
+					private->path_info = NULL;
+				}
 				return ESUCCESS;
 #else
+				if (private->path_info)
+				{
+					free(private->path_info);
+					private->path_info = NULL;
+				}
 				return EREJECT;
 #endif
 			}
@@ -144,12 +154,22 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			dbg("static file: %s not found (%s)", private->path_info, strerror(errno));
 			if (filepath)
 				free(filepath);
-			return ret;
+			if (private->path_info)
+			{
+				free(private->path_info);
+				private->path_info = NULL;
+			}
+			return EREJECT;
 		}
 		if (utils_searchext(filepath, config->ignored_ext) == ESUCCESS)
 		{
 			warn("static file: forbidden extension");
 			free(filepath);
+			if (private->path_info)
+			{
+				free(private->path_info);
+				private->path_info = NULL;
+			}
 			return  EREJECT;
 		}
 		private->size = filestat.st_size;
@@ -167,6 +187,11 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		{
 			warn("static file: forbidden extension");
 			free(filepath);
+			if (private->path_info)
+			{
+				free(private->path_info);
+				private->path_info = NULL;
+			}
 			return  EREJECT;
 		}
 		private->fd = open(filepath, O_RDONLY);
@@ -174,6 +199,11 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (private->fd < 0)
 		{
 			ret = EREJECT;
+			if (private->path_info)
+			{
+				free(private->path_info);
+				private->path_info = NULL;
+			}
 		}
 		else
 		{
