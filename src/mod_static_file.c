@@ -262,13 +262,14 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	ctx->mod = mod;
 	int length;
 	char *ext = config->transfertype;
+
 	while (ext != NULL)
 	{
 		length = strlen(ext);
 		char *ext_end = strchr(ext, ',');
 		if (ext_end)
 		{
-			length -= strlen(ext_end + 1);
+			length -= strlen(ext_end + 1) + 1;
 			ext_end++;
 		}
 #ifdef SENDFILE
