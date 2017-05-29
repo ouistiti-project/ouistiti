@@ -48,13 +48,13 @@
 #endif
 
 
-#define CONTENTSIZE 63
+#define CONTENTSIZE 1024
 int mod_send_sendfile(static_file_connector_t *private, http_message_t *response)
 {
 	int ret, size;
 
-	size = CONTENTSIZE;
-	ret = sendfile(httpmessage_keepalive(response), private->fd, NULL, private->size);
+	size = (private->size < CONTENTSIZE)? private->size : CONTENTSIZE;
+	ret = sendfile(httpmessage_keepalive(response), private->fd, NULL, size);
 
 	return ret;
 }
