@@ -93,8 +93,9 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	{
 		struct stat filestat;
 		char *filepath;
-		if (private->path_info == NULL)
-			private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+		if (private->path_info)
+			free(private->path_info);
+		private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
 		filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
 		if (filepath && S_ISDIR(filestat.st_mode))
 		{

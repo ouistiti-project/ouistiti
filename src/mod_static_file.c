@@ -85,8 +85,9 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	{
 		struct stat filestat;
 		char *filepath;
-		if (private->path_info == NULL)
-			private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+		if (private->path_info)
+			free(private->path_info);
+		private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
 		filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
 		if (filepath == NULL)
 		{
@@ -163,7 +164,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		}
 		if (utils_searchext(filepath, config->ignored_ext) == ESUCCESS)
 		{
-			warn("static file: forbidden extension");
+			warn("static file: %s forbidden extension", private->path_info);
 			free(filepath);
 			if (private->path_info)
 			{
@@ -272,16 +273,16 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 			length -= strlen(ext_end + 1) + 1;
 			ext_end++;
 		}
-#ifdef SENDFILE
-		if (!strncmp(ext, "sendfile", length))
-		{
-			mod->transfer = mod_send_sendfile;
-		}
-#endif
 #ifdef DIRLISTING
 		if (!strncmp(ext, "dirlisting", length))
 		{
 			httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
+		}
+#endif
+#ifdef SENDFILE
+		if (!strncmp(ext, "sendfile", length))
+		{
+			mod->transfer = mod_send_sendfile;
 		}
 #endif
 		ext = ext_end;
