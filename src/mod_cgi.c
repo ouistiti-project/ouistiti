@@ -465,7 +465,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 
 			if (utils_searchext(filepath, config->ignored_ext) == ESUCCESS)
 			{
-				warn("cgi: %s forbidden extension", ctx->path_info);
+				dbg("cgi: %s forbidden extension", ctx->path_info);
 				free(filepath);
 				return EREJECT;
 			}
@@ -473,13 +473,13 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			int ret = stat(filepath, &filestat);
 			if (ret != 0)
 			{
-				warn("cgi: %s not found", ctx->path_info);
+				dbg("cgi: %s not found", ctx->path_info);
 				free(filepath);
 				return EREJECT;
 			}
 			if (S_ISDIR(filestat.st_mode))
 			{
-				warn("cgi: %s is directory", ctx->path_info);
+				dbg("cgi: %s is directory", ctx->path_info);
 				free(filepath);
 				return EREJECT;
 			}
@@ -549,7 +549,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				 * after the header.
 				 */
 				ret = httpmessage_parsecgi(response, data, &size);
-				//dbg("data %d\n%s#\n", size, data);
+				//dbg("cgi data %d\n%s#\n", size, data);
 				if (ret != EINCOMPLETE)
 				{
 					char *offset = data;
