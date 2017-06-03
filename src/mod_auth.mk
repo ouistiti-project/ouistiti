@@ -19,8 +19,9 @@ mod_auth_SOURCES-$(AUTHZ_SIMPLE)+=authz_simple.c
 mod_auth_CFLAGS-$(AUTHZ_SIMPLE)+=-DAUTHZ_SIMPLE
 
 #libb64 must the last source
-mod_auth_SOURCES-$(AUTHN_BASIC)+= ../utils/libb64.a
-mod_auth_SOURCES-$(AUTHN_DIGEST)+= ../utils/libb64.a
+mod_auth_LDFLAGS+=-L../utils
+mod_auth_LIBS-$(AUTHN_BASIC)+=b64
+mod_auth_LIBS-$(AUTHN_DIGEST)+=b64
 ifneq ($(MBEDTLS),y)
 ifeq ($(MD5_RONRIVEST),y)
 mod_auth_SOURCES-$(AUTHN_DIGEST)+= ../utils/md5-c/libmd5.a
