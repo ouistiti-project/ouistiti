@@ -33,8 +33,29 @@
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
 #include "authn_digest.h"
-#include "b64/cencode.h"
-#include "b64/cdecode.h"
+#if defined(MBEDTLS)
+# include <mbedtls/base64.h>
+# define BASE64_encode(in, inlen, out, outlen) \
+	do { \
+		size_t cnt = 0; \
+		mbedtls_base64_encode(out, outlen, &cnt, in, inlen); \
+	}while(0)
+# define BASE64_decode(in, inlen, out, outlen) \
+	do { \
+		size_t cnt = 0; \
+		mbedtls_base64_decode(out, outlen, &cnt, in, inlen); \
+	}while(0)
+#else
+# include "b64/cencode.h"
+# define BASE64_encode(in, inlen, out, outlen) \
+	do { \
+		base64_encodestate state; \
+		base64_init_encodestate(&state); \
+		int cnt = base64_encode_block(in, inlen, out, &state); \
+		cnt = base64_encode_blockend(out + cnt, &state); \
+		out[cnt - 1] = '\0'; \
+	}while(0)
+#endif
 
 #if defined(MBEDTLS)
 # include <mbedtls/md5.h>
@@ -82,7 +103,7 @@ struct authn_digest_s
 	int stale;
 };
 
-static void authn_digest_opaque(void *arg, char *opaque);
+static void authn_digest_opaque(void *arg, char *opaque, int opaquelen);
 
 static void utils_searchstring(char **result, char *haystack, char *needle, int length)
 {
@@ -129,46 +150,32 @@ void *authn_digest_create(authz_t *authz, void *config)
 	return mod;
 }
 
-static void authn_digest_nonce(void *arg, char *nonce)
+static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
-	base64_encodestate state;
 	char _nonce[24];
-	int cnt = 0;
 	int i;
 
 #ifndef DEBUG
 	srandom(time(NULL));
 	for (i = 0; i < 6; i++)
 		*(int *)(_nonce + i * 4) = random();
-	base64_init_encodestate(&state);
-	cnt = base64_encode_block(_nonce, sizeof(_nonce), nonce, &state);
-	nonce += cnt;
-	cnt = base64_encode_blockend(nonce, &state);
-	*nonce = 0;
+	BASE64_encode(_nonce, 24, nonce, noncelen)
 #else
-	memcpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", 34);
-	nonce[34] = 0;
+	memcpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);
+	nonce[noncelen] = 0;
 #endif
 }
 
-static void authn_digest_opaque(void *arg, char *opaque)
+static void authn_digest_opaque(void *arg, char *opaque, int opaquelen)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
-	base64_encodestate state;
-	char _opaque[24] = {0};
-	int cnt = 0;
 
 #ifndef DEBUG
-	memcpy(_opaque, mod->config->opaque, sizeof(_opaque));
-	base64_init_encodestate(&state);
-	cnt = base64_encode_block(_opaque, sizeof(_opaque), opaque, &state);
-	opaque += cnt;
-	base64_encode_blockend(opaque, &state);
-	*opaque = 0;
+	BASE64_encode(mod->config->opaque, 22, opaque, opaquelen);
 #else
-	memcpy(opaque, "5ccc069c403ebaf9f0171e9517f40e41", 32);
-	opaque[32] = 0;
+	memcpy(opaque, "5ccc069c403ebaf9f0171e9517f40e41", opaquelen);
+	opaque[opaquelen] = 0;
 #endif
 }
 
@@ -177,8 +184,8 @@ int authn_digest_setup(void *arg, struct sockaddr *addr, int addrsize)
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
 	mod->stale = 0;
-	authn_digest_opaque(mod, mod->opaque);
-	authn_digest_nonce(arg, mod->nonce);
+	authn_digest_opaque(mod, mod->opaque, sizeof(mod->opaque) - 1);
+	authn_digest_nonce(arg, mod->nonce, sizeof(mod->nonce) - 1);
 }
 
 int authn_digest_challenge(void *arg, http_message_t *request, http_message_t *response)
