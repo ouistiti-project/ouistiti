@@ -107,7 +107,8 @@ static void authn_digest_opaque(void *arg, char *opaque, int opaquelen);
 
 static void utils_searchstring(char **result, char *haystack, char *needle, int length)
 {
-	if (*result == NULL && !strncmp(haystack, needle, length) && haystack[length] == '=')
+	if ((*result == NULL || *result[0] == '\0') &&
+		!strncmp(haystack, needle, length) && haystack[length] == '=')
 	{
 		char *end = NULL;
 		*result = strchr(haystack, '=') + 1;
@@ -285,18 +286,19 @@ struct authn_digest_computing_s authn_digest_md5_computing =
 
 struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
 
+static char *str_empty = "";
 char *authn_digest_check(void *arg, char *method, char *string)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 	char *passwd = NULL;
-	char *user = NULL;
+	char *user = str_empty;
 	char *uri = NULL;
-	char *realm = NULL;
+	char *realm = str_empty;
 	char *qop = NULL;
 	char *nonce = NULL;
-	char *cnonce = NULL;
+	char *cnonce = str_empty;
 	char *nc = NULL;
-	char *opaque = NULL;
+	char *opaque = str_empty;
 	char *response = NULL;
 	int length, i;
 
@@ -328,10 +330,13 @@ char *authn_digest_check(void *arg, char *method, char *string)
 		break;
 		}
 	}
-	
+	if (nonce == NULL)
+		return NULL;
+
 	if (strcmp(nonce, mod->nonce))
 	{
-		mod->stale = 1;
+		mod->stale++;
+		mod->stale %= 5;
 		return NULL;
 	}
 	mod->stale = 0;
