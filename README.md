@@ -66,25 +66,28 @@ Features
  3) HTTP pipelining:  
  The server in HTTP/1.1 and over may receive several requests and send the responses in the same time.
  
- 5) HTTP streaming:  
+ 4) HTTP streaming:  
  A module may send big binary file or live streaming.
 
- 4) HTTPS:
+ 5) HTTPS:
 	TLS/SSL connection is available as module with mbedtls library.
 
- 5) CGI/1.1:  
+ 6) CGI/1.1:  
 	CGI scripts may be call from the client. The server may run "webmin".
 
- 6) Files exposure:  
+ 7) Files exposure:  
 	file sending use "sendfile" system call;  
 	dirlisting display the directory content if the index is not availlable.  
 
- 7) Authentication:  
+ 8) Authentication:  
 	* Basic challenge.  
 	* Digest challenge.  
 
- 8) Virtual hosting:  
-	Each server socket may manage several Hostname with files, cgi and authentication managers. 
+ 9) Virtual hosting:  
+	Each server socket may manage several Hostname with files, cgi and authentication managers.
+
+ 10) Websocket gateway:  
+    On websocket url request, the server is able to dispatch data to a specific server.
  
 Build and installation
 ======================
@@ -136,8 +139,10 @@ DIRLISTING : build the extention of STATIC_FILE to display the directory content
 AUTH : build the support of the authentication.  
 AUTHN_BASIC : add a Basic challenge method for AUTH.  
 AUTHN_DIGEST : add a Digest challenge method for AUTH.  
-AUTHZ_SIMPLE : add simple user/password configuration.
-VHOSTS : build virtual hosting's extension.
+AUTHZ_SIMPLE : add simple user/password configuration.  
+VHOSTS : build virtual hosting's extension.  
+WEBSOCKET : build the websocket gateway support.  
+WS_ECHO : build the "echo" server as websocket demo.  
 
 Configuration
 =============
