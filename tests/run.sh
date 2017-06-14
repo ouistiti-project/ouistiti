@@ -58,7 +58,7 @@ if [ -n "$CURLPARAM" ]; then
 
 fi
 if [ -n "$TESTREQUEST" ]; then
-	result=$(cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT | $HTTPPARSER)
+	result=$(printf "$(cat ${TESTDIR}$TESTREQUEST)" | $TESTCLIENT | $HTTPPARSER)
 fi
 
 if [ -n "$DEBUG" ]; then
