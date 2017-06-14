@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_static_file.c: callbacks and management of files
+ * mod_methodlock.c: callbacks and management of request method
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -32,12 +32,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/sendfile.h>
 #include <errno.h>
+#include <dirent.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
-#include "mod_static_file.h"
+#include "mod_methodlock.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -47,26 +47,65 @@
 #define dbg(...)
 #endif
 
+typedef struct _mod_methodlock_s _mod_methodlock_t;
 
-#define CONTENTSIZE 1024
-int mod_send_sendfile(static_file_connector_t *private, http_message_t *response)
+struct _mod_methodlock_s
 {
-	int ret, size;
+	void *vhost;
+};
 
-	size = (private->size < CONTENTSIZE)? private->size : CONTENTSIZE;
-	ret = sendfile(httpmessage_keepalive(response), private->fd, NULL, size);
+static int methodlock_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret = ESUCCESS;
 
+	char *method = httpmessage_REQUEST(request, "method");
+
+	if (method && (method[0] == 'G' || method[0] == 'H' || !strcmp(method, "POST")))
+	{
+		ret = EREJECT;
+	}
+#ifdef AUTH
+	else if (!strcmp("superuser", httpmessage_SESSION(request, "%authrights",NULL)))
+	{
+		if (method && (method[0] == 'D' || !strcmp(method, "PUT")))
+		{
+			ret = EREJECT;
+		}
+		else
+		{
+			httpmessage_addheader(response, "Allow", "GET, POST, HEAD, PUT, DEL");
+			httpmessage_result(response, RESULT_405);
+		}
+	}
+#endif
+	else
+	{
+		httpmessage_addheader(response, "Allow", "GET, POST, HEAD");
+		httpmessage_result(response, RESULT_405);
+	}
 	return ret;
 }
 
-/**
- * this method is replaced by the transfer type selector in config
- */
-/**
- * mod_send is defined into mod_static_file.c too.
- * This is a redifinition to overload the previous version.
- * Then this library must be load before libmod_static_file.so
- * This may be done during the binary link or with LD_PRELOAD
- */
-// int mod_send(static_file_connector_t *private, http_message_t *response) __attribute__ ((weak, alias ("mod_send_sendfile")));
+static void *_mod_methodlock_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+{
+	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
 
+	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, NULL);
+
+	return NULL;
+}
+
+void *mod_methodlock_create(http_server_t *server, char *vhost, void *config)
+{
+	_mod_methodlock_t *mod = calloc(1, sizeof(*mod));
+
+	mod->vhost = vhost;
+	httpserver_addmod(server, _mod_methodlock_getctx, NULL, mod);
+
+	return mod;
+}
+
+void mod_methodlock_destroy(void *data)
+{
+	free(data);
+}

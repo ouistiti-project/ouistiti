@@ -12,6 +12,7 @@ typedef struct serverconfig_s
 	mod_static_file_t *static_file;
 	mod_cgi_config_t *cgi;
 	mod_auth_t *auth;
+	mod_websocket_t *websocket;
 	mod_vhost_t *vhosts[MAX_SERVERS - 1];
 } serverconfig_t;
 

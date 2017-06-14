@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<!--script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script type="text/javascript" language="javascript" src="jquery.min.js"></script>
+		<script language="javascript" type="text/javascript">
+function writeToScreen(message)
+{
+	$("#output").append("<p>"+message+"</p>");
+}
+
+function connect()
+{
+	$("#output").html("<div id=\"output\"></div>");
+	$("#wsUri").prop("readonly", true);
+	$("#input").prop("readonly", false);
+	websocket = new WebSocket($("#wsUri").val());
+	websocket.onopen = function(evt) { onOpen(evt) };
+	websocket.onclose = function(evt) { onClose(evt) };
+	websocket.onmessage = function(evt) { onMessage(evt) };
+	websocket.onerror = function(evt) { onError(evt) };
+}
+
+function disconnect()
+{
+	websocket.close();
+}
+
+function onOpen(evt)
+{
+	writeToScreen("CONNECTED");
+}
+function onClose(evt)
+{
+	$("#wsUri").prop("readonly", false);
+	$("#input").prop("readonly", true);
+	writeToScreen("DISCONNECTED");
+}
+
+function onMessage(evt)
+{
+	writeToScreen('<span style="color: blue;">RESPONSE: ' + evt.data+'</span>');
+}
+
+function onError(evt)
+{
+	writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+	websocket.close();
+}
+
+$(document).ready(function() {
+	$("#connect").on("click", connect);
+	$("#disconnect").on("click", disconnect);
+	$("#input").prop("readonly", true);
+	$("#input").on("keypress", function(e)
+		{
+			if (!e) {
+				e = window.event;
+			}
+			var keyCode = e.keyCode || e.which;
+			if (keyCode == '13'){
+				websocket.send($(this).val());
+			}
+		});
+});
+
+		</script>
+	</head>
+	<body>
+		<title>WebSocket Test</title>
+		<form>
+			<input type="text" id="wsUri" value="ws://127.0.0.1/echo" />
+			<input type="button" id="connect" value="Connect" />
+			<input type="button" id="disconnect" value="Disconnect" />
+			<input type="text" id="input" />
+		</form>
+		<h2>WebSocket Test</h2>
+
+		<div id="output"></div>
+	</body>
+</html>

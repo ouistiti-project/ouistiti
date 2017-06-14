@@ -1,5 +1,6 @@
 subdir-$(AUTH)+=libb64.mk md5/md5.mk
 subdir-$(MD5_RONRIVEST)+=md5-c/md5.mk
+subdir-$(WEBSOCKET)+=websocket.mk
 
 hostbin-$(HOST_UTILS)+=testclient httpparser
 testclient_SOURCES+=testclient.c

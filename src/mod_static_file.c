@@ -85,8 +85,9 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	{
 		struct stat filestat;
 		char *filepath;
-		if (private->path_info == NULL)
-			private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+		if (private->path_info)
+			free(private->path_info);
+		private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
 		filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
 		if (filepath == NULL)
 		{
@@ -95,19 +96,31 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		}
 		else if (S_ISDIR(filestat.st_mode))
 		{
-#ifndef HTTP_STATUS_PARTIAL
 			int length = strlen(filepath);
 			if (filepath[length - 1] != '/')
 			{
 				free(filepath);
+#ifndef HTTP_STATUS_PARTIAL
 				char *location = calloc(1, strlen(private->path_info) + 2);
 				sprintf(location, "%s/", private->path_info);
 				httpmessage_addheader(response, str_location, location);
 				httpmessage_result(response, RESULT_301);
 				free(location);
+				if (private->path_info)
+				{
+					free(private->path_info);
+					private->path_info = NULL;
+				}
 				return ESUCCESS;
-			}
+#else
+				if (private->path_info)
+				{
+					free(private->path_info);
+					private->path_info = NULL;
+				}
+				return EREJECT;
 #endif
+			}
 			char ext_str[64];
 			ext_str[63] = 0;
 			strncpy(ext_str, config->accepted_ext, 63);
@@ -142,12 +155,22 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			dbg("static file: %s not found (%s)", private->path_info, strerror(errno));
 			if (filepath)
 				free(filepath);
-			return ret;
+			if (private->path_info)
+			{
+				free(private->path_info);
+				private->path_info = NULL;
+			}
+			return EREJECT;
 		}
 		if (utils_searchext(filepath, config->ignored_ext) == ESUCCESS)
 		{
-			warn("static file: forbidden extension");
+			warn("static file: %s forbidden extension", private->path_info);
 			free(filepath);
+			if (private->path_info)
+			{
+				free(private->path_info);
+				private->path_info = NULL;
+			}
 			return  EREJECT;
 		}
 		private->size = filestat.st_size;
@@ -165,6 +188,11 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		{
 			warn("static file: forbidden extension");
 			free(filepath);
+			if (private->path_info)
+			{
+				free(private->path_info);
+				private->path_info = NULL;
+			}
 			return  EREJECT;
 		}
 		private->fd = open(filepath, O_RDONLY);
@@ -172,6 +200,11 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (private->fd < 0)
 		{
 			ret = EREJECT;
+			if (private->path_info)
+			{
+				free(private->path_info);
+				private->path_info = NULL;
+			}
 		}
 		else
 		{
@@ -230,22 +263,26 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	ctx->mod = mod;
 	int length;
 	char *ext = config->transfertype;
+
 	while (ext != NULL)
 	{
 		length = strlen(ext);
 		char *ext_end = strchr(ext, ',');
 		if (ext_end)
-			length -= strlen(ext_end + 1);
-#ifdef SENDFILE
-		if (!strncmp(ext, "sendfile", length))
 		{
-			mod->transfer = mod_send_sendfile;
+			length -= strlen(ext_end + 1) + 1;
+			ext_end++;
 		}
-#endif
 #ifdef DIRLISTING
 		if (!strncmp(ext, "dirlisting", length))
 		{
 			httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
+		}
+#endif
+#ifdef SENDFILE
+		if (!strncmp(ext, "sendfile", length))
+		{
+			mod->transfer = mod_send_sendfile;
 		}
 #endif
 		ext = ext_end;

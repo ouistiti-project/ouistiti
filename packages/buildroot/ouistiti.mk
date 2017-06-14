@@ -43,6 +43,16 @@ define OUISTITI_INSTALL_TARGET_CMDS
 	$(TARGET_CONFIGURE_OPTS) $(TARGET_MAKE_ENV) \
 		$(MAKE1) -C $(@D) $(OUISTITI_MAKE_OPTS) \
 		DESTDIR=$(TARGET_DIR) install
+	$(INSTALL) -d -m 0755 $(TARGET_DIR)/srv/www/htdocs
+	$(INSTALL) -d -m 0755 $(TARGET_DIR)/srv/www/cgi-bin
+	$(INSTALL) -D -m 0755 package/ouistiti/utils/ouistiti.conf \
+		$(TARGET_DIR)/etc/ouistiti.conf
 endef
+
+define OUISTITI_INSTALL_INIT_SYSV
+	$(INSTALL) -D -m 0755 package/lighttpd/S50ouistiti \
+		$(TARGET_DIR)/etc/init.d/S50ouistiti
+endef
+
 
 $(eval $(generic-package))

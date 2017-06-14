@@ -39,10 +39,15 @@
 #include <stdio.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/mod_websocket.h"
 #include "mod_static_file.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
+
+#if defined WEBSOCKET
+extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
+#endif
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -61,6 +66,7 @@ struct _mod_vhost_s
 	void *mod_static_file;
 	void *mod_cgi;
 	void *mod_auth;
+	void *mod_websocket;
 };
 
 void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
@@ -79,6 +85,12 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	{
 		mod->mod_auth = mod_auth_create(server, config->hostname, config->auth);
 	}
+#endif
+#if defined WEBSOCKET
+	if (config->websocket)
+		mod->mod_websocket = mod_websocket_create(server,
+			NULL, config->websocket,
+			ouistiti_websocket_run, config->websocket);
 #endif
 #if defined CGI
 	if (config->cgi)

@@ -73,13 +73,17 @@ Features
 	TLS/SSL connection is available as module with mbedtls library.
 
  5) CGI/1.1:  
- CGI scripts may be call from the client. The server may run "webmin".
+	CGI scripts may be call from the client. The server may run "webmin".
 
- 6) Authentication:  
+ 6) Files exposure:  
+	file sending use "sendfile" system call;  
+	dirlisting display the directory content if the index is not availlable.  
+
+ 7) Authentication:  
 	* Basic challenge.  
 	* Digest challenge.  
 
- 7) Virtual hosting:  
+ 8) Virtual hosting:  
 	Each server socket may manage several Hostname with files, cgi and authentication managers. 
  
 Build and installation
@@ -128,6 +132,7 @@ MBEDTLS : build the SSL/TLS support with mbedtls.
 CGI : build the CGI/1.1 support.  
 STATIC_FILE : build the delivery of static files.  
 SENDFILE : build the extension of STATIC_FILE to increase the speed.  
+DIRLISTING : build the extention of STATIC_FILE to display the directory content.  
 AUTH : build the support of the authentication.  
 AUTHN_BASIC : add a Basic challenge method for AUTH.  
 AUTHN_DIGEST : add a Digest challenge method for AUTH.  

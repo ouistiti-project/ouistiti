@@ -35,9 +35,10 @@
 
 #include <libconfig.h>
 
-#include "httpserver.h"
+#include "httpserver/httpserver.h"
 
-#include "mod_mbedtls.h"
+#include "httpserver/mod_mbedtls.h"
+#include "httpserver/mod_websocket.h"
 #include "mod_static_file.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
@@ -207,6 +208,27 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator)
 #define cgi_config(...) NULL
 #endif
 
+#ifdef WEBSOCKET
+static mod_websocket_t *websocket_config(config_setting_t *iterator)
+{
+	mod_websocket_t *ws = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configws = config_setting_get_member(iterator, "websocket");
+#else
+	config_setting_t *configws = config_setting_lookup(iterator, "websocket");
+#endif
+	if (configws)
+	{
+		ws = calloc(1, sizeof(*ws));
+		config_setting_lookup_string(configws, "protocols", (const char **)&ws->services);
+		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
+	}
+	return ws;
+}
+#else
+#define websocket_config(...) NULL
+#endif
+
 #ifdef VHOSTS
 static mod_vhost_t *vhost_config(config_setting_t *iterator)
 {
@@ -221,6 +243,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator)
 		vhost->static_file = static_file_config(iterator);
 		vhost->auth = auth_config(iterator);
 		vhost->cgi = cgi_config(iterator);
+		vhost->websocket = websocket_config(iterator);
 	}
 	else
 	{
@@ -323,6 +346,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->static_file = static_file_config(iterator);
 					config->auth = auth_config(iterator);
 					config->cgi = cgi_config(iterator);
+					config->websocket = websocket_config(iterator);
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
 					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
@@ -373,6 +397,8 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 				free(config->tls);
 			if (config->static_file)
 				free(config->static_file);
+			if (config->websocket)
+				free(config->websocket);
 			if (config->auth)
 			{
 				if (config->auth->authn_config)
