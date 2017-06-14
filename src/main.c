@@ -46,14 +46,19 @@
 # include <winsock2.h>
 #endif
 
-#include "httpserver.h"
+#include "httpserver/httpserver.h"
 
-#include "mod_mbedtls.h"
+#include "httpserver/mod_mbedtls.h"
+#include "httpserver/mod_websocket.h"
 #include "mod_static_file.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
 #include "mod_methodlock.h"
+
+#if defined WEBSOCKET
+extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
+#endif
 
 #include "config.h"
 #include "../version.h"
@@ -78,6 +83,7 @@ typedef struct server_s
 	void *mod_cgi;
 	void *mod_auth;
 	void *mod_methodlock;
+	void *mod_websocket;
 	void *mod_vhosts[MAX_SERVERS - 1];
 
 	struct server_s *next;
@@ -210,6 +216,12 @@ int main(int argc, char * const *argv)
 #if defined CGI
 			if (server->config->cgi)
 				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->cgi);
+#endif
+#if defined WEBSOCKET
+			if (server->config->websocket)
+				server->mod_websocket = mod_websocket_create(server->server,
+					NULL, server->config->websocket,
+					ouistiti_websocket_run, server->config->websocket);
 #endif
 #if defined MBEDTLS
 			if (server->config->tls)

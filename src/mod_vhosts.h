@@ -41,6 +41,7 @@ typedef struct mod_vhost_s
 	mod_static_file_t *static_file;
 	mod_cgi_config_t *cgi;
 	mod_auth_t *auth;
+	mod_websocket_t *websocket;
 } mod_vhost_t;
 
 void *mod_vhost_create(http_server_t *server, mod_vhost_t *modconfig);
