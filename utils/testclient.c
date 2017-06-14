@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#define HAVE_GETOPT
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -57,11 +58,19 @@ enum
 {
 	CONNECTION_START,
 	REQUEST_START=0x01,
-	REQUEST_END=0x02,
+	REQUEST_HEADER=0x02,
+	REQUEST_END=0x04,
 	RESPONSE_START=0x10,
 	RESPONSE_END=0x20,
+	CONNECTION_END=0x40,
 };
 
+void display_help(char **name)
+{
+	printf("%s [-a <address>][-p <port>][-w]\n", name[0]);
+}
+
+#define OPT_WEBSOCKET 0x01
 int main(int argc, char **argv)
 {
 	int port = 80;
@@ -69,6 +78,7 @@ int main(int argc, char **argv)
 	int sock = -1;
 	struct sockaddr_in saddr;
 	struct addrinfo hints;
+	int options = 0;
 
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_INET;    /* Allow IPv4 or IPv6 */
@@ -79,6 +89,30 @@ int main(int argc, char **argv)
 	hints.ai_addr = NULL;
 	hints.ai_next = NULL;
 
+
+#ifdef HAVE_GETOPT
+	int opt;
+	do
+	{
+		opt = getopt(argc, argv, "a:p:hw");
+		switch (opt)
+		{
+			case 'a':
+				serveraddr = optarg;
+			break;
+			case 'p':
+				port = atoi(optarg);
+			break;
+			case 'h':
+				display_help(argv);
+				return -1;
+			break;
+			case 'w':
+				options |= OPT_WEBSOCKET;
+			break;
+		}
+	} while(opt != -1);
+#endif
 
 	struct addrinfo *result, *rp;
 	getaddrinfo(serveraddr, NULL, &hints, &result);
@@ -106,12 +140,14 @@ int main(int argc, char **argv)
 	int state = CONNECTION_START;
 	int length;
 	int ret = 0;
+	char content[249];
+	int contentlength = 0;
 	do
 	{
-		char buffer[249];
+		char buffer[512];
 		while ((state & REQUEST_END) == 0)
 		{
-			length = 248;
+			length = 511;
 			length = read(0, buffer, length);
 			if (length > 0)
 			{
@@ -121,13 +157,46 @@ int main(int argc, char **argv)
 				fcntl(0, F_SETFL, flags | O_NONBLOCK);
 
 				state |= REQUEST_START;
+				int i, emptyline = 0, headerlength = length;
+				for (i = 0; i < length; i++)
+				{
+
+					if (buffer[i] == '\n')
+					{
+						if (emptyline > 0 && emptyline < 3)
+						{
+							headerlength = i + 1;
+							state |= REQUEST_HEADER;
+							break;
+						}
+						emptyline = 0;
+					}
+					emptyline++;
+				}
 				int ret;
-				ret = send(sock, buffer, length, MSG_NOSIGNAL);
-				if (ret != length)
+				ret = send(sock, buffer, headerlength, MSG_NOSIGNAL);
+				if (ret != headerlength)
 				{
 					err("send error");
 					state |= RESPONSE_END;
 					ret = -1;
+				}
+				if (state & REQUEST_HEADER)
+				{
+					if (options & OPT_WEBSOCKET)
+					{
+						state |= REQUEST_END;
+						contentlength = length - headerlength;
+						memcpy(content, buffer + headerlength, contentlength);
+					}
+					else
+					{
+						/**
+						 * send content
+						 **/
+						usleep(50);
+						ret = send(sock, buffer + headerlength, length, MSG_NOSIGNAL);
+					}
 				}
 			}
 			else if (state > CONNECTION_START && !(state & REQUEST_END))
@@ -142,35 +211,78 @@ int main(int argc, char **argv)
 		flags = fcntl(sock, F_GETFL, 0);
 		fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 
-		length = 248;
-		length = recv(sock, buffer, length, MSG_NOSIGNAL);
-		if (length > 0)
+		if (state & REQUEST_END)
 		{
-			ret += length;
-			state |= RESPONSE_START;
-			buffer[length] = 0;
-			write(1, buffer, length);
-		}
-		else if (length == 0)
-		{
-			state |= RESPONSE_END;
-		}
-		else if ((state & REQUEST_END) && (state & RESPONSE_START))
-		{
-			int sret;
-			struct timeval *ptimeout = NULL;
-			struct timeval timeout;
-			fd_set rfds;
-			timeout.tv_sec = 1;
-			timeout.tv_usec = 0;
-			ptimeout = &timeout;
-			FD_ZERO(&rfds);
-			FD_SET(sock, &rfds);
-			sret = select(sock + 1, &rfds, NULL, NULL, ptimeout);
-			if (sret != 1)
+			length = 511;
+			length = recv(sock, buffer, length, MSG_NOSIGNAL);
+			if (length > 0)
+			{
+				ret += length;
+				state |= RESPONSE_START;
+				buffer[length] = 0;
+				write(1, buffer, length);
+				printf("\n");
+			}
+			else if (length == 0)
+			{
 				state |= RESPONSE_END;
+			}
+			else if (errno == EAGAIN)
+			{
+				int sret;
+				struct timeval *ptimeout = NULL;
+				struct timeval timeout;
+				fd_set rfds;
+				timeout.tv_sec = 1;
+				timeout.tv_usec = 0;
+				ptimeout = &timeout;
+				FD_ZERO(&rfds);
+				FD_SET(sock, &rfds);
+				sret = select(sock + 1, &rfds, NULL, NULL, ptimeout);
+				if (sret != 1)
+					state |= RESPONSE_END;
+			}
 		}
-	} while (!(state & RESPONSE_END));
+		if (state & RESPONSE_END)
+		{
+			if (options & OPT_WEBSOCKET)
+			{
+				ret = send(sock, content, contentlength - 1, MSG_NOSIGNAL);
+				while ((state & CONNECTION_END) == 0)
+				{
+					int sret;
+					struct timeval *ptimeout = NULL;
+					struct timeval timeout;
+					fd_set rfds;
+					timeout.tv_sec = 1;
+					timeout.tv_usec = 0;
+					ptimeout = &timeout;
+					FD_ZERO(&rfds);
+					FD_SET(sock, &rfds);
+					sret = select(sock + 1, &rfds, NULL, NULL, ptimeout);
+					if (sret != 1)
+						state |= CONNECTION_END;
+					length = 248;
+					contentlength = read(sock, content, length);
+					if (contentlength == 0)
+						state |= CONNECTION_END;
+					else
+					{
+						printf("websocket receive %d : ", contentlength);
+						int i;
+						for (i = 0; i < contentlength; i++)
+						{
+							printf("%02hhX", content[i]);
+						}
+						printf("\n");
+					}
+				}
+			}
+			else
+				state |= CONNECTION_END;
+		}
+	} while (!(state & CONNECTION_END));
+
 	close(sock);
 	return ret;
 }
