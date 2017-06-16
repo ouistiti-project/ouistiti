@@ -55,8 +55,10 @@ int echo(int sock)
 			ret = recv(sock, buffer, 256, MSG_NOSIGNAL);
 			if (ret > 0)
 			{
-				printf("echo: receive %s\n", buffer);
-				ret = send(sock, buffer, ret, MSG_DONTWAIT | MSG_NOSIGNAL);
+				printf("echo: receive %d %s\n", ret, buffer);
+				char *out = buffer;
+				ret = strlen(out);
+				ret = send(sock, out, ret, MSG_DONTWAIT | MSG_NOSIGNAL);
 			}
 			if (ret <= 0)
 			{
@@ -105,7 +107,10 @@ int start(server_t server, int newsock)
 
 const char *str_username = "apache";
 #ifndef SOCKDOMAIN
-#define SOCKDOMAIIN AF_UNIX
+#define SOCKDOMAIN AF_UNIX
+#endif
+#ifndef SOCKPROTOCOL
+#define SOCKPROTOCOL 0
 #endif
 int main(int argc, char **argv)
 {
@@ -146,7 +151,7 @@ int main(int argc, char **argv)
 		setuid(user->pw_uid);
 	}
 
-	sock = socket(SOCKDOMAIN, SOCK_STREAM, 0);
+	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);
 	if (sock > 0)
 	{
 		struct sockaddr_un addr;
