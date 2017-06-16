@@ -40,7 +40,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
-#include "utils.h"
+#include "httpserver/utils.h"
 #include "mod_cgi.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)

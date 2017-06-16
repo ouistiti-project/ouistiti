@@ -37,7 +37,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
-#include "utils.h"
+#include "httpserver/utils.h"
 #include "mod_static_file.h"
 #include "mod_dirlisting.h"
 
