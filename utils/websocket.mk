@@ -16,3 +16,14 @@ websocket_echo_LDFLAGS-$(WEBSOCKET)+=-L../libhttpserver/src/httpserver
 websocket_echo_LIBS-$(WEBSOCKET)+=websocket ouistiti_ws c pthread
 
 websocket_echo_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
+bin-$(WS_CHAT)=websocket_chat
+websocket_chat_SOURCES+=websocket/chat.c
+websocket_chat_CFLAGS-$(WEBSOCKET)+=-DPTHREAD
+websocket_chat_CFLAGS-$(WEBSOCKET)+=-DSOCKDOMAIN="(AF_MAX+0X100)"
+websocket_chat_CFLAGS-$(WEBSOCKET)+=-DSOCKPROTOCOL=153
+websocket_chat_LDFLAGS-$(WEBSOCKET)+=-nodefaultlibs
+websocket_chat_LDFLAGS-$(WEBSOCKET)+=-L../libhttpserver/src/httpserver
+websocket_chat_LIBS-$(WEBSOCKET)+=websocket ouistiti_ws c pthread
+
+websocket_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG

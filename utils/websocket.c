@@ -289,10 +289,10 @@ int close(int sockfd)
 	}
 	if (client)
 	{
-		if (prev != _websocket_first)
-			prev = client->next;
+		if (client != _webclient_first)
+			prev->next = client->next;
 		else
-			_websocket_first = client->next;
+			_webclient_first = client->next;
 		free(client);
 		std_close(sockfd);
 		return 0;
