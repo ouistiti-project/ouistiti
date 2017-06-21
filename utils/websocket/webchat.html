@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<style>
+			div.mainframe {
+				float:rigth;
+				height: 40em;
+				width: 80%
+				margin: 5px;
+			}
+			div.leftside {
+				float:left;
+				border: 1px solid black;
+				height: 40em;
+				width: 20%;
+				margin: 5px;
+			}
+		</style>
+		<!--script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script type="text/javascript" language="javascript" src="jquery.min.js"></script>
+		<script language="javascript" type="text/javascript">
+var chat;
+
+function writeToScreen(message)
+{
+	var color = "";
+	if (message.color)
+		color = "color: "+message.color+";"
+	if (message.id != chat.id)
+		identity = $("#users #"+message.id+" .name").html();
+	else
+		identity = "You";
+	var divclass="";
+	if (message.private != undefined)
+		divclass = divclass + " private";
+	var div="<div style='"+color+"' class='message"+divclass+"' ><span class='name'>"+identity+"</span>: <span class='message'>" + message.data+"</span></div>";
+	$("#output").append(div);
+}
+
+function addUser(message)
+{
+	if (message.color)
+		color = "color: "+message.color+";"
+	var entry = $("#users #"+message.id);
+	if (entry.length == 0)
+		$("#users").append("<div id='"+message.id+"' style='"+color+"' class='user'><span class='name'>"+message.data+"</span></div>");
+	$("#users #"+message.id).on("click", function()
+	{
+		chat.whois(this.id);
+	});
+}
+
+function rmUser(message)
+{
+	$("#users #"+message.id).remove();
+}
+
+function connect()
+{
+	nickname = $("#nickname").val();
+	chat.identity = nickname;
+	color = $("#color").val();
+	chat.color = color;
+	chat.connect($("#wsUri").val());
+}
+
+function disconnect()
+{
+	chat.disconnect();
+}
+
+webchat = function(identity, ouistiti)
+{
+	this.ouistitiserver = ouistiti;
+	this.color = "blue";
+	this.identity = identity;
+	this.id = identity;
+	this.uri = "";
+	this.onHello = undefined;
+	this.onMessage = undefined;
+	this.onConnect = undefined;
+	this.onClose = undefined;
+	this.onGoodbye = undefined;
+	this.connect = function(uri)
+	{
+		if (window.location.protocol == "https:")
+			this.uri = "wss://"+uri;
+		else
+			this.uri = "ws://"+uri;
+		
+		var _chat = this;
+		websocket = new WebSocket(this.uri);
+		websocket.onopen = function(evt) { onOpen.call(_chat, evt) };
+		websocket.onclose = function(evt) { onClose.call(_chat, evt) };
+		websocket.onmessage = function(evt) { onMessage.call(_chat, evt) };
+		websocket.onerror = function(evt) { onError.call(_chat, evt) };
+	};
+
+	this.disconnect = function()
+	{
+		var msg = {type : "goodbye", id: this.id, data: "goodbye", color: this.color};
+		websocket.send(JSON.stringify(msg));
+		alert("quit");
+		websocket.close();
+	};
+
+	this.send = function (text, privatemsg)
+	{
+		var msg = {type : "message", id: this.id, data: text, color: this.color};
+		if (privatemsg != undefined)
+			msg.private = privatemsg;
+		if (this.ouistitiserver && privatemsg != undefined)
+			websocket.send("WSPrivate "+privatemsg+" "+JSON.stringify(msg));
+		else
+			websocket.send(JSON.stringify(msg));
+		
+		if (typeof(this.onMessage) == "function")
+			this.onMessage(msg);
+	};
+
+	this.hello = function()
+	{
+		var msg = {type : "hello", id: this.id, data: this.identity, color: this.color};
+		var msg_str = JSON.stringify(msg);
+		websocket.send(msg_str);
+	};
+
+	this.welcome = function()
+	{
+		var msg = {type : "welcome", id: this.id, data: this.identity, color: this.color};
+		websocket.send(JSON.stringify(msg));
+	};
+
+	this.whois = function(id)
+	{
+		if (this.ouistitiserver)
+			websocket.send("WSWhois "+id);
+		else
+		{
+			var msg = {type : "whois", id: this.id, data: id};
+			websocket.send(JSON.stringify(msg));
+		}
+	}
+function onOpen(evt)
+{
+	if (this.ouistitiserver)
+		websocket.send("WSHello "+this.identity);
+	else
+		this.hello();
+	if (typeof(this.onConnect) == "function")
+		this.onConnect();
+};
+function onClose(evt)
+{
+	if (typeof(this.onClose) == "function")
+		this.onClose();
+};
+
+function onMessage(evt)
+{
+	if (this.ouistitiserver && evt.data.substr(0, 10) == "WSWelcome ")
+	{
+		this.id = evt.data.substr(10);
+		this.hello();
+	}
+	else if (this.ouistitiserver && evt.data.substr(0, 5) == "WSIs ")
+	{
+		alert(evt.data.substr(5));
+	}
+	else
+	{
+		var data = evt.data;
+		data = data.substr(0, data.length - 1);
+		msg = JSON.parse(data);
+		if (msg != undefined)
+		{
+			switch (msg.type)
+			{
+				case "hello":
+					if (typeof(this.onHello) == "function")
+						this.onHello(msg);
+					this.welcome();
+				break;
+				case "welcome":
+					if (typeof(this.onHello) == "function")
+						this.onHello(msg);
+				break;
+				case "message":
+					if (typeof(this.onMessage) == "function")
+						this.onMessage(msg);
+				break;
+				case "private":
+					if (typeof(this.onMessage) == "function")
+						this.onMessage(msg);
+				break;
+				case "goodbye":
+					if (typeof(this.onGoodbye) == "function")
+						this.onGoodbye(msg);
+				break;
+				case "whois":
+					if (this.id == message.data)
+					{
+						var msg = {type : "is", id: this.id, data: "tempo", private:message.id};
+						websocket.send(JSON.stringify(msg));
+					}
+				break;
+				case "is":
+					if (message.private == this.id)
+						alert(message.data);
+				break;
+			}
+		}
+	}
+};
+
+function onError(evt)
+{
+	websocket.close();
+};
+};
+
+$(document).ready(function()
+{
+	$("#disconnect").on("click", disconnect);
+	$("#connect").on("click", connect);
+	$("#input").prop("readonly", true);
+	$("#disconnect").prop("disabled", true);
+	$("#connect").prop("disabled", false);
+
+	chat = new webchat("", true);
+
+	chat.onMessage = writeToScreen;
+	chat.onHello = addUser;
+	chat.onGoodbye = rmUser;
+	chat.onConnect = function()
+	{
+		$("#nickname").prop("readonly", true);
+		$("#input").prop("readonly", false);
+		$("#connect").prop("disabled", true);
+		$("#disconnect").prop("disabled", false);
+	};
+	chat.onClose = function()
+	{
+		$("#nickname").prop("readonly", false);
+		$("#input").prop("readonly", true);
+		$("#connect").prop("disabled", false);
+		$("#disconnect").prop("disabled", true);
+		$("#users").html("");
+	};
+	$("#input").on("keypress", function(e)
+		{
+			if (!e) {
+				e = window.event;
+			}
+			var keyCode = e.keyCode || e.which;
+			if (keyCode == '13'){
+				chat.send($(this).val());
+				$("#input").val("");
+			}
+		});
+});
+
+		</script>
+	</head>
+	<body>
+		<title>WebChat</title>
+		<form>
+			<input type="hidden" id="wsUri" value="127.0.0.1/chat" />
+			<input type="text" id="nickname" value="myname" />
+			<input type="color" id="color" value="blue" />
+			<input type="button" id="connect" value="Connect" />
+			<input type="button" id="disconnect" value="Disconnect" />
+			<input type="text" id="input" />
+		</form>
+		<h2>WebChat</h2>
+
+		<div class="userslist leftside">
+			<div>Liste des utilisateurs</div>
+			<div id="users"> </div>
+		</div>
+		<div id="output" class="mainframe"> </div>
+	</body>
+</html>
