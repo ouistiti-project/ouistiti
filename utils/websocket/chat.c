@@ -337,11 +337,18 @@ int main(int argc, char **argv)
 							{
 								warn("goodbye %p", user);
 								if (user->prev)
+								{
 									user->prev->next = user->next;
+								}
+								else
+									first_user = user->next;
+								if (user->next)
+									user->next->prev = user->prev;
 								close(user->sock);
 								if (user->identity)
 									free(user->identity);
 								free(user);
+								break;
 							}
 							else if (length > 0)
 							{
