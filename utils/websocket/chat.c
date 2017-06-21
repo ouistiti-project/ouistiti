@@ -163,6 +163,48 @@ int chat(user_t *user, char *buffer, int length)
 			}
 		}
 	}
+	else if (!strncmp(buffer,"WSWhois ", 8))
+	{
+		char *identity = buffer + 8;
+		buffer += 8;
+		length = 0;
+		while ((*buffer != '\n') && (*buffer != ' ') && (*buffer != '\0'))
+		{
+			buffer++;
+			length++;
+		}
+		if (length > 0)
+		{
+			*buffer = 0;
+			int i = 0;
+			user_t *iterator = first_user;
+			while (iterator)
+			{
+				if (!strncmp(iterator->identity->name, identity, 30))
+				{
+					break;
+				}
+				iterator = iterator->next;
+			}
+			char resp[52];
+			struct sockaddr_storage addr;
+			int addrsize = sizeof(addr);
+			if (iterator)
+			{
+				getpeername(iterator->sock, (struct sockaddr*)&addr, &addrsize);
+				if (addr.ss_family == AF_INET)
+				{
+					struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr;
+					sprintf(resp, "WSIs %s %s", identity, inet_ntoa(addr_in->sin_addr));
+				}
+				else
+					sprintf(resp, "WSIs %s network error", identity);
+			}
+			else
+				sprintf(resp, "WSIs %s undefined", identity);
+			privatemsg(user, resp, strlen(resp));
+		}
+	}
 	else
 		ret = chatmsg(user, buffer, length);
 	return ret;
@@ -261,11 +303,6 @@ int main(int argc, char **argv)
 						struct sockaddr_storage addr;
 						int addrsize = sizeof(addr);
 						newsock = accept(sock, (struct sockaddr *)&addr, &addrsize);
-						if (addr.ss_family == AF_INET)
-						{
-							struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr;
-							warn("echo: new connection from %s", inet_ntoa(addr_in->sin_addr));
-						}
 						if (newsock > 0)
 						{
 							user_t *user = calloc(1, sizeof(*user));
@@ -275,6 +312,11 @@ int main(int argc, char **argv)
 							if (first_user)
 								first_user->prev = user;
 							first_user = user;	
+							if (addr.ss_family == AF_INET)
+							{
+								struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr;
+								warn("echo: new connection from %s %p", inet_ntoa(addr_in->sin_addr), user);
+							}
 							/*
 							char *buffer = calloc(1, strlen(str_hello) + 1);	
 							sprintf(buffer, str_hello, newsock);
@@ -319,7 +361,7 @@ int main(int argc, char **argv)
 	}
 	if (ret)
 	{
-		error("error : %s\n", strerror(errno));
+		err("error : %s\n", strerror(errno));
 	}
 	return ret;
 }
