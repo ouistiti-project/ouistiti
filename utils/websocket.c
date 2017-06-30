@@ -153,6 +153,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 		msg.msg_iovlen = 1;
 
 		char c_buffer[256];
+		memset(c_buffer, 0, sizeof(c_buffer));
 		msg.msg_control = c_buffer;
 		msg.msg_controllen = sizeof(c_buffer);
 
@@ -171,7 +172,8 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 
 			cmsg = CMSG_FIRSTHDR(&msg);
 			data = CMSG_DATA(cmsg);
-			ret = *(int *)data;
+			if (data)
+				ret = *(int *)data;
 		}
 		if (ret > 0)
 		{
