@@ -9,22 +9,26 @@ ouistiti_ws_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 bin-$(WS_ECHO)+=websocket_echo
 websocket_echo_SOURCES+=$(WS_SRC)echo.c
+ifneq ($(MBEDTLS), y)
 websocket_echo_CFLAGS-$(WEBSOCKET)+=-DPTHREAD
+websocket_echo_LDFLAGS-$(WEBSOCKET)+=-L../libhttpserver/src/httpserver
 websocket_echo_CFLAGS-$(WEBSOCKET)+=-DSOCKDOMAIN="(AF_MAX+0X100)"
 websocket_echo_CFLAGS-$(WEBSOCKET)+=-DSOCKPROTOCOL=153
 websocket_echo_LDFLAGS-$(WEBSOCKET)+=-nodefaultlibs
-websocket_echo_LDFLAGS-$(WEBSOCKET)+=-L../libhttpserver/src/httpserver
 websocket_echo_LIBS-$(WEBSOCKET)+=ouistiti_ws websocket c pthread
+endif
 
 websocket_echo_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 bin-$(WS_CHAT)+=websocket_chat
 websocket_chat_SOURCES+=$(WS_SRC)chat.c
+ifneq ($(MBEDTLS), y)
 websocket_chat_CFLAGS-$(WEBSOCKET)+=-DPTHREAD
 websocket_chat_CFLAGS-$(WEBSOCKET)+=-DSOCKDOMAIN="(AF_MAX+0X100)"
 websocket_chat_CFLAGS-$(WEBSOCKET)+=-DSOCKPROTOCOL=153
 websocket_chat_LDFLAGS-$(WEBSOCKET)+=-nodefaultlibs
 websocket_chat_LDFLAGS-$(WEBSOCKET)+=-L../libhttpserver/src/httpserver
 websocket_chat_LIBS-$(WEBSOCKET)+=ouistiti_ws websocket c pthread
+endif
 
 websocket_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG

@@ -13,7 +13,10 @@ main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
 $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
+
+ifneq ($(MBEDTLS), y)
 $(TARGET)_SOURCES-$(WEBSOCKET)+=websocket.c
+endif
 
 ifneq ($(MAX_SERVERS),)
 $(TARGET)_CFLAGS+=-DMAX_SERVERS=$(MAX_SERVERS)

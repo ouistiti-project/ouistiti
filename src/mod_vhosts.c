@@ -90,7 +90,11 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	if (config->websocket)
 		mod->mod_websocket = mod_websocket_create(server,
 			NULL, config->websocket,
+#if defined MBEDTLS
+			default_websocket_run, config->websocket);
+#else
 			ouistiti_websocket_run, config->websocket);
+#endif
 #endif
 #if defined CGI
 	if (config->cgi)

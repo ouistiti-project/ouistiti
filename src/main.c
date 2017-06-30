@@ -221,7 +221,15 @@ int main(int argc, char * const *argv)
 			if (server->config->websocket)
 				server->mod_websocket = mod_websocket_create(server->server,
 					NULL, server->config->websocket,
+#if defined MBEDTLS
+					default_websocket_run, server->config->websocket);
+#else
+					/**
+					 * ouistiti_websocket_run is more efficient than
+					 * default_websocket_run. But it doesn't run with TLS
+					 **/
 					ouistiti_websocket_run, server->config->websocket);
+#endif
 #endif
 #if defined MBEDTLS
 			if (server->config->tls)
