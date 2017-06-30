@@ -77,17 +77,20 @@ Features
 
  7) Files exposure:  
 	file sending use "sendfile" system call;  
-	dirlisting display the directory content if the index is not availlable.  
+	dirlisting display the directory content 
+	if the index is not availlable.  
 
  8) Authentication:  
 	* Basic challenge.  
 	* Digest challenge.  
 
  9) Virtual hosting:  
-	Each server socket may manage several Hostname with files, cgi and authentication managers.
+	Each server socket may manage several Hostname 
+	with files, cgi and authentication managers.
 
  10) Websocket gateway:  
-    On websocket url request, the server is able to dispatch data to a specific server.
+    On websocket url request, the server is able to dispatch data 
+    to a specific server.
  
 Build and installation
 ======================
@@ -143,6 +146,7 @@ AUTHZ_SIMPLE : add simple user/password configuration.
 VHOSTS : build virtual hosting's extension.  
 WEBSOCKET : build the websocket gateway support.  
 WS_ECHO : build the "echo" server as websocket demo.  
+WS_CHAT : build the "chat" server as websocket demo.  
 
 Configuration
 =============
