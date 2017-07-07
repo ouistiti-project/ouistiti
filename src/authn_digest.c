@@ -161,7 +161,7 @@ static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 	srandom(time(NULL));
 	for (i = 0; i < 6; i++)
 		*(int *)(_nonce + i * 4) = random();
-	BASE64_encode(_nonce, 24, nonce, noncelen)
+	BASE64_encode(_nonce, 24, nonce, noncelen);
 #else
 	memcpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);
 	nonce[noncelen] = 0;
