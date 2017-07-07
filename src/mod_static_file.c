@@ -90,7 +90,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (private->path_info == NULL)
 			return EREJECT;
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
-		char *dirpath = NULL;
 		if (private->filepath == NULL)
 		{
 			dbg("static file: %s not exist", private->path_info);
@@ -130,7 +129,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			if (ext_end)
 				*ext_end = 0;
 
-			dirpath = private->filepath;
+			char *dirpath = private->filepath;
 			while(ext != NULL)
 			{
 				private->filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
@@ -151,19 +150,20 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				free(private->filepath);
 				private->filepath = NULL;
 			}
+			if (!private->filepath)
+			{
+				private->filepath = dirpath;
+				private->type |= STATIC_FILE_DIRLISTING;
+				return EREJECT;
+			}
 		}
 		else
 			ret = ECONTINUE;
 		if (ret != ECONTINUE)
 		{
 			dbg("static file: %s not found (%s)", private->path_info, strerror(errno));
-			if (private->filepath)
-			{
-				free(private->filepath);
-				private->filepath = NULL;
-			}
-			if (dirpath)
-				free(dirpath);
+			free(private->filepath);
+			private->filepath = NULL;
 			free(private->path_info);
 			private->path_info = NULL;
 			return EREJECT;
