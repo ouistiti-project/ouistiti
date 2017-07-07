@@ -77,11 +77,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	_mod_static_file_mod_t *mod = private->mod;
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
 
-	if (private->fd == -1)
-	{
-		warn("static file: -1");
-	}
-	else if (private->fd == 0)
+	if (private->fd == 0)
 	{
 		struct stat filestat;
 		if (private->path_info)
@@ -178,27 +174,45 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			return  EREJECT;
 		}
 		private->size = filestat.st_size;
+		private->offset = 0;
 
 		/**
 		 * file is found
 		 * check the extension
 		 */
-		const char *mime = NULL;
-		if (utils_searchext(private->filepath, config->accepted_ext) == ESUCCESS)
-		{
-			mime = utils_getmime(private->filepath);
-		}
-		else
+		if (utils_searchext(private->filepath, config->accepted_ext) != ESUCCESS)
 		{
 			warn("static file: forbidden extension");
 			free(private->filepath);
 			private->filepath = NULL;
 			free(private->path_info);
 			private->path_info = NULL;
-			return  EREJECT;
 		}
+	}
+	else
+	{
+		warn("static_file: internal error");
+	}
+	/**
+	 * this connector reject always
+	 * another connector will continue with filepath
+	 * to send the data
+	 **/
+	return  EREJECT;
+}
+
+static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	_mod_static_file_mod_t *mod = private->mod;
+	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+	int ret, size;
+
+	if (private->type & STATIC_FILE_DIRLISTING || private->filepath == NULL)
+		return EREJECT;
+	if (private->fd == 0)
+	{
 		private->fd = open(private->filepath, O_RDONLY);
-		private->offset = 0;
 		if (private->fd < 0)
 		{
 			ret = EREJECT;
@@ -209,34 +223,31 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		}
 		else
 		{
+			const char *mime = NULL;
+			mime = utils_getmime(private->filepath);
 			dbg("static file: send %s (%d)", private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
 		}
-		free(private->filepath);
-		private->filepath = NULL;
-		return ret;
 	}
 	else
 	{
 		ret = mod->transfer(private, response);
-		if (ret < 1)
+		if (ret < 0)
 		{
 			close(private->fd);
 			private->fd = 0;
-			if (ret == 0)
-			{
-				if (private->path_info)
-				{
-					free(private->path_info);
-					private->path_info = NULL;
-				}
-				return ESUCCESS;
-			}
-			else
-				return EREJECT;
+			return EREJECT;
 		}
-		else
-			private->offset += ret;
+		if (ret == 0 || private->size <= 0)
+		{
+			close(private->fd);
+			private->fd = 0;
+			free(private->filepath);
+			private->filepath = NULL;
+			free(private->path_info);
+			private->path_info = NULL;
+			return ESUCCESS;
+		}
 	}
 	return ECONTINUE;
 }
@@ -252,7 +263,10 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response)
 	{
 		content[size] = 0;
 		httpmessage_addcontent(response, NULL, content, ret);
+		private->offset += ret;
+		private->size -= ret;
 	}
+
 	return ret;
 }
 
@@ -272,6 +286,7 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	if (config->options & STATIC_FILE_SENDFILE)
 		mod->transfer = mod_send_sendfile;
 #endif
+	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
 	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx);
 
 	return ctx;
