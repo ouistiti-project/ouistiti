@@ -84,40 +84,41 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	else if (private->fd == 0)
 	{
 		struct stat filestat;
-		char *filepath;
 		if (private->path_info)
 			free(private->path_info);
 		private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
-		filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
-		if (filepath == NULL)
+		if (private->path_info == NULL)
+			return EREJECT;
+		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
+		char *dirpath = NULL;
+		if (private->filepath == NULL)
 		{
 			dbg("static file: %s not exist", private->path_info);
 			return ret;
 		}
 		else if (S_ISDIR(filestat.st_mode))
 		{
-			int length = strlen(filepath);
-			if (filepath[length - 1] != '/')
+			int length = strlen(private->filepath);
+			if (private->filepath[length - 1] != '/')
 			{
-				free(filepath);
+				free(private->filepath);
+				private->filepath = NULL;
 #ifndef HTTP_STATUS_PARTIAL
 				char *location = calloc(1, strlen(private->path_info) + 2);
 				sprintf(location, "%s/", private->path_info);
 				httpmessage_addheader(response, str_location, location);
 				httpmessage_result(response, RESULT_301);
 				free(location);
-				if (private->path_info)
-				{
-					free(private->path_info);
-					private->path_info = NULL;
-				}
+				free(private->filepath);
+				private->filepath = NULL;
+				free(private->path_info);
+				private->path_info = NULL;
 				return ESUCCESS;
 #else
-				if (private->path_info)
-				{
-					free(private->path_info);
-					private->path_info = NULL;
-				}
+				free(private->filepath);
+				private->filepath = NULL;
+				free(private->path_info);
+				private->path_info = NULL;
 				return EREJECT;
 #endif
 			}
@@ -128,11 +129,12 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			char *ext_end = strchr(ext, ',');
 			if (ext_end)
 				*ext_end = 0;
-			
+
+			dirpath = private->filepath;
 			while(ext != NULL)
 			{
-				filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
-				if (filepath && !S_ISDIR(filestat.st_mode))
+				private->filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
+				if (private->filepath && !S_ISDIR(filestat.st_mode))
 				{
 					ret = ECONTINUE;
 					break;
@@ -146,6 +148,8 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				ext_end = strchr(ext, ',');
 				if (ext_end)
 					*ext_end = 0;
+				free(private->filepath);
+				private->filepath = NULL;
 			}
 		}
 		else
@@ -153,24 +157,24 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (ret != ECONTINUE)
 		{
 			dbg("static file: %s not found (%s)", private->path_info, strerror(errno));
-			if (filepath)
-				free(filepath);
-			if (private->path_info)
+			if (private->filepath)
 			{
-				free(private->path_info);
-				private->path_info = NULL;
+				free(private->filepath);
+				private->filepath = NULL;
 			}
+			if (dirpath)
+				free(dirpath);
+			free(private->path_info);
+			private->path_info = NULL;
 			return EREJECT;
 		}
-		if (utils_searchext(filepath, config->ignored_ext) == ESUCCESS)
+		if (utils_searchext(private->filepath, config->ignored_ext) == ESUCCESS)
 		{
 			warn("static file: %s forbidden extension", private->path_info);
-			free(filepath);
-			if (private->path_info)
-			{
-				free(private->path_info);
-				private->path_info = NULL;
-			}
+			free(private->filepath);
+			private->filepath = NULL;
+			free(private->path_info);
+			private->path_info = NULL;
 			return  EREJECT;
 		}
 		private->size = filestat.st_size;
@@ -180,38 +184,36 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		 * check the extension
 		 */
 		const char *mime = NULL;
-		if (utils_searchext(filepath, config->accepted_ext) == ESUCCESS)
+		if (utils_searchext(private->filepath, config->accepted_ext) == ESUCCESS)
 		{
-			mime = utils_getmime(filepath);
+			mime = utils_getmime(private->filepath);
 		}
 		else
 		{
 			warn("static file: forbidden extension");
-			free(filepath);
-			if (private->path_info)
-			{
-				free(private->path_info);
-				private->path_info = NULL;
-			}
+			free(private->filepath);
+			private->filepath = NULL;
+			free(private->path_info);
+			private->path_info = NULL;
 			return  EREJECT;
 		}
-		private->fd = open(filepath, O_RDONLY);
+		private->fd = open(private->filepath, O_RDONLY);
 		private->offset = 0;
 		if (private->fd < 0)
 		{
 			ret = EREJECT;
-			if (private->path_info)
-			{
-				free(private->path_info);
-				private->path_info = NULL;
-			}
+			free(private->filepath);
+			private->filepath = NULL;
+			free(private->path_info);
+			private->path_info = NULL;
 		}
 		else
 		{
-			dbg("static file: send %s (%d)", filepath, private->size);
+			dbg("static file: send %s (%d)", private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
 		}
-		free(filepath);
+		free(private->filepath);
+		private->filepath = NULL;
 		return ret;
 	}
 	else

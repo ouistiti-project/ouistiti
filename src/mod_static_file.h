@@ -67,6 +67,7 @@ struct _static_file_connector_s
 	_mod_static_file_mod_t *mod;
 	void *previous;
 	char *path_info;
+	char *filepath;
 	int fd;
 	DIR *dir;
 	unsigned int size;
