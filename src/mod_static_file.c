@@ -261,32 +261,15 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
 
 	ctx->mod = mod;
-	int length;
-	char *ext = config->transfertype;
 
-	while (ext != NULL)
-	{
-		length = strlen(ext);
-		char *ext_end = strchr(ext, ',');
-		if (ext_end)
-		{
-			length -= strlen(ext_end + 1) + 1;
-			ext_end++;
-		}
 #ifdef DIRLISTING
-		if (!strncmp(ext, "dirlisting", length))
-		{
-			httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
-		}
+	if (config->options & STATIC_FILE_DIRLISTING)
+		httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
 #endif
 #ifdef SENDFILE
-		if (!strncmp(ext, "sendfile", length))
-		{
-			mod->transfer = mod_send_sendfile;
-		}
+	if (config->options & STATIC_FILE_SENDFILE)
+		mod->transfer = mod_send_sendfile;
 #endif
-		ext = ext_end;
-	}
 	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx);
 
 	return ctx;

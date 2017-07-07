@@ -30,6 +30,9 @@
 
 #include <dirent.h>
 
+#define STATIC_FILE_DIRLISTING 0x01
+#define STATIC_FILE_SENDFILE 0x02
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -39,7 +42,7 @@ typedef struct mod_static_file_s
 	char *docroot;
 	char *accepted_ext;
 	char *ignored_ext;
-	char *transfertype;
+	int options;
 } mod_static_file_t;
 
 void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config);
