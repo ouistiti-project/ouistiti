@@ -225,6 +225,7 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		{
 			const char *mime = NULL;
 			mime = utils_getmime(private->filepath);
+			lseek(private->fd, private->offset, SEEK_CUR);
 			dbg("static file: send %s (%d)", private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
 		}
@@ -250,6 +251,31 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		}
 	}
 	return ECONTINUE;
+}
+
+static int progressiv_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	if (private->type & STATIC_FILE_DIRLISTING || private->filepath == NULL)
+		return EREJECT;
+	int filesize = private->size;
+
+	char *range = strstr(httpmessage_REQUEST(request,"Range"), "bytes=");
+	if (range)
+	{
+		range += 6;
+		private->offset = atoi(range);
+		char *end = strchr(range, '-');
+		if (end != NULL)
+		{
+			private->size = atoi(end+1) - private->offset;
+		}
+		char buffer[256];
+		snprintf(buffer, 256, "bytes %d-%d/%d", private->offset, private->offset + private->size, filesize);
+		httpmessage_addheader(response, "Content-Range", buffer);
+		httpmessage_result(response, RESULT_206);
+	}
+	return EREJECT;
 }
 
 int mod_send_read(static_file_connector_t *private, http_message_t *response)
@@ -287,6 +313,7 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 		mod->transfer = mod_send_sendfile;
 #endif
 	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, progressiv_connector, ctx);
 	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx);
 
 	return ctx;
