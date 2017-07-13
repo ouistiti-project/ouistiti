@@ -30,6 +30,7 @@ $(TARGET)_LIBS-$(AUTH)+=:mod_auth.so
 $(TARGET)_LIBS-$(VHOSTS)+=:mod_vhosts.so
 $(TARGET)_LIBS-$(METHODLOCK)+=:mod_methodlock.so
 $(TARGET)_LIBS-$(WEBSOCKET)+=:mod_websocket.so
+$(TARGET)_LIBS-$(SERVERHEADER)+=:mod_server.so
 endif
 
 ifeq ($(STATIC),y)
@@ -47,6 +48,7 @@ endif
 $(TARGET)_SOURCES-$(VHOSTS)+=libmod_vhosts.a
 $(TARGET)_SOURCES-$(METHODLOCK)+=libmod_methodlock.a
 $(TARGET)_SOURCES-$(WEBSOCKET)+=libmod_websocket.a
+$(TARGET)_SOURCES-$(SERVERHEADER)+=libmod_server.a
 endif
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
@@ -62,6 +64,7 @@ $(TARGET)_CFLAGS-$(AUTHZ_SIMPLE)+=-DAUTHZ_SIMPLE
 $(TARGET)_CFLAGS-$(VHOSTS)+=-DVHOSTS
 $(TARGET)_CFLAGS-$(METHODLOCK)+=-DMETHODLOCK
 $(TARGET)_CFLAGS-$(WEBSOCKET)+=-DWEBSOCKET
+$(TARGET)_CFLAGS-$(SERVERHEADER)+=-DSERVERHEADER
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -70,3 +73,4 @@ subdir-$(STATIC_FILE)+=mod_static_file.mk
 subdir-$(AUTH)+=mod_auth.mk
 subdir-$(VHOSTS)+=mod_vhosts.mk
 subdir-$(METHODLOCK)+=mod_methodlock.mk
+subdir-$(SERVERHEADER)+=mod_server.mk
