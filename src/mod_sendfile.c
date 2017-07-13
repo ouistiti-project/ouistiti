@@ -55,8 +55,6 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 
 	size = (private->size < CONTENTSIZE)? private->size : CONTENTSIZE;
 	ret = sendfile(httpmessage_keepalive(response), private->fd, NULL, size);
-	private->offset += ret;
-	private->size -= ret;
 
 	return ret;
 }

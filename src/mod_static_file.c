@@ -206,7 +206,6 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 	static_file_connector_t *private = (static_file_connector_t *)arg;
 	_mod_static_file_mod_t *mod = private->mod;
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
-	int ret, size;
 
 	if (private->type & STATIC_FILE_DIRLISTING || private->filepath == NULL)
 		return EREJECT;
@@ -215,11 +214,12 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		private->fd = open(private->filepath, O_RDONLY);
 		if (private->fd < 0)
 		{
-			ret = EREJECT;
 			free(private->filepath);
 			private->filepath = NULL;
 			free(private->path_info);
 			private->path_info = NULL;
+			private->fd = 0;
+			return EREJECT;
 		}
 		else
 		{
@@ -228,10 +228,17 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 			lseek(private->fd, private->offset, SEEK_CUR);
 			dbg("static file: send %s (%d)", private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
+			// create a content for an empty file
+			if (private->size == 0)
+			{
+				char empty[1] = {0};
+				httpmessage_addcontent(response, NULL, empty, 1);
+			}
 		}
 	}
-	else
+	if (private->fd)
 	{
+		int ret;
 		ret = mod->transfer(private, response);
 		if (ret < 0)
 		{
@@ -239,6 +246,8 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 			private->fd = 0;
 			return EREJECT;
 		}
+		private->offset += ret;
+		private->size -= ret;
 		if (ret == 0 || private->size <= 0)
 		{
 			close(private->fd);
@@ -283,16 +292,13 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response)
 	int ret, size;
 
 	char content[CONTENTCHUNK];
-	size = sizeof(content) - 1;
+	size = (private->size < CONTENTCHUNK)? private->size : CONTENTCHUNK - 1;
 	ret = read(private->fd, content, size);
 	if (ret > 0)
 	{
-		content[size] = 0;
+		content[ret] = 0;
 		httpmessage_addcontent(response, NULL, content, ret);
-		private->offset += ret;
-		private->size -= ret;
 	}
-
 	return ret;
 }
 
