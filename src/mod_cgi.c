@@ -345,7 +345,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_SERVER(request, "software");
 				break;
 				case SERVER_NAME:
-					value = httpmessage_SERVER(request, "name");
+					if (ctx->mod->vhost != NULL)
+						value = ctx->mod->vhost;
+					else
+						value = httpmessage_SERVER(request, "name");
 				break;
 				case SERVER_PROTOCOL:
 					value = httpmessage_SERVER(request, "protocol");
