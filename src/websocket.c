@@ -1,5 +1,6 @@
 /*****************************************************************************
- * mod_websocket.c: callbacks and management of request method
+ * websocket.c: callbacks and management of request method
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *

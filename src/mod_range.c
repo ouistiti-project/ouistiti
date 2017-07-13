@@ -1,5 +1,6 @@
 /*****************************************************************************
  * mod_range.c: Range request support RFC 7233
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
