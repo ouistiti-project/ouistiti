@@ -262,52 +262,6 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 	return ECONTINUE;
 }
 
-static int progressiv_connector(void *arg, http_message_t *request, http_message_t *response)
-{
-	static_file_connector_t *private = (static_file_connector_t *)arg;
-	if (private->type & STATIC_FILE_DIRLISTING || private->filepath == NULL)
-		return EREJECT;
-	int filesize = private->size;
-
-	char *range = strstr(httpmessage_REQUEST(request,"Range"), "bytes=");
-	if (range)
-	{
-		range += 6;
-		private->offset = atoi(range);
-		if (private->offset > filesize)
-		{
-			goto notsatisfiable;
-		}
-		char *end = strchr(range, '-');
-		if (end != NULL)
-		{
-			int offset = filesize;
-			if (*(end+1) != '*')
-				offset = atoi(end+1);
-			if (offset > filesize || offset < private->offset)
-			{
-				goto notsatisfiable;
-			}
-			private->size = offset - private->offset;
-		}
-		char buffer[256];
-		snprintf(buffer, 256, "bytes %d-%d/%d", private->offset, private->offset + private->size, filesize);
-		httpmessage_addheader(response, "Content-Range", buffer);
-		httpmessage_result(response, RESULT_206);
-	}
-	return EREJECT;
-notsatisfiable:
-	free(private->filepath);
-	private->filepath = NULL;
-	free(private->path_info);
-	private->path_info = NULL;
-	char buffer[256];
-	snprintf(buffer, 256, "bytes */%d", filesize);
-	httpmessage_addheader(response, "Content-Range", buffer);
-	httpmessage_result(response, RESULT_416);
-	return EREJECT;
-}
-
 int mod_send_read(static_file_connector_t *private, http_message_t *response)
 {
 	int ret, size;
@@ -340,7 +294,9 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 		mod->transfer = mod_send_sendfile;
 #endif
 	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
-	httpclient_addconnector(ctl, mod->vhost, progressiv_connector, ctx);
+#ifdef RANGEREQUEST
+	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
+#endif
 	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx);
 
 	return ctx;

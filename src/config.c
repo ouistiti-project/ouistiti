@@ -93,7 +93,7 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator)
 			if (!strncmp(ext, "dirlisting", length))
 				static_file->options |= STATIC_FILE_DIRLISTING;
 #endif
-#ifdef DIRLISTING
+#ifdef SENDFILE
 			if (!strncmp(ext, "sendfile", length))
 				static_file->options |= STATIC_FILE_SENDFILE;
 #endif

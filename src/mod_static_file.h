@@ -73,6 +73,9 @@ struct _static_file_connector_s
 #ifdef SENDFILE
 int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
 #endif
+#ifdef RANGEREQUEST
+int range_connector(void *arg, http_message_t *request, http_message_t *response);
+#endif
 
 #ifdef __cplusplus
 }

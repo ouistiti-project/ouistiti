@@ -10,5 +10,8 @@ mod_static_file_CFLAGS-$(SENDFILE)+=-DSENDFILE
 mod_static_file_SOURCES-$(DIRLISTING)+=mod_dirlisting.c
 mod_static_file_CFLAGS-$(DIRLISTING)+=-DDIRLISTING
 
+mod_static_file_SOURCES-$(RANGEREQUEST)+=mod_range.c
+mod_static_file_CFLAGS-$(RANGEREQUEST)+=-DRANGEREQUEST
+
 mod_static_file_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
