@@ -274,16 +274,37 @@ static int progressiv_connector(void *arg, http_message_t *request, http_message
 	{
 		range += 6;
 		private->offset = atoi(range);
+		if (private->offset > filesize)
+		{
+			goto notsatisfiable;
+		}
 		char *end = strchr(range, '-');
 		if (end != NULL)
 		{
-			private->size = atoi(end+1) - private->offset;
+			int offset = filesize;
+			if (*(end+1) != '*')
+				offset = atoi(end+1);
+			if (offset > filesize || offset < private->offset)
+			{
+				goto notsatisfiable;
+			}
+			private->size = offset - private->offset;
 		}
 		char buffer[256];
 		snprintf(buffer, 256, "bytes %d-%d/%d", private->offset, private->offset + private->size, filesize);
 		httpmessage_addheader(response, "Content-Range", buffer);
 		httpmessage_result(response, RESULT_206);
 	}
+	return EREJECT;
+notsatisfiable:
+	free(private->filepath);
+	private->filepath = NULL;
+	free(private->path_info);
+	private->path_info = NULL;
+	char buffer[256];
+	snprintf(buffer, 256, "bytes */%d", filesize);
+	httpmessage_addheader(response, "Content-Range", buffer);
+	httpmessage_result(response, RESULT_416);
 	return EREJECT;
 }
 
