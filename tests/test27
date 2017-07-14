@@ -1,0 +1,6 @@
+DESC="test Range Request with the end of the file"
+CONFIG=test1.conf
+#PREPARE="nohup ./utils/websocket_echo -R /tmp -u mch"
+TESTREQUEST=test27_rq.txt
+TESTCODE=206
+TESTCONTENTLEN=25
