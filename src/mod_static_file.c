@@ -188,6 +188,22 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			private->filepath = NULL;
 			free(private->path_info);
 			private->path_info = NULL;
+#if defined(RESULT_403)
+			httpmessage_result(response, RESULT_403);
+			return ESUCCESS;
+#endif
+		}
+		else if (private->size == 0)
+		{
+			warn("static file: empty file");
+#if defined(RESULT_204)
+			free(private->filepath);
+			private->filepath = NULL;
+			free(private->path_info);
+			private->path_info = NULL;
+			httpmessage_result(response, RESULT_204);
+			return ESUCCESS;
+#endif
 		}
 	}
 	else
