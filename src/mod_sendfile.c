@@ -1,5 +1,6 @@
 /*****************************************************************************
  * mod_static_file.c: callbacks and management of files
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *

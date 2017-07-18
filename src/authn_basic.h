@@ -1,5 +1,6 @@
 /*****************************************************************************
  * authn_basic.h: Simple HTTP module
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *

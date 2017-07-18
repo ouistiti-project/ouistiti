@@ -1,5 +1,6 @@
 /*****************************************************************************
  * main.c: main entry file
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -55,6 +56,7 @@
 #include "mod_auth.h"
 #include "mod_vhosts.h"
 #include "mod_methodlock.h"
+#include "mod_server.h"
 
 #if defined WEBSOCKET
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
@@ -63,7 +65,7 @@ extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_me
 #include "config.h"
 #include "../version.h"
 
-#define PACKAGEVERSION PACKAGE " " VERSION
+#define PACKAGEVERSION PACKAGE "/" VERSION
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
@@ -83,6 +85,7 @@ typedef struct server_s
 	void *mod_cgi;
 	void *mod_auth;
 	void *mod_methodlock;
+	void *mod_server;
 	void *mod_websocket;
 	void *mod_vhosts[MAX_SERVERS - 1];
 
@@ -211,7 +214,10 @@ int main(int argc, char * const *argv)
 			}
 #endif
 #if defined METHODLOCK
-			server->mod_methodlock = mod_methodlock_create(server->server, NULL, server->config->cgi);
+			server->mod_methodlock = mod_methodlock_create(server->server, NULL, NULL);
+#endif
+#if defined SERVERHEADER
+			server->mod_server = mod_server_create(server->server, NULL, NULL);
 #endif
 #if defined CGI
 			if (server->config->cgi)
@@ -221,7 +227,15 @@ int main(int argc, char * const *argv)
 			if (server->config->websocket)
 				server->mod_websocket = mod_websocket_create(server->server,
 					NULL, server->config->websocket,
+#if defined MBEDTLS
+					default_websocket_run, server->config->websocket);
+#else
+					/**
+					 * ouistiti_websocket_run is more efficient than
+					 * default_websocket_run. But it doesn't run with TLS
+					 **/
 					ouistiti_websocket_run, server->config->websocket);
+#endif
 #endif
 #if defined MBEDTLS
 			if (server->config->tls)
@@ -270,6 +284,10 @@ int main(int argc, char * const *argv)
 #if defined METHODLOCK
 		if (server->mod_methodlock)
 			mod_methodlock_destroy(server->mod_methodlock);
+#endif
+#if defined SERVERHEADER
+		if (server->mod_server)
+			mod_server_destroy(server->mod_server);
 #endif
 #if defined CGI
 		if (server->mod_cgi)

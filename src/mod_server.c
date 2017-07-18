@@ -1,6 +1,5 @@
 /*****************************************************************************
- * websocket.c: callbacks and management of request method
- * this file is part of https://github.com/ouistiti-project/ouistiti
+ * mod_server.c: callbacks and management of request method
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -25,7 +24,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -35,12 +34,10 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <dirent.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
-#include "httpserver/mod_websocket.h"
+#include "mod_server.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -50,68 +47,40 @@
 #define dbg(...)
 #endif
 
-static int _websocket_socket(void *arg, char *protocol)
-{
-	mod_websocket_t *config = (mod_websocket_t *)arg;
-	int sock;
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	snprintf(addr.sun_path, sizeof(addr.sun_path) - 1, "%s/%s", config->path, protocol);
+typedef struct _mod_server_s _mod_server_t;
 
-	sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (sock > 0)
-	{
-		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
-		if (ret < 0)
-		{
-			close(sock);
-			sock = -1;
-		}
-	}
-	if (sock == -1)
-	{
-		warn("websocket error: %s", strerror(errno));
-	}
-	return sock;
+struct _mod_server_s
+{
+	void *vhost;
+};
+
+static int server_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret = EREJECT;
+	httpmessage_addheader(response, "Server", httpmessage_SERVER(request, "software"));
+	return ret;
 }
 
-#define NUM_FD 1
-static int _websocket_connect(int client, int socket)
+static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
-	struct msghdr msg = {0};
-	struct cmsghdr *cmsg;
-	char buf[CMSG_SPACE(sizeof(socket))];  /* ancillary data buffer */
-	int *fdptr;
+	_mod_server_t *mod = (_mod_server_t *)arg;
 
-	struct sockaddr_storage addr;
-	int addrsize = sizeof(struct sockaddr_in);
-	getpeername(socket, (struct sockaddr*)&addr, &addrsize);
-    struct iovec io = { .iov_base = &addr, .iov_len = addrsize };
+	httpclient_addconnector(ctl, mod->vhost, server_connector, NULL);
 
-    msg.msg_iov = &io;
-    msg.msg_iovlen = 1;
-
-	memset(buf, '\0', sizeof(buf));
-	msg.msg_control = buf;
-	msg.msg_controllen = sizeof(buf);
-	cmsg = CMSG_FIRSTHDR(&msg);
-	cmsg->cmsg_level = SOL_SOCKET;
-	cmsg->cmsg_type = SCM_RIGHTS;
-	cmsg->cmsg_len = CMSG_LEN(sizeof(socket));
-
-	/* Initialize the payload: */
-	*((int *) CMSG_DATA(cmsg)) = socket;
-	/* Sum of the length of all control messages in the buffer: */
-	msg.msg_controllen = cmsg->cmsg_len;
-
-	return sendmsg(client, &msg, MSG_DONTWAIT);
+	return NULL;
 }
 
-int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request)
+void *mod_server_create(http_server_t *server, char *vhost, void *config)
 {
-	int client = _websocket_socket(arg, protocol);
-	if (client)
-		_websocket_connect(client, socket);
-	return client;
+	_mod_server_t *mod = calloc(1, sizeof(*mod));
+
+	mod->vhost = vhost;
+	httpserver_addmod(server, _mod_server_getctx, NULL, mod);
+
+	return mod;
+}
+
+void mod_server_destroy(void *data)
+{
+	free(data);
 }

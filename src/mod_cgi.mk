@@ -1,11 +1,4 @@
 
-modules-$(DYNAMIC)+=utils_mod
-slib-$(STATIC)+=utils_mod
-utils_mod_SOURCES=utils.c
-utils_mod_CFLAGS+=-I../libhttpserver/include 
-
-utils_mod_CFLAGS-$(DEBUG)+=-g -DDEBUG
-
 modules-$(DYNAMIC)+=mod_cgi
 slib-$(STATIC)+=mod_cgi
 mod_cgi_SOURCES+=mod_cgi.c

@@ -1,5 +1,6 @@
 /*****************************************************************************
  * mod_cgi.c: callbacks and management of connection
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -40,7 +41,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
-#include "utils.h"
+#include "httpserver/utils.h"
 #include "mod_cgi.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -344,7 +345,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_SERVER(request, "software");
 				break;
 				case SERVER_NAME:
-					value = httpmessage_SERVER(request, "name");
+					if (ctx->mod->vhost != NULL)
+						value = ctx->mod->vhost;
+					else
+						value = httpmessage_SERVER(request, "name");
 				break;
 				case SERVER_PROTOCOL:
 					value = httpmessage_SERVER(request, "protocol");

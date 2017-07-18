@@ -1,5 +1,6 @@
 /*****************************************************************************
  * mod_vhosts.c: callbacks and management of connection
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -44,6 +45,8 @@
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
+#include "mod_methodlock.h"
+#include "mod_server.h"
 
 #if defined WEBSOCKET
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
@@ -67,6 +70,8 @@ struct _mod_vhost_s
 	void *mod_cgi;
 	void *mod_auth;
 	void *mod_websocket;
+	void *mod_methodlock;
+	void *mod_server;
 };
 
 void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
@@ -86,11 +91,21 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 		mod->mod_auth = mod_auth_create(server, config->hostname, config->auth);
 	}
 #endif
+#if defined METHODLOCK
+			mod->mod_methodlock = mod_methodlock_create(server, config->hostname, NULL);
+#endif
+#if defined SERVERHEADER
+			mod->mod_server = mod_server_create(server, config->hostname, NULL);
+#endif
 #if defined WEBSOCKET
 	if (config->websocket)
 		mod->mod_websocket = mod_websocket_create(server,
 			NULL, config->websocket,
+#if defined MBEDTLS
+			default_websocket_run, config->websocket);
+#else
 			ouistiti_websocket_run, config->websocket);
+#endif
 #endif
 #if defined CGI
 	if (config->cgi)
@@ -118,6 +133,14 @@ void mod_vhost_destroy(void *arg)
 #if defined AUTH
 	if (mod->mod_auth)
 		mod_auth_destroy(mod->mod_auth);
+#endif
+#if defined METHODLOCK
+	if (mod->mod_methodlock)
+		mod_methodlock_destroy(mod->mod_methodlock);
+#endif
+#if defined SERVERHEADER
+	if (mod->mod_server)
+		mod_server_destroy(mod->mod_server);
 #endif
 	free(mod);
 }

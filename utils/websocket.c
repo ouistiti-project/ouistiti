@@ -1,5 +1,6 @@
 /*****************************************************************************
  * websocket.c: socket wraper for websocket
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -82,6 +83,15 @@ static void _lib_exit() __attribute__((destructor));
 static _websocket_t *_websocket_first = NULL;
 static _websocket_t *_webclient_first = NULL;
 
+static int websocket_close(void *arg, int status);
+static int websocket_pong(void *arg, char *data);
+websocket_t wsconfig = {
+	.mtu = 0,
+	.type = 0,
+	.onclose = websocket_close,
+	.onping = websocket_pong,
+};
+
 int socket(int domain, int type, int protocol)
 {
 	int sock = -1;
@@ -91,7 +101,11 @@ int socket(int domain, int type, int protocol)
 	{
 		if (type == SOCK_STREAM)
 		{
-			sock = std_socket(AF_UNIX, SOCK_DGRAM, protocol);
+			if (protocol == WS_TEXT)
+			{
+				wsconfig.type = WS_TEXT;
+			}
+			sock = std_socket(AF_UNIX, SOCK_DGRAM, 0);
 
 			_websocket_t *socket = calloc(1, sizeof(*socket));
 			socket->sock = sock;
@@ -140,6 +154,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 		msg.msg_iovlen = 1;
 
 		char c_buffer[256];
+		memset(c_buffer, 0, sizeof(c_buffer));
 		msg.msg_control = c_buffer;
 		msg.msg_controllen = sizeof(c_buffer);
 
@@ -158,7 +173,8 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 
 			cmsg = CMSG_FIRSTHDR(&msg);
 			data = CMSG_DATA(cmsg);
-			ret = *(int *)data;
+			if (data)
+				ret = *(int *)data;
 		}
 		if (ret > 0)
 		{
@@ -276,10 +292,10 @@ int close(int sockfd)
 	}
 	if (client)
 	{
-		if (prev != _websocket_first)
-			prev = client->next;
+		if (client != _webclient_first)
+			prev->next = client->next;
 		else
-			_websocket_first = client->next;
+			_webclient_first = client->next;
 		free(client);
 		std_close(sockfd);
 		return 0;
@@ -287,14 +303,14 @@ int close(int sockfd)
 	return std_close(sockfd);
 }
 
-int websocket_close(void *arg, int status)
+static int websocket_close(void *arg, int status)
 {
 	int sockfd = ((_websocket_t *)arg)->sock;
 	char message[] = { 0x88, 0x02, 0x03, 0xEA};
 	return std_sendto(sockfd, message, sizeof(message), MSG_DONTWAIT, NULL, 0);
 }
 
-int websocket_pong(void *arg, char *data)
+static int websocket_pong(void *arg, char *data)
 {
 	int sockfd = ((_websocket_t *)arg)->sock;
 	char message[] = { 0x8A, 0x00};
@@ -305,7 +321,7 @@ static void _lib_init()
 {
 	if (_lib_inited) return;
 
-	websocket_init(websocket_close, websocket_pong);
+	websocket_init(&wsconfig);
 	if(!std_socket)
 	{
 		std_socket =  (socket_t)dlsym(RTLD_NEXT, "socket");

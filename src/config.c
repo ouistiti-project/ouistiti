@@ -1,5 +1,6 @@
 /*****************************************************************************
  * config.c: configuration file parser
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -71,11 +72,34 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator)
 #endif
 	if (configstaticfile)
 	{
+		int length;
+		char *transfertype;
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
 		config_setting_lookup_string(configstaticfile, "accepted_ext", (const char **)&static_file->accepted_ext);
 		config_setting_lookup_string(configstaticfile, "ignored_ext", (const char **)&static_file->ignored_ext);
-		config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&static_file->transfertype);
+		config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&transfertype);
+		char *ext = transfertype;
+
+		while (ext != NULL)
+		{
+			length = strlen(ext);
+			char *ext_end = strchr(ext, ',');
+			if (ext_end)
+			{
+				length -= strlen(ext_end + 1) + 1;
+				ext_end++;
+			}
+#ifdef DIRLISTING
+			if (!strncmp(ext, "dirlisting", length))
+				static_file->options |= STATIC_FILE_DIRLISTING;
+#endif
+#ifdef SENDFILE
+			if (!strncmp(ext, "sendfile", length))
+				static_file->options |= STATIC_FILE_SENDFILE;
+#endif
+			ext = ext_end;
+		}
 	}
 	return static_file;
 }

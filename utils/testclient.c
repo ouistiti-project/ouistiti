@@ -1,5 +1,6 @@
 /*****************************************************************************
  * testclient.c: Simple HTTP client
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -79,6 +80,8 @@ int main(int argc, char **argv)
 	struct sockaddr_in saddr;
 	struct addrinfo hints;
 	int options = 0;
+
+	setbuf(stdout, NULL);
 
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_INET;    /* Allow IPv4 or IPv6 */
@@ -175,35 +178,42 @@ int main(int argc, char **argv)
 				}
 				int ret;
 				ret = send(sock, buffer, headerlength, MSG_NOSIGNAL);
+				dbg("testclient: send header (%d)", headerlength);
 				if (ret != headerlength)
 				{
-					err("send error");
-					state |= RESPONSE_END;
+					err("testclient: send error");
+					state |= CONNECTION_END;
 					ret = -1;
 				}
 				if (state & REQUEST_HEADER)
 				{
+					contentlength = length - headerlength;
 					if (options & OPT_WEBSOCKET)
 					{
 						state |= REQUEST_END;
-						contentlength = length - headerlength;
 						memcpy(content, buffer + headerlength, contentlength);
 					}
-					else
+					else if (contentlength)
 					{
 						/**
 						 * send content
 						 **/
 						usleep(50);
-						ret = send(sock, buffer + headerlength, length, MSG_NOSIGNAL);
+						ret = send(sock, buffer + headerlength, contentlength, MSG_NOSIGNAL);
+						dbg("testclient: send content (%d)", contentlength);
 					}
 				}
 			}
+			else if (length == 0)
+				state |= REQUEST_END;
 			else if (state > CONNECTION_START && !(state & REQUEST_END))
 			{
 				if (errno != EAGAIN)
-					err("request clomplete %s", strerror(errno));
-				state |= REQUEST_END;
+				{
+					if (length < 0)
+						err("testclient: request clomplete %s", strerror(errno));
+					state |= REQUEST_END;
+				}
 			}
 			if (state & REQUEST_START)
 				break;
@@ -221,7 +231,6 @@ int main(int argc, char **argv)
 				state |= RESPONSE_START;
 				buffer[length] = 0;
 				write(1, buffer, length);
-				printf("\n");
 			}
 			else if (length == 0)
 			{
@@ -239,6 +248,8 @@ int main(int argc, char **argv)
 				FD_ZERO(&rfds);
 				FD_SET(sock, &rfds);
 				sret = select(sock + 1, &rfds, NULL, NULL, ptimeout);
+				if (sret == 0)
+					warn("testclient: receive timeout");
 				if (sret != 1)
 					state |= RESPONSE_END;
 			}
@@ -268,7 +279,7 @@ int main(int argc, char **argv)
 						state |= CONNECTION_END;
 					else
 					{
-						printf("websocket receive %d : ", contentlength);
+						dbg("testclient: websocket receive (%d)", contentlength);
 						int i;
 						for (i = 0; i < contentlength; i++)
 						{
@@ -282,7 +293,7 @@ int main(int argc, char **argv)
 				state |= CONNECTION_END;
 		}
 	} while (!(state & CONNECTION_END));
-
+	dbg("testclient: quit");
 	close(sock);
 	return ret;
 }

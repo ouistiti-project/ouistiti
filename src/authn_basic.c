@@ -1,5 +1,6 @@
 /*****************************************************************************
  * authn_basic.c: Basic Authentication mode
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -112,7 +113,6 @@ int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *re
 
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
 	httpmessage_result(response, RESULT_401);
-	httpmessage_keepalive(response);
 	ret = ESUCCESS;
 	dbg("error 401");
 	return ret;

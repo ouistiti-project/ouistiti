@@ -49,25 +49,30 @@ if [ -n "$PREPARE" ]; then
 fi
 
 if [ -n "$DEBUG" ]; then
-	echo LD_LIBRARY_PATH=${LD_LIBRARY_PATH} ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG}
+	echo ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG}
 fi
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH} ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG} &
+${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG} &
 PID=$!
 
 echo "${TARGET} started with pid ${PID}"
 sleep 2
 
-if [ -n "$CURLPARAM" ]; then
-	result=$($CURL $CURLOUT -f -s -S -w "%{http_code} %{size_header} %{size_download}" $CURLPARAM)
-
-fi
-if [ -n "$TESTREQUEST" ]; then
-	result=$(printf "$(cat ${TESTDIR}$TESTREQUEST)" | $TESTCLIENT | $HTTPPARSER)
-fi
-
 if [ -n "$DEBUG" ]; then
-	echo $result
+	if [ -n "$CURLPARAM" ]; then
+		$CURL $CURLOUT -f -s -S $CURLPARAM
+	fi
+	if [ -n "$TESTREQUEST" ]; then
+		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT
+	fi
 else
+	if [ -n "$CURLPARAM" ]; then
+		result=$($CURL $CURLOUT -f -s -S -w "%{http_code} %{size_header} %{size_download}" $CURLPARAM)
+
+	fi
+	if [ -n "$TESTREQUEST" ]; then
+		#result=$(printf "$(cat ${TESTDIR}$TESTREQUEST)" | $TESTCLIENT | $HTTPPARSER)
+		result=$(cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT | $HTTPPARSER)
+	fi
 	rescode=$(echo $result | gawk '{print $1}')
 	resheaderlen=$(echo $result | gawk '{print $2}')
 	rescontentlen=$(echo $result | gawk '{print $3}')

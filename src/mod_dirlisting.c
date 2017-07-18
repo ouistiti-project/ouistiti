@@ -1,5 +1,6 @@
 /*****************************************************************************
  * mod_dirlisting.c: callbacks and management of directories
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -37,7 +38,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
-#include "utils.h"
+#include "httpserver/utils.h"
 #include "mod_static_file.h"
 #include "mod_dirlisting.h"
 
@@ -89,44 +90,36 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	_mod_static_file_mod_t *mod = private->mod;
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
 
+	if (!(private->type & STATIC_FILE_DIRLISTING))
+		return EREJECT;
 	if (private->dir == NULL)
 	{
-		struct stat filestat;
-		char *filepath;
-		if (private->path_info)
-			free(private->path_info);
-		private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
-		filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
-		if (filepath && S_ISDIR(filestat.st_mode))
+		private->dir = opendir(private->filepath);
+		if (private->dir)
 		{
-			ret = ECONTINUE;
-			private->dir = opendir(filepath);
-			if (private->dir)
-			{
-				httpmessage_addcontent(response, (char*)utils_getmime(".html"), NULL, -1);
+			httpmessage_addcontent(response, (char*)utils_getmime(".html"), NULL, -1);
 
-				int length = strlen(private->path_info);
-				char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
-				snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, "", private->path_info);
+			int length = strlen(private->path_info);
+			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
+			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, "", private->path_info);
+			httpmessage_addcontent(response, NULL, data, strlen(data));
+			free(data);
+			if (strlen(private->path_info) > 1)
+			{
+				line_t *line = dirlisting_lines[0];
+				int length = (sizeof("..") - 1) * 2 + strlen(private->path_info);
+				char *data = calloc(1, line->length + length + 1);
+				snprintf(data, line->length + length, line->line, private->path_info, "..", "..");
 				httpmessage_addcontent(response, NULL, data, strlen(data));
 				free(data);
-				if (strlen(private->path_info) > 1)
-				{
-					line_t *line = dirlisting_lines[0];
-					int length = (sizeof("..") - 1) * 2 + strlen(private->path_info);
-					char *data = calloc(1, line->length + length + 1);
-					snprintf(data, line->length + length, line->line, private->path_info, "..", "..");
-					httpmessage_addcontent(response, NULL, data, strlen(data));
-					free(data);
-				}
-				ret = ECONTINUE;
 			}
-			else
-				warn("dirlisting: directory not open");
+			ret = ECONTINUE;
 		}
 		else
 		{
-			dbg("dirlisting: not a directory");
+			warn("dirlisting: directory not open");
+			free(private->filepath);
+			private->filepath = NULL;
 		}
 	}
 	else

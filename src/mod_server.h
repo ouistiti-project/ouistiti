@@ -1,5 +1,5 @@
 /*****************************************************************************
- * utils.h: Simple HTTP module
+ * mod_server.h: Simple HTTPS module
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -25,24 +25,19 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __UTILS_H__
-#define __UTILS_H__
+#ifndef __MOD_SERVERHEADER_H__
+#define __MOD_SERVERHEADER_H__
 
-extern char *str_location;
-
-typedef enum
+#ifdef __cplusplus
+extern "C"
 {
-	MIME_TEXTPLAIN,
-	MIME_TEXTHTML,
-	MIME_TEXTCSS,
-	MIME_APPLICATIONJAVASCRIPT,
-	MIME_IMAGEPNG,
-	MIME_IMAGEJPEG,
-	MIME_APPLICATIONOCTETSTREAM,
-} utils_mimetype_enum;
-const char *utils_getmime(char *path);
+#endif
 
-char *utils_urldecode(char *encoded);
-int utils_searchext(char *filepath, char *extlist);
-char *utils_buildpath(char *docroot, char *path_info, char *filename, char *ext, struct stat *filestat);
+void *mod_server_create(http_server_t *server, char *vhost, void *config);
+void mod_server_destroy(void *data);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

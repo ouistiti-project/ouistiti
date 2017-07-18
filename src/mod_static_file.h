@@ -1,5 +1,6 @@
 /*****************************************************************************
  * mod_static_file.h: Simple HTTPS module
+ * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -30,6 +31,9 @@
 
 #include <dirent.h>
 
+#define STATIC_FILE_DIRLISTING 0x01
+#define STATIC_FILE_SENDFILE 0x02
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -39,7 +43,7 @@ typedef struct mod_static_file_s
 	char *docroot;
 	char *accepted_ext;
 	char *ignored_ext;
-	char *transfertype;
+	int options;
 } mod_static_file_t;
 
 void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config);
@@ -56,14 +60,11 @@ typedef int (*mod_transfer_t)(static_file_connector_t *private, http_message_t *
 
 struct _static_file_connector_s
 {
-	/**
-	 * to use with PRIVATE value of message
-	 * type is mandatory at the first place
-	 */
 	int type;
 	_mod_static_file_mod_t *mod;
 	void *previous;
 	char *path_info;
+	char *filepath;
 	int fd;
 	DIR *dir;
 	unsigned int size;
@@ -72,6 +73,9 @@ struct _static_file_connector_s
 
 #ifdef SENDFILE
 int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
+#endif
+#ifdef RANGEREQUEST
+int range_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
 
 #ifdef __cplusplus
