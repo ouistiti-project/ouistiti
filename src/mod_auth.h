@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_auth.h: Simple HTTP module
+ * mod_auth.h: HTTP Authentication module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017

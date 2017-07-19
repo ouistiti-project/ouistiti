@@ -1,5 +1,5 @@
 /*****************************************************************************
- * authn_basic.c: Basic Authentication mode
+ * authz_simple.c: Check Authentication in configuration file
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017

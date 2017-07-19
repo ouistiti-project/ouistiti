@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_auth.c: callbacks and management of connection
+ * mod_auth.c: Authentication module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
