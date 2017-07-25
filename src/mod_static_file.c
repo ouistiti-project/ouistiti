@@ -99,7 +99,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			{
 				free(private->filepath);
 				private->filepath = NULL;
-#ifndef HTTP_STATUS_PARTIAL
+#if defined(RESULT_301)
 				char *location = calloc(1, strlen(private->path_info) + 2);
 				sprintf(location, "%s/", private->path_info);
 				httpmessage_addheader(response, str_location, location);
