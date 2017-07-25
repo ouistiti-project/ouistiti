@@ -125,10 +125,12 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	mod->authz->type = config->authz_type;
 	switch (config->authz_type)
 	{
+#ifdef AUTHZ_SIMPLE
 	case AUTHZ_SIMPLE_E:
 		mod->authz->rules = &authz_simple_rules;
 		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
 	break;
+#endif
 	}
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
