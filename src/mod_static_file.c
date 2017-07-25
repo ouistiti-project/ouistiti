@@ -253,7 +253,7 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 			}
 		}
 	}
-	if (private->fd)
+	else if (private->fd)
 	{
 		int ret;
 		ret = mod->transfer(private, response);
