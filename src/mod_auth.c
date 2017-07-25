@@ -53,6 +53,9 @@
 #define dbg(...)
 #endif
 
+#ifndef RESULT_401
+#error mod_auth require RESULT_401
+#endif
 
 typedef struct _mod_auth_s _mod_auth_t;
 typedef struct _mod_auth_ctx_s _mod_auth_ctx_t;
