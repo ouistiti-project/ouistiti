@@ -126,6 +126,12 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	break;
 #endif
 	}
+	if (mod->authz->ctx == NULL)
+	{
+		free(mod->authz);
+		free(mod);
+		return NULL;
+	}
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->type = config->authn_type;
@@ -133,10 +139,21 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	if (mod->authn->rules && mod->authz->rules)
 	{
 		mod->authn->ctx = mod->authn->rules->create(mod->authz, config->authn_config);
+	}
+	if (mod->authn->ctx)
+	{
 		mod->type = str_authenticate_types[config->authn_type];
 		mod->typelength = strlen(mod->type);
 
 		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
+	}
+	else
+	{
+		mod->authz->rules->destroy(mod->authz->ctx);
+		free(mod->authz);
+		free(mod->authn);
+		free(mod);
+		mod = NULL;
 	}
 	return mod;
 }
