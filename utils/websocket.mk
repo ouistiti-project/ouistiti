@@ -32,3 +32,16 @@ websocket_chat_LIBS-$(WEBSOCKET)+=ouistiti_ws websocket c pthread
 endif
 
 websocket_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
+bin-$(WS_SYSLOGD)+=websocket_syslogd
+websocket_syslogd_SOURCES+=$(WS_SRC)syslogd.c
+ifneq ($(MBEDTLS), y)
+websocket_syslogd_CFLAGS-$(WEBSOCKET)+=-DPTHREAD
+websocket_syslogd_CFLAGS-$(WEBSOCKET)+=-DSOCKDOMAIN="(AF_MAX+0X100)"
+websocket_syslogd_CFLAGS-$(WEBSOCKET)+=-DSOCKPROTOCOL=153
+websocket_syslogd_LDFLAGS-$(WEBSOCKET)+=-nodefaultlibs
+websocket_syslogd_LDFLAGS-$(WEBSOCKET)+=-L../libhttpserver/src/httpserver
+websocket_syslogd_LIBS-$(WEBSOCKET)+=ouistiti_ws websocket c pthread
+endif
+
+websocket_syslogd_CFLAGS-$(DEBUG)+=-g -DDEBUG
