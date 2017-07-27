@@ -44,6 +44,7 @@
 #include "authn_basic.h"
 #include "authn_digest.h"
 #include "authz_simple.h"
+#include "authz_file.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -122,6 +123,12 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 #ifdef AUTHZ_SIMPLE
 	case AUTHZ_SIMPLE_E:
 		mod->authz->rules = &authz_simple_rules;
+		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
+	break;
+#endif
+#ifdef AUTHZ_FILE
+	case AUTHZ_FILE_E:
+		mod->authz->rules = &authz_file_rules;
 		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
 	break;
 #endif

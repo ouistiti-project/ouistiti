@@ -44,6 +44,13 @@ struct authz_simple_config_s
 	int rights;
 };
 
+typedef struct authz_file_config_s authz_file_config_t;
+struct authz_file_config_s
+{
+	char *path;
+	int rights;
+};
+
 typedef void *(*authz_rule_create_t)(void *config);
 typedef int (*authz_rule_check_t)(void *arg, char *user, char *passwd);
 typedef char *(*authz_rule_passwd_t)(void *arg, char *user);
@@ -61,6 +68,7 @@ struct authz_rules_s
 typedef enum
 {
 	AUTHZ_SIMPLE_E = 1,
+	AUTHZ_FILE_E,
 } authz_type_t;
 struct authz_s
 {

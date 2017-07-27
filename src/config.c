@@ -143,6 +143,20 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 	if (configauth)
 	{
 		auth = calloc(1, sizeof(*auth));
+#ifdef AUTHZ_FILE
+		if (auth->authz_config == NULL)
+		{
+			char *path = NULL;
+			config_setting_lookup_string(configauth, "file", (const char **)&path);
+			if (path != NULL && path[0] != '0')
+			{
+				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
+				authz_config->path = path;
+				auth->authz_type = AUTHZ_FILE_E;
+				auth->authz_config = authz_config;
+			}
+		}
+#endif
 #ifdef AUTHZ_SIMPLE
 		if (auth->authz_config == NULL)
 		{
