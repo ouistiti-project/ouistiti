@@ -1,0 +1,5 @@
+DESC="test Range Request with sendfile module"
+CONFIG=test7.conf
+TESTREQUEST=test26_rq.txt
+TESTCODE=206
+TESTCONTENTLEN=15

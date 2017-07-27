@@ -1,0 +1,4 @@
+DESC="test to access to .htaccess file"
+CONFIG=test1.conf
+TESTREQUEST=test31_rq.txt
+TESTCODE=404
