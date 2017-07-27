@@ -76,7 +76,6 @@ struct _mod_auth_s
 {
 	mod_auth_t	*config;
 	char *vhost;
-	char *realm;
 	const char *type;
 	authn_t *authn;
 	authz_t *authz;
@@ -85,7 +84,6 @@ struct _mod_auth_s
 
 const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
-static const char *str_realm = "ouistiti";
 const char *str_authenticate_types[] =
 {
 	"None",
@@ -116,13 +114,6 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 	mod->vhost = vhost;
-
-	if (config->realm == NULL)
-	{
-		mod->realm = (char *)str_realm;
-	}
-	else
-		mod->realm = config->realm;
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
