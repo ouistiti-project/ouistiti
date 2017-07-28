@@ -38,11 +38,11 @@ For an optimal featured solution, Ouistiti needs:
 
 Some modules need external libraries:  
  * [mbedtls](https://tls.mbed.org/) library
- * [libb64](http://libb64.sourceforge.net/) library (as a git submodule)
 
  (optionals)  
  * [md5-c](http://userpages.umbc.edu/~mabzug1/cs/md5/md5-c-100.tar.gz) library
  * [libmd5-rfc](https://sourceforge.net/projects/libmd5-rfc/) library
+ * [libb64](http://libb64.sourceforge.net/) library (as a git submodule)
 
 The memory allocation is dynamic, but the functions "calloc" and "free" are
 inside macros, to allow the specific implementation.
@@ -139,12 +139,15 @@ CGI : build the CGI/1.1 support.
 STATIC_FILE : build the delivery of static files.  
 SENDFILE : build the extension of STATIC_FILE to increase the speed.  
 DIRLISTING : build the extention of STATIC_FILE to display the directory content.  
+RANGEREQUEST : build the extention of STATIC_FILE to send truncated files.  
 AUTH : build the support of the authentication.  
 AUTHN_BASIC : add a Basic challenge method for AUTH.  
 AUTHN_DIGEST : add a Digest challenge method for AUTH.  
 AUTHZ_SIMPLE : add simple user/password configuration.  
+AUTHZ_FILE : add file storage for user/password.  
 VHOSTS : build virtual hosting's extension.  
 WEBSOCKET : build the websocket gateway support.  
+WEBSOCKET_RT : add the realtime support of websocket but il is broken with TLS.  
 WS_ECHO : build the "echo" server as websocket demo.  
 WS_CHAT : build the "chat" server as websocket demo.  
 
