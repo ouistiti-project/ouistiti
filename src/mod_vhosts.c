@@ -99,13 +99,16 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 #endif
 #if defined WEBSOCKET
 	if (config->websocket)
+	{
+		mod_websocket_run_t run = default_websocket_run;
+#if defined WEBSOCKET_RT
+		if (config->websocket->mode && strstr(config->websocket->mode, "realtime"))
+			run = ouistiti_websocket_run;
+#endif
 		mod->mod_websocket = mod_websocket_create(server,
 			NULL, config->websocket,
-#if defined MBEDTLS
-			default_websocket_run, config->websocket);
-#else
-			ouistiti_websocket_run, config->websocket);
-#endif
+			run, config->websocket);
+	}
 #endif
 #if defined CGI
 	if (config->cgi)
