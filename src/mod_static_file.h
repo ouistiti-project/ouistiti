@@ -62,6 +62,7 @@ struct _static_file_connector_s
 {
 	int type;
 	_mod_static_file_mod_t *mod;
+	http_client_t *ctl;
 	void *previous;
 	char *path_info;
 	char *filepath;

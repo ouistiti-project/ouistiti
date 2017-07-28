@@ -163,6 +163,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 				private->path_info = NULL;
 			}
 			httpmessage_addcontent(response, NULL, DIRLISTING_FOOTER, -1);
+			httpclient_shutdown(private->ctl);
 			closedir(private->dir);
 			private->dir = NULL;
 			ret = ESUCCESS;
@@ -179,6 +180,7 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
 
 	ctx->mod = mod;
+	ctx->ctl = ctl;
 	httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
 
 	return ctx;

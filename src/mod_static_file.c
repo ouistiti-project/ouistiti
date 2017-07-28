@@ -301,6 +301,7 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
 
 	ctx->mod = mod;
+	ctx->ctl = ctl;
 
 #ifdef DIRLISTING
 	if (config->options & STATIC_FILE_DIRLISTING)
