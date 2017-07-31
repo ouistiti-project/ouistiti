@@ -63,7 +63,7 @@ int main(int argc, char ** argv)
 	buffer = calloc(1, length);
 
 	http_message_t *message;
-	message = httpmessage_create();
+	message = httpmessage_create(CHUNKSIZE);
 	state |= HEADER;
 	do
 	{
