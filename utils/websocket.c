@@ -205,7 +205,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 		{
 			ssize_t length;
 			int outlength = 0;
-			length = websocket_framed((char *)buf, len, out, &outlength, client);
+			length = websocket_framed(wsconfig.type, (char *)buf, len, out, &outlength, client);
 			std_sendto(sockfd, out, outlength, flags, dest_addr, addrlen);
 			size += length;
 		}
