@@ -238,41 +238,45 @@ struct authn_digest_computing_s
 
 static char *authn_digest_md5_digest(char *a1, char *nonce, char *nc, char *cnonce, char *qop, char *a2)
 {
-	char digest[16];
-	MD5_ctx ctx;
-
-	MD5_init(&ctx);
-	MD5_update(&ctx, a1, strlen(a1));
-	MD5_update(&ctx, ":", 1);
-	MD5_update(&ctx, nonce, strlen(nonce));
-	if (qop && !strcmp(qop, "auth"))
+	if (a1 && a2)
 	{
-		if (nc)
+		char digest[16];
+		MD5_ctx ctx;
+
+		MD5_init(&ctx);
+		MD5_update(&ctx, a1, strlen(a1));
+		MD5_update(&ctx, ":", 1);
+		MD5_update(&ctx, nonce, strlen(nonce));
+		if (qop && !strcmp(qop, "auth"))
 		{
+			if (nc)
+			{
+				MD5_update(&ctx, ":", 1);
+				MD5_update(&ctx, nc, strlen(nc));
+			}
+			if (cnonce)
+			{
+				MD5_update(&ctx, ":", 1);
+				MD5_update(&ctx, cnonce, strlen(cnonce));
+			}
 			MD5_update(&ctx, ":", 1);
-			MD5_update(&ctx, nc, strlen(nc));
-		}
-		if (cnonce)
-		{
-			MD5_update(&ctx, ":", 1);
-			MD5_update(&ctx, cnonce, strlen(cnonce));
+			MD5_update(&ctx, qop, strlen(qop));
 		}
 		MD5_update(&ctx, ":", 1);
-		MD5_update(&ctx, qop, strlen(qop));
+		MD5_update(&ctx, a2, strlen(a2));
+		MD5_finish(digest, &ctx);
+		return utils_stringify(digest, 16);
 	}
-	MD5_update(&ctx, ":", 1);
-	MD5_update(&ctx, a2, strlen(a2));
-	MD5_finish(digest, &ctx);
-	return utils_stringify(digest, 16);
+	return NULL;
 }
 
 static char *authn_digest_md5_a1(char *username, char *realm, char *passwd)
 {
-	char A1[16];
-	MD5_ctx ctx;
-
 	if (passwd[0] != '$')
 	{
+		char A1[16];
+		MD5_ctx ctx;
+
 		MD5_init(&ctx);
 		MD5_update(&ctx, username, strlen(username));
 		MD5_update(&ctx, ":", 1);
@@ -282,7 +286,7 @@ static char *authn_digest_md5_a1(char *username, char *realm, char *passwd)
 		MD5_finish(A1, &ctx);
 		return utils_stringify(A1, 16);
 	}
-	else if (!strncpy(passwd, "$a1", 3))
+	else if (!strncmp(passwd, "$a1", 3))
 	{
 		passwd = strrchr(passwd + 1, '$') + 1;
 		if (passwd)
