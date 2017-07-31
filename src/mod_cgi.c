@@ -487,6 +487,12 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				free(filepath);
 				return EREJECT;
 			}
+			if (utils_searchext(filepath, config->accepted_ext) != ESUCCESS)
+			{
+				warn("cgi: %s not accepted extension", ctx->path_info);
+				free(filepath);
+				return EREJECT;
+			}
 			/* at least user or group may execute the CGI */
 			if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
 			{
@@ -494,12 +500,6 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				warn("cgi: %s access denied", ctx->path_info);
 				free(filepath);
 				return ESUCCESS;
-			}
-			if (utils_searchext(filepath, config->accepted_ext) != ESUCCESS)
-			{
-				warn("cgi: %s not accepted extension", ctx->path_info);
-				free(filepath);
-				return EREJECT;
 			}
 			dbg("cgi: run %s", filepath);
 			ctx->cgipath = filepath;
