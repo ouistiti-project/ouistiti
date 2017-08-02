@@ -58,6 +58,13 @@ typedef struct _mod_static_file_mod_s _mod_static_file_mod_t;
 typedef struct _static_file_connector_s static_file_connector_t;
 typedef int (*mod_transfer_t)(static_file_connector_t *private, http_message_t *response);
 
+struct _mod_static_file_mod_s
+{
+	mod_static_file_t *config;
+	void *vhost;
+	mod_transfer_t transfer;
+};
+
 struct _static_file_connector_s
 {
 	int type;

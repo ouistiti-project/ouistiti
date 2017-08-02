@@ -55,13 +55,6 @@
  */
 typedef struct _static_file_connector_s static_file_connector_t;
 
-struct _mod_static_file_mod_s
-{
-	mod_static_file_t *config;
-	void *vhost;
-	mod_transfer_t transfer;
-};
-
 int mod_send(static_file_connector_t *private, http_message_t *response);
 
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)

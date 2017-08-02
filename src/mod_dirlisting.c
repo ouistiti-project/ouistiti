@@ -52,13 +52,6 @@
 
 typedef struct _static_file_connector_s static_file_connector_t;
 
-struct _mod_static_file_mod_s
-{
-	mod_static_file_t *config;
-	void *vhost;
-	mod_transfer_t transfer;
-};
-
 #define DIRLISTING_HEADER "<html><head><link rel=\"stylesheet\" type=\"text/css\" href=\"%s\"/></head><body><h1>%s</h1><ul>\n"
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 4)
 #define DIRLISTING_LINE_FILE "<li id=\"file\"><a href=\"%s%s\">%s</a><span id=\"size\">%d</span></li>\n"
