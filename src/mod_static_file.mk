@@ -13,5 +13,8 @@ mod_static_file_CFLAGS-$(DIRLISTING)+=-DDIRLISTING
 mod_static_file_SOURCES-$(RANGEREQUEST)+=mod_range.c
 mod_static_file_CFLAGS-$(RANGEREQUEST)+=-DRANGEREQUEST
 
+mod_static_file_SOURCES-$(FILESTORAGE)+=mod_filestorage.c
+mod_static_file_CFLAGS-$(FILESTORAGE)+=-DFILESTORAGE
+
 mod_static_file_CFLAGS-$(DEBUG)+=-g -DDEBUG
 

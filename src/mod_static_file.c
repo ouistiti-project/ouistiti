@@ -299,6 +299,10 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 		mod->transfer = mod_send_sendfile;
 #endif
 	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+#ifdef FILESTORAGE
+	if (config->options & STATIC_FILE_FILESTORAGE)
+		httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx);
+#endif
 #ifdef RANGEREQUEST
 	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
 #endif

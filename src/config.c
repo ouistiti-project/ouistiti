@@ -98,6 +98,10 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator)
 			if (!strncmp(ext, "sendfile", length))
 				static_file->options |= STATIC_FILE_SENDFILE;
 #endif
+#ifdef FILESTORAGE
+			if (!strncmp(ext, "filestorage", length))
+				static_file->options |= STATIC_FILE_FILESTORAGE;
+#endif
 			ext = ext_end;
 		}
 	}

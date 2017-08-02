@@ -33,6 +33,7 @@
 
 #define STATIC_FILE_DIRLISTING 0x01
 #define STATIC_FILE_SENDFILE 0x02
+#define STATIC_FILE_FILESTORAGE 0x04
 
 #ifdef __cplusplus
 extern "C"
@@ -84,6 +85,9 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 #endif
 #ifdef RANGEREQUEST
 int range_connector(void *arg, http_message_t *request, http_message_t *response);
+#endif
+#ifdef FILESTORAGE
+int filestorage_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
 
 #ifdef __cplusplus
