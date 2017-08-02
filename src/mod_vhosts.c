@@ -106,7 +106,7 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 			run = ouistiti_websocket_run;
 #endif
 		mod->mod_websocket = mod_websocket_create(server,
-			NULL, config->websocket,
+			config->hostname, config->websocket,
 			run, config->websocket);
 	}
 #endif
