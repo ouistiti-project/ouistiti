@@ -64,13 +64,6 @@ struct _mod_static_file_mod_s
 
 int mod_send(static_file_connector_t *private, http_message_t *response);
 
-static mod_static_file_t default_config = 
-{
-	.docroot = "/srv/www/htdocs",
-	.accepted_ext = ".html,.xhtml,.htm,.css",
-	.ignored_ext = ".php",
-};
-
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
@@ -115,6 +108,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				private->filepath = NULL;
 				free(private->path_info);
 				private->path_info = NULL;
+				dbg("static file: reject directory path bad formatting");
 				return EREJECT;
 #endif
 			}
@@ -330,16 +324,13 @@ static void _mod_static_file_freectx(void *vctx)
 
 void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config)
 {
+	if (!config)
+	{
+		err("static file: configuration empty");
+		return NULL;
+	}
 	_mod_static_file_mod_t *mod = calloc(1, sizeof(*mod));
 
-	if (!config)
-		config = &default_config;
-	if (!config->docroot)
-		config->docroot = default_config.docroot;
-	if (!config->accepted_ext)
-		config->accepted_ext = default_config.accepted_ext;
-	if (!config->ignored_ext)
-		config->ignored_ext = default_config.ignored_ext;
 	mod->config = config;
 	mod->vhost = vhost;
 	mod->transfer = mod_send_read;
