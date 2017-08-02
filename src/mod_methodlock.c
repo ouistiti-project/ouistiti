@@ -73,6 +73,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 		}
 		else
 		{
+			dbg("methodlock: method %s not allowed", method);
 			httpmessage_addheader(response, "Allow", "GET, POST, HEAD, PUT, DEL");
 			httpmessage_result(response, RESULT_405);
 		}
@@ -80,6 +81,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 #endif
 	else
 	{
+		dbg("methodlock: method %s not allowed", method);
 		httpmessage_addheader(response, "Allow", "GET, POST, HEAD");
 		httpmessage_result(response, RESULT_405);
 	}
