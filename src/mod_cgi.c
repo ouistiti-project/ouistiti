@@ -591,7 +591,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		ctx->state = STATE_END;
 		ctx->pid = 0;
 		httpclient_shutdown(ctx->ctl);
-		return ESUCCESS;
+		ret = ESUCCESS;
 	}
 
 	/* this mod returns EINCOMPLETE 
