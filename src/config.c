@@ -404,7 +404,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						int count = config_setting_length(configvhosts);
 						int j;
 
-						for (j = 0; j < count && (j + i) < MAX_SERVERS; i++)
+						for (j = 0; j < count && (j + i) < MAX_SERVERS; j++)
 						{
 							config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
 							config->vhosts[j] = vhost_config(iterator);
