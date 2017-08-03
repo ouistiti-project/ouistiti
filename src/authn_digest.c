@@ -388,11 +388,8 @@ char *authn_digest_check(void *arg, char *method, char *string)
 	if (passwd && authn_digest_computing)
 	{
 		char *a1 = authn_digest_computing->a1(user, realm, passwd);
-		dbg("a1 %s", a1);
 		char *a2 = authn_digest_computing->a2(method, uri, NULL);
-		dbg("a2 %s", a2);
 		char *digest = authn_digest_computing->digest(a1, nonce, nc, cnonce, qop, a2);
-		dbg("digest %s", digest);
 
 		if (digest && !strcmp(digest, response))
 		{
@@ -404,7 +401,6 @@ char *authn_digest_check(void *arg, char *method, char *string)
 		free (a1);
 		free (a2);
 		free (digest);
-		warn("bad passwd");
 	}
 	else
 	{

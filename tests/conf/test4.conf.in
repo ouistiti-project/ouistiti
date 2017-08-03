@@ -8,7 +8,8 @@ servers= ({
 			type="Digest";
 			realm="testrealm@host.com";
 			opaque="hello world";
-			superuser="Mufasa";
+			user="Mufasa";
+			group="superuser";
 			passwd="Circle Of Life";
 		};
 		static_file = {

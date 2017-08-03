@@ -104,13 +104,16 @@
 #define dbg(...)
 #endif
 
-#define FILE_MMAP
+//#define FILE_MMAP
+#define MAXLENGTH 255
 
 typedef struct authz_file_s authz_file_t;
 struct authz_file_s
 {
 	authz_file_config_t *config;
 	char *user;
+	char *passwd;
+	char *group;
 #ifdef FILE_MMAP
 	char *map;
 	int map_size;
@@ -145,8 +148,9 @@ void *authz_file_create(void *arg)
 #endif
 		ctx = calloc(1, sizeof(*ctx));
 		ctx->config = config;
-		ctx->user = calloc(1, 256);
 #ifdef FILE_MMAP
+		ctx->passwd = calloc(1, MAXLENGTH + 1);
+		ctx->group = calloc(1, MAXLENGTH + 1);
 		ctx->map = addr;
 		ctx->map_size = sb.st_size;
 		ctx->fd = fd;
@@ -155,6 +159,8 @@ void *authz_file_create(void *arg)
 	{
 		err("authz file map error: %s", strerror(errno));
 	}
+#else
+		ctx->user = calloc(1, MAXLENGTH + 1);
 #endif
 	return ctx;
 }
@@ -173,32 +179,58 @@ char *authz_file_passwd(void *arg, char *user)
 		if (passwd)
 		{
 			passwd++;
-			char *iterator = ctx->user;
+			char *iterator = ctx->passwd;
 			while (*passwd != ':' &&
 					*passwd != '\n' &&
-					*passwd != '\0')
+					*passwd != '\0' &&
+						iterator < ctx->passwd + MAXLENGTH)
 			{
 				*iterator = *passwd;
 				iterator++;
 				passwd++;
 			}
-			return ctx->user;
+			*iterator = '\0';
+			iterator = ctx->group;
+			if (*passwd == ':')
+			{
+				passwd++;
+				while (*passwd != ':' &&
+						*passwd != '\n' &&
+						*passwd != '\0' &&
+						iterator < ctx->group + MAXLENGTH)
+				{
+					*iterator = *passwd;
+					iterator++;
+					passwd++;
+				}
+			}
+			*iterator = '\0';
+			return ctx->passwd;
 		}
 	}
 #else
 	FILE *file = fopen(config->path, "r");
 	while(!feof(file))
 	{
-		fscanf(file, "%s\n", ctx->user);
-		char *passwd = strchr(ctx->user, ':');
-		if (passwd)
+		fgets(ctx->user, MAXLENGTH, file);
+		char *end = strchr(ctx->user, '\n');
+		if (end)
+			*end = '\0';
+		ctx->passwd = strchr(ctx->user, ':');
+		if (ctx->passwd)
 		{
-			*passwd = '\0';
-			passwd++;
+			*ctx->passwd = '\0';
+			ctx->passwd++;
 			if (!strcmp(user, ctx->user))
 			{
+				ctx->group = strchr(ctx->passwd, ':');
+				if (ctx->group)
+				{
+					*ctx->group = '\0';
+					ctx->group++;
+				}
 				fclose(file);
-				return passwd;
+				return ctx->passwd;
 			}
 		}
 	}
@@ -251,12 +283,7 @@ int authz_file_check(void *arg, char *user, char *passwd)
 				{
 					chekpasswd++;
 				}
-				char *end = strchr(chekpasswd, ':');
-				if (end != NULL)
-					length = end - chekpasswd;
-				else
-					length = strlen(chekpasswd);
-				if (!strncmp(b64passwd, chekpasswd, length))
+				if (!strcmp(b64passwd, chekpasswd))
 					ret = 1;
 			}
 		}
@@ -269,16 +296,16 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	return ret;
 }
 
-char *authz_file_rights(void *arg, char *user)
+char *authz_file_group(void *arg, char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;
 
-	if (!strcmp(user, ctx->user))
-	{
-		return "user";
-	}
-	return "anonymous";
+	if (ctx->group && ctx->group[0] != '\0')
+		return ctx->group;
+	if (!strcmp(user, "anonymous"))
+		return "anonymous";
+	return "user";
 }
 
 void authz_file_destroy(void *arg)
@@ -288,8 +315,11 @@ void authz_file_destroy(void *arg)
 #ifdef FILE_MMAP
 	munmap(ctx->map, ctx->map_size);
 	close(ctx->fd);
-#endif
+	free(ctx->passwd);
+	free(ctx->group);
+#else
 	free(ctx->user);
+#endif
 	free(ctx);
 }
 
@@ -298,6 +328,6 @@ authz_rules_t authz_file_rules =
 	.create = authz_file_create,
 	.check = authz_file_check,
 	.passwd = authz_file_passwd,
-	.rights = authz_file_rights,
+	.group = authz_file_group,
 	.destroy = authz_file_destroy,
 };

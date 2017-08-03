@@ -98,7 +98,7 @@
 #define dbg(...)
 #endif
 
-int crypt_ouimd5(const char *user, const char *passwd, const char *realm)
+int crypt_ouimd5(const char *user, const char *group, const char *passwd, const char *realm)
 {
 	char md5passwd[16];
 	MD5_ctx ctx;
@@ -112,7 +112,10 @@ int crypt_ouimd5(const char *user, const char *passwd, const char *realm)
 	char b64passwd[25];
 	BASE64_encode(md5passwd, 16, b64passwd, 25);
 
-	printf("%s:$a1$realm=%s$%s\n", user, realm, b64passwd);
+	if (group)
+		printf("%s:$a1$realm=%s$%s:%s\n", user, realm, b64passwd, group);
+	else
+		printf("%s:$a1$realm=%s$%s\n", user, realm, b64passwd);
 	return 0;
 }
 
@@ -132,12 +135,13 @@ int main(int argc, char * const *argv)
 	const char *realm = NULL;
 	const char *user = NULL;
 	char *passwd = NULL;
+	char *group = NULL;
 	char *type = "Digest";
 #ifdef HAVE_GETOPT
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "hVR:u:p:");
+		opt = getopt(argc, argv, "hVR:u:g:p:");
 		switch (opt)
 		{
 			case 'h':
@@ -157,6 +161,9 @@ int main(int argc, char * const *argv)
 			case 'u':
 				user = optarg;
 			break;
+			case 'g':
+				group = optarg;
+			break;
 			case 'p':
 				passwd = optarg;
 			break;
@@ -169,7 +176,7 @@ int main(int argc, char * const *argv)
 		{
 			case DIGESTMD5:
 				if (realm != NULL)
-					ret = crypt_ouimd5(user, passwd, realm);
+					ret = crypt_ouimd5(user, group, passwd, realm);
 			break;
 		}
 	}

@@ -151,6 +151,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 		if (auth->authz_config == NULL)
 		{
 			char *path = NULL;
+
 			config_setting_lookup_string(configauth, "file", (const char **)&path);
 			if (path != NULL && path[0] != '0')
 			{
@@ -165,21 +166,17 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 		if (auth->authz_config == NULL)
 		{
 			char *user = NULL;
-			int rights = 5;
 			config_setting_lookup_string(configauth, "user", (const char **)&user);
-			if (user == NULL || user[0] == '0')
-			{
-				config_setting_lookup_string(configauth, "superuser", (const char **)&user);
-				rights = 11;
-			}
 			if (user != NULL && user[0] != '0')
 			{
 				char *passwd;
+				char *group;
 				config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
+				config_setting_lookup_string(configauth, "group", (const char **)&group);
 				authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
 				authz_config->user = user;
+				authz_config->group = group;
 				authz_config->passwd = passwd;
-				authz_config->rights = rights;
 				auth->authz_type = AUTHZ_SIMPLE_E;
 				auth->authz_config = authz_config;
 			}

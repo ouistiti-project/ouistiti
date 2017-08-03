@@ -220,10 +220,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			httpmessage_SESSION(request, "%user", user);
 			httpmessage_SESSION(request, "%authtype", (char *)mod->type);
 
-			if (mod->authz->rules->rights)
+			if (mod->authz->rules->group)
 			{
-				httpmessage_SESSION(request, "%authrights",
-					mod->authz->rules->rights(mod->authz->ctx, user));
+				char *group = mod->authz->rules->group(mod->authz->ctx, user);
+				httpmessage_SESSION(request, "%authgroup", group);
+				dbg("group %s", group);
 			}
 			ret = EREJECT;
 		}
@@ -239,5 +240,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 	}
+
 	return ret;
 }

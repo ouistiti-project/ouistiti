@@ -65,7 +65,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 		ret = EREJECT;
 	}
 #ifdef AUTH
-	else if (!strcmp("superuser", httpmessage_SESSION(request, "%authrights",NULL)))
+	else if (!strcmp("superuser", httpmessage_SESSION(request, "%authgroup",NULL)))
 	{
 		if (method && (method[0] == 'D' || !strcmp(method, "PUT")))
 		{
