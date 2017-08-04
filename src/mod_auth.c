@@ -38,6 +38,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
@@ -81,6 +84,7 @@ struct _mod_auth_s
 	authn_t *authn;
 	authz_t *authz;
 	int typelength;
+	int loginfd;
 };
 
 const char *str_authenticate = "WWW-Authenticate";
@@ -199,6 +203,7 @@ static void _mod_auth_freectx(void *vctx)
 	free(ctx);
 }
 
+#define CONTENTCHUNK 63
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -238,7 +243,59 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (authorization == NULL || authorization[0] == '\0')
 	{
-		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+		int length = CONTENTCHUNK;
+		if (mod->loginfd == 0)
+		{
+			ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+			if (ret == ESUCCESS)
+			{
+				if (mod->config->login)
+				{
+					mod->loginfd = open(mod->config->login, O_RDONLY);
+					struct stat stat;
+					fstat(mod->loginfd, &stat);
+					length = stat.st_size;
+					httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
+#if defined(RESULT_403)
+					httpmessage_result(response, RESULT_403);
+#elif defined(RESULT_401)
+					httpmessage_result(response, RESULT_401);
+#else
+					httpmessage_result(response, RESULT_400);
+#endif
+				}
+				else
+				{
+#if defined(RESULT_403)
+					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+					if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
+						httpmessage_result(response, RESULT_403);
+					else
+#endif
+#if defined(RESULT_401)
+						httpmessage_result(response, RESULT_401);
+#else
+						httpmessage_result(response, RESULT_400);
+#endif
+				}
+			}
+		}
+		if (mod->loginfd > 0)
+		{
+			char content[CONTENTCHUNK];
+			length = (length < CONTENTCHUNK)?length:CONTENTCHUNK;
+			length = read(mod->loginfd, content, length);
+			if (length > 0)
+			{
+				httpmessage_addcontent(response, "text/html", content, length);
+				ret = ECONTINUE;
+			}
+			else
+			{
+				close(mod->loginfd);
+				mod->loginfd = 0;
+			}
+		}
 	}
 
 	return ret;

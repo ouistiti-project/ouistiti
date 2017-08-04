@@ -147,6 +147,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 	if (configauth)
 	{
 		auth = calloc(1, sizeof(*auth));
+		config_setting_lookup_string(configauth, "login", (const char **)&auth->login);
 #ifdef AUTHZ_FILE
 		if (auth->authz_config == NULL)
 		{

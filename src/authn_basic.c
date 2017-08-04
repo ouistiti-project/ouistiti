@@ -112,15 +112,7 @@ int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *re
 	authn_basic_t *mod = (authn_basic_t *)arg;
 
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
-#if defined(RESULT_403)
-	char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-	if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
-		httpmessage_result(response, RESULT_403);
-	else
-#endif
-		httpmessage_result(response, RESULT_401);
 	ret = ESUCCESS;
-	dbg("error 401");
 	return ret;
 }
 
