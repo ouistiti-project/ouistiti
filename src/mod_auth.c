@@ -212,6 +212,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	char *authorization;
 
 	authorization = httpmessage_REQUEST(request, (char *)str_authorization);
+	if (authorization == NULL || authorization[0] == '\0')
+	{
+		authorization = httpmessage_COOKIE(request, (char *)str_authorization);
+	}
 	if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
 	{
 		char *authentication = strchr(authorization, ' ');
