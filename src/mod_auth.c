@@ -253,6 +253,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 			if (ret == ESUCCESS)
 			{
+#if defined(RESULT_403)
+				char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+				if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
+					httpmessage_result(response, RESULT_403);
+				else
+#endif
 				if (mod->config->login)
 				{
 					mod->loginfd = open(mod->config->login, O_RDONLY);
@@ -270,12 +276,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				}
 				else
 				{
-#if defined(RESULT_403)
-					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-					if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
-						httpmessage_result(response, RESULT_403);
-					else
-#endif
 #if defined(RESULT_401)
 						httpmessage_result(response, RESULT_401);
 #else
@@ -298,9 +298,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			{
 				close(mod->loginfd);
 				mod->loginfd = 0;
+				ret = ESUCCESS;
 			}
 		}
 	}
-
 	return ret;
 }
