@@ -68,11 +68,69 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 			return ESUCCESS;
 		}
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
-		private->fd = open(private->filepath, O_WRONLY | O_CREAT);
-		if (private->fd)
+		int length = strlen(private->path_info);
+		if (private->path_info[length] == '/')
 		{
-			ret = ECONTINUE;
+			if (mkdir(private->filepath, 0777) > 0)
+			{
+#if defined RESULT_403
+				httpmessage_result(response, RESULT_403);
+#endif
+			}
+			private->fd = 0;
+			ret = ESUCCESS;
+			free(private->filepath);
+			private->filepath = NULL;
+			free(private->path_info);
+			private->path_info = NULL;
 		}
+		else
+		{
+			private->fd = open(private->filepath, O_WRONLY | O_CREAT);
+			if (private->fd > 0)
+			{
+				ret = ECONTINUE;
+			}
+			else
+			{
+#if defined RESULT_403
+				httpmessage_result(response, RESULT_403);
+#endif
+				ret = ESUCCESS;
+				private->fd = 0;
+				free(private->filepath);
+				private->filepath = NULL;
+				free(private->path_info);
+				private->path_info = NULL;
+			}
+		}
+	}
+	else if (!strcmp(method, "DELETE") && private->fd == 0)
+	{
+		if (strstr(private->path_info, "/."))
+		{
+#if defined RESULT_403
+			httpmessage_result(response, RESULT_403);
+#endif
+			free(private->filepath);
+			private->filepath = NULL;
+			free(private->path_info);
+			private->path_info = NULL;
+			return ESUCCESS;
+		}
+		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
+		if (unlink(private->filepath) > 0)
+		{
+#if defined RESULT_403
+			httpmessage_result(response, RESULT_403);
+#endif
+		}
+		private->fd = 0;
+		ret = ESUCCESS;
+		free(private->filepath);
+		private->filepath = NULL;
+		free(private->path_info);
+		private->path_info = NULL;
 	}
 	else if (private->fd)
 	{
