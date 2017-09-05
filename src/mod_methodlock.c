@@ -52,38 +52,68 @@ typedef struct _mod_methodlock_s _mod_methodlock_t;
 struct _mod_methodlock_s
 {
 	void *vhost;
+	char *unlock_groups;
 };
 
 static int methodlock_connector(void *arg, http_message_t *request, http_message_t *response)
 {
+	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
 	int ret = ESUCCESS;
 
 	char *method = httpmessage_REQUEST(request, "method");
 
-	if (method && (method[0] == 'G' || method[0] == 'H' || !strcmp(method, "POST")))
+	if (method)
 	{
-		ret = EREJECT;
-	}
-#ifdef AUTH
-	else if (!strcmp("superuser", httpmessage_SESSION(request, "%authgroup",NULL)))
-	{
-		if (method && (method[0] == 'D' || !strcmp(method, "PUT")))
+		if (!strcmp(method, "GET") ||
+			!strcmp(method, "HEADER") ||
+			!strcmp(method, "OPTIONS") ||
+			!strcmp(method, "POST"))
 		{
 			ret = EREJECT;
 		}
 		else
+#ifdef AUTH
+		if (!strcmp(method, "PUT") ||
+			!strcmp(method, "DELETE"))
+		{
+			char *group = httpmessage_SESSION(request, "%authgroup",NULL);
+			if (mod->unlock_groups && mod->unlock_groups[0] != '\0' && group)
+			{
+				int length = strlen(group);
+				char *iterator = mod->unlock_groups;
+				while (iterator != NULL)
+				{
+					if (!strncmp(iterator, group, length))
+					{
+						ret = EREJECT;
+						break;
+					}
+					iterator = strchr(iterator, ',');
+					if (iterator != NULL)
+						iterator++;
+				}
+			}
+			else
+			{
+				dbg("methodlock: method %s forbidden", method);
+#if defined RESULT_403
+				httpmessage_result(response, RESULT_403);
+#else
+				httpmessage_result(response, RESULT_400);
+#endif
+			}
+		}
+		else
+#endif
 		{
 			dbg("methodlock: method %s not allowed", method);
-			httpmessage_addheader(response, "Allow", "GET, POST, HEAD, PUT, DEL");
+			httpmessage_addheader(response, "Allow", "GET, POST, HEAD");
+#if defined RESULT_405
 			httpmessage_result(response, RESULT_405);
-		}
-	}
+#else
+			httpmessage_result(response, RESULT_400);
 #endif
-	else
-	{
-		dbg("methodlock: method %s not allowed", method);
-		httpmessage_addheader(response, "Allow", "GET, POST, HEAD");
-		httpmessage_result(response, RESULT_405);
+		}
 	}
 	return ret;
 }
@@ -92,7 +122,7 @@ static void *_mod_methodlock_getctx(void *arg, http_client_t *ctl, struct sockad
 {
 	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, NULL);
+	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, mod);
 
 	return NULL;
 }
@@ -102,6 +132,7 @@ void *mod_methodlock_create(http_server_t *server, char *vhost, void *config)
 	_mod_methodlock_t *mod = calloc(1, sizeof(*mod));
 
 	mod->vhost = vhost;
+	mod->unlock_groups = config;
 	httpserver_addmod(server, _mod_methodlock_getctx, NULL, mod);
 
 	return mod;

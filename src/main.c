@@ -214,7 +214,7 @@ int main(int argc, char * const *argv)
 			}
 #endif
 #if defined METHODLOCK
-			server->mod_methodlock = mod_methodlock_create(server->server, NULL, NULL);
+			server->mod_methodlock = mod_methodlock_create(server->server, NULL, server->config->unlock_groups);
 #endif
 #if defined SERVERHEADER
 			server->mod_server = mod_server_create(server->server, NULL, NULL);

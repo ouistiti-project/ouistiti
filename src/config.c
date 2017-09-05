@@ -390,6 +390,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							version[8] == 'P' && version[9] == 'E')
 							config->server->version |= HTTP_PIPELINE;
 					}
+					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 					config->tls = tls_config(iterator);
 					config->static_file = static_file_config(iterator);
 					config->auth = auth_config(iterator);

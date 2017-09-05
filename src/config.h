@@ -36,6 +36,7 @@
 typedef struct serverconfig_s
 {
 	http_server_config_t *server;
+	char *unlock_groups;
 	mod_tls_t *tls;
 	mod_static_file_t *static_file;
 	mod_cgi_config_t *cgi;
