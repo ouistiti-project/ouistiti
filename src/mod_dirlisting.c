@@ -52,13 +52,6 @@
 
 typedef struct _static_file_connector_s static_file_connector_t;
 
-struct _mod_static_file_mod_s
-{
-	mod_static_file_t *config;
-	void *vhost;
-	mod_transfer_t transfer;
-};
-
 #define DIRLISTING_HEADER "<html><head><link rel=\"stylesheet\" type=\"text/css\" href=\"%s\"/></head><body><h1>%s</h1><ul>\n"
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 4)
 #define DIRLISTING_LINE_FILE "<li id=\"file\"><a href=\"%s%s\">%s</a><span id=\"size\">%d</span></li>\n"
@@ -163,6 +156,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 				private->path_info = NULL;
 			}
 			httpmessage_addcontent(response, NULL, DIRLISTING_FOOTER, -1);
+			httpclient_shutdown(private->ctl);
 			closedir(private->dir);
 			private->dir = NULL;
 			ret = ESUCCESS;
@@ -179,6 +173,7 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
 
 	ctx->mod = mod;
+	ctx->ctl = ctl;
 	httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
 
 	return ctx;

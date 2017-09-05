@@ -1,10 +1,10 @@
 /*****************************************************************************
- * authz_simple.h: Check Authentication in configuration file
+ * authz_file.h: Check Authentication on .file file
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
- * Authors: Marc Chalain <marc.chalain@gmail.com
+ * Authors: Marc Chalain <marc.chalain@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,10 +26,10 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __AUTHN_SIMPLE_H__
-#define __AUTHN_SIMPLE_H__
+#ifndef __AUTHN_FILE_H__
+#define __AUTHN_FILE_H__
 
 #include "mod_auth.h"
 
-extern authz_rules_t authz_simple_rules;
+extern authz_rules_t authz_file_rules;
 #endif

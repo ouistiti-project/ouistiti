@@ -1,16 +1,14 @@
 user="%USER%";
 servers= ({
 		hostname = "www.ouistiti.net";
+		addr="127.0.0.1";
 		port = 80;
 		keepalivetimeout = 5;
 		version="HTTP11";
 		auth = {
 			type="Digest";
+			file="%PWD%/tests/conf/passwd";
 			realm="testrealm@host.com";
-			opaque="hello world";
-			user="Mufasa";
-			group="superuser";
-			passwd="Circle Of Life";
 		};
 		static_file = {
 			docroot = "%PWD%/tests/htdocs";

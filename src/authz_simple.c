@@ -1,5 +1,5 @@
 /*****************************************************************************
- * authn_basic.c: Basic Authentication mode
+ * authz_simple.c: Check Authentication in configuration file
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -71,17 +71,16 @@ int authz_simple_check(void *arg, char *user, char *passwd)
 	return 0;
 }
 
-char *authz_simple_rights(void *arg, char *user)
+char *authz_simple_group(void *arg, char *user)
 {
 	authz_simple_t *config = (authz_simple_t *)arg;
-	if (!strcmp(user, config->user))
+	if (!strcmp(user, config->user) && config->group && config->group[0] != '\0')
 	{
-		if (config->rights > 10)
-			return "superuser";
-		else
-			return "user";
+		return config->group;
 	}
-	return "anonymous";
+	if (!strcmp(user, "anonymous"))
+		return "anonymous";
+	return "user";
 }
 
 authz_rules_t authz_simple_rules =
@@ -89,6 +88,6 @@ authz_rules_t authz_simple_rules =
 	.create = authz_simple_create,
 	.check = authz_simple_check,
 	.passwd = authz_simple_passwd,
-	.rights = authz_simple_rights,
+	.group = authz_simple_group,
 	.destroy = NULL,
 };

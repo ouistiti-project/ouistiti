@@ -98,6 +98,10 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator)
 			if (!strncmp(ext, "sendfile", length))
 				static_file->options |= STATIC_FILE_SENDFILE;
 #endif
+#ifdef FILESTORAGE
+			if (!strncmp(ext, "filestorage", length))
+				static_file->options |= STATIC_FILE_FILESTORAGE;
+#endif
 			ext = ext_end;
 		}
 	}
@@ -131,37 +135,52 @@ static mod_tls_t *tls_config(config_setting_t *iterator)
 #endif
 
 #ifdef AUTH
+static const char *str_realm = "ouistiti";
 static mod_auth_t *auth_config(config_setting_t *iterator)
 {
 	mod_auth_t *auth = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-					config_setting_t *configauth = config_setting_get_member(iterator, "auth");
+	config_setting_t *configauth = config_setting_get_member(iterator, "auth");
 #else
-					config_setting_t *configauth = config_setting_lookup(iterator, "auth");
+	config_setting_t *configauth = config_setting_lookup(iterator, "auth");
 #endif
 	if (configauth)
 	{
 		auth = calloc(1, sizeof(*auth));
-		config_setting_lookup_string(configauth, "realm", (const char **)&auth->realm);
-#ifdef AUTHZ_SIMPLE
-		char *user = NULL;
-		int rights = 5;
-		config_setting_lookup_string(configauth, "user", (const char **)&user);
-		if (user == NULL || user[0] == '0')
+		config_setting_lookup_string(configauth, "login", (const char **)&auth->login);
+#ifdef AUTHZ_FILE
+		if (auth->authz_config == NULL)
 		{
-			config_setting_lookup_string(configauth, "superuser", (const char **)&user);
-			rights = 11;
+			char *path = NULL;
+
+			config_setting_lookup_string(configauth, "file", (const char **)&path);
+			if (path != NULL && path[0] != '0')
+			{
+				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
+				authz_config->path = path;
+				auth->authz_type = AUTHZ_FILE_E;
+				auth->authz_config = authz_config;
+			}
 		}
-		if (user != NULL && user[0] != '0')
+#endif
+#ifdef AUTHZ_SIMPLE
+		if (auth->authz_config == NULL)
 		{
-			char *passwd;
-			config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
-			auth->authz_type = AUTHZ_SIMPLE_E;
-			authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
-			authz_config->user = user;
-			authz_config->passwd = passwd;
-			authz_config->rights = rights;
-			auth->authz_config = authz_config;
+			char *user = NULL;
+			config_setting_lookup_string(configauth, "user", (const char **)&user);
+			if (user != NULL && user[0] != '0')
+			{
+				char *passwd;
+				char *group;
+				config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
+				config_setting_lookup_string(configauth, "group", (const char **)&group);
+				authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
+				authz_config->user = user;
+				authz_config->group = group;
+				authz_config->passwd = passwd;
+				auth->authz_type = AUTHZ_SIMPLE_E;
+				auth->authz_config = authz_config;
+			}
 		}
 #endif
 		char *type = NULL;
@@ -171,7 +190,9 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 		{
 			authn_basic_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_BASIC_E;
-			authn_config->realm = auth->realm;
+			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+			if (authn_config->realm == NULL)
+				authn_config->realm = (char *)str_realm;
 			auth->authn_config = authn_config;
 		}
 #endif
@@ -180,7 +201,9 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 		{
 			authn_digest_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_DIGEST_E;
-			authn_config->realm = auth->realm;
+			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+			if (authn_config->realm == NULL)
+				authn_config->realm = (char *)str_realm;
 			config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
 			auth->authn_config = authn_config;
 		}
@@ -246,6 +269,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator)
 		ws = calloc(1, sizeof(*ws));
 		config_setting_lookup_string(configws, "protocols", (const char **)&ws->services);
 		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
+		config_setting_lookup_string(configws, "mode", (const char **)&ws->mode);
 	}
 	return ws;
 }
@@ -366,6 +390,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 							version[8] == 'P' && version[9] == 'E')
 							config->server->version |= HTTP_PIPELINE;
 					}
+					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 					config->tls = tls_config(iterator);
 					config->static_file = static_file_config(iterator);
 					config->auth = auth_config(iterator);
@@ -382,7 +407,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						int count = config_setting_length(configvhosts);
 						int j;
 
-						for (j = 0; j < count && (j + i) < MAX_SERVERS; i++)
+						for (j = 0; j < count && (j + i) < MAX_SERVERS; j++)
 						{
 							config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
 							config->vhosts[j] = vhost_config(iterator);

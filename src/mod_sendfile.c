@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <sys/sendfile.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
@@ -55,7 +56,13 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 	int ret, size;
 
 	size = (private->size < CONTENTSIZE)? private->size : CONTENTSIZE;
+	sigset_t sigset;
+	sigemptyset (&sigset);
+	sigaddset(&sigset, SIGPIPE);
+	sigprocmask(SIG_BLOCK, &sigset, NULL);
 	ret = sendfile(httpmessage_keepalive(response), private->fd, NULL, size);
+	if (ret > 0)
+		sigprocmask(SIG_UNBLOCK, &sigset, NULL);
 
 	return ret;
 }

@@ -1,0 +1,6 @@
+DESC="test a response with sendfile module"
+CONFIG=test7.conf
+TESTREQUEST=test4_rq.txt
+TESTCODE=200
+TESTHEADERLEN=86
+TESTCONTENTLEN=40

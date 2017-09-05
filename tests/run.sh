@@ -57,12 +57,15 @@ PID=$!
 echo "${TARGET} started with pid ${PID}"
 sleep 2
 
-if [ -n "$DEBUG" ]; then
+if [ -n "$DEBUG" -o -n "$CMDREQUEST" ]; then
 	if [ -n "$CURLPARAM" ]; then
 		$CURL $CURLOUT -f -s -S $CURLPARAM
 	fi
 	if [ -n "$TESTREQUEST" ]; then
 		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT
+	fi
+	if [ -n "$CMDREQUEST" ]; then
+		$CMDREQUEST | $TESTCLIENT
 	fi
 else
 	if [ -n "$CURLPARAM" ]; then

@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_auth.h: Simple HTTP module
+ * mod_auth.h: HTTP Authentication module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -41,13 +41,19 @@ struct authz_simple_config_s
 {
 	char *user;
 	char *passwd;
-	int rights;
+	char *group;
+};
+
+typedef struct authz_file_config_s authz_file_config_t;
+struct authz_file_config_s
+{
+	char *path;
 };
 
 typedef void *(*authz_rule_create_t)(void *config);
 typedef int (*authz_rule_check_t)(void *arg, char *user, char *passwd);
 typedef char *(*authz_rule_passwd_t)(void *arg, char *user);
-typedef char *(*authz_rule_rights_t)(void *arg, char *user);
+typedef char *(*authz_rule_group_t)(void *arg, char *user);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
 struct authz_rules_s
@@ -55,12 +61,13 @@ struct authz_rules_s
 	authz_rule_create_t create;
 	authz_rule_check_t check;
 	authz_rule_passwd_t passwd;
-	authz_rule_rights_t rights;
+	authz_rule_group_t group;
 	authz_rule_destroy_t destroy;
 };
 typedef enum
 {
 	AUTHZ_SIMPLE_E = 1,
+	AUTHZ_FILE_E,
 } authz_type_t;
 struct authz_s
 {
@@ -83,7 +90,7 @@ struct authn_digest_config_s
 	char *opaque;
 };
 
-typedef void *(*authn_rule_create_t)(authz_t *authz, void *config);;
+typedef void *(*authn_rule_create_t)(authz_t *authz, void *config);
 typedef int (*authn_rule_setup_t)(void *arg, struct sockaddr *addr, int addrsize);
 typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);
 typedef char *(*authn_rule_check_t)(void *arg, char *method, char *string);
@@ -112,11 +119,11 @@ struct authn_s
 
 typedef struct mod_auth_s
 {
-	char *realm;
 	void *authn_config;
 	authn_type_t authn_type;
 	void *authz_config;
 	authz_type_t authz_type;
+	char *login;
 } mod_auth_t;
 
 void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *modconfig);

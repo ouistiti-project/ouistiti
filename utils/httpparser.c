@@ -39,24 +39,6 @@
 #define CONTENT 0x02
 #define END 0x04
 
-int Result[] = 
-{
-	200,
-	400,
-	404,
-	405,
-	101,
-	206,
-	301,
-	302,
-	304,
-	401,
-	414,
-	416,
-	505,
-	511,
-};
-
 int main(int argc, char ** argv)
 {
 	int fd = 0;
@@ -81,7 +63,7 @@ int main(int argc, char ** argv)
 	buffer = calloc(1, length);
 
 	http_message_t *message;
-	message = httpmessage_create();
+	message = httpmessage_create(CHUNKSIZE);
 	state |= HEADER;
 	do
 	{
@@ -110,7 +92,7 @@ int main(int argc, char ** argv)
 		else
 			state |= END;
 	} while (!(state & END));
-	int result = Result[httpmessage_result(message, 0)];
+	int result = httpmessage_result(message, 0);
 	printf("%d %d %d\n", result, headerlength, contentlength);
 	httpmessage_destroy(message);
 	return 0;

@@ -55,21 +55,7 @@
  */
 typedef struct _static_file_connector_s static_file_connector_t;
 
-struct _mod_static_file_mod_s
-{
-	mod_static_file_t *config;
-	void *vhost;
-	mod_transfer_t transfer;
-};
-
 int mod_send(static_file_connector_t *private, http_message_t *response);
-
-static mod_static_file_t default_config = 
-{
-	.docroot = "/srv/www/htdocs",
-	.accepted_ext = ".html,.xhtml,.htm,.css",
-	.ignored_ext = ".php",
-};
 
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
@@ -99,7 +85,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			{
 				free(private->filepath);
 				private->filepath = NULL;
-#ifndef HTTP_STATUS_PARTIAL
+#if defined(RESULT_301)
 				char *location = calloc(1, strlen(private->path_info) + 2);
 				sprintf(location, "%s/", private->path_info);
 				httpmessage_addheader(response, str_location, location);
@@ -115,6 +101,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				private->filepath = NULL;
 				free(private->path_info);
 				private->path_info = NULL;
+				dbg("static file: reject directory path bad formatting");
 				return EREJECT;
 #endif
 			}
@@ -253,7 +240,7 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 			}
 		}
 	}
-	if (private->fd)
+	else if (private->fd)
 	{
 		int ret;
 		ret = mod->transfer(private, response);
@@ -301,6 +288,7 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
 
 	ctx->mod = mod;
+	ctx->ctl = ctl;
 
 #ifdef DIRLISTING
 	if (config->options & STATIC_FILE_DIRLISTING)
@@ -311,6 +299,10 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 		mod->transfer = mod_send_sendfile;
 #endif
 	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+#ifdef FILESTORAGE
+	if (config->options & STATIC_FILE_FILESTORAGE)
+		httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx);
+#endif
 #ifdef RANGEREQUEST
 	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
 #endif
@@ -329,16 +321,13 @@ static void _mod_static_file_freectx(void *vctx)
 
 void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config)
 {
+	if (!config)
+	{
+		err("static file: configuration empty");
+		return NULL;
+	}
 	_mod_static_file_mod_t *mod = calloc(1, sizeof(*mod));
 
-	if (!config)
-		config = &default_config;
-	if (!config->docroot)
-		config->docroot = default_config.docroot;
-	if (!config->accepted_ext)
-		config->accepted_ext = default_config.accepted_ext;
-	if (!config->ignored_ext)
-		config->ignored_ext = default_config.ignored_ext;
 	mod->config = config;
 	mod->vhost = vhost;
 	mod->transfer = mod_send_read;

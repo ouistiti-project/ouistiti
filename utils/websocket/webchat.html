@@ -60,6 +60,7 @@ function connect()
 {
 	nickname = $("#nickname").val();
 	chat.identity = nickname;
+	chat.id = nickname;
 	color = $("#color").val();
 	chat.color = color;
 	chat.connect($("#wsUri").val());
@@ -159,19 +160,19 @@ function onClose(evt)
 
 function onMessage(evt)
 {
-	if (this.ouistitiserver && evt.data.substr(0, 10) == "WSWelcome ")
+	var data = evt.data;
+	if (this.ouistitiserver && data.substr(0, 10) == "WSWelcome ")
 	{
-		this.id = evt.data.substr(10);
+		this.id = data.substr(10);
 		this.hello();
 	}
-	else if (this.ouistitiserver && evt.data.substr(0, 5) == "WSIs ")
+	else if (this.ouistitiserver && data.substr(0, 5) == "WSIs ")
 	{
-		alert(evt.data.substr(5));
+		alert(data.substr(5));
 	}
 	else
 	{
-		var data = evt.data;
-		data = data.substr(0, data.length - 1);
+		//data = data.substr(0, data.length - 1);
 		msg = JSON.parse(data);
 		if (msg != undefined)
 		{

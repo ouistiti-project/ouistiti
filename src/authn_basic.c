@@ -112,9 +112,7 @@ int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *re
 	authn_basic_t *mod = (authn_basic_t *)arg;
 
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
-	httpmessage_result(response, RESULT_401);
 	ret = ESUCCESS;
-	dbg("error 401");
 	return ret;
 }
 

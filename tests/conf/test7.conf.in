@@ -8,7 +8,7 @@ servers= ({
 			docroot = "%PWD%/tests/htdocs";
 			accepted_ext = ".html,.*htm*,.css,.js,.txt,*";
 			ignored_ext = "^.ht*,.php";
-			transfer_type = "dirlisting";
+			transfer_type = "dirlisting,sendfile";
 		};
 	});
 

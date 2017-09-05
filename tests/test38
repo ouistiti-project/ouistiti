@@ -1,0 +1,5 @@
+./host/ouipasswd -u Mufasa -p "Circle Of Life" -R "testrealm@host.com" > tests/conf/passwd
+DESC="test a request with good Digest authentication"
+CONFIG=test9.conf
+TESTREQUEST=test17_rq.txt
+TESTCODE=404

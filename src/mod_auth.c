@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_auth.c: callbacks and management of connection
+ * mod_auth.c: Authentication module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -38,12 +38,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
 #include "authn_basic.h"
 #include "authn_digest.h"
 #include "authz_simple.h"
+#include "authz_file.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -53,6 +57,9 @@
 #define dbg(...)
 #endif
 
+#ifndef RESULT_401
+#error mod_auth require RESULT_401
+#endif
 
 typedef struct _mod_auth_s _mod_auth_t;
 typedef struct _mod_auth_ctx_s _mod_auth_ctx_t;
@@ -73,16 +80,15 @@ struct _mod_auth_s
 {
 	mod_auth_t	*config;
 	char *vhost;
-	char *realm;
 	const char *type;
 	authn_t *authn;
 	authz_t *authz;
 	int typelength;
+	int loginfd;
 };
 
 const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
-static const char *str_realm = "ouistiti";
 const char *str_authenticate_types[] =
 {
 	"None",
@@ -114,21 +120,28 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	mod->config = config;
 	mod->vhost = vhost;
 
-	if (config->realm == NULL)
-	{
-		mod->realm = (char *)str_realm;
-	}
-	else
-		mod->realm = config->realm;
-
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
 	switch (config->authz_type)
 	{
+#ifdef AUTHZ_SIMPLE
 	case AUTHZ_SIMPLE_E:
 		mod->authz->rules = &authz_simple_rules;
 		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
 	break;
+#endif
+#ifdef AUTHZ_FILE
+	case AUTHZ_FILE_E:
+		mod->authz->rules = &authz_file_rules;
+		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
+	break;
+#endif
+	}
+	if (mod->authz->ctx == NULL)
+	{
+		free(mod->authz);
+		free(mod);
+		return NULL;
 	}
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
@@ -137,10 +150,21 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	if (mod->authn->rules && mod->authz->rules)
 	{
 		mod->authn->ctx = mod->authn->rules->create(mod->authz, config->authn_config);
+	}
+	if (mod->authn->ctx)
+	{
 		mod->type = str_authenticate_types[config->authn_type];
 		mod->typelength = strlen(mod->type);
 
 		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
+	}
+	else
+	{
+		mod->authz->rules->destroy(mod->authz->ctx);
+		free(mod->authz);
+		free(mod->authn);
+		free(mod);
+		mod = NULL;
 	}
 	return mod;
 }
@@ -179,6 +203,7 @@ static void _mod_auth_freectx(void *vctx)
 	free(ctx);
 }
 
+#define CONTENTCHUNK 63
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -187,6 +212,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	char *authorization;
 
 	authorization = httpmessage_REQUEST(request, (char *)str_authorization);
+	if (authorization == NULL || authorization[0] == '\0')
+	{
+		authorization = httpmessage_COOKIE(request, (char *)str_authorization);
+	}
 	if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
 	{
 		char *authentication = strchr(authorization, ' ');
@@ -200,10 +229,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			httpmessage_SESSION(request, "%user", user);
 			httpmessage_SESSION(request, "%authtype", (char *)mod->type);
 
-			if (mod->authz->rules->rights)
+			if (mod->authz->rules->group)
 			{
-				httpmessage_SESSION(request, "%authrights",
-					mod->authz->rules->rights(mod->authz->ctx, user));
+				char *group = mod->authz->rules->group(mod->authz->ctx, user);
+				httpmessage_SESSION(request, "%authgroup", group);
+				dbg("group %s", group);
 			}
 			ret = EREJECT;
 		}
@@ -217,7 +247,60 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (authorization == NULL || authorization[0] == '\0')
 	{
-		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+		int length = CONTENTCHUNK;
+		if (mod->loginfd == 0)
+		{
+			ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+			if (ret == ESUCCESS)
+			{
+#if defined(RESULT_403)
+				char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+				if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
+					httpmessage_result(response, RESULT_403);
+				else
+#endif
+				if (mod->config->login)
+				{
+					mod->loginfd = open(mod->config->login, O_RDONLY);
+					struct stat stat;
+					fstat(mod->loginfd, &stat);
+					length = stat.st_size;
+					httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
+#if defined(RESULT_403)
+					httpmessage_result(response, RESULT_403);
+#elif defined(RESULT_401)
+					httpmessage_result(response, RESULT_401);
+#else
+					httpmessage_result(response, RESULT_400);
+#endif
+				}
+				else
+				{
+#if defined(RESULT_401)
+						httpmessage_result(response, RESULT_401);
+#else
+						httpmessage_result(response, RESULT_400);
+#endif
+				}
+			}
+		}
+		if (mod->loginfd > 0)
+		{
+			char content[CONTENTCHUNK];
+			length = (length < CONTENTCHUNK)?length:CONTENTCHUNK;
+			length = read(mod->loginfd, content, length);
+			if (length > 0)
+			{
+				httpmessage_addcontent(response, "text/html", content, length);
+				ret = ECONTINUE;
+			}
+			else
+			{
+				close(mod->loginfd);
+				mod->loginfd = 0;
+				ret = ESUCCESS;
+			}
+		}
 	}
 	return ret;
 }
