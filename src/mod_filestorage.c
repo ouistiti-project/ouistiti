@@ -149,10 +149,13 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 	}
 	else if (!strcmp(method, "DELETE") && private->fd == 0)
 	{
-		if (strstr(private->path_info, "/."))
+		if (private->path_info[0] == '.')
 		{
+			warn("file name not allowed %s", private->path_info);
 #if defined RESULT_403
 			httpmessage_result(response, RESULT_403);
+#else
+			httpmessage_result(response, RESULT_400);
 #endif
 			free(private->filepath);
 			private->filepath = NULL;
@@ -163,9 +166,18 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
 		if (unlink(private->filepath) > 0)
 		{
+			warn("file removing not allowed %s", private->path_info);
+			httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"result\":\"KO\"}", 33);
 #if defined RESULT_403
 			httpmessage_result(response, RESULT_403);
+#else
+			httpmessage_result(response, RESULT_400);
 #endif
+		}
+		else
+		{
+			warn("remove file : %s", private->path_info);
+			httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"result\":\"OK\"}", 33);
 		}
 		private->fd = 0;
 		ret = ESUCCESS;
