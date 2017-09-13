@@ -57,47 +57,89 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 	_mod_static_file_mod_t *mod = private->mod;
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
 
+	if (private->path_info == NULL)
+		return ret;
 	char *method = httpmessage_REQUEST(request, "method");
-	if (!strcmp(method, "PUT") && private->fd == 0)
+	if (!strcmp(method, "PUT"))
 	{
-		if (strstr(private->path_info, "/."))
+		if (private->path_info[0] == '.')
 		{
+			warn("file name not allowed %s", private->path_info);
 #if defined RESULT_403
 			httpmessage_result(response, RESULT_403);
+#else
+			httpmessage_result(response, RESULT_400);
 #endif
-			return ESUCCESS;
-		}
-		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
-		int length = strlen(private->path_info);
-		if (private->path_info[length] == '/')
-		{
-			if (mkdir(private->filepath, 0777) > 0)
-			{
-#if defined RESULT_403
-				httpmessage_result(response, RESULT_403);
-#endif
-			}
-			private->fd = 0;
-			ret = ESUCCESS;
-			free(private->filepath);
+			if (private->filepath)
+				free(private->filepath);
 			private->filepath = NULL;
 			free(private->path_info);
 			private->path_info = NULL;
+			return ESUCCESS;
 		}
-		else
+		if (private->fd == 0)
 		{
-			private->fd = open(private->filepath, O_WRONLY | O_CREAT);
-			if (private->fd > 0)
+			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
+			int length = strlen(private->path_info);
+			if (private->path_info[length] == '/')
 			{
+				if (mkdir(private->filepath, 0777) > 0)
+				{
+#if defined RESULT_403
+					httpmessage_result(response, RESULT_403);
+#else
+					httpmessage_result(response, RESULT_400);
+#endif
+				}
+				ret = ESUCCESS;
+				free(private->filepath);
+				private->filepath = NULL;
+				free(private->path_info);
+				private->path_info = NULL;
+			}
+			else
+			{
+				private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
+				if (private->fd > 0)
+				{
+					dbg("file open to write %d", private->fd);
+					ret = ECONTINUE;
+				}
+				else
+				{
+					warn("file creation not allowed %s", private->path_info);
+#if defined RESULT_403
+					httpmessage_result(response, RESULT_403);
+#else
+					httpmessage_result(response, RESULT_400);
+#endif
+					ret = ESUCCESS;
+					private->fd = 0;
+					free(private->filepath);
+					private->filepath = NULL;
+					free(private->path_info);
+					private->path_info = NULL;
+				}
+			}
+		}
+		if (private->fd > 0)
+		{
+			char *input;
+			int inputlen;
+			int rest;
+			rest = httpmessage_content(request, &input, &inputlen);
+			if (inputlen > 0 && rest > 0)
+			{
+				write(private->fd, input, inputlen);
 				ret = ECONTINUE;
 			}
 			else
 			{
-#if defined RESULT_403
-				httpmessage_result(response, RESULT_403);
-#endif
-				ret = ESUCCESS;
+				warn("file storage %s from %d", private->path_info, private->fd);
+				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\"}", 33);
+				close(private->fd);
 				private->fd = 0;
+				ret = ESUCCESS;
 				free(private->filepath);
 				private->filepath = NULL;
 				free(private->path_info);
@@ -131,28 +173,6 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 		private->filepath = NULL;
 		free(private->path_info);
 		private->path_info = NULL;
-	}
-	else if (private->fd)
-	{
-		char *input;
-		int inputlen;
-		int rest;
-		rest = httpmessage_content(request, &input, &inputlen);
-		if (rest > 0)
-		{
-			write(private->fd, input, inputlen);
-			ret = ECONTINUE;
-		}
-		else
-		{
-			close(private->fd);
-			private->fd = 0;
-			ret = ESUCCESS;
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
-		}
 	}
 	return ret;
 }
