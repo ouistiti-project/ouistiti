@@ -82,28 +82,39 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		else if (S_ISDIR(filestat.st_mode))
 		{
 			int length = strlen(private->filepath);
-			if (private->filepath[length - 1] != '/')
+			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+
+			if ((private->filepath[length - 1] != '/') ||
+				(X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
 			{
-				free(private->filepath);
-				private->filepath = NULL;
+				if (private->mod->config->options & STATIC_FILE_FILESTORAGE)
+				{
+					private->type |= STATIC_FILE_DIRLISTING;
+					return EREJECT;
+				}
+				else
 #if defined(RESULT_301)
-				char *location = calloc(1, strlen(private->path_info) + 2);
-				sprintf(location, "%s/", private->path_info);
-				httpmessage_addheader(response, str_location, location);
-				httpmessage_result(response, RESULT_301);
-				free(location);
-				free(private->filepath);
-				private->filepath = NULL;
-				free(private->path_info);
-				private->path_info = NULL;
-				return ESUCCESS;
+				{
+					char *location = calloc(1, strlen(private->path_info) + 2);
+					sprintf(location, "%s/", private->path_info);
+					httpmessage_addheader(response, str_location, location);
+					httpmessage_result(response, RESULT_301);
+					free(location);
+					free(private->filepath);
+					private->filepath = NULL;
+					free(private->path_info);
+					private->path_info = NULL;
+					return ESUCCESS;
+				}
 #else
-				free(private->filepath);
-				private->filepath = NULL;
-				free(private->path_info);
-				private->path_info = NULL;
-				dbg("static file: reject directory path bad formatting");
-				return EREJECT;
+				{
+					free(private->filepath);
+					private->filepath = NULL;
+					free(private->path_info);
+					private->path_info = NULL;
+					dbg("static file: reject directory path bad formatting");
+					return EREJECT;
+				}
 #endif
 			}
 			char ext_str[64];
