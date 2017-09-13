@@ -192,22 +192,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			return ESUCCESS;
 #endif
 		}
-		else if (private->size == 0)
-		{
-			warn("static file: empty file");
-#if defined(RESULT_204)
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
-			httpmessage_result(response, RESULT_204);
-			return ESUCCESS;
-#endif
-		}
 	}
 	else
 	{
-		warn("static_file: internal error");
+		warn("static_file: internal error %d", private->fd);
 	}
 	/**
 	 * this connector reject always
@@ -225,6 +213,18 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 
 	if (private->type & STATIC_FILE_DIRLISTING || private->filepath == NULL)
 		return EREJECT;
+	else if (private->size == 0)
+	{
+		warn("static file: empty file");
+#if defined(RESULT_204)
+		free(private->filepath);
+		private->filepath = NULL;
+		free(private->path_info);
+		private->path_info = NULL;
+		httpmessage_result(response, RESULT_204);
+		return ESUCCESS;
+#endif
+	}
 	if (private->fd == 0)
 	{
 		private->fd = open(private->filepath, O_RDONLY);
