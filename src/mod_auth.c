@@ -41,6 +41,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
@@ -235,6 +236,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				httpmessage_SESSION(request, "%authgroup", group);
 				dbg("group %s", group);
 			}
+			//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
+			//sprintf(value, "%s=%s", str_authorization, authentication);
+			httpmessage_addheader(response, (char *)str_authorization, authentication);
+			//free(value);
 			ret = EREJECT;
 		}
 		else

@@ -92,10 +92,14 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 					if (iterator != NULL)
 						iterator++;
 				}
+				if (ret != EREJECT)
+				{
+					warn("method use with bad user group %s", group);
+				}
 			}
 			else
 			{
-				dbg("methodlock: method %s forbidden", method);
+				warn("methodlock: method %s forbidden", method);
 #if defined RESULT_403
 				httpmessage_result(response, RESULT_403);
 #else

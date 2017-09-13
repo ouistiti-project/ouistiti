@@ -69,7 +69,8 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		struct stat filestat;
 		if (private->path_info)
 			free(private->path_info);
-		private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+		char *uri = httpmessage_REQUEST(request,"uri");
+		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
