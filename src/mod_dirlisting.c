@@ -52,29 +52,15 @@
 
 typedef struct _static_file_connector_s static_file_connector_t;
 
-#define DIRLISTING_HEADER "<html><head><link rel=\"stylesheet\" type=\"text/css\" href=\"%s\"/></head><body><h1>%s</h1><ul>\n"
-#define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 4)
-#define DIRLISTING_LINE_FILE "<li id=\"file\"><a href=\"%s%s\">%s</a><span id=\"size\">%d</span></li>\n"
-#define DIRLISTING_LINE_FILE_LENGTH (sizeof(DIRLISTING_LINE_FILE) - 8)
-#define DIRLISTING_LINE_DIR "<li id=\"dir\"><a href=\"%s%s\">%s</a></li>\n"
-#define DIRLISTING_LINE_DIR_LENGTH (sizeof(DIRLISTING_LINE_DIR) - 6)
-#define DIRLISTING_FOOTER "</ul></body></html>"
-typedef struct line_s
-{
-	int length;
-	char *line;
-} line_t;
-static line_t *dirlisting_lines[] =
-{
-	&(line_t){
-		DIRLISTING_LINE_DIR_LENGTH,
-		DIRLISTING_LINE_DIR,
-	},
-	&(line_t){
-		DIRLISTING_LINE_FILE_LENGTH,
-		DIRLISTING_LINE_FILE,
-	},
-};
+#define DIRLISTING_HEADER "\
+{\
+\"name\":\"%s\",\
+\"content\":["
+#define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
+#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":%d,\"type\":%d},"
+#define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
+#define DIRLISTING_FOOTER "\
+{}]}"
 
 int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
 {
@@ -90,19 +76,19 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		private->dir = opendir(private->filepath);
 		if (private->dir)
 		{
-			httpmessage_addcontent(response, (char*)utils_getmime(".html"), NULL, -1);
+			warn("dirlisting: open /%s", private->path_info);
+			httpmessage_addcontent(response, (char*)utils_getmime(".json"), NULL, -1);
 
 			int length = strlen(private->path_info);
 			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
-			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, "", private->path_info);
+			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, private->path_info);
 			httpmessage_addcontent(response, NULL, data, strlen(data));
 			free(data);
 			if (strlen(private->path_info) > 1)
 			{
-				line_t *line = dirlisting_lines[0];
 				int length = (sizeof("..") - 1) * 2 + strlen(private->path_info);
-				char *data = calloc(1, line->length + length + 1);
-				snprintf(data, line->length + length, line->line, private->path_info, "..", "..");
+				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
+				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, "..", 0, 0);
 				httpmessage_addcontent(response, NULL, data, strlen(data));
 				free(data);
 			}
@@ -115,6 +101,13 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 			private->filepath = NULL;
 		}
 	}
+	else if (private->path_info == NULL)
+	{
+		httpclient_shutdown(private->ctl);
+		closedir(private->dir);
+		private->dir = NULL;
+		ret = ESUCCESS;
+	}
 	else
 	{
 		struct dirent *ent;
@@ -123,43 +116,22 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		{
 			if (ent->d_name[0] != '.')
 			{
-				line_t *line;
-
-				switch (ent->d_type)
-				{
-					case DT_DIR:
-						line = dirlisting_lines[0];
-					break;
-					case DT_REG:
-						line = dirlisting_lines[1];
-					break;
-					default:
-						line = NULL;
-					break;
-				}
-				if (line != NULL)
-				{
-					int length = strlen(private->path_info) + strlen(ent->d_name) * 2 + 4;
-					char *data = calloc(1, line->length + length + 1);
-					snprintf(data, line->length + length, line->line, private->path_info, ent->d_name, ent->d_name, ent->d_reclen);
-					char *content = httpmessage_addcontent(response, NULL, data, -1);
-					free(data);
-				}
+				int length = strlen(private->path_info) + strlen(ent->d_name) * 2 + 4;
+				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
+				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, ent->d_name, ent->d_reclen, ent->d_type);
+				char *content = httpmessage_addcontent(response, NULL, data, -1);
+				free(data);
 			}
 			ret = ECONTINUE;
 		}
 		else
 		{
-			if (private->path_info)
-			{
-				free(private->path_info);
-				private->path_info = NULL;
-			}
+			free(private->path_info);
+			private->path_info = NULL;
+			free(private->filepath);
+			private->filepath = NULL;
 			httpmessage_addcontent(response, NULL, DIRLISTING_FOOTER, -1);
-			httpclient_shutdown(private->ctl);
-			closedir(private->dir);
-			private->dir = NULL;
-			ret = ESUCCESS;
+			ret = ECONTINUE;
 		}
 	}
 	return ret;

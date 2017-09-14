@@ -69,7 +69,8 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		struct stat filestat;
 		if (private->path_info)
 			free(private->path_info);
-		private->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+		char *uri = httpmessage_REQUEST(request,"uri");
+		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
@@ -81,28 +82,39 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		else if (S_ISDIR(filestat.st_mode))
 		{
 			int length = strlen(private->filepath);
-			if (private->filepath[length - 1] != '/')
+			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+
+			if ((private->filepath[length - 1] != '/') ||
+				(X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
 			{
-				free(private->filepath);
-				private->filepath = NULL;
+				if (private->mod->config->options & STATIC_FILE_FILESTORAGE)
+				{
+					private->type |= STATIC_FILE_DIRLISTING;
+					return EREJECT;
+				}
+				else
 #if defined(RESULT_301)
-				char *location = calloc(1, strlen(private->path_info) + 2);
-				sprintf(location, "%s/", private->path_info);
-				httpmessage_addheader(response, str_location, location);
-				httpmessage_result(response, RESULT_301);
-				free(location);
-				free(private->filepath);
-				private->filepath = NULL;
-				free(private->path_info);
-				private->path_info = NULL;
-				return ESUCCESS;
+				{
+					char *location = calloc(1, strlen(private->path_info) + 2);
+					sprintf(location, "%s/", private->path_info);
+					httpmessage_addheader(response, str_location, location);
+					httpmessage_result(response, RESULT_301);
+					free(location);
+					free(private->filepath);
+					private->filepath = NULL;
+					free(private->path_info);
+					private->path_info = NULL;
+					return ESUCCESS;
+				}
 #else
-				free(private->filepath);
-				private->filepath = NULL;
-				free(private->path_info);
-				private->path_info = NULL;
-				dbg("static file: reject directory path bad formatting");
-				return EREJECT;
+				{
+					free(private->filepath);
+					private->filepath = NULL;
+					free(private->path_info);
+					private->path_info = NULL;
+					dbg("static file: reject directory path bad formatting");
+					return EREJECT;
+				}
 #endif
 			}
 			char ext_str[64];
@@ -180,22 +192,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			return ESUCCESS;
 #endif
 		}
-		else if (private->size == 0)
-		{
-			warn("static file: empty file");
-#if defined(RESULT_204)
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
-			httpmessage_result(response, RESULT_204);
-			return ESUCCESS;
-#endif
-		}
 	}
 	else
 	{
-		warn("static_file: internal error");
+		warn("static_file: internal error %d", private->fd);
 	}
 	/**
 	 * this connector reject always
@@ -213,6 +213,18 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 
 	if (private->type & STATIC_FILE_DIRLISTING || private->filepath == NULL)
 		return EREJECT;
+	else if (private->size == 0)
+	{
+		warn("static file: empty file");
+#if defined(RESULT_204)
+		free(private->filepath);
+		private->filepath = NULL;
+		free(private->path_info);
+		private->path_info = NULL;
+		httpmessage_result(response, RESULT_204);
+		return ESUCCESS;
+#endif
+	}
 	if (private->fd == 0)
 	{
 		private->fd = open(private->filepath, O_RDONLY);

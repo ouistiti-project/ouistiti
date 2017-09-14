@@ -136,6 +136,8 @@ CFLAGS+=-I$(src) -I$(CURDIR) -I. -I$(sysroot)$(includedir)
 LIBRARY+=
 ifneq ($(builddir),)
 LDFLAGS+=-L$(builddir)
+else
+LDFLAGS+=-L.
 endif
 LDFLAGS+=-L$(sysroot)$(libdir)
 LDFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
