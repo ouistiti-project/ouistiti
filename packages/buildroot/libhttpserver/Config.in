@@ -1,0 +1,16 @@
+config BR2_PACKAGE_LIBHTTPSERVER
+	bool "libhttpserver"
+	help
+	  small, fast and secure http library.
+
+	  https://github.com/ouistiti-net
+
+if BR2_PACKAGE_LIBHTTPSERVER
+
+config BR2_PACKAGE_LIBHTTPSERVER_MBEDTLS
+	bool "ssl support with mbedtls"
+	select BR2_PACKAGE_MBEDTLS
+	help
+	  Enable SSL/TLS support for ouistiti.
+
+endif
