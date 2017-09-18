@@ -1,0 +1,4 @@
+DESC="test bad data"
+CONFIG=test9.conf
+CMDREQUEST="printf \"\x20\x20\x02\x82\x0a\x0d\x0aGET / HTTP/1.1\x0d\x0dHOST\x20\x20\x02\x82\x0a\x0d\x0a\""
+DEBUG=1
