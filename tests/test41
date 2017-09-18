@@ -1,0 +1,4 @@
+DESC="test to put file on the server"
+CONFIG=test10.conf
+TESTREQUEST=test41_rq.txt
+TESTCODE=200
