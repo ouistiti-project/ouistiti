@@ -164,7 +164,8 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			private->path_info = NULL;
 			return EREJECT;
 		}
-		if (utils_searchext(private->filepath, config->ignored_ext) == ESUCCESS)
+		char *fileext = strrchr(private->filepath, '.');
+		if (fileext && utils_searchext(fileext, config->ignored_ext) == ESUCCESS)
 		{
 			warn("static file: %s forbidden extension", private->path_info);
 			free(private->filepath);
@@ -180,7 +181,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		 * file is found
 		 * check the extension
 		 */
-		if (utils_searchext(private->filepath, config->accepted_ext) != ESUCCESS)
+		if (fileext && utils_searchext(fileext, config->accepted_ext) != ESUCCESS)
 		{
 			warn("static file: forbidden extension");
 			free(private->filepath);
