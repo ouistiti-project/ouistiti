@@ -468,7 +468,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
 
 			char *fileext = strrchr(str, '.');
-			if (fileext && utils_searchext(fileext, config->ignored_ext) == ESUCCESS)
+			if (fileext && utils_searchexp(fileext, config->ignored_ext) == ESUCCESS)
 			{
 				dbg("cgi: %s forbidden extension", ctx->path_info);
 				free(filepath);
@@ -488,7 +488,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				free(filepath);
 				return EREJECT;
 			}
-			if (fileext && utils_searchext(fileext, config->accepted_ext) != ESUCCESS)
+			if (fileext && utils_searchexp(fileext, config->accepted_ext) != ESUCCESS)
 			{
 				warn("cgi: %s not accepted extension", ctx->path_info);
 				free(filepath);
