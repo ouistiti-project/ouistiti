@@ -124,6 +124,8 @@ typedef struct mod_auth_s
 	void *authz_config;
 	authz_type_t authz_type;
 	char *login;
+	char *protect;
+	char *unprotect;
 } mod_auth_t;
 
 void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *modconfig);
