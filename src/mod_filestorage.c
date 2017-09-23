@@ -49,6 +49,24 @@
 #define dbg(...)
 #endif
 
+static int filestorage_checkname(static_file_connector_t *private, http_message_t *response)
+{
+	if (private->path_info[0] == '.')
+	{
+		warn("file name not allowed %s", private->path_info);
+#if defined RESULT_403
+		httpmessage_result(response, RESULT_403);
+#else
+		httpmessage_result(response, RESULT_400);
+#endif
+		free(private->filepath);
+		private->filepath = NULL;
+		free(private->path_info);
+		private->path_info = NULL;
+		return ESUCCESS;
+	}
+	return EREJECT;
+}
 
 int filestorage_connector(void *arg, http_message_t *request, http_message_t *response)
 {
@@ -62,21 +80,8 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 	char *method = httpmessage_REQUEST(request, "method");
 	if (!strcmp(method, "PUT"))
 	{
-		if (private->path_info[0] == '.')
-		{
-			warn("file name not allowed %s", private->path_info);
-#if defined RESULT_403
-			httpmessage_result(response, RESULT_403);
-#else
-			httpmessage_result(response, RESULT_400);
-#endif
-			if (private->filepath)
-				free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+		if (filestorage_checkname(private, response) == ESUCCESS)
 			return ESUCCESS;
-		}
 		if (private->fd == 0)
 		{
 			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
@@ -147,22 +152,24 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 			}
 		}
 	}
+	else if (!strcmp(method, "POST") && private->fd == 0)
+	{
+		if (filestorage_checkname(private, response) == ESUCCESS)
+			return ESUCCESS;
+		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
+		warn("change %s", private->filepath);
+		httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"result\":\"OK\"}", 31);
+		private->fd = 0;
+		ret = ESUCCESS;
+		free(private->filepath);
+		private->filepath = NULL;
+		free(private->path_info);
+		private->path_info = NULL;
+	}
 	else if (!strcmp(method, "DELETE") && private->fd == 0)
 	{
-		if (private->path_info[0] == '.')
-		{
-			warn("file name not allowed %s", private->path_info);
-#if defined RESULT_403
-			httpmessage_result(response, RESULT_403);
-#else
-			httpmessage_result(response, RESULT_400);
-#endif
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+		if (filestorage_checkname(private, response) == ESUCCESS)
 			return ESUCCESS;
-		}
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
 		if (unlink(private->filepath) > 0)
 		{
