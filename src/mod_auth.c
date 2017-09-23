@@ -91,6 +91,8 @@ struct _mod_auth_s
 
 const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
+static const char *str_xuser = "X-Remote-User";
+static const char *str_xgroup = "X-Remote-Group";
 static const char *str_wilcard = "*";
 const char *str_authenticate_types[] =
 {
@@ -257,12 +259,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			{
 				dbg("user \"%s\" accepted", user);
 				httpmessage_SESSION(request, "%user", user);
+				httpmessage_addheader(response, (char *)str_xuser, user);
 				httpmessage_SESSION(request, "%authtype", (char *)mod->type);
 
 				if (mod->authz->rules->group)
 				{
 					char *group = mod->authz->rules->group(mod->authz->ctx, user);
 					httpmessage_SESSION(request, "%authgroup", group);
+					httpmessage_addheader(response, (char *)str_xgroup, group);
 					dbg("group %s", group);
 				}
 				//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
