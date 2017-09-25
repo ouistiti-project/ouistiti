@@ -1,5 +1,7 @@
+ifneq ($(MBEDTLS),y)
 subdir-$(AUTH)+=libb64.mk md5/md5.mk
 subdir-$(MD5_RONRIVEST)+=md5-c/md5.mk
+endif
 subdir-$(WEBSOCKET)+=websocket.mk
 
 hostbin-$(HOST_UTILS)+=testclient
@@ -9,7 +11,7 @@ ifeq ($(HTTPCLIENT_FEATURES),y)
 hostbin-$(HOST_UTILS)+=httpparser
 endif
 httpparser_SOURCES+=httpparser.c
-httpparser_SOURCES+=../libhttpserver/src/httpserver/libhttpserver.a
+httpparser_SOURCES+=-lhttpserver
 httpparser_CFLAGS+=-I../libhttpserver/include/
 httpparser_CFLAGS-$(DEBUG)+=-g -DDEBUG
 httpparser_LDFLAGS+=-pthread

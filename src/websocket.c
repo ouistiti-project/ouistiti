@@ -39,7 +39,6 @@
 #include <sys/un.h>
 
 #include "httpserver/httpserver.h"
-#include "httpserver/uri.h"
 #include "httpserver/mod_websocket.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)

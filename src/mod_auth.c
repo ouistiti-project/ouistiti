@@ -44,6 +44,7 @@
 #include <unistd.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/utils.h"
 #include "mod_auth.h"
 #include "authn_basic.h"
 #include "authn_digest.h"
@@ -90,6 +91,9 @@ struct _mod_auth_s
 
 const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
+static const char *str_xuser = "X-Remote-User";
+static const char *str_xgroup = "X-Remote-Group";
+static const char *str_wilcard = "*";
 const char *str_authenticate_types[] =
 {
 	"None",
@@ -167,6 +171,11 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 		free(mod);
 		mod = NULL;
 	}
+
+	if (mod != NULL && (!config->protect || config->protect[0] == '\0'))
+	{
+		config->protect = (char *)str_wilcard;
+	}
 	return mod;
 }
 
@@ -210,100 +219,125 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	int ret = ECONTINUE;
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
-	char *authorization;
+	char *authorization = NULL;
 
-	authorization = httpmessage_REQUEST(request, (char *)str_authorization);
-	if (authorization == NULL || authorization[0] == '\0')
+	char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
+	int protect = 1;
+	protect = utils_searchexp(uri, mod->config->protect);
+	if (protect != ESUCCESS)
 	{
-		authorization = httpmessage_COOKIE(request, (char *)str_authorization);
-	}
-	if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
-	{
-		char *authentication = strchr(authorization, ' ');
-		if (authentication)
-			authentication++;
-		char *method = httpmessage_REQUEST(request, "method");
-		char *user = mod->authn->rules->check(mod->authn->ctx, method, authentication);
-		if (user != NULL)
-		{
-			dbg("user \"%s\" accepted", user);
-			httpmessage_SESSION(request, "%user", user);
-			httpmessage_SESSION(request, "%authtype", (char *)mod->type);
-
-			if (mod->authz->rules->group)
-			{
-				char *group = mod->authz->rules->group(mod->authz->ctx, user);
-				httpmessage_SESSION(request, "%authgroup", group);
-				dbg("group %s", group);
-			}
-			//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
-			//sprintf(value, "%s=%s", str_authorization, authentication);
-			httpmessage_addheader(response, (char *)str_authorization, authentication);
-			//free(value);
-			ret = EREJECT;
-		}
-		else
-		{
-			authorization = NULL;
-		}
+		ret = EREJECT;
 	}
 	else
-		authorization = NULL;
-
-	if (authorization == NULL || authorization[0] == '\0')
 	{
-		int length = CONTENTCHUNK;
-		if (mod->loginfd == 0)
+		protect = utils_searchexp(uri, mod->config->unprotect);
+		if (protect == ESUCCESS)
 		{
-			ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
-			if (ret == ESUCCESS)
+			ret = EREJECT;
+		}
+	}
+	free(uri);
+
+	if (ret == ECONTINUE)
+	{
+		if (authorization == NULL || authorization[0] == '\0')
+		{
+			authorization = httpmessage_REQUEST(request, (char *)str_authorization);
+		}
+		if (authorization == NULL || authorization[0] == '\0')
+		{
+			authorization = httpmessage_COOKIE(request, (char *)str_authorization);
+		}
+		if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
+		{
+			char *authentication = strchr(authorization, ' ');
+			if (authentication)
+				authentication++;
+			char *method = httpmessage_REQUEST(request, "method");
+			char *user = mod->authn->rules->check(mod->authn->ctx, method, authentication);
+			if (user != NULL)
 			{
-#if defined(RESULT_403)
-				char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-				if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
-					httpmessage_result(response, RESULT_403);
-				else
-#endif
-				if (mod->config->login)
+				dbg("user \"%s\" accepted", user);
+				httpmessage_SESSION(request, "%user", user);
+				httpmessage_addheader(response, (char *)str_xuser, user);
+				httpmessage_SESSION(request, "%authtype", (char *)mod->type);
+
+				if (mod->authz->rules->group)
 				{
-					mod->loginfd = open(mod->config->login, O_RDONLY);
-					struct stat stat;
-					fstat(mod->loginfd, &stat);
-					length = stat.st_size;
-					httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
-#if defined(RESULT_403)
-					httpmessage_result(response, RESULT_403);
-#elif defined(RESULT_401)
-					httpmessage_result(response, RESULT_401);
-#else
-					httpmessage_result(response, RESULT_400);
-#endif
+					char *group = mod->authz->rules->group(mod->authz->ctx, user);
+					httpmessage_SESSION(request, "%authgroup", group);
+					httpmessage_addheader(response, (char *)str_xgroup, group);
+					dbg("group %s", group);
 				}
-				else
+				//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
+				//sprintf(value, "%s=%s", str_authorization, authentication);
+				httpmessage_addheader(response, (char *)str_authorization, authentication);
+				//free(value);
+				ret = EREJECT;
+			}
+			else
+			{
+				authorization = NULL;
+			}
+		}
+		else
+			authorization = NULL;
+
+		if (authorization == NULL || authorization[0] == '\0')
+		{
+			int length = CONTENTCHUNK;
+			if (mod->loginfd == 0)
+			{
+				ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+				if (ret == ESUCCESS)
 				{
-#if defined(RESULT_401)
+#if defined(RESULT_403)
+					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+					if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
+						httpmessage_result(response, RESULT_403);
+					else
+#endif
+					if (mod->config->login)
+					{
+						mod->loginfd = open(mod->config->login, O_RDONLY);
+						struct stat stat;
+						fstat(mod->loginfd, &stat);
+						length = stat.st_size;
+						httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
+#if defined(RESULT_403)
+						httpmessage_result(response, RESULT_403);
+#elif defined(RESULT_401)
 						httpmessage_result(response, RESULT_401);
 #else
 						httpmessage_result(response, RESULT_400);
 #endif
+					}
+					else
+					{
+#if defined(RESULT_401)
+							httpmessage_result(response, RESULT_401);
+#else
+							httpmessage_result(response, RESULT_400);
+#endif
+					}
 				}
 			}
-		}
-		if (mod->loginfd > 0)
-		{
-			char content[CONTENTCHUNK];
-			length = (length < CONTENTCHUNK)?length:CONTENTCHUNK;
-			length = read(mod->loginfd, content, length);
-			if (length > 0)
+			if (mod->loginfd > 0)
 			{
-				httpmessage_addcontent(response, "text/html", content, length);
-				ret = ECONTINUE;
-			}
-			else
-			{
-				close(mod->loginfd);
-				mod->loginfd = 0;
-				ret = ESUCCESS;
+				char content[CONTENTCHUNK];
+				length = (length < CONTENTCHUNK)?length:CONTENTCHUNK;
+				length = read(mod->loginfd, content, length);
+				if (length > 0)
+				{
+					httpmessage_addcontent(response, "text/html", content, length);
+					ret = ECONTINUE;
+				}
+				else
+				{
+					close(mod->loginfd);
+					mod->loginfd = 0;
+					ret = ESUCCESS;
+				}
 			}
 		}
 	}

@@ -148,6 +148,8 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 	{
 		auth = calloc(1, sizeof(*auth));
 		config_setting_lookup_string(configauth, "login", (const char **)&auth->login);
+		config_setting_lookup_string(configauth, "protect", (const char **)&auth->protect);
+		config_setting_lookup_string(configauth, "unprotect", (const char **)&auth->unprotect);
 #ifdef AUTHZ_FILE
 		if (auth->authz_config == NULL)
 		{
