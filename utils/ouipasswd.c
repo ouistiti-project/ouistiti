@@ -124,6 +124,11 @@ void display_help(char * const *argv)
 	fprintf(stderr, "%s [-h][-V]\n", argv[0]);
 	fprintf(stderr, "\t-h \tshow this help and exit\n");
 	fprintf(stderr, "\t-V \treturn the version and exit\n");
+	fprintf(stderr, "\t-R \tset the realm of the connection\n");
+	fprintf(stderr, "\t-T <Basic|Digest>\tset the type of security\n");
+	fprintf(stderr, "\t-u <name>\tset the user name\n");
+	fprintf(stderr, "\t-p <value>\tset the passzord\n");
+	fprintf(stderr, "\t-g <name>\tset the group\n");
 }
 
 #define DIGESTMD5 1
@@ -141,7 +146,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "hVR:u:g:p:");
+		opt = getopt(argc, argv, "hVR:u:g:p:T:");
 		switch (opt)
 		{
 			case 'h':
@@ -170,8 +175,42 @@ int main(int argc, char * const *argv)
 		}
 	} while(opt != -1);
 #endif
-	if (user != NULL && passwd != NULL)
+	setbuf(stdout, NULL);
+	if (user != NULL)
 	{
+		if (passwd == NULL)
+		{
+			printf("Enter a new password: ");
+			int i;
+			passwd = calloc(256, sizeof(char));
+			for(i = 0; i < 256; i++)
+			{
+				char c;
+				read(0, &c, 1);
+				if (c == '\n' || c == '\r')
+					break;
+				passwd[i] = c;
+			}
+			printf("Enter again the new password: ");
+			char *passwdagain = calloc(256, sizeof(char));
+			for(i = 0; i < 256; i++)
+			{
+				char c;
+				read(0, &c, 1);
+				if (c == '\n' || c == '\r')
+					break;
+				passwdagain[i] = c;
+			}
+			if (strcmp(passwd, passwdagain))
+			{
+				free(passwd);
+				free(passwdagain);
+				printf("Password not corresponding\n");
+				exit(-1);
+			}
+			free(passwdagain);
+		}
+
 		switch (mode)
 		{
 			case DIGESTMD5:
