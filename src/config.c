@@ -62,7 +62,7 @@ static char *pidfile = NULL;
 static int pidfd = 0;
 
 #ifdef STATIC_FILE
-static mod_static_file_t *static_file_config(config_setting_t *iterator)
+static mod_static_file_t *static_file_config(config_setting_t *iterator, int tls)
 {
 	mod_static_file_t * static_file = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -96,7 +96,12 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator)
 #endif
 #ifdef SENDFILE
 			if (!strncmp(ext, "sendfile", length))
-				static_file->options |= STATIC_FILE_SENDFILE;
+			{
+				if(!tls)
+					static_file->options |= STATIC_FILE_SENDFILE;
+				else
+					warn("sendfile configuration is not allowed with tls");
+			}
 #endif
 #ifdef FILESTORAGE
 			if (!strncmp(ext, "filestorage", length))
@@ -112,7 +117,7 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator)
 #endif
 
 #ifdef DIRLISTING_MOD
-static mod_static_file_t *dirlisting_config(config_setting_t *iterator)
+static mod_static_file_t *dirlisting_config(config_setting_t *iterator, int tls)
 {
 	mod_static_file_t * dirlisting = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -158,7 +163,7 @@ static mod_tls_t *tls_config(config_setting_t *iterator)
 
 #ifdef AUTH
 static const char *str_realm = "ouistiti";
-static mod_auth_t *auth_config(config_setting_t *iterator)
+static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 {
 	mod_auth_t *auth = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -243,7 +248,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 #endif
 
 #ifdef CGI
-static mod_cgi_config_t *cgi_config(config_setting_t *iterator)
+static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
 {
 	mod_cgi_config_t *cgi = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -283,7 +288,7 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator)
 #endif
 
 #ifdef WEBSOCKET
-static mod_websocket_t *websocket_config(config_setting_t *iterator)
+static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 {
 	mod_websocket_t *ws = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -313,7 +318,10 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator)
 #ifdef WEBSOCKET_RT
 			if (!strncmp(ext, "realtime", length))
 			{
-				ws->options |= WEBSOCKET_REALTIME;
+				if (!tls)
+					ws->options |= WEBSOCKET_REALTIME;
+				else
+					warn("realtime configuration is not allowed with tls");
 			}
 #endif
 			ext = ext_end;
@@ -326,7 +334,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator)
 #endif
 
 #ifdef VHOSTS
-static mod_vhost_t *vhost_config(config_setting_t *iterator)
+static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 {
 	mod_vhost_t *vhost = NULL;
 	char *hostname;
@@ -336,11 +344,11 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator)
 	{
 		vhost = calloc(1, sizeof(*vhost));
 		vhost->hostname = hostname;
-		vhost->static_file = static_file_config(iterator);
+		vhost->static_file = static_file_config(iterator, tls);
 		vhost->dirlisting = dirlisting_config(iterator);
-		vhost->auth = auth_config(iterator);
-		vhost->cgi = cgi_config(iterator);
-		vhost->websocket = websocket_config(iterator);
+		vhost->auth = auth_config(iterator, tls);
+		vhost->cgi = cgi_config(iterator, tls);
+		vhost->websocket = websocket_config(iterator, tls);
 	}
 	else
 	{
@@ -442,11 +450,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					}
 					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 					config->tls = tls_config(iterator);
-					config->static_file = static_file_config(iterator);
-					config->dirlisting = dirlisting_config(iterator);
-					config->auth = auth_config(iterator);
-					config->cgi = cgi_config(iterator);
-					config->websocket = websocket_config(iterator);
+					config->static_file = static_file_config(iterator,(config->tls!=NULL));
+					config->dirlisting = dirlisting_config(iterator,(config->tls!=NULL));
+					config->auth = auth_config(iterator,(config->tls!=NULL));
+					config->cgi = cgi_config(iterator,(config->tls!=NULL));
+					config->websocket = websocket_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
 					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
@@ -461,7 +469,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 						for (j = 0; j < count && (j + i) < MAX_SERVERS; j++)
 						{
 							config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
-							config->vhosts[j] = vhost_config(iterator);
+							config->vhosts[j] = vhost_config(iterator,(config->tls!=NULL));
 						}
 					}
 #endif
