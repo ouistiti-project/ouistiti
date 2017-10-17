@@ -203,6 +203,7 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
 	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx);
+
 	return ctx;
 }
 
@@ -220,7 +221,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
 	char *authorization = NULL;
-
 	char *uriencoded = httpmessage_REQUEST(request, "uri");
 	char *uri = utils_urldecode(uriencoded);
 	int protect = 1;
@@ -266,9 +266,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				if (mod->authz->rules->group)
 				{
 					char *group = mod->authz->rules->group(mod->authz->ctx, user);
-					httpmessage_SESSION(request, "%authgroup", group);
-					httpmessage_addheader(response, (char *)str_xgroup, group);
-					dbg("group %s", group);
+					if (group)
+					{
+						httpmessage_SESSION(request, "%authgroup", group);
+						httpmessage_addheader(response, (char *)str_xgroup, group);
+					}
 				}
 				if (mod->authz->rules->home)
 				{

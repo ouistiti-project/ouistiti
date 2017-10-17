@@ -80,7 +80,7 @@ char *authz_simple_group(void *arg, char *user)
 	}
 	if (!strcmp(user, "anonymous"))
 		return "anonymous";
-	return "user";
+	return NULL;
 }
 
 char *authz_simple_home(void *arg, char *user)

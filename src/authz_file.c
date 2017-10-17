@@ -312,7 +312,7 @@ char *authz_file_group(void *arg, char *user)
 		return ctx->group;
 	if (!strcmp(user, "anonymous"))
 		return "anonymous";
-	return "user";
+	return NULL;
 }
 
 char *authz_file_home(void *arg, char *user)
