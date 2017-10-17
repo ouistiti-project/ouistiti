@@ -232,7 +232,7 @@ int main(int argc, char * const *argv)
 				 * ouistiti_websocket_run is more efficient than
 				 * default_websocket_run. But it doesn't run with TLS
 				 **/
-				if (server->config->websocket->mode && strstr(server->config->websocket->mode, "realtime"))
+				if (server->config->websocket->options & WEBSOCKET_REALTIME)
 					run = ouistiti_websocket_run;
 #endif
 				server->mod_websocket = mod_websocket_create(server->server,

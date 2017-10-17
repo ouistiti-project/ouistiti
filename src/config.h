@@ -33,6 +33,8 @@
 #define MAX_SERVERS 4
 #endif
 
+#define WEBSOCKET_REALTIME 0x01
+
 typedef struct serverconfig_s
 {
 	http_server_config_t *server;

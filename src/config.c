@@ -271,10 +271,34 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator)
 #endif
 	if (configws)
 	{
+		char *mode;
 		ws = calloc(1, sizeof(*ws));
 		config_setting_lookup_string(configws, "protocols", (const char **)&ws->services);
 		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
-		config_setting_lookup_string(configws, "mode", (const char **)&ws->mode);
+		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+		char *ext = mode;
+
+		while (ext != NULL)
+		{
+			int length;
+			length = strlen(ext);
+			char *ext_end = strchr(ext, ',');
+			if (ext_end)
+			{
+				length -= strlen(ext_end + 1) + 1;
+				ext_end++;
+			}
+#ifdef WEBSOCKET_RT
+			if (!strncmp(ext, "realtime", length))
+			{
+				if (!tls)
+					ws->options |= WEBSOCKET_REALTIME;
+				else
+					warn("realtime configuration is not allowed with tls");
+			}
+#endif
+			ext = ext_end;
+		}
 	}
 	return ws;
 }
