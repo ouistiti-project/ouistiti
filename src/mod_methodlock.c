@@ -77,24 +77,27 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 			!strcmp(method, "DELETE"))
 		{
 			char *group = httpmessage_SESSION(request, "%authgroup",NULL);
-			if (mod->unlock_groups && mod->unlock_groups[0] != '\0' && group)
+			if (group)
 			{
 				int length = strlen(group);
-				char *iterator = mod->unlock_groups;
-				while (iterator != NULL)
+				if (mod->unlock_groups && mod->unlock_groups[0] != '\0')
 				{
-					if (!strncmp(iterator, group, length))
+					char *iterator = mod->unlock_groups;
+					while (iterator != NULL)
 					{
-						ret = EREJECT;
-						break;
+						if (!strncmp(iterator, group, length))
+						{
+							ret = EREJECT;
+							break;
+						}
+						iterator = strchr(iterator, ',');
+						if (iterator != NULL)
+							iterator++;
 					}
-					iterator = strchr(iterator, ',');
-					if (iterator != NULL)
-						iterator++;
 				}
 				if (ret != EREJECT)
 				{
-					warn("method use with bad user group %s", group);
+					warn("method use with bad user group %s set unlock_groups", group);
 				}
 			}
 			else
@@ -128,7 +131,7 @@ static void *_mod_methodlock_getctx(void *arg, http_client_t *ctl, struct sockad
 
 	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, mod);
 
-	return NULL;
+	return arg;
 }
 
 void *mod_methodlock_create(http_server_t *server, char *vhost, void *config)
