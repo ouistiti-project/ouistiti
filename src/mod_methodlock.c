@@ -77,7 +77,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 			!strcmp(method, "DELETE"))
 		{
 			char *group = httpmessage_SESSION(request, "%authgroup",NULL);
-			if (group)
+			if (group && group[0] != '\0')
 			{
 				int length = strlen(group);
 				if (mod->unlock_groups && mod->unlock_groups[0] != '\0')
@@ -98,13 +98,18 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 				if (ret != EREJECT)
 				{
 					warn("method use with bad user group %s set unlock_groups", group);
+#if defined RESULT_403
+					httpmessage_result(response, RESULT_403);
+#else
+					httpmessage_result(response, RESULT_400);
+#endif
 				}
 			}
 			else
 			{
 				warn("methodlock: method %s forbidden", method);
-#if defined RESULT_403
-				httpmessage_result(response, RESULT_403);
+#if defined RESULT_405
+				httpmessage_result(response, RESULT_405);
 #else
 				httpmessage_result(response, RESULT_400);
 #endif
