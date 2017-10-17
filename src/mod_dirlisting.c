@@ -150,7 +150,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	return ret;
 }
 
-#ifndef STATIC_FILE
+#ifdef DIRLISTING_MOD
 static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;

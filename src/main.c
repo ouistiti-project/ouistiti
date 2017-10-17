@@ -244,6 +244,10 @@ int main(int argc, char * const *argv)
 			if (server->config->tls)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
 #endif
+#if defined DIRLISTING_MOD
+			if (server->config->dirlisting)
+				server->mod_static_file = mod_dirlisting_create(server->server, NULL, server->config->dirlisting);
+#endif
 #if defined STATIC_FILE
 			if (server->config->static_file)
 				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->static_file);

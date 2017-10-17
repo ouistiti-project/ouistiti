@@ -111,6 +111,28 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator)
 #define static_file_config(...) NULL
 #endif
 
+#ifdef DIRLISTING_MOD
+static mod_static_file_t *dirlisting_config(config_setting_t *iterator)
+{
+	mod_static_file_t * dirlisting = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configdirlisting = config_setting_get_member(iterator, "dirlisting");
+#else
+	config_setting_t *configdirlisting = config_setting_lookup(iterator, "dirlisting");
+#endif
+	if (configdirlisting)
+	{
+		int length;
+		char *transfertype;
+		dirlisting = calloc(1, sizeof(*static_file));
+		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
+	}
+	return dirlisting;
+}
+#else
+#define dirlisting_config(...) NULL
+#endif
+
 #if defined(MBEDTLS)
 static mod_tls_t *tls_config(config_setting_t *iterator)
 {
@@ -423,6 +445,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 					config->tls = tls_config(iterator);
 					config->static_file = static_file_config(iterator);
+					config->dirlisting = dirlisting_config(iterator);
 					config->auth = auth_config(iterator);
 					config->cgi = cgi_config(iterator);
 					config->websocket = websocket_config(iterator);
@@ -476,6 +499,8 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 				free(config->tls);
 			if (config->static_file)
 				free(config->static_file);
+			if (config->dirlisting)
+				free(config->dirlisting);
 			if (config->websocket)
 				free(config->websocket);
 			if (config->auth)
