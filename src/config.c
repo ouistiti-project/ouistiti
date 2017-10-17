@@ -337,6 +337,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator)
 		vhost = calloc(1, sizeof(*vhost));
 		vhost->hostname = hostname;
 		vhost->static_file = static_file_config(iterator);
+		vhost->dirlisting = dirlisting_config(iterator);
 		vhost->auth = auth_config(iterator);
 		vhost->cgi = cgi_config(iterator);
 		vhost->websocket = websocket_config(iterator);

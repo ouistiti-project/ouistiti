@@ -67,6 +67,7 @@ struct _mod_vhost_s
 {
 	mod_vhost_t	*config;
 	void *mod_static_file;
+	void *mod_dirlisting;
 	void *mod_cgi;
 	void *mod_auth;
 	void *mod_websocket;
@@ -117,6 +118,10 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 #if defined STATIC_FILE
 	if (config->static_file)
 		mod->mod_static_file = mod_static_file_create(server, config->hostname, config->static_file);
+#endif
+#if defined DIRLISTING_MOD
+	if (config->dirlisting)
+		mod->mod_dirlisting= mod_dirlisting_create(server, config->hostname, config->dirlisting);
 #endif
 
 	return mod;
