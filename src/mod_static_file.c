@@ -113,25 +113,30 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				*ext_end = 0;
 
 			char *dirpath = private->filepath;
-			while(ext != NULL)
+			private->filepath = NULL;
+			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+			if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") == NULL)
 			{
-				private->filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
-				if (private->filepath && !S_ISDIR(filestat.st_mode))
+				while(ext != NULL)
 				{
-					ret = ECONTINUE;
-					break;
+					private->filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
+					if (private->filepath && !S_ISDIR(filestat.st_mode))
+					{
+						ret = ECONTINUE;
+						break;
+					}
+					else if (ext_end)
+						ext = ext_end + 1;
+					else
+					{
+						break;
+					}
+					ext_end = strchr(ext, ',');
+					if (ext_end)
+						*ext_end = 0;
+					free(private->filepath);
+					private->filepath = NULL;
 				}
-				else if (ext_end)
-					ext = ext_end + 1;
-				else
-				{
-					break;
-				}
-				ext_end = strchr(ext, ',');
-				if (ext_end)
-					*ext_end = 0;
-				free(private->filepath);
-				private->filepath = NULL;
 			}
 			if (!private->filepath)
 			{
