@@ -221,7 +221,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_t *mod = ctx->mod;
 	char *authorization = NULL;
 
-	char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
+	char *uriencoded = httpmessage_REQUEST(request, "uri");
+	char *uri = utils_urldecode(uriencoded);
 	int protect = 1;
 	protect = utils_searchexp(uri, mod->config->protect);
 	if (protect != ESUCCESS)
@@ -236,7 +237,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			ret = EREJECT;
 		}
 	}
-	free(uri);
 
 	if (ret == ECONTINUE)
 	{
@@ -367,5 +367,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			}
 		}
 	}
+	free(uri);
 	return ret;
 }
