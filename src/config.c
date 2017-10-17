@@ -172,13 +172,16 @@ static mod_auth_t *auth_config(config_setting_t *iterator)
 			config_setting_lookup_string(configauth, "user", (const char **)&user);
 			if (user != NULL && user[0] != '0')
 			{
-				char *passwd;
-				char *group;
+				char *passwd = NULL;
+				char *group = NULL;
+				char *home = NULL;
 				config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
 				config_setting_lookup_string(configauth, "group", (const char **)&group);
+				config_setting_lookup_string(configauth, "home", (const char **)&home);
 				authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
 				authz_config->user = user;
 				authz_config->group = group;
+				authz_config->home = home;
 				authz_config->passwd = passwd;
 				auth->authz_type = AUTHZ_SIMPLE_E;
 				auth->authz_config = authz_config;
@@ -312,6 +315,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 	ouistiticonfig_t *ouistiticonfig = NULL;
 
 	config_init(&configfile);
+	dbg("config file: %s", filepath);
 	ret = config_read_file(&configfile, filepath);
 	if (ret == CONFIG_TRUE)
 	{

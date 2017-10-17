@@ -261,6 +261,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				httpmessage_SESSION(request, "%user", user);
 				httpmessage_addheader(response, (char *)str_xuser, user);
 				httpmessage_SESSION(request, "%authtype", (char *)mod->type);
+				ret = EREJECT;
 
 				if (mod->authz->rules->group)
 				{
@@ -269,11 +270,33 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					httpmessage_addheader(response, (char *)str_xgroup, group);
 					dbg("group %s", group);
 				}
+				if (mod->authz->rules->home)
+				{
+					char *home = mod->authz->rules->home(mod->authz->ctx, user);
+					if (home)
+					{
+						httpmessage_SESSION(request, "%authhome", home);
+						if (*home == '/')
+							home++;
+						int homelength = strlen(home);
+						if (strncmp(home, uri, homelength) != 0)
+						{
+							dbg("redirect the url to home %s", home);
+#if defined(RESULT_301)
+							char *location = calloc(1, homelength + strlen(uriencoded) + 1);
+							sprintf(location, "%s%s", home, uriencoded);
+							httpmessage_addheader(response, str_location, location);
+							httpmessage_result(response, RESULT_301);
+							free(location);
+							ret = ESUCCESS;
+#endif
+						}
+					}
+				}
 				//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
 				//sprintf(value, "%s=%s", str_authorization, authentication);
 				httpmessage_addheader(response, (char *)str_authorization, authentication);
 				//free(value);
-				ret = EREJECT;
 			}
 			else
 			{
@@ -291,10 +314,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 				if (ret == ESUCCESS)
 				{
+					dbg("auth challenge failed");
 #if defined(RESULT_403)
 					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 					if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
+					{
 						httpmessage_result(response, RESULT_403);
+					}
 					else
 #endif
 					if (mod->config->login)

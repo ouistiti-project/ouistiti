@@ -83,11 +83,22 @@ char *authz_simple_group(void *arg, char *user)
 	return "user";
 }
 
+char *authz_simple_home(void *arg, char *user)
+{
+	authz_simple_t *config = (authz_simple_t *)arg;
+	if (!strcmp(user, config->user) && config->home && config->home[0] != '\0')
+	{
+		return config->home;
+	}
+	return NULL;
+}
+
 authz_rules_t authz_simple_rules =
 {
 	.create = authz_simple_create,
 	.check = authz_simple_check,
 	.passwd = authz_simple_passwd,
 	.group = authz_simple_group,
+	.home = authz_simple_home,
 	.destroy = NULL,
 };
