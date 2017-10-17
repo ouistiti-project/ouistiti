@@ -4,8 +4,7 @@ ifeq ($(VTHREAD_TYPE),pthread)
 $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
-$(TARGET)_SOURCES-$(STATIC)+=../libhttpserver/src/httpserver/libhttpserver.a
-$(TARGET)_LIBS-$(DYNAMIC)+=httpserver
+$(TARGET)_LIBS+=httpserver
 main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
 $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
@@ -27,25 +26,35 @@ $(TARGET)_LIBS-$(VHOSTS)+=:mod_vhosts.so
 $(TARGET)_LIBS-$(METHODLOCK)+=:mod_methodlock.so
 $(TARGET)_LIBS-$(WEBSOCKET)+=:mod_websocket.so
 $(TARGET)_LIBS-$(SERVERHEADER)+=:mod_server.so
-endif
-
-ifeq ($(STATIC),y)
-$(TARGET)_SOURCES-$(MBEDTLS)+=../libhttpserver/src/libmod_mbedtls.a
-$(TARGET)_SOURCES-$(STATIC_FILE)+=libmod_static_file.a libutils_mod.a
-$(TARGET)_SOURCES-$(CGI)+=libmod_cgi.a libutils_mod.a
-$(TARGET)_SOURCES-$(AUTH)+=libmod_auth.a ../utils/libb64.a
-ifneq ($(MBEDTLS),y)
-ifeq ($(MD5_RONRIVEST),y)
-$(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5-c/libmd5.a
 else
-$(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5/libmd5.a
+$(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
+$(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
+$(TARGET)_LIBS-$(CGI)+=mod_cgi utils_mod
+$(TARGET)_LIBS-$(AUTH)+=mod_auth
+$(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts
+$(TARGET)_LIBS-$(METHODLOCK)+=mod_methodlock
+$(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
+$(TARGET)_LIBS-$(SERVERHEADER)+=mod_server
 endif
-endif
-$(TARGET)_SOURCES-$(VHOSTS)+=libmod_vhosts.a
-$(TARGET)_SOURCES-$(METHODLOCK)+=libmod_methodlock.a
-$(TARGET)_SOURCES-$(WEBSOCKET)+=libmod_websocket.a
-$(TARGET)_SOURCES-$(SERVERHEADER)+=libmod_server.a
-endif
+$(TARGET)_LIBS-$(WEBSOCKET)+=websocket
+
+#ifeq ($(STATIC),y)
+#$(TARGET)_SOURCES-$(STATIC_FILE)+=libmod_static_file.a libutils_mod.a
+#$(TARGET)_SOURCES-$(CGI)+=libmod_cgi.a libutils_mod.a
+#$(TARGET)_SOURCES-$(AUTH)+=libmod_auth.a
+#ifneq ($(MBEDTLS),y)
+#$(TARGET)_SOURCES-$(AUTH)+=../utils/libb64.a
+#ifeq ($(MD5_RONRIVEST),y)
+#$(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5-c/libmd5.a
+#else
+#$(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5/libmd5.a
+#endif
+#endif
+#$(TARGET)_SOURCES-$(VHOSTS)+=libmod_vhosts.a
+#$(TARGET)_SOURCES-$(METHODLOCK)+=libmod_methodlock.a
+#$(TARGET)_SOURCES-$(WEBSOCKET)+=libmod_websocket.a
+#$(TARGET)_SOURCES-$(SERVERHEADER)+=libmod_server.a
+#endif
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DMBEDTLS
