@@ -313,10 +313,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator)
 #ifdef WEBSOCKET_RT
 			if (!strncmp(ext, "realtime", length))
 			{
-				if (!tls)
-					ws->options |= WEBSOCKET_REALTIME;
-				else
-					warn("realtime configuration is not allowed with tls");
+				ws->options |= WEBSOCKET_REALTIME;
 			}
 #endif
 			ext = ext_end;
