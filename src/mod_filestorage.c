@@ -86,15 +86,25 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 		{
 			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
 			int length = strlen(private->path_info);
-			if (private->path_info[length] == '/')
+			if (private->path_info[length - 1] == '/')
 			{
+				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"name\":\"", -1);
+				httpmessage_appendcontent(response, private->path_info, -1);
+				httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 				if (mkdir(private->filepath, 0777) > 0)
 				{
+					err("directory creation not allowed %s", private->path_info);
+					httpmessage_appendcontent(response, "KO\"}", -1);
 #if defined RESULT_403
 					httpmessage_result(response, RESULT_403);
 #else
 					httpmessage_result(response, RESULT_400);
 #endif
+				}
+				else
+				{
+					warn("directory creation %s", private->path_info);
+					httpmessage_appendcontent(response, "OK\"}", -1);
 				}
 				ret = ESUCCESS;
 				free(private->filepath);
@@ -107,12 +117,14 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 				private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
 				if (private->fd > 0)
 				{
-					dbg("file open to write %d", private->fd);
-					ret = ECONTINUE;
+					ret = EINCOMPLETE;
 				}
 				else
 				{
-					warn("file creation not allowed %s", private->path_info);
+					err("file creation not allowed %s", private->path_info);
+					httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
+					httpmessage_appendcontent(response, private->path_info, -1);
+					httpmessage_appendcontent(response, "\"}", -1);
 #if defined RESULT_403
 					httpmessage_result(response, RESULT_403);
 #else
@@ -127,7 +139,11 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 				}
 			}
 		}
-		if (private->fd > 0)
+		/**
+		 * we are into PRECONTENT, the data is no yet available
+		 * Then the first loop as to complete on the opening
+		 */
+		else if (private->fd > 0)
 		{
 			char *input;
 			int inputlen;
@@ -136,12 +152,13 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 			if (inputlen > 0 && rest > 0)
 			{
 				write(private->fd, input, inputlen);
-				ret = ECONTINUE;
+				ret = EINCOMPLETE;
 			}
 			else
 			{
-				warn("file storage %s from %d", private->path_info, private->fd);
-				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\"}", 33);
+				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
+				httpmessage_appendcontent(response, private->path_info, -1);
+				httpmessage_appendcontent(response, "\"}", -1);
 				close(private->fd);
 				private->fd = 0;
 				ret = ESUCCESS;
@@ -158,7 +175,9 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 			return ESUCCESS;
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
 		warn("change %s", private->filepath);
-		httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"result\":\"OK\"}", 31);
+		httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"result\":\"OK\",\"name\":\"", -1);
+		httpmessage_appendcontent(response, private->path_info, -1);
+		httpmessage_appendcontent(response, "\"}", 2);
 		private->fd = 0;
 		ret = ESUCCESS;
 		free(private->filepath);
@@ -171,10 +190,13 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 		if (filestorage_checkname(private, response) == ESUCCESS)
 			return ESUCCESS;
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
+		httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"name\":\"", -1);
+		httpmessage_appendcontent(response, private->path_info, -1);
+		httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 		if (unlink(private->filepath) > 0)
 		{
-			warn("file removing not allowed %s", private->path_info);
-			httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"result\":\"KO\"}", 33);
+			err("file removing not allowed %s", private->path_info);
+			httpmessage_appendcontent(response, "KO\"}", -1);
 #if defined RESULT_403
 			httpmessage_result(response, RESULT_403);
 #else
@@ -184,7 +206,7 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 		else
 		{
 			warn("remove file : %s", private->path_info);
-			httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"result\":\"OK\"}", 33);
+			httpmessage_appendcontent(response, "OK\"}", -1);
 		}
 		private->fd = 0;
 		ret = ESUCCESS;
