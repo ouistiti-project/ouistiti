@@ -237,12 +237,6 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 			lseek(private->fd, private->offset, SEEK_CUR);
 			dbg("static file: send %s (%d)", private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
-			// create a content for an empty file
-			if (private->size == 0)
-			{
-				char empty[1] = {0};
-				httpmessage_addcontent(response, NULL, empty, 1);
-			}
 		}
 	}
 	else if (private->fd)
