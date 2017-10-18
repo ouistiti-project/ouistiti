@@ -211,7 +211,7 @@ char *authz_file_passwd(void *arg, char *user)
 	}
 #else
 	FILE *file = fopen(config->path, "r");
-	while(!feof(file))
+	while(file && !feof(file))
 	{
 		fgets(ctx->user, MAXLENGTH, file);
 		char *end = strchr(ctx->user, '\n');
@@ -241,7 +241,7 @@ char *authz_file_passwd(void *arg, char *user)
 			}
 		}
 	}
-	fclose(file);
+	if (file) fclose(file);
 #endif
 	return NULL;
 }
