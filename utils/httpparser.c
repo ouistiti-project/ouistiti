@@ -78,7 +78,6 @@ int main(int argc, char ** argv)
 			{
 				length = rest;
 				ret = httpmessage_parsecgi(message, buffer, &rest);
-				fprintf(stderr, "rest %d %d/%d\n", ret, rest, length);
 				if (ret != EINCOMPLETE)
 				{
 					contentlength += length;
