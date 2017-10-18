@@ -22,7 +22,7 @@ class Authenticate
 		this.authorization = undefined;
 		this.method = "GET";
 		this.url = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '')
-		this.url += "/.lock";
+		this.url += "/.";
 	}
 
 	basic()
@@ -72,7 +72,8 @@ class Authenticate
 			{
 				if (xhr.status === 200)
 				{
-					document.cookie = "Authorization="+self.authorization+";"+document.cookie;
+					if (self.authorization && self.authorization.length > 0)
+						document.cookie = "Authorization="+self.authorization+";"+document.cookie;
 					var username = xhr.getResponseHeader("X-Remote-User");
 					if (username != undefined)
 					self.user = new User(username, xhr.getResponseHeader("X-Remote-Group"), xhr.getResponseHeader("X-Remote-Home"));
@@ -82,6 +83,7 @@ class Authenticate
 				else if (xhr.status === 403)
 				{
 					var challenge = xhr.getResponseHeader("WWW-Authenticate");
+					self.authorization = undefined;
 					if (challenge != undefined)
 						self.challenge = challenge;
 					if (self.onauthenticate != undefined)
@@ -109,8 +111,9 @@ class Authenticate
 };
 class Open
 {
-	constructor()
+	constructor(root)
 	{
+		this.root = root;
 		this.uploadXHR = new XMLHttpRequest();
 		this.isready = false;
 		this.onload = undefined;
@@ -119,8 +122,8 @@ class Open
 
 	open(directory)
 	{
-		this.directory = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '')
-		this.directory += directory;
+		this.directory = this.root;
+		this.directory += directory
 		if (directory[directory.length - 1] != '/')
 			this.directory += '/';
 	}
@@ -128,7 +131,7 @@ class Open
 	{
 		this.file = file;
 	}
-	exec()
+	exec(authorization)
 	{
 		const self = this;
 		const xhr = self.uploadXHR;
@@ -180,18 +183,21 @@ class Open
 		//xhr.responseType = "arraybuffer";
 		xhr.responseType = "blob";
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+		if (authorization)
+			xhr.setRequestHeader("Authorization",authorization);
 		xhr.send();
 	}
 
 	go(target)
 	{
-		window.open(target);
+		window.open(this.directory+target);
 	}
 };
 class Remove
 {
-	constructor()
+	constructor(root)
 	{
+		this.root = root;
 		this.uploadXHR = new XMLHttpRequest();
 		this.isready = false;
 		this.onload = undefined;
@@ -200,8 +206,8 @@ class Remove
 
 	open(directory)
 	{
-		this.directory = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '')
-		this.directory += directory;
+		this.directory = this.root;
+		this.directory += directory
 		if (directory[directory.length - 1] != '/')
 			this.directory += '/';
 	}
@@ -211,7 +217,7 @@ class Remove
 		this.file = file;
 	}
 
-	exec()
+	exec(authorization)
 	{
 		const self = this;
 		const xhr = self.uploadXHR;
@@ -244,13 +250,16 @@ class Remove
 		xhr.open("DELETE", directory+self.file.name);
 		xhr.responseType = "text/json";
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+		if (authorization)
+			xhr.setRequestHeader("Authorization",authorization);
 		xhr.send();
 	}
 };
 class Change
 {
-	constructor()
+	constructor(root)
 	{
+		this.root = root;
 		this.uploadXHR = new XMLHttpRequest();
 		this.isready = false;
 		this.onload = undefined;
@@ -260,8 +269,8 @@ class Change
 
 	open(directory)
 	{
-		this.directory = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '')
-		this.directory += directory;
+		this.directory = this.root;
+		this.directory += directory
 		if (directory[directory.length - 1] != '/')
 			this.directory += '/';
 	}
@@ -280,7 +289,7 @@ class Change
 			this.post.data = message;
 	}
 
-	exec(newname)
+	exec(newname, authorization)
 	{
 		const self = this;
 		const xhr = self.uploadXHR;
@@ -317,13 +326,16 @@ class Change
 		xhr.open("POST", directory+self.file.name);
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 		xhr.setRequestHeader("Content-Type", self.post.type);
+		if (authorization)
+			xhr.setRequestHeader("Authorization",authorization);
 		xhr.send(self.post.data);
 	}
 };
 class UpLoader
 {
-	constructor()
+	constructor(root)
 	{
+		this.root = root;
 		this.uploadXHR = new XMLHttpRequest();
 		this.reader = new FileReader();
 		this.file = undefined;
@@ -336,7 +348,7 @@ class UpLoader
 
 	open(directory)
 	{
-		this.directory = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '')
+		this.directory = this.root;
 		this.directory += directory
 		if (directory[directory.length - 1] != '/')
 			this.directory += '/';
@@ -368,7 +380,7 @@ class UpLoader
         };
 		self.reader.readAsArrayBuffer(self.file);
 	}
-	exec()
+	exec(authorization)
 	{
 		const self = this;
 		const xhr = self.uploadXHR;
@@ -397,38 +409,52 @@ class UpLoader
 		{
 			alert("Uploader timeout");
 		}
+		var data = undefined;
 		if (self.file != undefined)
 		{
 			var filename = self.directory+self.file.name;
 			xhr.open("PUT", filename);
-			xhr.responseType = "text/json";
-			xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-			xhr.send(self.file);
+			data = self.file;
 		}
 		else
 		{
 			xhr.open("PUT", self.directory);
-			xhr.responseType = "text/json";
-			xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-			xhr.send();
 		}
+		xhr.responseType = "text/json";
+		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+		if (authorization)
+			xhr.setRequestHeader("Authorization",authorization);
+		xhr.send(data);
 	}
 };
 class Shell
 {
 	constructor(output)
 	{
+		var root = location.search.substring(1).split("&");
+		root = root.find(function(elem){
+				return elem.startsWith("root=");
+			});
+		if (root)
+		{
+			root = root.split("=")[1];
+			if (root.lastIndexOf('/') != root.length - 1)
+				root += '/';
+			this.root = root.replace(/\\/g,'/').replace(/\/[^\/]*$/, '');
+		}
+		else
+			this.root = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '');
 		this.cwd = "/";
 		this.dashboard = new Array();
 		const self = this;
-		this.open = new Open();
+		this.open = new Open(this.root);
 		this.open.onauthenticate = function(challenge, result)
 		{
 			self.authenticate.challenge = challenge;
 			if (self.onauthenticate != undefined)
 				self.onauthenticate.call(self, challenge, result);
 		}
-		this.remove = new Remove();
+		this.remove = new Remove(this.root);
 		this.remove.onload = function(file)
 		{
 			self.ls();
@@ -439,7 +465,7 @@ class Shell
 			if (self.onauthenticate != undefined)
 				self.onauthenticate.call(self, challenge, result);
 		}
-		this.uploader = new UpLoader();
+		this.uploader = new UpLoader(this.root);
 		this.onput = undefined;
 		this.uploader.onload = function(file)
 		{
@@ -461,6 +487,7 @@ class Shell
 			self.user = user;
 			if (self.onauthorization != undefined)
 				self.onauthorization.call(self, user);
+			self.authorization = self.authenticate.authorization;
 		}
 		this.authenticate.onauthenticate = function(challenge, result)
 		{
@@ -498,7 +525,7 @@ class Shell
 		}
 		else if (directory[0] != '/')
 		{
-			directory = this.cwd + "/" + directory;
+			directory = this.cwd + directory;
 		}
 		const self = this;
 		this.open.onload = function(resultjson)
@@ -517,10 +544,11 @@ class Shell
 		this.open.open(directory);
 		var file = new Blob();		
 		this.open.set(file);
-		this.open.exec();
+		this.open.exec(this.authorization);
 	}
 	launch(file)
 	{
+		this.open.open(this.cwd);
 		this.open.go(file);
 	}
 	rm(filename)
@@ -529,7 +557,7 @@ class Shell
 		file.name = filename;
 		this.remove.open(this.cwd);
 		this.remove.set(file);
-		this.remove.exec();
+		this.remove.exec(this.authorization);
 	}
 	paste()
 	{
@@ -545,7 +573,7 @@ class Shell
 						self.remove.open(self.cwd);
 						file.name = file.oldname;
 						self.remove.set(file);
-						self.remove.exec();
+						self.remove.exec(self.authorization);
 					}
 					else
 					{
@@ -553,9 +581,8 @@ class Shell
 					}
 				}
 				self.uploader.open(self.cwd);
-				copy.file.name = copy.file.newname;
 				self.uploader.set(copy.file);
-				self.uploader.exec();
+				self.uploader.exec(self.authorization);
 			}
 		}
 	}
@@ -577,7 +604,7 @@ class Shell
 				self.uploader.open(self.cwd);
 				file.name = file.newname;
 				self.uploader.set(file);
-				self.uploader.exec();
+				self.uploader.exec(self.authorization);
 			}
 			else
 			{
@@ -586,7 +613,7 @@ class Shell
 		}
 		this.open.open(this.cwd);
 		this.open.set(file);
-		this.open.exec();
+		this.open.exec(this.authorization);
 	}
 	mv(oldname, newname)
 	{
@@ -599,16 +626,16 @@ class Shell
 			{
 				self.remove.open(self.cwd);
 				self.remove.set(fileold);
-				self.remove.exec();
+				self.remove.exec(self.authorization);
 			}
 			self.uploader.open(self.cwd);
 			file.name = newname;
 			self.uploader.set(file);
-			self.uploader.exec();
+			self.uploader.exec(self.authorization);
 		}
 		this.open.open(this.cwd);
 		this.open.set(fileold);
-		this.open.exec();
+		this.open.exec(this.authorization);
 	}
 	mkdir(directory)
 	{
@@ -617,9 +644,9 @@ class Shell
 		{
 			self.ls();
 		}
-		this.uploader.open(undefined,this.cwd+"/"+directory);
+		this.uploader.open(this.cwd+"/"+directory);
 		this.uploader.set();
-		this.uploader.exec();
+		this.uploader.exec(this.authorization);
 	}
 	put(file)
 	{
