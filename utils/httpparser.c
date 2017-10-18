@@ -73,24 +73,28 @@ int main(int argc, char ** argv)
 		if (length > 0)
 		{
 			int ret = 0;
-			if (state & HEADER)
+			int rest = length;
+			while (rest > 0)
 			{
-				headerlength += length;
-			}
-			ret = httpmessage_parsecgi(message, buffer, &length);
-			if (ret != EINCOMPLETE)
-			{
-				contentlength += length;
-				if (state & HEADER)
+				length = rest;
+				ret = httpmessage_parsecgi(message, buffer, &rest);
+				fprintf(stderr, "rest %d %d/%d\n", ret, rest, length);
+				if (ret != EINCOMPLETE)
 				{
-					state &= ~HEADER;
-					headerlength -= length;
+					contentlength += length;
 				}
-				state |= CONTENT;
+				else
+				{
+					length -= rest;
+					headerlength += length;
+				}
 			}
 		}
 		else
+		{
+			fprintf(stderr, "no more data\n");
 			state |= END;
+		}
 	} while (!(state & END));
 	int result = httpmessage_result(message, 0);
 	printf("%d %d %d\n", result, headerlength, contentlength);
