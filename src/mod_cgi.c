@@ -553,30 +553,37 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				 * to set the header. And the parsecgi is ended just
 				 * after the header.
 				 */
-				ret = httpmessage_parsecgi(response, data, &size);
-				//dbg("cgi data %d\n%s#\n", size, data);
-				if (ret != EINCOMPLETE)
+				int rest = size;
+				while (rest > 0)
 				{
-					char *offset = data;
-					if (ctx->state < STATE_HEADERCOMPLETE)
+					ret = httpmessage_parsecgi(response, data, &rest);
+					//dbg("parse %d cgi data %d\n%s#\n", ret, size, data);
+					if (ret != EINCOMPLETE)
 					{
-						httpmessage_addcontent(response, NULL, NULL, -1);
-						if (*offset == 0)
+						char *offset = data;
+						if (ctx->state < STATE_HEADERCOMPLETE)
 						{
-							size = 0;
+							httpmessage_addcontent(response, NULL, NULL, -1);
+							if (*offset == 0)
+							{
+								size = 0;
+							}
 						}
+						ctx->state = STATE_HEADERCOMPLETE;
+						if (size > 0)
+						{
+							httpmessage_addcontent(response, NULL, offset, size);
+						}
+						ret = ECONTINUE;
 					}
-					ctx->state = STATE_HEADERCOMPLETE;
-					if (size > 0)
-					{
-						httpmessage_addcontent(response, NULL, offset, size);
-					}
-					ret = ECONTINUE;
 				}
 			}
 		}
 		else
+		{
 			ctx->state = STATE_OUTFINISH;
+			warn("cgi complete");
+		}
 	}
 
 	if (ctx->state >= STATE_OUTFINISH)
