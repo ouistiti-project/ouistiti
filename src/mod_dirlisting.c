@@ -92,7 +92,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 			int length = strlen(private->path_info);
 			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
 			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, private->path_info);
-			httpmessage_addcontent(response, NULL, data, strlen(data));
+			httpmessage_addcontent(response, (char*)utils_getmime(".json"), data, strlen(data));
 			free(data);
 			ret = ECONTINUE;
 		}
@@ -101,6 +101,8 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 			warn("dirlisting: directory not open");
 			free(private->filepath);
 			private->filepath = NULL;
+			httpmessage_result(response, RESULT_400);
+			ret = ESUCCESS;
 		}
 	}
 	else if (private->path_info == NULL)
