@@ -128,7 +128,7 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
-	switch (config->authz_type)
+	switch (config->authz_type & AUTHZ_TYPE_MASK)
 	{
 #ifdef AUTHZ_SIMPLE
 	case AUTHZ_SIMPLE_E:
@@ -288,7 +288,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 						if (*home == '/')
 							home++;
 						int homelength = strlen(home);
-						if (strncmp(home, uri, homelength) != 0)
+						if ((mod->authz->type & AUTHZ_HOME_E) && strncmp(home, uri, homelength) != 0)
 						{
 							dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)

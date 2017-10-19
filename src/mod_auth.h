@@ -72,6 +72,8 @@ typedef enum
 	AUTHZ_SIMPLE_E = 1,
 	AUTHZ_FILE_E,
 	AUTHZ_UNIX_E,
+	AUTHZ_TYPE_MASK = 0x0F,
+	AUTHZ_HOME_E = 0x10,
 } authz_type_t;
 struct authz_s
 {

@@ -230,6 +230,11 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			}
 		}
 #endif
+		char *mode;
+		config_setting_lookup_string(configauth, "mode", (const char **)&mode);
+		if (mode && strstr(mode, "home") != NULL)
+			auth->authz_type |= AUTHZ_HOME_E;
+
 		char *type = NULL;
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
 #ifdef AUTHN_BASIC
