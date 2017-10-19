@@ -71,6 +71,7 @@ typedef enum
 {
 	AUTHZ_SIMPLE_E = 1,
 	AUTHZ_FILE_E,
+	AUTHZ_UNIX_E,
 } authz_type_t;
 struct authz_s
 {

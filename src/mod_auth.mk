@@ -18,6 +18,10 @@ mod_auth_CFLAGS-$(AUTHZ_SIMPLE)+=-DAUTHZ_SIMPLE
 mod_auth_SOURCES-$(AUTHZ_FILE)+=authz_file.c
 mod_auth_CFLAGS-$(AUTHZ_FILE)+=-DAUTHZ_FILE
 
+mod_auth_SOURCES-$(AUTHZ_UNIX)+=authz_unix.c
+mod_auth_CFLAGS-$(AUTHZ_UNIX)+=-DAUTHZ_UNIX
+mod_auth_LIBS-$(AUTHZ_UNIX)+=crypt
+
 #libb64 must the last source
 ifneq ($(MBEDTLS),y)
 mod_auth_LDFLAGS+=-L../utils

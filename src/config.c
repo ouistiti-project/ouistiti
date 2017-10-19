@@ -177,6 +177,21 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configauth, "login", (const char **)&auth->login);
 		config_setting_lookup_string(configauth, "protect", (const char **)&auth->protect);
 		config_setting_lookup_string(configauth, "unprotect", (const char **)&auth->unprotect);
+#ifdef AUTHZ_UNIX
+		if (auth->authz_config == NULL)
+		{
+			char *path = NULL;
+
+			config_setting_lookup_string(configauth, "file", (const char **)&path);
+			if (path != NULL && path[0] != '0' && strstr(path, "shadow"))
+			{
+				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
+				authz_config->path = path;
+				auth->authz_type = AUTHZ_UNIX_E;
+				auth->authz_config = authz_config;
+			}
+		}
+#endif
 #ifdef AUTHZ_FILE
 		if (auth->authz_config == NULL)
 		{
