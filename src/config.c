@@ -263,6 +263,8 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configcgi, "accepted_ext", (const char **)&cgi->accepted_ext);
 		config_setting_lookup_string(configcgi, "ignored_ext", (const char **)&cgi->ignored_ext);
 		cgi->nbenvs = 0;
+		cgi->chunksize = 64;
+		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);
 #if LIBCONFIG_VER_MINOR < 5
 		config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
 #else

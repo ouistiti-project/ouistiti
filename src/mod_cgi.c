@@ -83,6 +83,8 @@ struct mod_cgi_ctx_s
 	pid_t pid;
 	int tocgi[2];
 	int fromcgi[2];
+
+	char *chunk;
 };
 
 struct _mod_cgi_s
@@ -122,6 +124,9 @@ static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *add
 
 	ctx->ctl = ctl;
 	ctx->mod = mod;
+	if (mod->config->chunksize == 0)
+		mod->config->chunksize = 64;
+	ctx->chunk = malloc(mod->config->chunksize + 1);
 	httpclient_addconnector(ctl, mod->vhost, _cgi_connector, ctx);
 
 	return ctx;
@@ -134,6 +139,8 @@ static void _mod_cgi_freectx(void *vctx)
 		free(ctx->cgipath);
 	if (ctx->path_info)
 		free(ctx->path_info);
+	if (ctx->chunk)
+		free(ctx->chunk);
 	if (ctx->fromcgi[0])
 	{
 		if (ctx->fromcgi[0])
@@ -536,16 +543,15 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		sret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &timeout);
 		if (sret > 0 && FD_ISSET(ctx->fromcgi[0], &rfds))
 		{
-			char data[64];
-			int size = 63;
-			size = read(ctx->fromcgi[0], data, size);
+			int size = config->chunksize;
+			size = read(ctx->fromcgi[0], ctx->chunk, size);
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
 			}
 			else
 			{
-				data[size] = 0;
+				ctx->chunk[size] = 0;
 				/**
 				 * if content_length is not null, parcgi is able to
 				 * create the content.
@@ -556,11 +562,11 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				int rest = size;
 				while (rest > 0)
 				{
-					ret = httpmessage_parsecgi(response, data, &rest);
-					//dbg("parse %d cgi data %d\n%s#\n", ret, size, data);
+					ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
+					//dbg("parse %d cgi data %d\n%s#\n", ret, size, ctx->chunk);
 					if (ret != EINCOMPLETE)
 					{
-						char *offset = data;
+						char *offset = ctx->chunk;
 						if (ctx->state < STATE_HEADERCOMPLETE)
 						{
 							httpmessage_addcontent(response, NULL, NULL, -1);
