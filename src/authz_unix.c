@@ -93,7 +93,9 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 		if (spasswd && spasswd->sp_pwdp) {
 			cryptpasswd = spasswd->sp_pwdp;
 		}
-		char *testpasswd = crypt(passwd, cryptpasswd);
+		char *testpasswd;
+		if (strcmp(testpasswd, "x"))
+			testpasswd = crypt(passwd, cryptpasswd);
 
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
