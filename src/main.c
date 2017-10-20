@@ -100,12 +100,21 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
 }
 
+static servert_t *first = NULL;
 static char run = 0;
 static void
-handler(int sig, siginfo_t *si, void *unused)
+handler(int sig, siginfo_t *si, void *arg)
 {
 	run = 'q';
-	kill(0, SIGQUIT);
+	servert_t *server = arg;
+	server = first;
+
+	while (server != NULL)
+	{
+		if (server->server)
+			httpserver_disconnect(server->server);
+		server = server->next;
+	}
 }
 
 static char servername[] = PACKAGEVERSION;
@@ -113,7 +122,7 @@ int main(int argc, char * const *argv)
 {
 	struct passwd *user = NULL;
 	struct group *grp = NULL;
-	servert_t *server, *first = NULL;
+	servert_t *server;
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
 	serverconfig_t *it;
@@ -167,6 +176,7 @@ int main(int argc, char * const *argv)
 	sigemptyset(&action.sa_mask);
 	action.sa_sigaction = handler;
 	sigaction(SIGTERM, &action, NULL);
+	sigaction(SIGINT, &action, NULL);
 
 #ifdef HAVE_PWD_H
 	if (ouistiticonfig->user)
