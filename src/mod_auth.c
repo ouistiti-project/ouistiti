@@ -197,6 +197,8 @@ void mod_auth_destroy(void *arg)
 	{
 		mod->authz->rules->destroy(mod->authz->ctx);
 	}
+	free(mod->authn);
+	free(mod->authz);
 	free(mod);
 }
 

@@ -73,7 +73,7 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator, int tls
 	if (configstaticfile)
 	{
 		int length;
-		char *transfertype;
+		char *transfertype = NULL;
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
 		config_setting_lookup_string(configstaticfile, "accepted_ext", (const char **)&static_file->accepted_ext);
@@ -128,7 +128,6 @@ static mod_static_file_t *dirlisting_config(config_setting_t *iterator, int tls)
 	if (configdirlisting)
 	{
 		int length;
-		char *transfertype;
 		dirlisting = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
 	}
@@ -230,7 +229,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			}
 		}
 #endif
-		char *mode;
+		char *mode = NULL;
 		config_setting_lookup_string(configauth, "mode", (const char **)&mode);
 		if (mode && strstr(mode, "home") != NULL)
 			auth->authz_type |= AUTHZ_HOME_E;
@@ -320,7 +319,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 #endif
 	if (configws)
 	{
-		char *mode;
+		char *mode = NULL;
 		ws = calloc(1, sizeof(*ws));
 		config_setting_lookup_string(configws, "protocols", (const char **)&ws->services);
 		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
@@ -359,7 +358,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 {
 	mod_vhost_t *vhost = NULL;
-	char *hostname;
+	char *hostname = NULL;
 
 	config_setting_lookup_string(iterator, "hostname", (const char **)&hostname);
 	if (hostname && hostname[0] != '0')

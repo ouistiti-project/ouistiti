@@ -144,6 +144,8 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				private->type |= STATIC_FILE_DIRLISTING;
 				return EREJECT;
 			}
+			free(dirpath);
+
 		}
 		else
 			ret = ECONTINUE;
@@ -247,6 +249,14 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		{
 			close(private->fd);
 			private->fd = 0;
+			warn("static file: end %s (%d,%s)", private->filepath, ret, strerror(errno));
+			free(private->filepath);
+			private->filepath = NULL;
+			free(private->path_info);
+			private->path_info = NULL;
+			/**
+			 * it is too late to set an error here
+			 */
 			return EREJECT;
 		}
 		private->offset += ret;

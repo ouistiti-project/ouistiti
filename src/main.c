@@ -296,6 +296,10 @@ int main(int argc, char * const *argv)
 		if (server->mod_server)
 			mod_server_destroy(server->mod_server);
 #endif
+#if defined WEBSOCKET
+		if (server->mod_websocket)
+			mod_websocket_destroy(server->mod_websocket);
+#endif
 #if defined CGI
 		if (server->mod_cgi)
 			mod_cgi_destroy(server->mod_cgi);
