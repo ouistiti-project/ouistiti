@@ -81,6 +81,8 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
 
+	if (ctx->user && !strcmp(user, ctx->user))
+		ret = 1;
 	struct passwd *pw = NULL;
 	pw = getpwnam(user);
 	if (passwd && pw)
@@ -104,6 +106,8 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 			{
 				ctx->group = strdup(grp->gr_name);
 			}
+			setgid(pw->pw_gid);
+			setuid(pw->pw_uid);
 		}
 	}
 	return ret;

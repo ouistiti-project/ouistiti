@@ -60,17 +60,10 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 	sigemptyset (&sigset);
 	sigaddset(&sigset, SIGPIPE);
 	sigprocmask(SIG_BLOCK, &sigset, NULL);
-	struct timeval *ptimeout = NULL;
-	struct timeval timeout;
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 10;
-	ptimeout = &timeout;
-	fd_set wfds;
-	int sock = httpmessage_keepalive(response);
-	FD_ZERO(&wfds);
-	FD_SET(sock, &wfds);
-	ret = select(sock + 1, NULL, &wfds, NULL, ptimeout);
-	if (ret > 0)
+
+	int sock;
+	sock = httpclient_wait(private->ctl, 1);
+	if (sock > 0)
 		ret = sendfile(sock, private->fd, NULL, size);
 	if (ret > 0)
 		sigprocmask(SIG_UNBLOCK, &sigset, NULL);
