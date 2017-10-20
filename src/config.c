@@ -449,6 +449,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->server = calloc(1, sizeof(*config->server));
 
 					config_setting_lookup_string(iterator, "hostname", (const char **)&config->server->hostname);
+					config->server->port = 80;
 					config_setting_lookup_int(iterator, "port", &config->server->port);
 					config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
 					config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
