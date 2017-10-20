@@ -290,12 +290,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 						if (*home == '/')
 							home++;
 						int homelength = strlen(home);
-						if ((mod->authz->type & AUTHZ_HOME_E) && strncmp(home, uri, homelength) != 0)
+						if ((mod->authz->type & AUTHZ_HOME_E) && (strncmp(home, uri, homelength) != 0))
 						{
 							dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)
-							char *location = calloc(1, homelength + strlen(uriencoded) + 1);
-							sprintf(location, "%s%s", home, uriencoded);
+							char *location = calloc(1, 1 + homelength + strlen(uriencoded) + 1);
+							sprintf(location, "/%s%s", home, uriencoded);
 							httpmessage_addheader(response, str_location, location);
 							httpmessage_result(response, RESULT_301);
 							free(location);
