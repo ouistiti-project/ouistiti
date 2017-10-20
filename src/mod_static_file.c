@@ -247,9 +247,11 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		ret = mod->transfer(private, response);
 		if (ret < 0)
 		{
+			if (errno == EAGAIN)
+				return EINCOMPLETE;
+			warn("static file: end %s (%d,%s)", private->filepath, ret, strerror(errno));
 			close(private->fd);
 			private->fd = 0;
-			warn("static file: end %s (%d,%s)", private->filepath, ret, strerror(errno));
 			free(private->filepath);
 			private->filepath = NULL;
 			free(private->path_info);
