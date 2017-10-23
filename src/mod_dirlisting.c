@@ -59,7 +59,7 @@ typedef struct _static_file_connector_s static_file_connector_t;
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
-#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":\"%d %s\",\"type\":%d},"
+#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":\"%u %s\",\"type\":%d},"
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
 #define DIRLISTING_FOOTER "\
 {}]}"
