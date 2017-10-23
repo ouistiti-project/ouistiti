@@ -153,10 +153,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			}
 			if (!private->filepath)
 			{
+				private->filepath = dirpath;
 #ifdef DIRLISTING
 				if (config->options & STATIC_FILE_DIRLISTING)
 				{
-					private->filepath = dirpath;
 					private->func = dirlisting_connector;
 				}
 #else
