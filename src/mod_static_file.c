@@ -50,6 +50,14 @@
 #endif
 
 /**
+ * transfer function for getfile_connector
+ */
+int mod_send_read(static_file_connector_t *private, http_message_t *response);
+#ifdef SENDFILE
+extern int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
+#endif
+
+/**
  * USE_PRIVATE is used to keep a sample of cade which uses
  * the httpmessage_private function
  */
@@ -232,6 +240,11 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 			lseek(private->fd, private->offset, SEEK_CUR);
 			dbg("static file: send %s (%d)", private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
+			mod->transfer = mod_send_read;
+#ifdef SENDFILE
+			if (config->options & STATIC_FILE_SENDFILE)
+				mod->transfer = mod_send_sendfile;
+#endif
 		}
 	}
 	else if (private->fd)
@@ -290,10 +303,6 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	if (config->options & STATIC_FILE_DIRLISTING)
 		httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
 #endif
-#ifdef SENDFILE
-	if (config->options & STATIC_FILE_SENDFILE)
-		mod->transfer = mod_send_sendfile;
-#endif
 	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
 #ifdef RANGEREQUEST
 	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
@@ -322,7 +331,6 @@ void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file
 
 	mod->config = config;
 	mod->vhost = vhost;
-	mod->transfer = mod_send_read;
 	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, mod);
 
 	return mod;

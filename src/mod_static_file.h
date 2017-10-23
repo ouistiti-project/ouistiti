@@ -82,13 +82,6 @@ struct _static_file_connector_s
 };
 
 /**
- * transfer function for getfile_connector
- */
-int mod_send_read(static_file_connector_t *private, http_message_t *response);
-#ifdef SENDFILE
-int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
-#endif
-/**
  * specific connectors
  */
 #ifdef RANGEREQUEST
