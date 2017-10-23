@@ -98,9 +98,8 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		}
 		else
 		{
-			warn("dirlisting: directory not open");
-			free(private->filepath);
-			private->filepath = NULL;
+			warn("dirlisting: directory not open %s %s", private->filepath, strerror(errno));
+			static_file_close(private);
 			httpmessage_result(response, RESULT_400);
 			ret = ESUCCESS;
 		}
@@ -109,7 +108,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	{
 		httpclient_shutdown(private->ctl);
 		closedir(private->dir);
-		private->dir = NULL;
+		static_file_close(private);
 		ret = ESUCCESS;
 	}
 	else
@@ -143,8 +142,6 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		{
 			free(private->path_info);
 			private->path_info = NULL;
-			free(private->filepath);
-			private->filepath = NULL;
 			httpmessage_addcontent(response, NULL, DIRLISTING_FOOTER, -1);
 			ret = ECONTINUE;
 		}

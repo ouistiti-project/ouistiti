@@ -57,6 +57,19 @@ typedef struct _static_file_connector_s static_file_connector_t;
 
 int mod_send(static_file_connector_t *private, http_message_t *response);
 
+int static_file_close(static_file_connector_t *private)
+{
+	if (private->filepath)
+		free(private->filepath);
+	private->filepath = NULL;
+	if (private->path_info)
+		free(private->path_info);
+	private->path_info = NULL;
+	private->fd = 0;
+	private->func = NULL;
+	private->dir = NULL;
+}
+
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
@@ -90,16 +103,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				httpmessage_addheader(response, str_location, location);
 				httpmessage_result(response, RESULT_301);
 				free(location);
-				free(private->filepath);
-				private->filepath = NULL;
-				free(private->path_info);
-				private->path_info = NULL;
+				static_file_close(private);
 				return ESUCCESS;
 #else
-				free(private->filepath);
-				private->filepath = NULL;
-				free(private->path_info);
-				private->path_info = NULL;
+				static_file_close(private);
 				dbg("static file: reject directory path bad formatting");
 				return EREJECT;
 #endif
@@ -152,20 +159,14 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (ret != ECONTINUE)
 		{
 			dbg("static file: %s not found (%s)", private->path_info, strerror(errno));
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+			static_file_close(private);
 			return EREJECT;
 		}
 		char *fileext = strrchr(private->filepath, '.');
 		if (fileext && utils_searchexp(fileext, config->ignored_ext) == ESUCCESS)
 		{
 			warn("static file: %s forbidden extension", private->path_info);
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+			static_file_close(private);
 			return  EREJECT;
 		}
 		private->size = filestat.st_size;
@@ -178,10 +179,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (fileext && utils_searchexp(fileext, config->accepted_ext) != ESUCCESS)
 		{
 			warn("static file: forbidden extension");
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+			static_file_close(private);
 #if defined(RESULT_403)
 			httpmessage_result(response, RESULT_403);
 			return ESUCCESS;
@@ -212,10 +210,7 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 	{
 		warn("static file: empty file");
 #if defined(RESULT_204)
-		free(private->filepath);
-		private->filepath = NULL;
-		free(private->path_info);
-		private->path_info = NULL;
+		static_file_close(private);
 		httpmessage_result(response, RESULT_204);
 		return ESUCCESS;
 #endif
@@ -225,12 +220,10 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		private->fd = open(private->filepath, O_RDONLY);
 		if (private->fd < 0)
 		{
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
-			private->fd = 0;
-			return EREJECT;
+			httpmessage_result(response, RESULT_403);
+			err("static file open %s %s", private->filepath, strerror(errno));
+			static_file_close(private);
+			return ESUCCESS;
 		}
 		else
 		{
@@ -251,11 +244,7 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 				return EINCOMPLETE;
 			warn("static file: end %s (%d,%s)", private->filepath, ret, strerror(errno));
 			close(private->fd);
-			private->fd = 0;
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+			static_file_close(private);
 			/**
 			 * it is too late to set an error here
 			 */
@@ -266,11 +255,7 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		if (ret == 0 || private->size <= 0)
 		{
 			close(private->fd);
-			private->fd = 0;
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+			static_file_close(private);
 			return ESUCCESS;
 		}
 	}

@@ -17,9 +17,15 @@ ifneq ($(MAX_SERVERS),)
 $(TARGET)_CFLAGS+=-DMAX_SERVERS=$(MAX_SERVERS)
 endif
 
+ifeq ($(FILESTORAGE),y)
+STATIC_FILE=y
+DIRLISTING=y
+endif
+
 ifeq ($(DYNAMIC),y)
 $(TARGET)_LIBS-$(MBEDTLS)+=:mod_mbedtls.so
 $(TARGET)_LIBS-$(STATIC_FILE)+=:mod_static_file.so :utils_mod.so
+$(TARGET)_LIBS-$(FILESTORAGE)+=:mod_filestorage.so
 $(TARGET)_LIBS-$(CGI)+=:mod_cgi.so :utils_mod.so
 $(TARGET)_LIBS-$(AUTH)+=:mod_auth.so
 $(TARGET)_LIBS-$(VHOSTS)+=:mod_vhosts.so
@@ -29,6 +35,7 @@ $(TARGET)_LIBS-$(SERVERHEADER)+=:mod_server.so
 else
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
+$(TARGET)_LIBS-$(FILESTORAGE)+=mod_filestorage
 $(TARGET)_LIBS-$(CGI)+=mod_cgi utils_mod
 $(TARGET)_LIBS-$(AUTH)+=mod_auth
 $(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts

@@ -95,6 +95,8 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 int range_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
 
+int static_file_close(static_file_connector_t *private);
+
 #ifdef __cplusplus
 }
 #endif
