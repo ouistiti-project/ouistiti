@@ -323,7 +323,6 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		close(ctx->fromcgi[1]);
 
 		int sock = httpmessage_keepalive(request);
-		close(sock);
 
 		char *argv[2];
 		argv[0] = basename(ctx->cgipath);
@@ -433,6 +432,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 			env[i] = (char *)ctx->mod->config->env[i - NBENVS];
 		}
 		env[i] = NULL;
+		close(sock);
 
 		char *dirpath;
 		dirpath = dirname(ctx->cgipath);
