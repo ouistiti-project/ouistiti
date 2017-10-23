@@ -227,7 +227,7 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
 			private->func = putfile_connector;
 		}
-		else if (filestorage_checkname(private, response) == ESUCCESS)
+		else if (private->filepath && filestorage_checkname(private, response) == ESUCCESS)
 		{
 			if (S_ISDIR(filestat.st_mode))
 			{
