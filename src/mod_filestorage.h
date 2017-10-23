@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_static_file.h: Simple HTTPS module
+ * mod_filestorage.h: RESTfull file storage module
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -25,8 +25,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_DIRLISTING_H__
-#define __MOD_DIRLISTING_H__
+#ifndef __MOD_FILESTORAGE_H__
+#define __MOD_FILESTORAGE_H__
 
 #include "mod_static_file.h"
 
@@ -35,7 +35,8 @@ extern "C"
 {
 #endif
 
-int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
+void *mod_filestorage_create(http_server_t *server, char *vhost, mod_static_file_t *config);
+void mod_filestorage_destroy(void *data);
 
 #ifdef __cplusplus
 }

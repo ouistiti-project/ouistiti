@@ -112,25 +112,27 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator, int tls
 #define static_file_config(...) NULL
 #endif
 
-#ifdef DIRLISTING_MOD
-static mod_static_file_t *dirlisting_config(config_setting_t *iterator, int tls)
+#ifdef FILESTORAGE
+static mod_static_file_t *filestorage_config(config_setting_t *iterator, int tls)
 {
-	mod_static_file_t * dirlisting = NULL;
+	mod_static_file_t *filestorage = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configdirlisting = config_setting_get_member(iterator, "dirlisting");
+	config_setting_t *configfilestorage = config_setting_get_member(iterator, "filestorage");
 #else
-	config_setting_t *configdirlisting = config_setting_lookup(iterator, "dirlisting");
+	config_setting_t *configfilestorage = config_setting_lookup(iterator, "filestorage");
 #endif
-	if (configdirlisting)
+	if (configfilestorage)
 	{
 		int length;
-		dirlisting = calloc(1, sizeof(*static_file));
-		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
+		filestorage = calloc(1, sizeof(*filestorage));
+		config_setting_lookup_string(configfilestorage, "docroot", (const char **)&filestorage->docroot);
+		config_setting_lookup_string(configfilestorage, "accepted_ext", (const char **)&filestorage->accepted_ext);
+		config_setting_lookup_string(configfilestorage, "ignored_ext", (const char **)&filestorage->ignored_ext);
 	}
-	return dirlisting;
+	return filestorage;
 }
 #else
-#define dirlisting_config(...) NULL
+#define filestorage_config(...) NULL
 #endif
 
 #if defined(MBEDTLS)
@@ -362,7 +364,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 		vhost = calloc(1, sizeof(*vhost));
 		vhost->hostname = hostname;
 		vhost->static_file = static_file_config(iterator, tls);
-		vhost->dirlisting = dirlisting_config(iterator, tls);
+		vhost->filestorage = filestorage_config(iterator, tls);
 		vhost->auth = auth_config(iterator, tls);
 		vhost->cgi = cgi_config(iterator, tls);
 		vhost->websocket = websocket_config(iterator, tls);
@@ -469,7 +471,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 					config->tls = tls_config(iterator);
 					config->static_file = static_file_config(iterator,(config->tls!=NULL));
-					config->dirlisting = dirlisting_config(iterator,(config->tls!=NULL));
+					config->filestorage = filestorage_config(iterator,(config->tls!=NULL));
 					config->auth = auth_config(iterator,(config->tls!=NULL));
 					config->cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->websocket = websocket_config(iterator,(config->tls!=NULL));
@@ -523,8 +525,8 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 				free(config->tls);
 			if (config->static_file)
 				free(config->static_file);
-			if (config->dirlisting)
-				free(config->dirlisting);
+			if (config->filestorage)
+				free(config->filestorage);
 			if (config->websocket)
 				free(config->websocket);
 			if (config->auth)

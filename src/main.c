@@ -52,6 +52,7 @@
 #include "httpserver/mod_mbedtls.h"
 #include "httpserver/mod_websocket.h"
 #include "mod_static_file.h"
+#include "mod_filestorage.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
@@ -82,6 +83,7 @@ typedef struct server_s
 	http_server_t *server;
 	void *mod_mbedtls;
 	void *mod_static_file;
+	void *mod_filestorage;
 	void *mod_cgi;
 	void *mod_auth;
 	void *mod_methodlock;
@@ -254,9 +256,9 @@ int main(int argc, char * const *argv)
 			if (server->config->tls)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
 #endif
-#if defined DIRLISTING_MOD
-			if (server->config->dirlisting)
-				server->mod_static_file = mod_dirlisting_create(server->server, NULL, server->config->dirlisting);
+#if defined FILESTORAGE
+			if (server->config->filestorage)
+				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->filestorage);
 #endif
 #if defined STATIC_FILE
 			if (server->config->static_file)

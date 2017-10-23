@@ -65,7 +65,6 @@ $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DMBEDTLS
-$(TARGET)_CFLAGS-$(DIRLISTING)+=-DDIRLISTING
 $(TARGET)_CFLAGS-$(SENDFILE)+=-DSENDFILE
 $(TARGET)_CFLAGS-$(STATIC_FILE)+=-DSTATIC_FILE
 $(TARGET)_CFLAGS-$(FILESTORAGE)+=-DFILESTORAGE
@@ -86,6 +85,7 @@ $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 subdir-$(CGI)+=mod_cgi.mk
 subdir-$(STATIC_FILE)+=mod_static_file.mk
+subdir-$(FILESTORAGE)+=mod_filestorage.mk
 subdir-$(AUTH)+=mod_auth.mk
 subdir-$(VHOSTS)+=mod_vhosts.mk
 subdir-$(METHODLOCK)+=mod_methodlock.mk
