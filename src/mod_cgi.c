@@ -574,9 +574,9 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 							{
 								size = 0;
 							}
+							ctx->state = STATE_HEADERCOMPLETE;
 						}
-						ctx->state = STATE_HEADERCOMPLETE;
-						if (size > 0)
+						else if (size > 0 && rest == 0)
 						{
 							httpmessage_addcontent(response, NULL, offset, size);
 						}
