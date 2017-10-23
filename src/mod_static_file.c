@@ -206,7 +206,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 	return  EREJECT;
 }
 
-static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
+int getfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	static_file_connector_t *private = (static_file_connector_t *)arg;
 	_mod_static_file_mod_t *mod = private->mod;
@@ -303,7 +303,7 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	if (config->options & STATIC_FILE_DIRLISTING)
 		httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
 #endif
-	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, getfile_connector, ctx);
 #ifdef RANGEREQUEST
 	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
 #endif

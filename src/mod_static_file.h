@@ -87,6 +87,7 @@ struct _static_file_connector_s
 #ifdef RANGEREQUEST
 int range_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
+int getfile_connector(void *arg, http_message_t *request, http_message_t *response);
 
 int static_file_close(static_file_connector_t *private);
 
