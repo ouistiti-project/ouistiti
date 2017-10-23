@@ -278,14 +278,18 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 			}
 		}
 		else
-			warn("filestorage: forbidden file");
+			warn("filestorage: forbidden file %s", private->filepath);
 	}
-	if (private->func != NULL)
-	{
-		return private->func(arg, request, response);
-	}
-	static_file_close(private);
 	return  EREJECT;
+}
+
+static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	if (private->func)
+		return private->func(arg, request, response);
+	static_file_close(private);
+	return EREJECT;
 }
 
 static void *_mod_filestorage_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
@@ -296,10 +300,11 @@ static void *_mod_filestorage_getctx(void *arg, http_client_t *ctl, struct socka
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
 #ifdef RANGEREQUEST
 	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
 #endif
+	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx);
 
 	return ctx;
 }
