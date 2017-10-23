@@ -198,9 +198,6 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 #endif
 		}
 	}
-	if (private->func)
-		return private->func(arg, request, response);
-
 	return EREJECT;
 }
 
@@ -288,6 +285,14 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response)
 	return ret;
 }
 
+static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	if (private->func)
+		return private->func(arg, request, response);
+	return EREJECT;
+}
+
 static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;
@@ -297,6 +302,7 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	ctx->mod = mod;
 	ctx->ctl = ctl;
 
+	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
 #ifdef RANGEREQUEST
 	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
 #endif
