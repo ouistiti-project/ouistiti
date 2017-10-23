@@ -237,7 +237,7 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 #if defined(RESULT_301)
 					int length = strlen(private->path_info);
 					char *location = calloc(1, length + 13);
-					if (strrchr(private->path_info, '/') < private->path_info + length - 1)
+					if (strrchr(private->path_info, '/') > private->path_info + length - 2)
 						sprintf(location, "/%sindex.html", private->path_info);
 					else
 						sprintf(location, "/%s/index.html", private->path_info);
