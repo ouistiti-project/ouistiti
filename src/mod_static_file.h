@@ -76,18 +76,23 @@ struct _static_file_connector_s
 	char *filepath;
 	int fd;
 	DIR *dir;
+	http_connector_t func;
 	unsigned int size;
 	unsigned int offset;
 };
 
+/**
+ * transfer function for getfile_connector
+ */
+int mod_send_read(static_file_connector_t *private, http_message_t *response);
 #ifdef SENDFILE
 int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
 #endif
+/**
+ * specific connectors
+ */
 #ifdef RANGEREQUEST
 int range_connector(void *arg, http_message_t *request, http_message_t *response);
-#endif
-#ifdef FILESTORAGE
-int filestorage_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
 
 #ifdef __cplusplus

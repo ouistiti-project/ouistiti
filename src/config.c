@@ -103,10 +103,6 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator, int tls
 					warn("sendfile configuration is not allowed with tls");
 			}
 #endif
-#ifdef FILESTORAGE
-			if (!strncmp(ext, "filestorage", length))
-				static_file->options |= STATIC_FILE_FILESTORAGE;
-#endif
 			ext = ext_end;
 		}
 	}
