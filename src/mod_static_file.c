@@ -98,6 +98,8 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (private->filepath == NULL)
 		{
 			dbg("static file: %s not exist", private->path_info);
+			free(private->path_info);
+			private->path_info = NULL;
 			return ret;
 		}
 		else if (S_ISDIR(filestat.st_mode))
@@ -129,47 +131,49 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 
 			char *dirpath = private->filepath;
 			private->filepath = NULL;
-			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-			if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") == NULL)
+			while(ext != NULL)
 			{
-				while(ext != NULL)
+				private->filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
+				if (private->filepath && !S_ISDIR(filestat.st_mode))
 				{
-					private->filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
-					if (private->filepath && !S_ISDIR(filestat.st_mode))
-					{
-						ret = ECONTINUE;
-						break;
-					}
-					else if (ext_end)
-						ext = ext_end + 1;
-					else
-					{
-						break;
-					}
-					ext_end = strchr(ext, ',');
-					if (ext_end)
-						*ext_end = 0;
-					free(private->filepath);
-					private->filepath = NULL;
+					ret = ECONTINUE;
+					break;
 				}
+				else if (ext_end)
+					ext = ext_end + 1;
+				else
+				{
+					break;
+				}
+				ext_end = strchr(ext, ',');
+				if (ext_end)
+					*ext_end = 0;
+				free(private->filepath);
+				private->filepath = NULL;
 			}
 			if (!private->filepath)
 			{
-				private->filepath = dirpath;
-				private->type |= STATIC_FILE_DIRLISTING;
-				return EREJECT;
+#ifdef DIRLISTING
+				if (config->options & STATIC_FILE_DIRLISTING)
+				{
+					private->filepath = dirpath;
+					private->func = dirlisting_connector;
+				}
+#else
+				warn("static file: %s is directory", private->path_info);
+				static_file_close(private);
+				return  EREJECT;
+#endif
 			}
-			free(dirpath);
-
+			else
+			{
+				free(dirpath);
+				private->func = getfile_connector;
+			}
 		}
 		else
-			ret = ECONTINUE;
-		if (ret != ECONTINUE)
-		{
-			dbg("static file: %s not found (%s)", private->path_info, strerror(errno));
-			static_file_close(private);
-			return EREJECT;
-		}
+			private->func = getfile_connector;
+
 		char *fileext = strrchr(private->filepath, '.');
 		if (fileext && utils_searchexp(fileext, config->ignored_ext) == ESUCCESS)
 		{
@@ -194,16 +198,10 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 #endif
 		}
 	}
-	else
-	{
-		warn("static_file: internal error %d", private->fd);
-	}
-	/**
-	 * this connector reject always
-	 * another connector will continue with filepath
-	 * to send the data
-	 **/
-	return  EREJECT;
+	if (private->func)
+		return private->func(arg, request, response);
+
+	return EREJECT;
 }
 
 int getfile_connector(void *arg, http_message_t *request, http_message_t *response)
@@ -299,11 +297,6 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	ctx->mod = mod;
 	ctx->ctl = ctl;
 
-#ifdef DIRLISTING
-	if (config->options & STATIC_FILE_DIRLISTING)
-		httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
-#endif
-	httpclient_addconnector(ctl, mod->vhost, getfile_connector, ctx);
 #ifdef RANGEREQUEST
 	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
 #endif
