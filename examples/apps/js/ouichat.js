@@ -13,6 +13,7 @@ class Chat
 	constructor(uri)
 	{
 		const self = this;
+		this.ouistitiserver = true;
 		this.uri = uri;
 		this.user = undefined;
 		this.ws = undefined;

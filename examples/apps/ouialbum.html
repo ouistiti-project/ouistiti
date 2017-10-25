@@ -1,11 +1,13 @@
 <html>
 	<head>
+		<!--
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-		<!--link href="css/bootstrap.min.css" rel="stylesheet" type="text/css"-->
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-		<!--script src="js/jquery.min.js"></script-->
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-		<!--script src="js/bootstrap.min.js"></script-->
+		-->
+		<link href="css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="js/jquery.min.js"></script>
+		<script src="js/bootstrap.min.js"></script>
 		<script src="js/ouishell.js"></script>
 		<script>
 var shell = new Shell("");
@@ -14,6 +16,16 @@ shell.onchange = function(content)
 	var imageExt = ["jpg","png","gif"];
 	var carousel = $("#Album");
 	var active = "active";
+	if (content.length == 0)
+	{
+		$("#Message").html("<strong>Empty directory</strong>");
+		$("#Message").removeClass("hidden");
+	}
+	else
+	{
+		$("#Message").html();
+		$("#Message").addClass("hidden");
+	}
 	for (i = 0; i < content.length; i++) {
 		var ext = content[i].name.split('.');
 		ext = ext[ext.length - 1];
@@ -27,6 +39,13 @@ shell.onchange = function(content)
 			carousel.find("div.carousel-inner").append(img);
 			active="";
 		}
+	}
+}
+shell.onnotfound = function(url)
+{
+	if (url.pathname === shell.root+shell.cwd)
+	{
+		shell.mkdir("");
 	}
 }
 shell.onauthenticate = function(authenticate, result)
@@ -128,6 +147,7 @@ onLoad = function()
 			</div>
 		</nav> 
 		<div class="container">
+			<div id="Message" class="row hidden alert alert-warning"></div>
 			<div id="Album" class="carousel slide" data-ride="carousel">
 				<!-- Indicators -->
 				<ol class="carousel-indicators">

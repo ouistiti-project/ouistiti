@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-		<!--link href="css/bootstrap.min.css" rel="stylesheet" type="text/css"-->
-		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-		<!--script src="js/jquery.min.js"></script-->
+		<!--link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css"-->
+		<link href="css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<!--script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script src="js/jquery.min.js"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-		<!--script src="js/bootstrap.min.js"></script-->
+		<script src="js/bootstrap.min.js"></script>
 		<script src="js/ouishell.js"></script>
 		<script src="js/ouichat.js"></script>
 		<script language="javascript" type="text/javascript">
@@ -59,7 +59,7 @@ chat.onalert = function(text)
 chat.onconnect = function()
 {
 	$("#UserButton").prop("disable", true);
-	$("#InputBox").prop("readonly", true);
+	$("#InputBox").prop("readonly", false);
 }
 chat.onclose = function()
 {
@@ -116,7 +116,12 @@ connect = function()
 	var color = $("#Color").val();
 	chat.user = new ChatUser(nickname, color);
 
-	chat.uri = $("#wsUri").val();
+	if (location.protocol === "http:")
+		chat.uri = "ws://";
+	else if (location.protocol === "https:")
+		chat.uri = "wss://";
+	chat.uri += location.hostname;
+	chat.uri += $("#wsUri").val();
 	chat.connect();
 	$("#UserBox").modal("hide");
 }
@@ -208,7 +213,7 @@ onLoad = function()
 									<input type="color" class="form-control" aria-describedby="ColorField" id="Color" >
 								</div>
 							</div>
-							<input type="hidden" id="wsUri" value="ws://127.0.0.1/chat" />
+							<input type="hidden" id="wsUri" value="/chat" />
 						</form>
 					</div>
 					<div class="modal-footer">

@@ -23,6 +23,10 @@ class Authenticate
 		this.method = "GET";
 		this.url = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '')
 		this.url += "/.";
+		this.islog = false;
+		this.onauthorization = undefined;
+		this.onauthenticate = undefined;
+		this.onnotfound = undefined;
 	}
 
 	basic()
@@ -70,13 +74,14 @@ class Authenticate
 		{
 			if (xhr.readyState === XMLHttpRequest.DONE)
 			{
-				if (xhr.status === 200)
+				if (xhr.status === 200 || xhr.status === 0)
 				{
 					if (self.authorization && self.authorization.length > 0)
 						document.cookie = "Authorization="+self.authorization+";"+document.cookie;
 					var username = xhr.getResponseHeader("X-Remote-User");
 					if (username != undefined)
 					self.user = new User(username, xhr.getResponseHeader("X-Remote-Group"), xhr.getResponseHeader("X-Remote-Home"));
+					self.islog = true;
 					if (self.onauthorization != undefined)
 						self.onauthorization.call(self, self.user);
 				}
@@ -86,8 +91,14 @@ class Authenticate
 					self.authorization = undefined;
 					if (challenge != undefined)
 						self.challenge = challenge;
+					self.islog = false;
 					if (self.onauthenticate != undefined)
 						self.onauthenticate.call(self, self.challenge, self.result);
+				}
+				else if (xhr.status === 404)
+				{
+					if (self.onnotfound != undefined)
+						self.onnotfound.call(self);
 				}
 				else
 					alert("error "+xhr.status);
@@ -102,12 +113,6 @@ class Authenticate
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 		xhr.send();
 	}
-	islog()
-	{
-		if (this.authorization != undefined || document.cookie.search("Authorization") != -1)
-			return true;
-		return false;
-	}
 };
 class Open
 {
@@ -118,6 +123,7 @@ class Open
 		this.isready = false;
 		this.onload = undefined;
 		this.onauthenticate = undefined;
+		this.onnotfound = undefined;
 	}
 
 	open(directory)
@@ -169,6 +175,15 @@ class Open
 					if (self.onauthenticate != undefined)
 						self.onauthenticate.call(self, xhr.getResponseHeader("WWW-Authenticate"), "logout");
 				}
+				else if (xhr.status === 404)
+				{
+					if (self.onnotfound != undefined)
+					{
+						var url = document.createElement('a');
+						url .href = xhr.responseURL;
+						self.onnotfound.call(self, url);
+					}
+				}
 				else
 					alert("error "+xhr.status);
 			}
@@ -202,6 +217,7 @@ class Remove
 		this.isready = false;
 		this.onload = undefined;
 		this.onauthenticate = undefined;
+		this.onnotfound = undefined;
 	}
 
 	open(directory)
@@ -240,6 +256,11 @@ class Remove
 					if (self.onauthenticate != undefined)
 						self.onauthenticate.call(self, xhr.getResponseHeader("WWW-Authenticate"), "logout");
 				}
+				else if (xhr.status === 404)
+				{
+					if (self.onnotfound != undefined)
+						self.onnotfound.call(self, xhr.responseURL);
+				}
 				else
 					alert("error "+xhr.status);
 			}
@@ -264,6 +285,7 @@ class Change
 		this.isready = false;
 		this.onload = undefined;
 		this.onauthenticate = undefined;
+		this.onnotfound = undefined;
 		this.post = new Object();
 	}
 
@@ -316,6 +338,11 @@ class Change
 					if (self.onauthenticate != undefined)
 						self.onauthenticate.call(self, xhr.getResponseHeader("WWW-Authenticate"), "logout");
 				}
+				else if (xhr.status === 404)
+				{
+					if (self.onnotfound != undefined)
+						self.onnotfound.call(self, xhr.responseURL);
+				}
 				else
 					alert("error "+xhr.status);
 			}
@@ -344,6 +371,7 @@ class UpLoader
 		this.onload = undefined;
 		this.onupload = undefined;
 		this.onauthenticate = undefined;
+		this.onnotfound = undefined;
 	}
 
 	open(directory)
@@ -401,6 +429,15 @@ class UpLoader
 					if (self.onauthenticate != undefined)
 						self.onauthenticate.call(self, xhr.getResponseHeader("WWW-Authenticate"), "logout");
 				}
+				else if (xhr.status === 404)
+				{
+					if (self.onnotfound != undefined)
+					{
+						var url = document.createElement('a');
+						url .href = xhr.responseURL;
+						self.onnotfound.call(self, url);
+					}
+				}
 				else
 					alert("error "+xhr.status);
 			}
@@ -453,6 +490,11 @@ class Shell
 			self.authenticate.challenge = challenge;
 			if (self.onauthenticate != undefined)
 				self.onauthenticate.call(self, challenge, result);
+		}
+		this.open.onnotfound = function(file)
+		{
+			if (self.onnotfound != undefined)
+				self.onnotfound.call(self, file);
 		}
 		this.remove = new Remove(this.root);
 		this.remove.onload = function(file)

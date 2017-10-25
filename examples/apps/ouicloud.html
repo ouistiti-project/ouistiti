@@ -1,11 +1,13 @@
 <html>
 	<head>
+		<!--
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-		<!--link href="css/bootstrap.min.css" rel="stylesheet" type="text/css"-->
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-		<!--script src="js/jquery.min.js"></script-->
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-		<!--script src="js/bootstrap.min.js"></script-->
+		-->
+		<link href="css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="js/jquery.min.js"></script>
+		<script src="js/bootstrap.min.js"></script>
 		<script src="js/ouishell.js"></script>
 		<script>
 function startRead(evt) {
@@ -72,7 +74,7 @@ shell.onchange = function(content)
 		elm.innerHTML += "<span class='col-xs-2 col-pull-right center'>"+content[i].size+"</span>";
 
 		var hidden = "";
-		if (!shell.authenticate.islog())
+		if (!shell.authenticate.islog)
 			hidden=" hidden";
 		deletemenu = "<li class='ProtectedButton"+hidden+"'><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.rm(\""+content[i].name+"\");'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
 		renamemenu = "<li class='ProtectedButton"+hidden+"'><a href='#' data-href='' onclick='$(\"#MvOldName\").val(\""+content[i].name+"\");' data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
@@ -118,8 +120,8 @@ shell.onauthorization = function(user)
 	$("#LoginButton").addClass("hidden");
 	$("#LogoutButton").removeClass("hidden");
 	$("#UploadButton").removeClass("hidden");
-	$(".ProtectedButton").removeClass("hidden");
 	$("#LoginBox").modal('hide');
+	$(".ProtectedButton").removeClass("hidden");
 	shell.ls();
 }
 /*
@@ -164,6 +166,7 @@ onLoad = function()
 	var dir = "";
 	//var dir = ".";
 	shell.cd(dir);
+	shell.login();
 //	var login = document.getElementById("LoginButton");
 	var login = document.getElementById("LoginExec");
 	login.onclick = function(event)
