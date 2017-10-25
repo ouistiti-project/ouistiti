@@ -55,6 +55,7 @@
 
 static char str_null[] = "";
 static char str_gatewayinterface[] = "CGI/1.1";
+static char str_contenttype[] = "Content-Type";
 
 typedef struct _mod_cgi_config_s _mod_cgi_config_t;
 typedef struct _mod_cgi_s _mod_cgi_t;
@@ -378,7 +379,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_REQUEST(request, "Content-Length");
 				break;
 				case CONTENT_TYPE:
-					value = httpmessage_REQUEST(request, "Content-Type");
+					value = httpmessage_REQUEST(request, str_contenttype);
 				break;
 				case QUERY_STRING:
 					if (query != NULL)
@@ -532,6 +533,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			ctx->tocgi[1] = -1;
 		}
 	}
+
 	if (ctx->state >= STATE_INFINISH)
 	{
 		int sret;
@@ -569,16 +571,22 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 						char *offset = ctx->chunk;
 						if (ctx->state < STATE_HEADERCOMPLETE)
 						{
-							httpmessage_addcontent(response, NULL, NULL, -1);
-							if (*offset == 0)
+							/**
+							 * The Content-Type must be added byt the CGI
+							 */
+							httpmessage_addcontent(response, "none", NULL, -1);
+							if (*offset == '\0')
 							{
 								size = 0;
 							}
 							ctx->state = STATE_HEADERCOMPLETE;
 						}
-						else if (size > 0 && rest == 0)
+						if (size > 0 && rest == 0)
 						{
-							httpmessage_addcontent(response, NULL, offset, size);
+							/**
+							 * The Content-Type must be added byt the CGI
+							 */
+							httpmessage_addcontent(response, "none", offset, size);
 						}
 						ret = ECONTINUE;
 					}
@@ -594,7 +602,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 
 	if (ctx->state >= STATE_OUTFINISH)
 	{
-		int status, ret;
+		int status;
 #if defined(RESULT_302)
 		/**
 		 * RFC 3875 : 6.2.3
