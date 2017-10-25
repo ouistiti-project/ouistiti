@@ -78,8 +78,6 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	_mod_static_file_mod_t *mod = private->mod;
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
 
-	if (!(private->type & STATIC_FILE_DIRLISTING))
-		return EREJECT;
 	if (private->dir == NULL)
 	{
 		chdir(private->filepath);

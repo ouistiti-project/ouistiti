@@ -254,7 +254,6 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 				}
 				else if (!strcmp(method, "GET"))
 				{
-					private->type |= STATIC_FILE_DIRLISTING;
 					private->func = dirlisting_connector;
 				}
 			}
