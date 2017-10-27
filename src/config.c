@@ -62,13 +62,14 @@ static char *pidfile = NULL;
 static int pidfd = 0;
 
 #ifdef STATIC_FILE
-static mod_static_file_t *static_file_config(config_setting_t *iterator, int tls)
+#define static_file_config(iterator, tls) file_config(iterator, tls, "static_file")
+static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char *entry)
 {
 	mod_static_file_t * static_file = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configstaticfile = config_setting_get_member(iterator, "static_file");
+	config_setting_t *configstaticfile = config_setting_get_member(iterator, entry);
 #else
-	config_setting_t *configstaticfile = config_setting_lookup(iterator, "static_file");
+	config_setting_t *configstaticfile = config_setting_lookup(iterator, entry);
 #endif
 	if (configstaticfile)
 	{
@@ -113,24 +114,7 @@ static mod_static_file_t *static_file_config(config_setting_t *iterator, int tls
 #endif
 
 #ifdef FILESTORAGE
-static mod_static_file_t *filestorage_config(config_setting_t *iterator, int tls)
-{
-	mod_static_file_t *filestorage = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configfilestorage = config_setting_get_member(iterator, "filestorage");
-#else
-	config_setting_t *configfilestorage = config_setting_lookup(iterator, "filestorage");
-#endif
-	if (configfilestorage)
-	{
-		int length;
-		filestorage = calloc(1, sizeof(*filestorage));
-		config_setting_lookup_string(configfilestorage, "docroot", (const char **)&filestorage->docroot);
-		config_setting_lookup_string(configfilestorage, "accepted_ext", (const char **)&filestorage->accepted_ext);
-		config_setting_lookup_string(configfilestorage, "ignored_ext", (const char **)&filestorage->ignored_ext);
-	}
-	return filestorage;
-}
+#define filestorage_config(iterator, tls) file_config(iterator, tls, "filestorage")
 #else
 #define filestorage_config(...) NULL
 #endif
