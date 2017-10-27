@@ -50,6 +50,9 @@
 #define dbg(...)
 #endif
 
+const char *str_put = "PUT";
+const char *str_delete = "DELETE";
+
 static int filestorage_checkname(static_file_connector_t *private, http_message_t *response)
 {
 	_mod_static_file_mod_t *mod = private->mod;
@@ -329,7 +332,8 @@ void *mod_filestorage_create(http_server_t *server, char *vhost, mod_static_file
 	mod->config = config;
 	mod->vhost = vhost;
 	httpserver_addmod(server, _mod_filestorage_getctx, _mod_filestorage_freectx, mod);
-
+	httpserver_addmethod(server, str_put, 1);
+	httpserver_addmethod(server, str_delete, 1);
 	return mod;
 }
 
