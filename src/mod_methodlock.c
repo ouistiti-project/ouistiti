@@ -61,49 +61,52 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 	int ret = ESUCCESS;
 
 	char *method = httpmessage_REQUEST(request, "method");
-
-	if (method)
+	switch (httpmessage_isprotected(request))
 	{
-		if (!strcmp(method, "GET") ||
-			!strcmp(method, "HEADER") ||
-			!strcmp(method, "OPTIONS") ||
-			!strcmp(method, "POST"))
-		{
-			ret = EREJECT;
-		}
-		else
-#ifdef AUTH
-		if (!strcmp(method, "PUT") ||
-			!strcmp(method, "DELETE"))
-		{
-			char *group = httpmessage_SESSION(request, "%authgroup",NULL);
-			if (group && group[0] != '\0')
-			{
-				int length = strlen(group);
-				if (mod->unlock_groups && mod->unlock_groups[0] != '\0')
-				{
-					char *iterator = mod->unlock_groups;
-					while (iterator != NULL)
-					{
-						if (!strncmp(iterator, group, length))
-						{
-							ret = EREJECT;
-							break;
-						}
-						iterator = strchr(iterator, ',');
-						if (iterator != NULL)
-							iterator++;
-					}
-				}
-				if (ret != EREJECT)
-				{
-					warn("method use with bad user group %s set unlock_groups", group);
-#if defined RESULT_403
-					httpmessage_result(response, RESULT_403);
+	case -1:
+	{
+		warn("methodlock: method %s forbidden", method);
+#if defined RESULT_405
+		httpmessage_result(response, RESULT_405);
 #else
-					httpmessage_result(response, RESULT_400);
+		httpmessage_result(response, RESULT_400);
 #endif
+	}
+	break;
+	case 0:
+	{
+		ret = EREJECT;
+	}
+	break;
+	default:
+	{
+		char *group = httpmessage_SESSION(request, "%authgroup",NULL);
+		if (group && group[0] != '\0')
+		{
+			int length = strlen(group);
+			if (mod->unlock_groups && mod->unlock_groups[0] != '\0')
+			{
+				char *iterator = mod->unlock_groups;
+				while (iterator != NULL)
+				{
+					if (!strncmp(iterator, group, length))
+					{
+						ret = EREJECT;
+						break;
+					}
+					iterator = strchr(iterator, ',');
+					if (iterator != NULL)
+						iterator++;
 				}
+			}
+			if (ret != EREJECT)
+			{
+				warn("method use with bad user group %s set unlock_groups", group);
+#if defined RESULT_403
+				httpmessage_result(response, RESULT_403);
+#else
+				httpmessage_result(response, RESULT_400);
+#endif
 			}
 			else
 			{
@@ -115,17 +118,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 #endif
 			}
 		}
-		else
-#endif
-		{
-			dbg("methodlock: method %s not allowed", method);
-			httpmessage_addheader(response, "Allow", "GET, POST, HEAD");
-#if defined RESULT_405
-			httpmessage_result(response, RESULT_405);
-#else
-			httpmessage_result(response, RESULT_400);
-#endif
-		}
+	}
 	}
 	return ret;
 }
