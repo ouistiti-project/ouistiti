@@ -99,7 +99,7 @@ shell.onauthenticate = function(authenticate, result)
 			$("#LoginResult").html("Bad login or password");
 			$("#LoginResult").addClass("has-error");
 			$("#LoginArea").addClass("has-error");
-			$("#LoginArea").prop("aria-invalid",true)
+			$("#LoginArea").prop("aria-invalid",true);
 		}
 		if (result == "logout")
 		{
@@ -109,6 +109,7 @@ shell.onauthenticate = function(authenticate, result)
 		$("#LoginResult").removeClass("hidden");
 	}
 	$("#LoginButton").removeClass("hidden");
+	$("#UserButton").addClass("hidden");
 	$("#LogoutButton").addClass("hidden");
 	$("#UploadButton").addClass("hidden");
 	$(".ProtectedButton").addClass("hidden");
@@ -118,6 +119,8 @@ shell.onauthorization = function(user)
 	$("#LoginArea").removeClass("has-error");
 	$("#LoginArea").prop("aria-invalid",false)
 	$("#LoginButton").addClass("hidden");
+	$("#UserButton").html(user.name);
+	$("#UserButton").removeClass("hidden");
 	$("#LogoutButton").removeClass("hidden");
 	$("#UploadButton").removeClass("hidden");
 	$("#LoginBox").modal('hide');
@@ -214,7 +217,7 @@ onLoad = function()
 					</ul>
 					<form class="navbar-form navbar-right">
 						<label class="btn btn-default navbar-btn hidden" for="UploadStart" id="UploadButton"><input id="UploadStart" type="file" style="display:none;"/>
-							<span class='glyphicon glyphicon-cloud-upload' aria-hidden="true"></span>
+							<span class='glyphicon glyphicon-cloud-upload' aria-hidden="true"></span>&nbsp
 						</label>
 						<div class="form-group hidden">
 							<input class="form-control" placeholder="Search" type="text">
@@ -223,11 +226,16 @@ onLoad = function()
 							<span class='glyphicon glyphicon-search' aria-hidden="true"></span>
 						</button>
 						<button type="button" class="btn btn-default" data-toggle="modal" data-target="#LoginBox" id="LoginButton">
-							<span class='glyphicon glyphicon-user' aria-hidden="true"></span>
+							<span class='glyphicon glyphicon-user' aria-hidden="true"></span>&nbsp
 						</button>
-						<button type="button" class="btn btn-default hidden" id="LogoutButton">
-							<span class='glyphicon glyphicon-off'></span>
-						</button>
+						<div class="input-group">
+							<div class="input-group-btn">
+								<button type="button" class="btn btn-default hidden" id="UserButton"></button>
+								<button type="button" class="btn btn-default hidden" id="LogoutButton">&nbsp;
+									<span class='glyphicon glyphicon-off'></span>&nbsp;
+								</button>
+							</div>
+						</div>
 					</form>
 				</div>
 			</div>

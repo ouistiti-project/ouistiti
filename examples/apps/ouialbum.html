@@ -67,6 +67,7 @@ shell.onauthenticate = function(authenticate, result)
 		$("#LoginResult").removeClass("hidden");
 	}
 	$("#LoginButton").removeClass("hidden");
+	$("#UserButton").addClass("hidden");
 	$("#LogoutButton").addClass("hidden");
 	$(".ProtectedButton").addClass("hidden");
 }
@@ -75,6 +76,8 @@ shell.onauthorization = function(user)
 	$("#LoginArea").removeClass("has-error");
 	$("#LoginArea").prop("aria-invalid",false)
 	$("#LoginButton").addClass("hidden");
+	$("#UserButton").html(user.name);
+	$("#UserButton").removeClass("hidden");
 	$("#LogoutButton").removeClass("hidden");
 	$(".ProtectedButton").removeClass("hidden");
 	$("#LoginBox").modal('hide');
@@ -139,9 +142,14 @@ onLoad = function()
 						<button type="button" class="btn btn-default" data-toggle="modal" data-target="#LoginBox" id="LoginButton">
 							<span class='glyphicon glyphicon-user' aria-hidden="true"></span>
 						</button>
-						<button type="button" class="btn btn-default hidden" id="LogoutButton">
-							<span class='glyphicon glyphicon-off'></span>
-						</button>
+						<div class="input-group">
+							<div class="input-group-btn">
+								<button type="button" class="btn btn-default hidden" id="UserButton"></button>
+								<button type="button" class="btn btn-default hidden" id="LogoutButton">&nbsp;
+									<span class='glyphicon glyphicon-off'></span>&nbsp;
+								</button>
+							</div>
+						</div>
 					</form>
 				</div>
 			</div>
