@@ -45,7 +45,7 @@ shell.onnotfound = function(url)
 {
 	if (url.pathname === shell.root+shell.cwd)
 	{
-		shell.mkdir("");
+		shell.mkdir();
 	}
 }
 shell.onauthenticate = function(authenticate, result)
@@ -84,6 +84,7 @@ shell.onauthorization = function(user)
 }
 onLoad = function()
 {
+	shell.login();
 	var dir = location.search.substring(1).split("&");
 	dir = dir.find(function(elem){
 			return elem.startsWith("cwd=");

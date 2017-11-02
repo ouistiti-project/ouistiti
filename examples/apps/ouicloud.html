@@ -164,12 +164,12 @@ shell.onput = function(file)
 
 onLoad = function()
 {
+	shell.login();
 	var fileselector = document.getElementById("UploadStart");
 	fileselector.onchange = startRead;
 	var dir = "";
 	//var dir = ".";
 	shell.cd(dir);
-	shell.login();
 //	var login = document.getElementById("LoginButton");
 	var login = document.getElementById("LoginExec");
 	login.onclick = function(event)

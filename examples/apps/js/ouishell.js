@@ -22,7 +22,6 @@ class Authenticate
 		this.authorization = undefined;
 		this.method = "GET";
 		this.url = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '')
-		this.url += "/.";
 		this.islog = false;
 		this.onauthorization = undefined;
 		this.onauthenticate = undefined;
@@ -74,7 +73,7 @@ class Authenticate
 		{
 			if (xhr.readyState === XMLHttpRequest.DONE)
 			{
-				if (xhr.status === 200 || xhr.status === 0)
+				if (xhr.status === 200)
 				{
 					if (self.authorization && self.authorization.length > 0)
 						document.cookie = "Authorization="+self.authorization+";"+document.cookie;
@@ -100,9 +99,10 @@ class Authenticate
 					if (self.onnotfound != undefined)
 						self.onnotfound.call(self);
 				}
-				else
-					alert("error "+xhr.status);
+				else if (xhr.status > 0)
+					alert("authentication error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
 			}
+			return true;
 		}
 		xhr.open(self.method, self.url, true);
 		if (self.authorization != undefined)
@@ -184,15 +184,15 @@ class Open
 						self.onnotfound.call(self, url);
 					}
 				}
-				else
-					alert("error "+xhr.status);
+				else if (xhr.status > 0)
+					alert("open "+self.directory+self.file.name+" error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
 			}
+			return true;
 		}
 		var target = self.directory;
-		if (self.file.name == undefined || self.file.name == "")
-			self.file.name = ".";
-		else
-			target += self.file.name; 
+		if (self.file.name == undefined)
+			self.file.name = "";
+		target += self.file.name; 
 		
 		xhr.open("GET", target);
 		//xhr.responseType = "arraybuffer";
@@ -261,13 +261,14 @@ class Remove
 					if (self.onnotfound != undefined)
 						self.onnotfound.call(self, xhr.responseURL);
 				}
-				else
-					alert("error "+xhr.status);
+				else if (xhr.status > 0)
+					alert("delete error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
 			}
+			return true;
 		}
 		var directory = self.directory;
-		if (self.directory == "")
-			directory = ".";
+		if (self.directory == undefined)
+			directory = "";
 		xhr.open("DELETE", directory+self.file.name);
 		xhr.responseType = "text/json";
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
@@ -343,13 +344,14 @@ class Change
 					if (self.onnotfound != undefined)
 						self.onnotfound.call(self, xhr.responseURL);
 				}
-				else
-					alert("error "+xhr.status);
+				else if (xhr.status > 0)
+					alert("change error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
 			}
+			return true;
 		}
 		var directory = self.directory;
-		if (self.directory == "")
-			directory = ".";
+		if (self.directory == undefined)
+			directory = "";
 		xhr.open("POST", directory+self.file.name);
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 		xhr.setRequestHeader("Content-Type", self.post.type);
@@ -404,7 +406,7 @@ class UpLoader
 				}
 			});
 		self.reader.onerror = function(err) {
-          alert(err);
+          alert("load error "+err);
         };
 		self.reader.readAsArrayBuffer(self.file);
 	}
@@ -438,9 +440,10 @@ class UpLoader
 						self.onnotfound.call(self, url);
 					}
 				}
-				else
-					alert("error "+xhr.status);
+				else if (xhr.status > 0)
+					alert("upload error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
 			}
+			return true;
 		}
 		xhr.ontimeout = function()
 		{
@@ -686,7 +689,10 @@ class Shell
 		{
 			self.ls();
 		}
-		this.uploader.open(this.cwd+"/"+directory);
+		if (directory != undefined)
+			this.uploader.open(this.cwd+"/"+directory);
+		else
+			this.uploader.open(this.cwd);
 		this.uploader.set();
 		this.uploader.exec(this.authorization);
 	}
