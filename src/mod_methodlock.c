@@ -108,15 +108,6 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 				httpmessage_result(response, RESULT_400);
 #endif
 			}
-			else
-			{
-				warn("methodlock: method %s forbidden", method);
-#if defined RESULT_405
-				httpmessage_result(response, RESULT_405);
-#else
-				httpmessage_result(response, RESULT_400);
-#endif
-			}
 		}
 	}
 	}
