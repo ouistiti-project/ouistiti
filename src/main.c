@@ -324,6 +324,13 @@ int main(int argc, char * const *argv)
 		if (server->mod_auth)
 			mod_auth_destroy(server->mod_auth);
 #endif
+#if defined VHOSTS
+		for (i = 0; i < (MAX_SERVERS - 1); i++)
+		{
+			if (server->mod_vhosts[i])
+				mod_vhost_destroy(server->mod_vhosts[i]);
+		}
+#endif
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
 		free(server);
