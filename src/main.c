@@ -300,6 +300,10 @@ int main(int argc, char * const *argv)
 		if (server->mod_static_file)
 			mod_static_file_destroy(server->mod_static_file);
 #endif
+#if defined FILESTORAGE
+		if (server->mod_filestorage)
+			mod_filestorage_destroy(server->mod_filestorage);
+#endif
 #if defined METHODLOCK
 		if (server->mod_methodlock)
 			mod_methodlock_destroy(server->mod_methodlock);
