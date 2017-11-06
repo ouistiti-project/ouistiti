@@ -220,9 +220,9 @@ int main(int argc, char * const *argv)
 			}
 #endif
 #if defined AUTH
-			if (server->config->auth)
+			if (server->config->modules.auth)
 			{
-				server->mod_auth = mod_auth_create(server->server, NULL, server->config->auth);
+				server->mod_auth = mod_auth_create(server->server, NULL, server->config->modules.auth);
 			}
 #endif
 #if defined METHODLOCK
@@ -232,11 +232,11 @@ int main(int argc, char * const *argv)
 			server->mod_server = mod_server_create(server->server, NULL, NULL);
 #endif
 #if defined CGI
-			if (server->config->cgi)
-				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->cgi);
+			if (server->config->modules.cgi)
+				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->modules.cgi);
 #endif
 #if defined WEBSOCKET
-			if (server->config->websocket)
+			if (server->config->modules.websocket)
 			{
 				mod_websocket_run_t run = default_websocket_run;
 #if defined WEBSOCKET_RT
@@ -248,8 +248,8 @@ int main(int argc, char * const *argv)
 					run = ouistiti_websocket_run;
 #endif
 				server->mod_websocket = mod_websocket_create(server->server,
-					NULL, server->config->websocket,
-					run, server->config->websocket);
+					NULL, server->config->modules.websocket,
+					run, server->config->modules.websocket);
 			}
 #endif
 #if defined MBEDTLS
@@ -257,12 +257,12 @@ int main(int argc, char * const *argv)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
 #endif
 #if defined FILESTORAGE
-			if (server->config->filestorage)
-				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->filestorage);
+			if (server->config->modules.filestorage)
+				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->modules.filestorage);
 #endif
 #if defined STATIC_FILE
-			if (server->config->static_file)
-				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->static_file);
+			if (server->config->modules.static_file)
+				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->modules.static_file);
 #endif
 		}
 		server = server->next;

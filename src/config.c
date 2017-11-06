@@ -347,11 +347,11 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 	{
 		vhost = calloc(1, sizeof(*vhost));
 		vhost->hostname = hostname;
-		vhost->static_file = static_file_config(iterator, tls);
-		vhost->filestorage = filestorage_config(iterator, tls);
-		vhost->auth = auth_config(iterator, tls);
-		vhost->cgi = cgi_config(iterator, tls);
-		vhost->websocket = websocket_config(iterator, tls);
+		vhost->modules.static_file = static_file_config(iterator, tls);
+		vhost->modules.filestorage = filestorage_config(iterator, tls);
+		vhost->modules.auth = auth_config(iterator, tls);
+		vhost->modules.cgi = cgi_config(iterator, tls);
+		vhost->modules.websocket = websocket_config(iterator, tls);
 	}
 	else
 	{
@@ -454,11 +454,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					}
 					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 					config->tls = tls_config(iterator);
-					config->static_file = static_file_config(iterator,(config->tls!=NULL));
-					config->filestorage = filestorage_config(iterator,(config->tls!=NULL));
-					config->auth = auth_config(iterator,(config->tls!=NULL));
-					config->cgi = cgi_config(iterator,(config->tls!=NULL));
-					config->websocket = websocket_config(iterator,(config->tls!=NULL));
+					config->modules.static_file = static_file_config(iterator,(config->tls!=NULL));
+					config->modules.filestorage = filestorage_config(iterator,(config->tls!=NULL));
+					config->modules.auth = auth_config(iterator,(config->tls!=NULL));
+					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
+					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
 					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
@@ -488,6 +488,30 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 	return ouistiticonfig;
 }
 
+static void _modulesconfig_destroy(modulesconfig_t *config)
+{
+	if (config->static_file)
+		free(config->static_file);
+	if (config->filestorage)
+		free(config->filestorage);
+	if (config->websocket)
+		free(config->websocket);
+	if (config->auth)
+	{
+		if (config->auth->authn_config)
+			free(config->auth->authn_config);
+		if (config->auth->authz_config)
+			free(config->auth->authz_config);
+		free(config->auth);
+	}
+	if (config->cgi)
+	{
+		if (config->cgi->env)
+			free(config->cgi->env);
+		free(config->cgi);
+	}
+}
+
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
 	int i;
@@ -501,33 +525,24 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 	for (i = 0; i < MAX_SERVERS; i++)
 	{
 		serverconfig_t *config = ouistiticonfig->servers[i];
-		if (ouistiticonfig->servers[i])
+		if (config)
 		{
-			if (config->server)
-				free(config->server);
+			_modulesconfig_destroy(&config->modules);
+			int j;
+			for (j = 0; j < MAX_SERVERS; j++)
+			{
+				if (config->vhosts[j])
+				{
+					_modulesconfig_destroy(&config->vhosts[j]->modules);
+					free(config->vhosts[j]);
+				}
+				else
+					break;
+			}
 			if (config->tls)
 				free(config->tls);
-			if (config->static_file)
-				free(config->static_file);
-			if (config->filestorage)
-				free(config->filestorage);
-			if (config->websocket)
-				free(config->websocket);
-			if (config->auth)
-			{
-				if (config->auth->authn_config)
-					free(config->auth->authn_config);
-				if (config->auth->authz_config)
-					free(config->auth->authz_config);
-				free(config->auth);
-			}
-			if (config->cgi)
-			{
-				if (config->cgi->env)
-					free(config->cgi->env);
-				free(config->cgi);
-			}
-			free(ouistiticonfig->servers[i]);
+			free(config->server);
+			free(config);
 			ouistiticonfig->servers[i] = NULL;
 		}
 	}
