@@ -93,7 +93,7 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 		if (spasswd && spasswd->sp_pwdp) {
 			cryptpasswd = spasswd->sp_pwdp;
 		}
-		char *testpasswd;
+		char *testpasswd = NULL;
 		if (strcmp(cryptpasswd, "x"))
 			testpasswd = crypt(passwd, cryptpasswd);
 
@@ -141,7 +141,12 @@ void authz_unix_destroy(void *arg)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 
-	free(ctx->user);
+	if (ctx->user)
+		free(ctx->user);
+	if (ctx->home)
+		free(ctx->home);
+	if (ctx->group)
+		free(ctx->group);
 	free(ctx);
 }
 
