@@ -189,6 +189,7 @@ enum cgi_env_e
 	REMOTE_PORT,
 	REMOTE_USER,
 	AUTH_TYPE,
+	HTTP_COOKIE,
 
 	NBENVS,
 };
@@ -293,6 +294,10 @@ const httpenv_t cgi_env[] =
 	{
 		.target = "AUTH_TYPE=",
 		.length = 26,
+	},
+	{
+		.target = "HTTP_COOKIE=",
+		.length = 512,
 	}
 };
 
@@ -371,7 +376,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_REQUEST(request, "method");
 				break;
 				case REQUEST_SCHEME:
-					value = httpmessage_REQUEST(request, "remote_port");
+					value = httpmessage_REQUEST(request, "scheme");
 				break;
 				case REQUEST_URI:
 					value = uri;
@@ -421,6 +426,9 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 				break;
 				case AUTH_TYPE:
 					value = httpmessage_SESSION(request, "%authtype", NULL);
+				break;
+				case HTTP_COOKIE:
+					value = httpmessage_REQUEST(request, "Cookie");
 				break;
 				default:
 					value = str_null;
