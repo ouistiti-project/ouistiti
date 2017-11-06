@@ -38,6 +38,7 @@
 #include <sys/wait.h>
 #include <libgen.h>
 #include <netinet/in.h>
+#include <sched.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
@@ -442,6 +443,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 			chdir(dirpath);
 		}
 		setbuf(stdout, 0);
+		sched_yield();
 		execve(argv[0], argv, env);
 		err("cgi error: %s", strerror(errno));
 		exit(0);
@@ -550,6 +552,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
+				warn("cgi read %s", strerror(errno));
 			}
 			else
 			{
