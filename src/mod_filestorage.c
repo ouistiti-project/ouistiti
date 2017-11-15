@@ -231,32 +231,42 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 		}
 		else if (private->filepath && filestorage_checkname(private, response) == ESUCCESS)
 		{
-			if (S_ISDIR(filestat.st_mode))
+			if (!strcmp(method, "GET"))
 			{
-				char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-				if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") == NULL)
+				if (S_ISDIR(filestat.st_mode))
 				{
-#if defined(RESULT_301)
 					int length = strlen(private->path_info);
-					char *location = calloc(1, length + 13);
-					if (strrchr(private->path_info, '/') > private->path_info + length - 2)
-						sprintf(location, "/%sindex.html", private->path_info);
+					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+					if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) ||
+						(private->path_info[length - 1] != '/'))
+					{
+						private->func = dirlisting_connector;
+					}
 					else
-						sprintf(location, "/%s/index.html", private->path_info);
-					httpmessage_addheader(response, str_location, location);
-					httpmessage_result(response, RESULT_301);
-					free(location);
-					static_file_close(private);
-					return ESUCCESS;
+					{
+#if defined(RESULT_301)
+						char *location = calloc(1, length + 13);
+						if (strrchr(private->path_info, '/') > private->path_info + length - 2)
+							sprintf(location, "/%sindex.html", private->path_info);
+						else
+							sprintf(location, "/%s/index.html", private->path_info);
+						httpmessage_addheader(response, str_location, location);
+						httpmessage_result(response, RESULT_301);
+						free(location);
+						static_file_close(private);
+						return ESUCCESS;
 #else
-					static_file_close(private);
-					dbg("static file: reject directory path bad formatting");
-					return EREJECT;
+						static_file_close(private);
+						dbg("static file: reject directory path bad formatting");
+						return EREJECT;
 #endif
+					}
 				}
-				else if (!strcmp(method, "GET"))
+				else
 				{
-					private->func = dirlisting_connector;
+					private->func = getfile_connector;
+					private->size = filestat.st_size;
+					private->offset = 0;
 				}
 			}
 			else if (!strcmp(method, "PUT"))
@@ -270,12 +280,6 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 			else if (!strcmp(method, "DELETE"))
 			{
 				private->func = deletefile_connector;
-			}
-			else if (!strcmp(method, "GET"))
-			{
-				private->func = getfile_connector;
-				private->size = filestat.st_size;
-				private->offset = 0;
 			}
 		}
 		else
