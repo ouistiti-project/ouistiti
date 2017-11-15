@@ -61,8 +61,7 @@ static int filestorage_checkname(static_file_connector_t *private, http_message_
 	{
 		return  EREJECT;
 	}
-	char *fileext = strrchr(private->path_info, '.');
-	if (fileext && utils_searchexp(fileext, config->ignored_ext) == ESUCCESS)
+	if (utils_searchexp(private->path_info, config->ignored_ext) == ESUCCESS)
 	{
 		return  EREJECT;
 	}
@@ -71,7 +70,7 @@ static int filestorage_checkname(static_file_connector_t *private, http_message_
 	 * file is found
 	 * check the extension
 	 */
-	if (fileext && utils_searchexp(fileext, config->accepted_ext) != ESUCCESS)
+	if (utils_searchexp(private->path_info, config->accepted_ext) != ESUCCESS)
 	{
 		return  EREJECT;
 	}
