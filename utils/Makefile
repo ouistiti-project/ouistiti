@@ -11,7 +11,7 @@ ifeq ($(HTTPCLIENT_FEATURES),y)
 hostbin-$(HOST_UTILS)+=httpparser
 endif
 httpparser_SOURCES+=httpparser.c
-httpparser_SOURCES+=-lhttpserver
+httpparser_LIBS+=httpserver
 httpparser_CFLAGS+=-I../libhttpserver/include/
 httpparser_CFLAGS-$(DEBUG)+=-g -DDEBUG
 httpparser_LDFLAGS+=-pthread

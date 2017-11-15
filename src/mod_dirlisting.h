@@ -37,11 +37,6 @@ extern "C"
 
 int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
 
-#ifndef STATIC_FILE
-void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_static_file_t *config);
-void mod_dirlisting_destroy(void *data);
-#endif
-
 #ifdef __cplusplus
 }
 #endif

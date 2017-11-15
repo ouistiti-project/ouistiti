@@ -98,7 +98,7 @@
 #define dbg(...)
 #endif
 
-int crypt_ouimd5(const char *user, const char *group, const char *passwd, const char *realm)
+int crypt_ouimd5(const char *user, const char *passwd, const char *realm, char *out, int outlen)
 {
 	char md5passwd[16];
 	MD5_ctx ctx;
@@ -112,10 +112,7 @@ int crypt_ouimd5(const char *user, const char *group, const char *passwd, const 
 	char b64passwd[25];
 	BASE64_encode(md5passwd, 16, b64passwd, 25);
 
-	if (group)
-		printf("%s:$a1$realm=%s$%s:%s\n", user, realm, b64passwd, group);
-	else
-		printf("%s:$a1$realm=%s$%s\n", user, realm, b64passwd);
+	snprintf(out, outlen, "%s:$a1$realm=%s$%s", user, realm, b64passwd);
 	return 0;
 }
 
@@ -124,6 +121,12 @@ void display_help(char * const *argv)
 	fprintf(stderr, "%s [-h][-V]\n", argv[0]);
 	fprintf(stderr, "\t-h \tshow this help and exit\n");
 	fprintf(stderr, "\t-V \treturn the version and exit\n");
+	fprintf(stderr, "\t-R \tset the realm of the connection\n");
+	fprintf(stderr, "\t-T <Basic|Digest>\tset the type of security\n");
+	fprintf(stderr, "\t-u <name>\tset the user name\n");
+	fprintf(stderr, "\t-p <value>\tset the passzord\n");
+	fprintf(stderr, "\t-g <name>\tset the group\n");
+	fprintf(stderr, "\t-h <directory>\tset the home directory\n");
 }
 
 #define DIGESTMD5 1
@@ -136,12 +139,13 @@ int main(int argc, char * const *argv)
 	const char *user = NULL;
 	char *passwd = NULL;
 	char *group = NULL;
+	char *home = NULL;
 	char *type = "Digest";
 #ifdef HAVE_GETOPT
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "hVR:u:g:p:");
+		opt = getopt(argc, argv, "hVR:u:g:p:T:H:");
 		switch (opt)
 		{
 			case 'h':
@@ -167,18 +171,64 @@ int main(int argc, char * const *argv)
 			case 'p':
 				passwd = optarg;
 			break;
+			case 'H':
+				home = optarg;
+			break;
 		}
 	} while(opt != -1);
 #endif
-	if (user != NULL && passwd != NULL)
+	setbuf(stdout, NULL);
+	if (user != NULL)
 	{
+		if (passwd == NULL)
+		{
+			printf("Enter a new password: ");
+			int i;
+			passwd = calloc(256, sizeof(char));
+			for(i = 0; i < 256; i++)
+			{
+				char c;
+				read(0, &c, 1);
+				if (c == '\n' || c == '\r')
+					break;
+				passwd[i] = c;
+			}
+			printf("Enter again the new password: ");
+			char *passwdagain = calloc(256, sizeof(char));
+			for(i = 0; i < 256; i++)
+			{
+				char c;
+				read(0, &c, 1);
+				if (c == '\n' || c == '\r')
+					break;
+				passwdagain[i] = c;
+			}
+			if (strcmp(passwd, passwdagain))
+			{
+				free(passwd);
+				free(passwdagain);
+				printf("Password not corresponding\n");
+				exit(-1);
+			}
+			free(passwdagain);
+		}
+
+		char *output = calloc(256, sizeof(char));
 		switch (mode)
 		{
 			case DIGESTMD5:
 				if (realm != NULL)
-					ret = crypt_ouimd5(user, group, passwd, realm);
+					ret = crypt_ouimd5(user, passwd, realm, output, 256);
 			break;
 		}
+		printf(output);
+		if (group)
+			printf(":%s",group);
+		if (group  && home)
+			printf(":%s",home);
+		else if (home)
+			printf("::%s",home);
+		printf("\n");
 	}
 	return ret;
 }

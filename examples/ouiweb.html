@@ -1,0 +1,206 @@
+<html>
+	<head>
+		<!--
+		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+		-->
+		<link href="apps/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="apps/js/jquery.min.js"></script>
+		<script src="apps/js/bootstrap.min.js"></script>
+		<script src="apps/js/ouishell.js"></script>
+		<script>
+var shell = new Shell("");
+shell.onauthenticate = function(authenticate, result)
+{
+	if (result != undefined)
+	{
+		if (result == "failed")
+		{
+			$("#LoginResult").html("Bad login or password");
+			$("#LoginResult").addClass("has-error");
+			$("#LoginArea").addClass("has-error");
+			$("#LoginArea").prop("aria-invalid",true)
+		}
+		if (result == "logout")
+		{
+			$("#LoginResult").html("Logout");
+			$("#LoginResult").addClass("has-success");
+		}
+		$("#LoginResult").removeClass("hidden");
+	}
+	$("#LoginButton").removeClass("hidden");
+	$("#LogoutButton").addClass("hidden");
+	$(".ProtectedButton").addClass("hidden");
+}
+shell.onauthorization = function(user)
+{
+	$("#LoginArea").removeClass("has-error");
+	$("#LoginArea").prop("aria-invalid",false)
+	$("#LoginButton").addClass("hidden");
+	$("#LogoutButton").removeClass("hidden");
+	$(".ProtectedButton").removeClass("hidden");
+	$("#LoginBox").modal('hide');
+}
+loadApps = function(url, root)
+{
+	const xhr = new XMLHttpRequest();
+
+	xhr.onreadystatechange = function()
+	{
+		if (xhr.readyState === XMLHttpRequest.DONE)
+		{
+			if (xhr.status === 200)
+			{
+				var type = xhr.getResponseHeader("Content-Type");
+				if (type == "text/json")
+				{
+					var active = "active";
+					var carousel = $("#Applications");
+					var data = JSON.parse(xhr.responseText.trim());
+					for (i = 0; i < data.apps.length; i++)
+					{
+						var elm = "<li data-target='#Applications' data-slide-to='"+i+"' class='"+active+"'></li>";
+						carousel.find("ol.carousel-indicators").append(elm);
+						var img = "<div class='item "+active+"'>";
+						if (data.apps[i].href.lastIndexOf("?") == -1)
+							img += "<a href='"+data.apps[i].href+"?root="+root+"' target='_blank'>";
+						else
+							img += "<a href='"+data.apps[i].href+"&root="+root+"' target='_blank'>";
+						img += "<img src='"+data.apps[i].image+"' class='img-rounded' alt='"+data.apps[i].name+"' style='float:none;margin: 0 auto;max-height:800px'>";
+						img += "<div class='carousel-caption'>";
+						img += "<h3>"+data.apps[i].name+"</h3>";
+						img += "<p>"+data.apps[i].desc+"</p>"
+						img += "</div>";
+						img += "</a>";
+						img += "</div>";
+						carousel.find("div.carousel-inner").append(img);
+						active="";
+					}
+				}
+			}
+			else if (xhr.status === 403)
+			{
+			}
+			else
+				alert("error "+xhr.status);
+		}
+	}
+	xhr.open("GET", url, true);
+	xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+	xhr.send();
+}
+
+onLoad = function()
+{
+	loadApps("apps/ouiweb.json", shell.root);
+	var dir = "";
+	//var dir = ".";
+	shell.cd(dir);
+//	var login = document.getElementById("LoginButton");
+	var login = document.getElementById("LoginExec");
+	login.onclick = function(event)
+	{
+		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
+	}
+	var logout = document.getElementById("LogoutButton");
+	logout.onclick = function(event)
+	{
+		shell.logout();
+	}
+}
+		</script>
+	</head>
+	<body onload="onLoad();" style="padding-top: 70px;">
+		<nav class="navbar navbar-default navbar-fixed-top">
+			<div class="container-fluid">
+				<div class="navbar-header">
+					<button type="button" class="collapsed navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+						<span class="sr-only">Toggle navigation</span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+					</button>
+					<a href="#" class="navbar-brand">Ouistiti</a>
+				</div>
+				<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+					<ul class="nav navbar-nav">
+<!--
+						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">File<span class="caret"></span></a>
+							<ul class="dropdown-menu">
+								<li><a id="Cloud" target="_blank">Cloud</a></li>
+							</ul>
+						</li>
+-->
+					</ul>
+					<form class="navbar-form navbar-right">
+						<div class="form-group hidden">
+							<input class="form-control" placeholder="Search" type="text">
+						</div>
+						<button type="button" class="btn btn-default hidden">
+							<span class='glyphicon glyphicon-search' aria-hidden="true"></span>
+						</button>
+						<button type="button" class="btn btn-default" data-toggle="modal" data-target="#LoginBox" id="LoginButton">
+							<span class='glyphicon glyphicon-user' aria-hidden="true"></span>
+						</button>
+						<button type="button" class="btn btn-default hidden" id="LogoutButton">
+							<span class='glyphicon glyphicon-off'></span>
+						</button>
+					</form>
+				</div>
+			</div>
+		</nav> 
+		<div class="container">
+			<div id="Applications" class="carousel slide" data-ride="carousel">
+				<!-- Indicators -->
+				<ol class="carousel-indicators">
+				</ol>
+
+				<!-- Wrapper for slides -->
+				<div class="carousel-inner">
+				</div>
+
+				<!-- Left and right controls -->
+				<a class="left carousel-control" href="#Applications" data-slide="prev">
+					<span class="glyphicon glyphicon-chevron-left"></span>
+					<span class="sr-only">Previous</span>
+				</a>
+				<a class="right carousel-control" href="#Applications" data-slide="next">
+					<span class="glyphicon glyphicon-chevron-right"></span>
+					<span class="sr-only">Next</span>
+				</a>
+			</div>
+		</div>
+		<div class="modal fade" id="LoginBox" tabindex="-1" role="dialog" aria-labelledby="LoginLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="LoginLabel">Login</h4>
+					</div>
+					<div class="modal-body">
+						<form class="form-group" aria-describedby="LoginResult" id="LoginArea">
+							<span id="LoginResult"  class="help-block hidden"></span>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="UserField">User</span>
+									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" >
+								</div>
+							</div>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="PasswordField">Password</span>
+									<input type="password" class="form-control" placeholder="name" aria-describedby="PasswordField" id="LoginPassword" >
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" id="LoginExec">Login</button>
+					</div>
+				</div>
+			</div>
+		</div>
+ 	</body>
+</html>

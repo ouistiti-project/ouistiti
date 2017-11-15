@@ -33,15 +33,29 @@
 #define MAX_SERVERS 4
 #endif
 
+#include "mod_static_file.h"
+#include "mod_filestorage.h"
+#include "mod_cgi.h"
+#include "mod_auth.h"
+#include "httpserver/mod_websocket.h"
+#include "httpserver/mod_mbedtls.h"
+#define WEBSOCKET_REALTIME 0x01
+
+typedef struct modulesconfig_s
+{
+	mod_static_file_t *static_file;
+	mod_static_file_t *filestorage;
+	mod_cgi_config_t *cgi;
+	mod_auth_t *auth;
+	mod_websocket_t *websocket;
+} modulesconfig_t;
+
 typedef struct serverconfig_s
 {
 	http_server_config_t *server;
 	char *unlock_groups;
 	mod_tls_t *tls;
-	mod_static_file_t *static_file;
-	mod_cgi_config_t *cgi;
-	mod_auth_t *auth;
-	mod_websocket_t *websocket;
+	modulesconfig_t modules;
 	mod_vhost_t *vhosts[MAX_SERVERS - 1];
 } serverconfig_t;
 

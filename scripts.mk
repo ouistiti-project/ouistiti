@@ -46,7 +46,7 @@ obj=$(addprefix $(buildpath:%=%/),$(cwdir))
 else
 obj=
 endif
-hostobj:=$(buildpath:%=%/)host/$(cwdir)
+hostobj:=$(srcdir:%=%/)host/$(cwdir)
 
 CONFIGURE_STATUS:=configure.status
 ifneq ($(wildcard $(obj)$(CONFIGURE_STATUS)),)
@@ -166,6 +166,7 @@ LDFLAGS+=-L.
 endif
 LDFLAGS+=-L$(sysroot)$(libdir)
 LDFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
+LDFLAGS+=-L$(sysroot)$(pkglibdir)
 LDFLAGS+=$(if $(strip $(pkglibdir)),$(call ldgcc,-rpath,$(strip $(pkglibdir))))
 
 export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir
@@ -261,6 +262,7 @@ targets+=$(bin-target)
 sysconf-install:=$(addprefix $(DESTDIR:%=%/)$(sysconfdir)/,$(sysconf-y))
 data-install:=$(addprefix $(DESTDIR:%=%/)$(datadir)/,$(data-y))
 include-install:=$(addprefix $(DESTDIR:%=%/)$(includedir)/,$(include-y))
+lib-static-install:=$(addprefix $(DESTDIR:%=%/)$(libdir)/,$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(slib-y))))
 lib-dynamic-install:=$(addprefix $(DESTDIR:%=%/)$(libdir)/,$(addsuffix $(dlib-ext:%=.%),$(addprefix lib,$(lib-y))))
 modules-install:=$(addprefix $(DESTDIR:%=%/)$(pkglibdir)/,$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
 bin-install:=$(addprefix $(DESTDIR:%=%/)$(bindir)/,$(addsuffix $(bin-ext:%=.%),$(bin-y)))
@@ -271,6 +273,7 @@ ifneq ($(CROSS_COMPILE),)
 ifneq ($(DESTDIR),)
 install+=$(bin-install)
 install+=$(sbin-install)
+install+=$(lib-static-install)
 install+=$(lib-dynamic-install)
 install+=$(modules-install)
 install+=$(data-install)
@@ -280,6 +283,7 @@ endif
 else
 install+=$(bin-install)
 install+=$(sbin-install)
+install+=$(lib-static-install)
 install+=$(lib-dynamic-install)
 install+=$(modules-install)
 install+=$(data-install)
@@ -354,17 +358,25 @@ default_action: _info _configbuild _versionbuild
 	$(Q)$(MAKE) $(build)=$(file)
 	@:
 
+pc: $(obj)$(package:%=%.pc)
+
 all: default_action
 
 $(obj)$(CONFIG:%=%.h): $(configfile)
 	@$(call cmd,config)
 
 $(obj)$(VERSIONFILE:%=%.h):
-	@echo '#ifndef __VERSION_H__' >> $@
-	@echo '#define __VERSION_H__' >> $@
-	@$(if $(version), echo '#define VERSION "'$(version)'"' >> $@)
-	@$(if $(package), echo '#define PACKAGE "'$(package)'"' >> $@)
-	@echo '#endif' >> $@
+	@$(call cmd,versionfile)
+
+quiet_cmd_versionfile=VERSION $*
+define cmd_versionfile
+	echo '#ifndef __VERSION_H__' >> $@
+	echo '#define __VERSION_H__' >> $@
+	$(if $(version), echo '#define VERSION "'$(version)'"' >> $@)
+	$(if $(package), echo '#define PACKAGE "'$(package)'"' >> $@)
+	$(if $(sysconfdir), echo '#define SYSCONFDIR "'$(sysconfdir)'"' >> $@)
+	echo '#endif' >> $@
+endef
 
 ##
 # Commands for clean
@@ -408,10 +420,15 @@ quiet_cmd_ld_slib=LD $*
 quiet_cmd_ld_dlib=LD $*
  cmd_ld_dlib=$(LD) $(SYSROOT) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(strip $(notdir $@))) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 
-checkoption:=--exact-version
 quiet_cmd_check_lib=CHECK $*
-cmd_check_lib=$(CC) -c -o $(TMPDIR)/$(TESTFILE:%=%.o) $(TMPDIR)/$(TESTFILE:%=%.c) $(CFLAGS) && \
+define cmd_check_lib
+	$(RM) $(TMPDIR)/$(TESTFILE:%=%.c) $(TMPDIR)/$(TESTFILE)
+	echo "int main(){}" > $(TMPDIR)/$(TESTFILE:%=%.c)
+	$(CC) -c -o $(TMPDIR)/$(TESTFILE:%=%.o) $(TMPDIR)/$(TESTFILE:%=%.c) $(CFLAGS) > /dev/null 2>&1
 	$(LD) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.o) $(LDFLAGS) $(addprefix -l, $2) > /dev/null 2>&1
+endef
+
+checkoption:=--exact-version
 prepare_check=$(if $(filter %-, $2),$(eval checkoption:=--atleast-version),$(if $(filter -%, $2),$(eval checkoption:=--max-version)))
 cmd_check2_lib=$(if $(findstring $(3:%-=%), $3),$(if $(findstring $(3:-%=%), $3),,$(eval checkoption:=--atleast-version),$(eval checkoption:=--max-version))) \
 	$(PKGCONFIG) --print-errors $(checkoption) $(subst -,,$3) lib$2
@@ -502,6 +519,8 @@ $(sysconf-install): $(DESTDIR:%=%/)$(sysconfdir)/%: %
 	@$(call cmd,install_data)
 $(data-install): $(DESTDIR:%=%/)$(datadir)/%: %
 	@$(call cmd,install_data)
+$(lib-static-install): $(DESTDIR:%=%/)$(libdir)/lib%$(slib-ext:%=.%): $(obj)lib%$(slib-ext:%=.%)
+	@$(call cmd,install_bin)
 $(lib-dynamic-install): $(DESTDIR:%=%/)$(libdir)/lib%$(dlib-ext:%=.%): $(obj)lib%$(dlib-ext:%=.%)
 	@$(call cmd,install_bin)
 $(modules-install): $(DESTDIR:%=%/)$(pkglibdir)/%$(dlib-ext:%=.%): $(obj)%$(dlib-ext:%=.%)
@@ -520,4 +539,6 @@ quote="
 sharp=\#
 quiet_cmd_config=CONFIG $*
  cmd_config=$(AWK) -F= '$$1 != $(quote)$(quote) {print $(quote)$(sharp)define$(space)$(quote)$$1$(quote)$(space)$(quote)$$2}' $< > $@
+
+#if inside makemore
 endif

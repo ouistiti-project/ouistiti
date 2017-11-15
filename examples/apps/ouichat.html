@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<!--link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css"-->
+		<link href="css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<!--script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script src="js/jquery.min.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+		<script src="js/bootstrap.min.js"></script>
+		<script src="js/ouishell.js"></script>
+		<script src="js/ouichat.js"></script>
+		<script language="javascript" type="text/javascript">
+var chat = new Chat("");
+chat.onmessage = function(message)
+{
+	var color = "";
+	if (message.color)
+		color = "color: "+message.color+";"
+	var divclass="";
+	if (message.id != chat.id)
+	{
+		identity = $("#users #"+message.id+" .name").html();
+		divclass += "bg-warning pull-right";
+	}
+	else
+	{
+		identity = "You";
+		divclass += "bg-info pull-left";
+	}
+	if (message.private != undefined)
+		divclass += " private";
+	var div="<div class='message col-xs-11 "+divclass+"' ><span style='"+color+"' class='name'>"+identity+"</span>: <span class='message'>" + message.data+"</span></div>";
+	$("#output").prepend(div);
+}
+chat.onhello = function(user)
+{
+	if (user.color)
+		color = "color: "+user.color+";"
+	var entry = $("#UsersList #"+user.id);
+	if (entry.length == 0)
+	{
+		$("#UsersList").append("<li class='list-group-item' id='"+user.id+"' style='"+color+"' class='user'><span class='name'>"+user.nickname+"</span></li>");
+		$("#UsersList2").append("<li class='' id='"+user.id+"' style='"+color+"' class='user'><span class='name'>"+user.nickname+"</span></li>");
+	}
+	$("#UsersList #"+user.id).on("click", function()
+	{
+		chat.whois(this.id);
+	});
+}
+chat.ongoodbye = function(user)
+{
+	$("#UsersList #"+user.id).remove();
+	$("#UsersList2 #"+user.id).remove();
+}
+chat.onalert = function(text)
+{
+	alert(text);
+}
+chat.onconnect = function()
+{
+	$("#UserButton").prop("disable", true);
+	$("#InputBox").prop("readonly", false);
+}
+chat.onclose = function()
+{
+	$("#UserButton").prop("disabled", false);
+	$("#InputBox").prop("readonly", true);
+	$("#UsersList").html("");
+	$("#UsersList2").html("");
+
+	$("#UserBox").modal("show");
+};
+
+var shell = new Shell("");
+shell.onauthenticate = function(authenticate, result)
+{
+	if (result != undefined)
+	{
+		if (result == "failed")
+		{
+			$("#LoginResult").html("Bad login or password");
+			$("#LoginResult").addClass("has-error");
+			$("#LoginArea").addClass("has-error");
+			$("#LoginArea").prop("aria-invalid",true)
+		}
+		if (result == "logout")
+		{
+			$("#LoginResult").html("Logout");
+			$("#LoginResult").addClass("has-success");
+		}
+		$("#LoginResult").removeClass("hidden");
+	}
+	chat.disconnect();
+	$("#LoginButton").removeClass("hidden");
+	$("#UserButton").addClass("hidden");
+	$("#LogoutButton").addClass("hidden");
+	$("#CommBox").addClass("hidden");
+	$(".ProtectedButton").addClass("hidden");
+}
+shell.onauthorization = function(user)
+{
+	$("#NickName").val(user.name);
+	$("#LoginArea").removeClass("has-error");
+	$("#LoginArea").prop("aria-invalid",false)
+	$("#LoginButton").addClass("hidden");
+	$("#UserButton").html(user.name);
+	$("#UserButton").removeClass("hidden");
+	$("#LogoutButton").removeClass("hidden");
+	$("#CommBox").removeClass("hidden");
+	$(".ProtectedButton").removeClass("hidden");
+	$("#LoginBox").modal("hide");
+
+	$("#UserBox").modal("show");
+}
+
+connect = function()
+{
+	var nickname = $("#NickName").val();
+	var color = $("#Color").val();
+	chat.user = new ChatUser(nickname, color);
+
+	if (location.protocol === "http:")
+		chat.uri = "ws://";
+	else if (location.protocol === "https:")
+		chat.uri = "wss://";
+	chat.uri += location.hostname;
+	chat.uri += $("#wsUri").val();
+	chat.connect();
+	$("#UserBox").modal("hide");
+}
+
+onLoad = function()
+{
+	var login = document.getElementById("LoginExec");
+	login.onclick = function(event)
+	{
+		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
+	}
+	var logout = document.getElementById("LogoutButton");
+	logout.onclick = function(event)
+	{
+		shell.logout();
+	}
+
+	$("#InputBox").on("keypress", function(e)
+		{
+			if (!e) {
+				e = window.event;
+			}
+			var keyCode = e.keyCode || e.which;
+			if (keyCode == '13'){
+				chat.send($(this).val());
+				$("#InputBox").val("");
+			}
+		});
+}
+
+		</script>
+	</head>
+	<body onload="onLoad();" style="padding-top: 70px;">
+		<nav class="navbar navbar-default navbar-fixed-top">
+			<div class="container-fluid">
+				<div class="navbar-header">
+					<button type="button" class="collapsed navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+						<span class="sr-only">Toggle navigation</span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+					</button>
+					<a href="#" class="navbar-brand">Ouistiti</a>
+				</div>
+				<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+					<ul class="nav navbar-nav">
+						<li class="dropdown ProtectedButton hidden"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">File<span class="caret"></span></a>
+							<ul class="dropdown-menu">
+								<li><a href="#" data-toggle="modal" data-target="#UserBox" id="UserButton">Preferences</a></li>
+							</ul>
+						</li>
+						<li class="dropdown ProtectedButton hidden"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Users<span class="caret"></span></a>
+							<ul class="dropdown-menu" id="UsersList2">
+							</ul>
+						</li>
+					</ul>
+					<form class="navbar-form navbar-right">
+						<button type="button" class="btn btn-default" data-toggle="modal" data-target="#LoginBox" id="LoginButton">
+							<span class='glyphicon glyphicon-user' aria-hidden="true"></span>
+						</button>
+						<div class="input-group">
+							<div class="input-group-btn">
+								<button type="button" class="btn btn-default hidden" id="UserButton"></button>
+								<button type="button" class="btn btn-default hidden" id="LogoutButton">&nbsp;
+									<span class='glyphicon glyphicon-off'></span>&nbsp;
+								</button>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
+		</nav> 
+
+		<div class="modal fade" id="UserBox" tabindex="-1" role="dialog" aria-labelledby="UserLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<h4 class="modal-title" id="UserLabel">Preferences</h4>
+					</div>
+					<div class="modal-body">
+						<form>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="NicknameField">Nickname</span>
+									<input type="text" class="form-control" placeholder="your name" id="NickName">
+								</div>
+							</div>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="ColorField">Color</span>
+									<input type="color" class="form-control" aria-describedby="ColorField" id="Color" >
+								</div>
+							</div>
+							<input type="hidden" id="wsUri" value="/chat" />
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" data-dismiss="modal" id="UserExec" onclick="connect();">OK</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="modal fade" id="LoginBox" tabindex="-1" role="dialog" aria-labelledby="LoginLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="LoginLabel">Login</h4>
+					</div>
+					<div class="modal-body">
+						<form class="form-group" aria-describedby="LoginResult" id="LoginArea">
+							<span id="LoginResult"  class="help-block hidden"></span>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="UserField">User</span>
+									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" >
+								</div>
+							</div>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="PasswordField">Password</span>
+									<input type="password" class="form-control" placeholder="name" aria-describedby="PasswordField" id="LoginPassword" >
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" id="LoginExec">Login</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-md-4 hidden-xs hidden-sm">
+					<div class="panel panel-default">
+						<div class="panel-heading">Users</div>
+						<ul class="list-group pull-left collapse" id="UsersList">
+						</ul>
+					</div>
+				</div>
+
+				<div class="col-xs-12 col-md-8">
+					<div class="panel panel-default hidden" id="CommBox">
+						<div class="panel-heading">
+						  <input type="text" class="form-control" placeholder="message" aria-describedby="sizing-addon2" id="InputBox" readonly>
+						</div>
+						<div class="panel-body">
+							<div id="output" class=""></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

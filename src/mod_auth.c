@@ -50,6 +50,7 @@
 #include "authn_digest.h"
 #include "authz_simple.h"
 #include "authz_file.h"
+#include "authz_unix.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -127,7 +128,7 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
-	switch (config->authz_type)
+	switch (config->authz_type & AUTHZ_TYPE_MASK)
 	{
 #ifdef AUTHZ_SIMPLE
 	case AUTHZ_SIMPLE_E:
@@ -138,6 +139,12 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 #ifdef AUTHZ_FILE
 	case AUTHZ_FILE_E:
 		mod->authz->rules = &authz_file_rules;
+		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
+	break;
+#endif
+#ifdef AUTHZ_UNIX
+	case AUTHZ_UNIX_E:
+		mod->authz->rules = &authz_unix_rules;
 		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
 	break;
 #endif
@@ -190,6 +197,8 @@ void mod_auth_destroy(void *arg)
 	{
 		mod->authz->rules->destroy(mod->authz->ctx);
 	}
+	free(mod->authn);
+	free(mod->authz);
 	free(mod);
 }
 
@@ -203,6 +212,7 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
 	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx);
+
 	return ctx;
 }
 
@@ -220,8 +230,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
 	char *authorization = NULL;
-
-	char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
+	char *uriencoded = httpmessage_REQUEST(request, "uri");
+	char *uri = utils_urldecode(uriencoded);
 	int protect = 1;
 	protect = utils_searchexp(uri, mod->config->protect);
 	if (protect != ESUCCESS)
@@ -236,7 +246,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			ret = EREJECT;
 		}
 	}
-	free(uri);
 
 	if (ret == ECONTINUE)
 	{
@@ -261,19 +270,44 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				httpmessage_SESSION(request, "%user", user);
 				httpmessage_addheader(response, (char *)str_xuser, user);
 				httpmessage_SESSION(request, "%authtype", (char *)mod->type);
+				ret = EREJECT;
 
 				if (mod->authz->rules->group)
 				{
 					char *group = mod->authz->rules->group(mod->authz->ctx, user);
-					httpmessage_SESSION(request, "%authgroup", group);
-					httpmessage_addheader(response, (char *)str_xgroup, group);
-					dbg("group %s", group);
+					if (group)
+					{
+						httpmessage_SESSION(request, "%authgroup", group);
+						httpmessage_addheader(response, (char *)str_xgroup, group);
+					}
+				}
+				if (mod->authz->rules->home)
+				{
+					char *home = mod->authz->rules->home(mod->authz->ctx, user);
+					if (home)
+					{
+						httpmessage_SESSION(request, "%authhome", home);
+						if (*home == '/')
+							home++;
+						int homelength = strlen(home);
+						if ((mod->authz->type & AUTHZ_HOME_E) && (strncmp(home, uri, homelength) != 0))
+						{
+							dbg("redirect the url to home %s", home);
+#if defined(RESULT_301)
+							char *location = calloc(1, 1 + homelength + strlen(uriencoded) + 1);
+							sprintf(location, "/%s%s", home, uriencoded);
+							httpmessage_addheader(response, str_location, location);
+							httpmessage_result(response, RESULT_301);
+							free(location);
+							ret = ESUCCESS;
+#endif
+						}
+					}
 				}
 				//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
 				//sprintf(value, "%s=%s", str_authorization, authentication);
 				httpmessage_addheader(response, (char *)str_authorization, authentication);
 				//free(value);
-				ret = EREJECT;
 			}
 			else
 			{
@@ -291,10 +325,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 				if (ret == ESUCCESS)
 				{
+					dbg("auth challenge failed");
 #if defined(RESULT_403)
 					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 					if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
+					{
 						httpmessage_result(response, RESULT_403);
+					}
 					else
 #endif
 					if (mod->config->login)
@@ -341,5 +378,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			}
 		}
 	}
+	free(uri);
 	return ret;
 }

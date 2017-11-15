@@ -18,8 +18,11 @@ LIBHTTPSERVER_CONF_OPTS = \
 	--libdir=/usr/lib/ouistiti \
 	--sysconfdir=/etc/ouistiti \
 	--host=$(TARGET_CC:%gcc=%) \
+	--enable-static \
+	--disable-dynamic \
 	--enable-websocket \
-	--enable-libutils
+	--enable-libutils \
+	--with-vthread-type=fork
 
 TARGET_MAKE_ENV+=LD=$(TARGET_CC) sysroot=$(STAGING_DIR)
 
@@ -29,6 +32,8 @@ LIBHTTPSERVER_CONF_OPTS += --enable-mbedtls
 else
 LIBHTTPSERVER_CONF_OPTS += --disable-mbedtls
 endif
+
+LIBHTTPSERVER_MAKE_OPTS+=package=ouistiti
 
 define LIBHTTPSERVER_CONFIGURE_CMDS
 	cd $(@D); ./configure $(LIBHTTPSERVER_CONF_OPTS)

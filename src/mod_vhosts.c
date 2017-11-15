@@ -67,6 +67,7 @@ struct _mod_vhost_s
 {
 	mod_vhost_t	*config;
 	void *mod_static_file;
+	void *mod_dirlisting;
 	void *mod_cgi;
 	void *mod_auth;
 	void *mod_websocket;
@@ -86,19 +87,19 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 
 	dbg("create vhost for %s", config->hostname);
 #if defined AUTH
-	if (config->auth)
+	if (config->modules.auth)
 	{
-		mod->mod_auth = mod_auth_create(server, config->hostname, config->auth);
+		mod->mod_auth = mod_auth_create(server, config->hostname, config->modules.auth);
 	}
 #endif
 #if defined METHODLOCK
-			mod->mod_methodlock = mod_methodlock_create(server, config->hostname, NULL);
+	mod->mod_methodlock = mod_methodlock_create(server, config->hostname, NULL);
 #endif
 #if defined SERVERHEADER
-			mod->mod_server = mod_server_create(server, config->hostname, NULL);
+	mod->mod_server = mod_server_create(server, config->hostname, NULL);
 #endif
 #if defined WEBSOCKET
-	if (config->websocket)
+	if (config->modules.websocket)
 	{
 		mod_websocket_run_t run = default_websocket_run;
 #if defined WEBSOCKET_RT
@@ -106,17 +107,21 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 			run = ouistiti_websocket_run;
 #endif
 		mod->mod_websocket = mod_websocket_create(server,
-			config->hostname, config->websocket,
-			run, config->websocket);
+			config->hostname, config->modules.websocket,
+			run, config->modules.websocket);
 	}
 #endif
 #if defined CGI
-	if (config->cgi)
-		mod->mod_cgi = mod_cgi_create(server, config->hostname, config->cgi);
+	if (config->modules.cgi)
+		mod->mod_cgi = mod_cgi_create(server, config->hostname, config->modules.cgi);
+#endif
+#if defined FILESTORAGE
+	if (config->modules.filestorage)
+		mod->mod_filestorage = mod_filestorage_create(server, config->hostname, config->modules.filestorage);
 #endif
 #if defined STATIC_FILE
-	if (config->static_file)
-		mod->mod_static_file = mod_static_file_create(server, config->hostname, config->static_file);
+	if (config->modules.static_file)
+		mod->mod_static_file = mod_static_file_create(server, config->hostname, config->modules.static_file);
 #endif
 
 	return mod;
@@ -128,6 +133,10 @@ void mod_vhost_destroy(void *arg)
 #if defined STATIC_FILE
 	if (mod->mod_static_file)
 		mod_static_file_destroy(mod->mod_static_file);
+#endif
+#if defined FILESTORAGE
+	if (mod->mod_filestorage)
+		mod_filestorage_destroy(mod->mod_filestorage);
 #endif
 #if defined CGI
 	if (mod->mod_cgi)
