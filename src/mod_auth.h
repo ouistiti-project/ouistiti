@@ -83,6 +83,12 @@ struct authz_s
 };
 typedef struct authz_s authz_t;
 
+typedef struct authn_none_config_s authn_none_config_t;
+struct authn_none_config_s
+{
+	char *user;
+};
+
 typedef struct authn_basic_config_s authn_basic_config_t;
 struct authn_basic_config_s
 {
@@ -112,6 +118,7 @@ struct authn_rules_s
 };
 typedef enum
 {
+	AUTHN_NONE_E = 0,
 	AUTHN_BASIC_E = 1,
 	AUTHN_DIGEST_E,
 } authn_type_t;

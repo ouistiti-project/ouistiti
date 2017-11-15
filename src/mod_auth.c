@@ -46,6 +46,7 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_auth.h"
+#include "authn_none.h"
 #include "authn_basic.h"
 #include "authn_digest.h"
 #include "authz_simple.h"
@@ -102,7 +103,11 @@ const char *str_authenticate_types[] =
 	"Digest",
 };
 authn_rules_t *authn_rules[] = {
+#ifdef AUTHN_NONE
+	&authn_none_rules,
+#else
 	NULL,
+#endif
 #ifdef AUTHN_BASIC
 	&authn_basic_rules,
 #else
@@ -172,7 +177,8 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	}
 	else
 	{
-		mod->authz->rules->destroy(mod->authz->ctx);
+		if (mod->authn->rules && mod->authz->rules->destroy)
+			mod->authz->rules->destroy(mod->authz->ctx);
 		free(mod->authz);
 		free(mod->authn);
 		free(mod);
