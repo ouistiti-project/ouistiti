@@ -30,7 +30,7 @@ class Chat
 		const self = this;
 		if (this.user == undefined)
 			return;
-		this.ws = new WebSocket(this.uri);
+		this.ws = new WebSocket(this.uri, "chat");
 		this.ws.onopen = function(evt) { self._onopen.call(self, evt) };
 		this.ws.onclose = function(evt) { self._onclose.call(self, evt) };
 		this.ws.onmessage = function(evt) { self._onmessage.call(self, evt) };
@@ -39,8 +39,11 @@ class Chat
 
 	disconnect()
 	{
-		var msg = {type : "goodbye", id: this.id, data: this.user};
-		this.ws.send(JSON.stringify(msg));
+		if (this.ws != undefined)
+		{
+			var msg = {type : "goodbye", id: this.id, data: this.user};
+			this.ws.send(JSON.stringify(msg));
+		}
 	};
 
 	_onopen(evt)

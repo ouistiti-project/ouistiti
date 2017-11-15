@@ -51,6 +51,16 @@ shell.onchange = function(content)
 	elm.class += " active";
 	changedir.appendChild(elm);
 
+	if (content.length == 0)
+	{
+		$("#Message").html("<strong>Empty directory</strong>");
+		$("#Message").removeClass("hidden");
+	}
+	else
+	{
+		$("#Message").html();
+		$("#Message").addClass("hidden");
+	}
 	var ls = document.getElementById("ls");
 	ls.innerHTML = "";
 	for (i = 0; i < content.length; i++) {
@@ -239,8 +249,11 @@ onLoad = function()
 					</form>
 				</div>
 			</div>
-		</nav> 
-		<ul class="list-group container" id="ls"></ul>
+		</nav>
+		<div class="container">
+			<div id="Message" class="row hidden alert alert-warning"></div>
+			<ul class="list-group" id="ls"></ul>
+		</div>
 		
 		<!-- Upload -->
 		<div class="modal fade" id="UploadBox" tabindex="-1" role="dialog" aria-labelledby="UploadLabel">

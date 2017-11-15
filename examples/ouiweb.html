@@ -94,6 +94,7 @@ loadApps = function(url, root)
 onLoad = function()
 {
 	loadApps("apps/ouiweb.json", shell.root);
+	shell.login();
 	var dir = "";
 	//var dir = ".";
 	shell.cd(dir);
