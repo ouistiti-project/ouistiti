@@ -67,7 +67,7 @@ static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *
 
 	httpclient_addconnector(ctl, mod->vhost, server_connector, NULL);
 
-	return NULL;
+	return mod;
 }
 
 void *mod_server_create(http_server_t *server, char *vhost, void *config)

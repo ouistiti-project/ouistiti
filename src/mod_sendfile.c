@@ -60,9 +60,20 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 	sigemptyset (&sigset);
 	sigaddset(&sigset, SIGPIPE);
 	sigprocmask(SIG_BLOCK, &sigset, NULL);
-	ret = sendfile(httpmessage_keepalive(response), private->fd, NULL, size);
+
+	ret = httpclient_wait(private->ctl, 1);
 	if (ret > 0)
+	{
+		int sock = ret;
+		ret = sendfile(sock, private->fd, NULL, size);
+	}
+	if (ret >= 0)
 		sigprocmask(SIG_UNBLOCK, &sigset, NULL);
+	if (ret == 0 && size > 0)
+	{
+		ret = -1;
+		errno = EAGAIN;
+	}
 
 	return ret;
 }

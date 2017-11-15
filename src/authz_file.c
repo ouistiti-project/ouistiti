@@ -114,6 +114,7 @@ struct authz_file_s
 	char *user;
 	char *passwd;
 	char *group;
+	char *home;
 #ifdef FILE_MMAP
 	char *map;
 	int map_size;
@@ -210,7 +211,7 @@ char *authz_file_passwd(void *arg, char *user)
 	}
 #else
 	FILE *file = fopen(config->path, "r");
-	while(!feof(file))
+	while(file && !feof(file))
 	{
 		fgets(ctx->user, MAXLENGTH, file);
 		char *end = strchr(ctx->user, '\n');
@@ -228,13 +229,19 @@ char *authz_file_passwd(void *arg, char *user)
 				{
 					*ctx->group = '\0';
 					ctx->group++;
+					ctx->home = strchr(ctx->group, ':');
+					if (ctx->home)
+					{
+						*ctx->home = '\0';
+						ctx->home++;
+					}
 				}
 				fclose(file);
 				return ctx->passwd;
 			}
 		}
 	}
-	fclose(file);
+	if (file) fclose(file);
 #endif
 	return NULL;
 }
@@ -305,7 +312,17 @@ char *authz_file_group(void *arg, char *user)
 		return ctx->group;
 	if (!strcmp(user, "anonymous"))
 		return "anonymous";
-	return "user";
+	return NULL;
+}
+
+char *authz_file_home(void *arg, char *user)
+{
+	authz_file_t *ctx = (authz_file_t *)arg;
+	authz_file_config_t *config = ctx->config;
+
+	if (ctx->home && ctx->home[0] != '\0')
+		return ctx->home;
+	return NULL;
 }
 
 void authz_file_destroy(void *arg)
@@ -317,6 +334,8 @@ void authz_file_destroy(void *arg)
 	close(ctx->fd);
 	free(ctx->passwd);
 	free(ctx->group);
+	if (ctx->home)
+		free(ctx->home);
 #else
 	free(ctx->user);
 #endif
@@ -329,5 +348,6 @@ authz_rules_t authz_file_rules =
 	.check = authz_file_check,
 	.passwd = authz_file_passwd,
 	.group = authz_file_group,
+	.home = authz_file_home,
 	.destroy = authz_file_destroy,
 };

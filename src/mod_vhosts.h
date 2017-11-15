@@ -28,21 +28,21 @@
 #ifndef __MOD_VHOSTS_H__
 #define __MOD_VHOSTS_H__
 
+typedef struct mod_vhost_s mod_vhost_t;
+#include "config.h"
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-typedef struct mod_vhost_s
+struct mod_vhost_s
 {
 	/** @param name of the server */
 	char *hostname;
-	
-	mod_static_file_t *static_file;
-	mod_cgi_config_t *cgi;
-	mod_auth_t *auth;
-	mod_websocket_t *websocket;
-} mod_vhost_t;
+
+	modulesconfig_t modules;
+};
 
 void *mod_vhost_create(http_server_t *server, mod_vhost_t *modconfig);
 void mod_vhost_destroy(void *mod);

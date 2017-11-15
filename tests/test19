@@ -1,4 +1,4 @@
 DESC="test a PUT request with good authentication"
 CONFIG=test4.conf
 TESTREQUEST=test19_rq.txt
-TESTCODE=404
+TESTCODE=200

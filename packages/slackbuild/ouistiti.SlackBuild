@@ -69,11 +69,15 @@ cd $PRGNAM
 chown -R root:root .
 chmod -R u+w,go+r-w,a-s .
 
-./configure --prefix=/usr --libdir=/usr/lib${LIBDIRSUFFIX}/ouistiti --sysconfdir=/etc --enable-static --disable-dynamic
+./configure --prefix=/usr --libdir=/usr/lib${LIBDIRSUFFIX}/ouistiti --sysconfdir=/etc/ouistiti --enable-static --disable-dynamic
 
 make
 
 make DESTDIR=$PKG install
+
+mkdir -p $PKG/etc/rc.d
+cp $CWD/rc.ouistiti $PKG/etc/rc.d
+chmod a-x $PKG/etc/rc.d/rc.ouistiti
 
 find $PKG | xargs file | grep -e "executable" -e "shared object" | grep ELF \
   | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true

@@ -1,0 +1,359 @@
+<html>
+	<head>
+		<!--
+		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+		-->
+		<link href="css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="js/jquery.min.js"></script>
+		<script src="js/bootstrap.min.js"></script>
+		<script src="js/ouishell.js"></script>
+		<script>
+function startRead(evt) {
+    //var file = document.getElementById("file").files[0];
+    var file = evt.target.files[0];
+    if (file) {
+		shell.put(file);
+    }
+    evt.stopPropagation();
+    evt.preventDefault();
+}
+function startReadFromDrag(evt) {
+    var file = evt.dataTransfer.files[0];
+    if (file) {
+		uploader.open(file);
+		uploader.get();
+    }
+    evt.stopPropagation();
+    evt.preventDefault();
+}
+
+var shell = new Shell("");
+shell.onchange = function(content)
+{
+	var changedir = document.getElementById("changedir");
+	changedir.innerHTML = "";
+	var elm = document.createElement("li");
+	elm.innerHTML="<a href='#' class='glyphicon glyphicon-home hidden-text' onclick='shell.cd(\"/\")'> </a>";
+	var directories = this.cwd.split('/');
+	var directory = "";
+	for (i = 1; i < directories.length; i++) {
+		if (directories[i].length > 0)
+		{
+			directory+="/"+directories[i];
+			changedir.appendChild(elm);
+			elm = document.createElement("li");
+			//elm.className="col-xs-2";
+			elm.innerHTML = "<a href='#' class='dir' onclick='shell.cd(\""+directory+"\")'>"+directories[i]+"</a>";
+		}
+	}
+	elm.class += " active";
+	changedir.appendChild(elm);
+
+	var ls = document.getElementById("ls");
+	ls.innerHTML = "";
+	for (i = 0; i < content.length; i++) {
+		elm = document.createElement("li");
+		elm.className = "list-group-item row";
+		if (content[i].type == 4)
+		{
+			elm.innerHTML = "<span class='glyphicon glyphicon-folder-open col-xs-1 center'></span>";
+			elm.innerHTML += "<span class='name col-xs-8'><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
+		}
+		else if (content[i].type == 8)
+		{
+			elm.innerHTML = "<span class='glyphicon glyphicon-file col-xs-1 center'></span>";
+			elm.innerHTML += "<span class='name col-xs-8'><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.launch(\""+content[i].name+"\");'>"+content[i].name+"</a></span>";
+		}
+		else
+		{
+			elm.innerHTML = "<span class='glyphicon glyphicon-link col-xs-1'></span>";
+			elm.innerHTML += "<span class='name col-xs-8'>"+content[i].name+"</span>";
+		}
+		elm.innerHTML += "<span class='col-xs-2 col-pull-right center'>"+content[i].size+"</span>";
+
+		var hidden = "";
+		if (!shell.authenticate.islog)
+			hidden=" hidden";
+		deletemenu = "<li class='ProtectedButton"+hidden+"'><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.rm(\""+content[i].name+"\");'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
+		renamemenu = "<li class='ProtectedButton"+hidden+"'><a href='#' data-href='' onclick='$(\"#MvOldName\").val(\""+content[i].name+"\");' data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
+		copymenu = "<li class='ProtectedButton"+hidden+"'><a href='#' data-href='' onclick='shell.cp(\""+content[i].name+"\");'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
+		dropmenu = "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"+deletemenu+renamemenu+copymenu+"</ul>";
+		dropdown = "<span class='dropdown'><button href='#' id='menu"+i+"' class='btn btn-default dropdown-toggle' data-toggle='dropdown' role='button' aria-haspopup='true' aria-expanded='false'><span class='glyphicon glyphicon-list'></span></button>"+dropmenu+"</span>";
+		elm.innerHTML += "<span class='col-xs-1 col-pull-right center'>"+dropdown+"</span>";
+		ls.appendChild(elm);
+	}
+}
+shell.onput = function(file)
+{
+	var ret = confirm("upload "+file.name);
+	return ret;
+}
+shell.onauthenticate = function(authenticate, result)
+{
+	if (result != undefined)
+	{
+		if (result == "failed")
+		{
+			$("#LoginResult").html("Bad login or password");
+			$("#LoginResult").addClass("has-error");
+			$("#LoginArea").addClass("has-error");
+			$("#LoginArea").prop("aria-invalid",true);
+		}
+		if (result == "logout")
+		{
+			$("#LoginResult").html("Logout");
+			$("#LoginResult").addClass("has-success");
+		}
+		$("#LoginResult").removeClass("hidden");
+	}
+	$("#LoginButton").removeClass("hidden");
+	$("#UserButton").addClass("hidden");
+	$("#LogoutButton").addClass("hidden");
+	$("#UploadButton").addClass("hidden");
+	$(".ProtectedButton").addClass("hidden");
+}
+shell.onauthorization = function(user)
+{
+	$("#LoginArea").removeClass("has-error");
+	$("#LoginArea").prop("aria-invalid",false)
+	$("#LoginButton").addClass("hidden");
+	$("#UserButton").html(user.name);
+	$("#UserButton").removeClass("hidden");
+	$("#LogoutButton").removeClass("hidden");
+	$("#UploadButton").removeClass("hidden");
+	$("#LoginBox").modal('hide');
+	$(".ProtectedButton").removeClass("hidden");
+	shell.ls();
+}
+/*
+shell.onput = function(file)
+{
+	if (file.type.match("text/html"))
+	{
+		var elm = document.createElement("iframe");
+		elm.width=240;
+		elm.height=297;
+		elm.style="border:1px solid #d3d3d3;";
+		elm.document.innerHTML = new TextDecoder("utf-8").decode(file.data);
+		document.getElementById("op").appendChild(elm);
+	}
+	if (file.type.match("text/plain"))
+	{
+		var elm = document.createElement("div");
+		elm.width=240;
+		elm.height=297;
+		elm.style="border:1px solid #d3d3d3;";
+		elm.innerHTML = new TextDecoder("utf-8").decode(file.data);
+		document.getElementById("op").appendChild(elm);
+	}
+	if (file.type.match("image/*"))
+	{
+		var elm = document.createElement("canvas");
+		elm.width=240;
+		elm.height=297;
+		elm.style="border:1px solid #d3d3d3;";
+		var image = new ImageData(file.data, 240, 297);
+		var ctx = elm.getContext("2d");
+		ctx.drawImage(image, 0, 0);
+		document.getElementById("op").appendChild(elm);		
+	}
+}
+*/
+
+onLoad = function()
+{
+	shell.login();
+	var fileselector = document.getElementById("UploadStart");
+	fileselector.onchange = startRead;
+	var dir = "";
+	//var dir = ".";
+	shell.cd(dir);
+//	var login = document.getElementById("LoginButton");
+	var login = document.getElementById("LoginExec");
+	login.onclick = function(event)
+	{
+		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
+	}
+	var logout = document.getElementById("LogoutButton");
+	logout.onclick = function(event)
+	{
+		shell.logout();
+	}
+}
+		</script>
+	</head>
+	<body onload="onLoad();" style="padding-top: 70px;">
+		<nav class="navbar navbar-default navbar-fixed-top">
+			<div class="container-fluid">
+				<div class="navbar-header">
+					<button type="button" class="collapsed navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+						<span class="sr-only">Toggle navigation</span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+					</button>
+					<a href="#" class="navbar-brand">Ouistiti</a>
+				</div>
+				<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+					<ul class="nav navbar-nav">
+						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">File<span class="caret"></span></a>
+							<ul class="dropdown-menu">
+								<li><a href="#" data-toggle="modal" data-target="#UploadBox">Upload</a></li>
+								<li><a href="#" data-toggle="modal" data-target="#MkdirBox">Make Dir</a></li>
+								<li><a href="#" onclick="shell.paste()">Paste</a></li>
+<!--
+								<li role="separator" class="divider"></li>
+								<li class="ProtectedButton hidden"><a href="#">Delete</a></li>
+								<li><a href="#">Rename</a></li>
+								<li><a href="#">Separated link</a></li>
+-->
+							</ul>
+						</li>
+						<li class="navbar-btn">
+							<ol class="breadcrumb" id="changedir" style="margin-bottom:0;"></ol>
+						</li>
+					</ul>
+					<form class="navbar-form navbar-right">
+						<label class="btn btn-default navbar-btn hidden" for="UploadStart" id="UploadButton"><input id="UploadStart" type="file" style="display:none;"/>
+							<span class='glyphicon glyphicon-cloud-upload' aria-hidden="true"></span>&nbsp
+						</label>
+						<div class="form-group hidden">
+							<input class="form-control" placeholder="Search" type="text">
+						</div>
+						<button type="button" class="btn btn-default hidden">
+							<span class='glyphicon glyphicon-search' aria-hidden="true"></span>
+						</button>
+						<button type="button" class="btn btn-default" data-toggle="modal" data-target="#LoginBox" id="LoginButton">
+							<span class='glyphicon glyphicon-user' aria-hidden="true"></span>&nbsp
+						</button>
+						<div class="input-group">
+							<div class="input-group-btn">
+								<button type="button" class="btn btn-default hidden" id="UserButton"></button>
+								<button type="button" class="btn btn-default hidden" id="LogoutButton">&nbsp;
+									<span class='glyphicon glyphicon-off'></span>&nbsp;
+								</button>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
+		</nav> 
+		<ul class="list-group container" id="ls"></ul>
+		
+		<!-- Upload -->
+		<div class="modal fade" id="UploadBox" tabindex="-1" role="dialog" aria-labelledby="UploadLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="UploadLabel">Upload File</h4>
+					</div>
+					<div class="modal-body">
+						<form>
+							<label class="btn btn-primary" for="my-file-selector">
+								<input id="my-file-selector" type="file" style="display:none;">
+								Upload
+							</label>
+							<div class="input-group">
+							  <span class="input-group-addon" id="UploadFileName">File</span>
+							  <input type="file" class="form-control" placeholder="." aria-describedby="UploadFileName" name="file" id="file" >
+							</div>
+							<input type="button" name="send" id="send" />
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary">Save changes</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="modal fade" id="MkdirBox" tabindex="-1" role="dialog" aria-labelledby="MkdirLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="MkdirLabel">Make Directory</h4>
+					</div>
+					<div class="modal-body">
+						<form>
+							<div class="input-group">
+							  <span class="input-group-addon" id="MkdirField">New</span>
+							  <input type="text" class="form-control" placeholder="newdir" aria-describedby="MkdirField" name="file" id="MkdirName" >
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" data-dismiss="modal" id="MkdirExec" onclick="shell.mkdir($('#MkdirName').val());">OK</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="modal fade" id="MvBox" tabindex="-1" role="dialog" aria-labelledby="MvLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<h4 class="modal-title" id="MvLabel">Rename</h4>
+					</div>
+					<div class="modal-body">
+						<form>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="MvField">Rename</span>
+									<input type="text" class="form-control" placeholder="new name" id="MvOldName" readonly>
+								</div>
+							</div>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="MvField">to</span>
+									<input type="text" class="form-control" placeholder="new name" aria-describedby="MvField" id="MvName" >
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" data-dismiss="modal" id="MvExec" onclick="shell.mv($('#MvOldName').val(),$('#MvName').val());">OK</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="modal fade" id="LoginBox" tabindex="-1" role="dialog" aria-labelledby="LoginLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="LoginLabel">Login</h4>
+					</div>
+					<div class="modal-body">
+						<form class="form-group" aria-describedby="LoginResult" id="LoginArea">
+							<span id="LoginResult"  class="help-block hidden"></span>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="UserField">User</span>
+									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" >
+								</div>
+							</div>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon" id="PasswordField">Password</span>
+									<input type="password" class="form-control" placeholder="name" aria-describedby="PasswordField" id="LoginPassword" >
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" id="LoginExec">Login</button>
+					</div>
+				</div>
+			</div>
+		</div>
+ 	</body>
+</html>

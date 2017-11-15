@@ -4,10 +4,17 @@ servers= ({
 		port = 80;
 		keepalivetimeout = 5;
 		version="HTTP11";
+		unlock_groups="user";
+		auth = {
+			type = "Basic";
+			user = "test";
+			passwd = "test";
+			group = "user";
+		};
 		static_file = {
 			docroot = "%PWD%/tests/htdocs";
 			accepted_ext = ".html,.*htm*,.css,.js,.txt,*";
-			ignored_ext = "^.ht*,.php";
+			ignored_ext = ".htaccess,.php";
 			transfer_type = "dirlisting,filestorage";
 		};
 	});

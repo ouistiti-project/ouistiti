@@ -130,7 +130,6 @@ char *authn_basic_check(void *arg, char *method, char *string)
 		*passwd = 0;
 		passwd++;
 	}
-	dbg("auth basic \"%s\" \"%s\"", user, passwd);
 
 	if (mod->authz->rules->check(mod->authz->ctx, user, passwd))
 	{

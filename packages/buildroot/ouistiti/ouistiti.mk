@@ -9,8 +9,8 @@ OUISTITI_SOURCE = v$(OUISTITI_VERSION).tar.gz
 OUISTITI_SITE = https://github.com/ouistiti-project/ouistiti/archive
 OUISTITI_LICENSE = MIT
 OUISTITI_LICENSE_FILES = LICENSE
-OUISTITI_DEPENDENCIES = libhttpserver
-OUISTITI_DEPENDENCIES = libconfig
+OUISTITI_DEPENDENCIES += libhttpserver
+OUISTITI_DEPENDENCIES += libconfig
 
 OUISTITI_KCONFIG_FILE = ouistiti.config
 
@@ -19,7 +19,10 @@ OUISTITI_CONF_OPTS = \
 	--libdir=/usr/lib/ouistiti \
 	--sysconfdir=/etc/ouistiti \
 	--host=$(TARGET_CC:%gcc=%) \
-
+	--enable-static \
+	--disable-dynamic \
+	--enable-websocket \
+	--with-vthread-type=fork
 
 TARGET_MAKE_ENV+=LD=$(TARGET_CC) sysroot=$(STAGING_DIR)
 
@@ -45,8 +48,8 @@ define OUISTITI_INSTALL_TARGET_CMDS
 		DESTDIR=$(TARGET_DIR) install
 	$(INSTALL) -d -m 0755 $(TARGET_DIR)/srv/www/htdocs
 	$(INSTALL) -d -m 0755 $(TARGET_DIR)/srv/www/cgi-bin
-	$(INSTALL) -D -m 0755 $(@D)/utils/ouistiti.conf \
-		$(TARGET_DIR)/etc/ouistiti.conf
+	$(INSTALL) -D -m 0755 $(@D)/packages/buildroot/S50ouistiti \
+		$(TARGET_DIR)/etc/init.d/S50ouistiti
 endef
 
 define OUISTITI_INSTALL_INIT_SYSV

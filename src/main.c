@@ -52,6 +52,7 @@
 #include "httpserver/mod_mbedtls.h"
 #include "httpserver/mod_websocket.h"
 #include "mod_static_file.h"
+#include "mod_filestorage.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
@@ -82,6 +83,7 @@ typedef struct server_s
 	http_server_t *server;
 	void *mod_mbedtls;
 	void *mod_static_file;
+	void *mod_filestorage;
 	void *mod_cgi;
 	void *mod_auth;
 	void *mod_methodlock;
@@ -100,12 +102,21 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
 }
 
+static servert_t *first = NULL;
 static char run = 0;
 static void
-handler(int sig, siginfo_t *si, void *unused)
+handler(int sig, siginfo_t *si, void *arg)
 {
 	run = 'q';
-	kill(0, SIGQUIT);
+	servert_t *server = arg;
+	server = first;
+
+	while (server != NULL)
+	{
+		if (server->server)
+			httpserver_disconnect(server->server);
+		server = server->next;
+	}
 }
 
 static char servername[] = PACKAGEVERSION;
@@ -113,7 +124,7 @@ int main(int argc, char * const *argv)
 {
 	struct passwd *user = NULL;
 	struct group *grp = NULL;
-	servert_t *server, *first = NULL;
+	servert_t *server;
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
 	serverconfig_t *it;
@@ -167,6 +178,7 @@ int main(int argc, char * const *argv)
 	sigemptyset(&action.sa_mask);
 	action.sa_sigaction = handler;
 	sigaction(SIGTERM, &action, NULL);
+	sigaction(SIGINT, &action, NULL);
 
 #ifdef HAVE_PWD_H
 	if (ouistiticonfig->user)
@@ -208,9 +220,9 @@ int main(int argc, char * const *argv)
 			}
 #endif
 #if defined AUTH
-			if (server->config->auth)
+			if (server->config->modules.auth)
 			{
-				server->mod_auth = mod_auth_create(server->server, NULL, server->config->auth);
+				server->mod_auth = mod_auth_create(server->server, NULL, server->config->modules.auth);
 			}
 #endif
 #if defined METHODLOCK
@@ -220,11 +232,11 @@ int main(int argc, char * const *argv)
 			server->mod_server = mod_server_create(server->server, NULL, NULL);
 #endif
 #if defined CGI
-			if (server->config->cgi)
-				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->cgi);
+			if (server->config->modules.cgi)
+				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->modules.cgi);
 #endif
 #if defined WEBSOCKET
-			if (server->config->websocket)
+			if (server->config->modules.websocket)
 			{
 				mod_websocket_run_t run = default_websocket_run;
 #if defined WEBSOCKET_RT
@@ -232,21 +244,25 @@ int main(int argc, char * const *argv)
 				 * ouistiti_websocket_run is more efficient than
 				 * default_websocket_run. But it doesn't run with TLS
 				 **/
-				if (server->config->websocket->mode && strstr(server->config->websocket->mode, "realtime"))
+				if (server->config->websocket->options & WEBSOCKET_REALTIME)
 					run = ouistiti_websocket_run;
 #endif
 				server->mod_websocket = mod_websocket_create(server->server,
-					NULL, server->config->websocket,
-					run, server->config->websocket);
+					NULL, server->config->modules.websocket,
+					run, server->config->modules.websocket);
 			}
 #endif
 #if defined MBEDTLS
 			if (server->config->tls)
 				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
 #endif
+#if defined FILESTORAGE
+			if (server->config->modules.filestorage)
+				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->modules.filestorage);
+#endif
 #if defined STATIC_FILE
-			if (server->config->static_file)
-				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->static_file);
+			if (server->config->modules.static_file)
+				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->modules.static_file);
 #endif
 		}
 		server = server->next;
@@ -284,6 +300,10 @@ int main(int argc, char * const *argv)
 		if (server->mod_static_file)
 			mod_static_file_destroy(server->mod_static_file);
 #endif
+#if defined FILESTORAGE
+		if (server->mod_filestorage)
+			mod_filestorage_destroy(server->mod_filestorage);
+#endif
 #if defined METHODLOCK
 		if (server->mod_methodlock)
 			mod_methodlock_destroy(server->mod_methodlock);
@@ -292,6 +312,10 @@ int main(int argc, char * const *argv)
 		if (server->mod_server)
 			mod_server_destroy(server->mod_server);
 #endif
+#if defined WEBSOCKET
+		if (server->mod_websocket)
+			mod_websocket_destroy(server->mod_websocket);
+#endif
 #if defined CGI
 		if (server->mod_cgi)
 			mod_cgi_destroy(server->mod_cgi);
@@ -299,6 +323,13 @@ int main(int argc, char * const *argv)
 #if defined AUTH
 		if (server->mod_auth)
 			mod_auth_destroy(server->mod_auth);
+#endif
+#if defined VHOSTS
+		for (i = 0; i < (MAX_SERVERS - 1); i++)
+		{
+			if (server->mod_vhosts[i])
+				mod_vhost_destroy(server->mod_vhosts[i]);
+		}
 #endif
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);

@@ -54,14 +54,23 @@ typedef struct _static_file_connector_s static_file_connector_t;
 
 #define DIRLISTING_HEADER "\
 {\
+\"method\":\"GET\",\
+\"result\":\"OK\",\
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
-#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":%d,\"type\":%d},"
+#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":\"%u %s\",\"type\":%d},"
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
 #define DIRLISTING_FOOTER "\
 {}]}"
 
+static char *_sizeunit[] = {
+	"B",
+	"kB",
+	"MB",
+	"GB",
+	"TB",
+};
 int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -69,10 +78,9 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	_mod_static_file_mod_t *mod = private->mod;
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
 
-	if (!(private->type & STATIC_FILE_DIRLISTING))
-		return EREJECT;
 	if (private->dir == NULL)
 	{
+		chdir(private->filepath);
 		private->dir = opendir(private->filepath);
 		if (private->dir)
 		{
@@ -82,30 +90,23 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 			int length = strlen(private->path_info);
 			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
 			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, private->path_info);
-			httpmessage_addcontent(response, NULL, data, strlen(data));
+			httpmessage_addcontent(response, (char*)utils_getmime(".json"), data, strlen(data));
 			free(data);
-			if (strlen(private->path_info) > 1)
-			{
-				int length = (sizeof("..") - 1) * 2 + strlen(private->path_info);
-				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, "..", 0, 0);
-				httpmessage_addcontent(response, NULL, data, strlen(data));
-				free(data);
-			}
 			ret = ECONTINUE;
 		}
 		else
 		{
-			warn("dirlisting: directory not open");
-			free(private->filepath);
-			private->filepath = NULL;
+			warn("dirlisting: directory not open %s %s", private->filepath, strerror(errno));
+			static_file_close(private);
+			httpmessage_result(response, RESULT_400);
+			ret = ESUCCESS;
 		}
 	}
 	else if (private->path_info == NULL)
 	{
 		httpclient_shutdown(private->ctl);
 		closedir(private->dir);
-		private->dir = NULL;
+		static_file_close(private);
 		ret = ESUCCESS;
 	}
 	else
@@ -116,9 +117,20 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		{
 			if (ent->d_name[0] != '.')
 			{
-				int length = strlen(private->path_info) + strlen(ent->d_name) * 2 + 4;
+				int length = strlen(ent->d_name);
+				struct stat filestat;
+				stat(ent->d_name, &filestat);
+				int size = filestat.st_size;
+				int unit = 0;
+				while (size > 2000)
+				{
+					size /= 1024;
+					unit++;
+				}
+
+				length += 4 + 2 + 4;
 				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, ent->d_name, ent->d_reclen, ent->d_type);
+				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12));
 				char *content = httpmessage_addcontent(response, NULL, data, -1);
 				free(data);
 			}
@@ -128,8 +140,6 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		{
 			free(private->path_info);
 			private->path_info = NULL;
-			free(private->filepath);
-			private->filepath = NULL;
 			httpmessage_addcontent(response, NULL, DIRLISTING_FOOTER, -1);
 			ret = ECONTINUE;
 		}
@@ -137,7 +147,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	return ret;
 }
 
-#ifndef STATIC_FILE
+#ifdef DIRLISTING_MOD
 static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;

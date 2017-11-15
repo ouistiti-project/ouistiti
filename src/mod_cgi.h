@@ -41,6 +41,7 @@ typedef struct mod_cgi_config_s
 	char *ignored_ext;
 	const char **env;
 	int nbenvs;
+	int chunksize;
 } mod_cgi_config_t;
 
 void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);

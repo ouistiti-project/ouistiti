@@ -4,6 +4,7 @@ servers= ({
 		port = 80;
 		keepalivetimeout = 5;
 		version="HTTP11";
+		unlock_groups="superuser,user";
 		auth = {
 			type="Digest";
 			realm="testrealm@host.com";

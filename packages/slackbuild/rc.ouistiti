@@ -1,0 +1,43 @@
+#!/bin/sh
+# Start/stop/restart ouistiti, a small and fast HTTP server
+
+# Start ouistiti:
+DAEMONDIR=/usr/sbin
+DAEMON=ouistiti
+DAEMONPARAMS=-D
+daemon_start() {
+  if [ -x ${DAEMONDIR}/${DAEMON} ]; then
+    echo "Starting ${DAEMON} daemon:  ${DAEMONDIR}/${DAEMON}"
+    ${DAEMONDIR}/${DAEMON} ${DAEMONPARAMS} 
+  fi
+  if [ -x /usr/bin/websocket_chat ]; then
+    /usr/bin/websocket_chat -w &
+  fi
+}
+
+# Stop inetd:
+daemon_stop() {
+  killall ${DAEMON}
+  killall websocket_chat
+}
+
+# Restart inetd:
+daemon_restart() {
+  daemon_stop
+  sleep 1
+  daemon_start
+}
+
+case "$1" in
+'start')
+  daemon_start
+  ;;
+'stop')
+  daemon_stop
+  ;;
+'restart')
+  daemon_restart
+  ;;
+*)
+  echo "usage $0 start|stop|restart"
+esac

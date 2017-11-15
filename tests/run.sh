@@ -25,14 +25,17 @@ TESTDIR=$(dirname $TEST)/
 SRCDIR=$TESTDIR../src/
 PWD=$(pwd)
 USER=$(ls -l ${SRCDIR}/${TARGET} | gawk '{print $3}')
-TESTCLIENT=./host/testclient
+TESTCLIENT="./host/utils/testclient"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
 if [ -z "$DEBUG" ]; then
-HTTPPARSER="./host/httpparser"
+HTTPPARSER="./host/utils/httpparser"
 CURLOUT="-o /dev/null"
 else
 HTTPPARSER="tee /dev/null"
 fi
+
+
+echo $DESC
 
 if [ -n "$FILEDATA" ]; then
 	cp ${TESTDIR}htdocs/${FILE}.in ${TESTDIR}htdocs/${FILE}

@@ -38,6 +38,7 @@
 #include <sys/wait.h>
 #include <libgen.h>
 #include <netinet/in.h>
+#include <sched.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
@@ -55,6 +56,7 @@
 
 static char str_null[] = "";
 static char str_gatewayinterface[] = "CGI/1.1";
+static char str_contenttype[] = "Content-Type";
 
 typedef struct _mod_cgi_config_s _mod_cgi_config_t;
 typedef struct _mod_cgi_s _mod_cgi_t;
@@ -83,6 +85,8 @@ struct mod_cgi_ctx_s
 	pid_t pid;
 	int tocgi[2];
 	int fromcgi[2];
+
+	char *chunk;
 };
 
 struct _mod_cgi_s
@@ -122,6 +126,9 @@ static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *add
 
 	ctx->ctl = ctl;
 	ctx->mod = mod;
+	if (mod->config->chunksize == 0)
+		mod->config->chunksize = 64;
+	ctx->chunk = malloc(mod->config->chunksize + 1);
 	httpclient_addconnector(ctl, mod->vhost, _cgi_connector, ctx);
 
 	return ctx;
@@ -134,6 +141,8 @@ static void _mod_cgi_freectx(void *vctx)
 		free(ctx->cgipath);
 	if (ctx->path_info)
 		free(ctx->path_info);
+	if (ctx->chunk)
+		free(ctx->chunk);
 	if (ctx->fromcgi[0])
 	{
 		if (ctx->fromcgi[0])
@@ -180,6 +189,7 @@ enum cgi_env_e
 	REMOTE_PORT,
 	REMOTE_USER,
 	AUTH_TYPE,
+	HTTP_COOKIE,
 
 	NBENVS,
 };
@@ -284,6 +294,10 @@ const httpenv_t cgi_env[] =
 	{
 		.target = "AUTH_TYPE=",
 		.length = 26,
+	},
+	{
+		.target = "HTTP_COOKIE=",
+		.length = 512,
 	}
 };
 
@@ -316,7 +330,6 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		close(ctx->fromcgi[1]);
 
 		int sock = httpmessage_keepalive(request);
-		close(sock);
 
 		char *argv[2];
 		argv[0] = basename(ctx->cgipath);
@@ -363,7 +376,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_REQUEST(request, "method");
 				break;
 				case REQUEST_SCHEME:
-					value = httpmessage_REQUEST(request, "remote_port");
+					value = httpmessage_REQUEST(request, "scheme");
 				break;
 				case REQUEST_URI:
 					value = uri;
@@ -372,7 +385,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_REQUEST(request, "Content-Length");
 				break;
 				case CONTENT_TYPE:
-					value = httpmessage_REQUEST(request, "Content-Type");
+					value = httpmessage_REQUEST(request, str_contenttype);
 				break;
 				case QUERY_STRING:
 					if (query != NULL)
@@ -414,6 +427,9 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 				case AUTH_TYPE:
 					value = httpmessage_SESSION(request, "%authtype", NULL);
 				break;
+				case HTTP_COOKIE:
+					value = httpmessage_REQUEST(request, "Cookie");
+				break;
 				default:
 					value = str_null;
 			}
@@ -426,6 +442,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 			env[i] = (char *)ctx->mod->config->env[i - NBENVS];
 		}
 		env[i] = NULL;
+		close(sock);
 
 		char *dirpath;
 		dirpath = dirname(ctx->cgipath);
@@ -434,6 +451,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 			chdir(dirpath);
 		}
 		setbuf(stdout, 0);
+		sched_yield();
 		execve(argv[0], argv, env);
 		err("cgi error: %s", strerror(errno));
 		exit(0);
@@ -525,6 +543,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			ctx->tocgi[1] = -1;
 		}
 	}
+
 	if (ctx->state >= STATE_INFINISH)
 	{
 		int sret;
@@ -536,16 +555,16 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		sret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &timeout);
 		if (sret > 0 && FD_ISSET(ctx->fromcgi[0], &rfds))
 		{
-			char data[64];
-			int size = 63;
-			size = read(ctx->fromcgi[0], data, size);
+			int size = config->chunksize;
+			size = read(ctx->fromcgi[0], ctx->chunk, size);
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
+				warn("cgi read %s", strerror(errno));
 			}
 			else
 			{
-				data[size] = 0;
+				ctx->chunk[size] = 0;
 				/**
 				 * if content_length is not null, parcgi is able to
 				 * create the content.
@@ -553,41 +572,56 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				 * to set the header. And the parsecgi is ended just
 				 * after the header.
 				 */
-				ret = httpmessage_parsecgi(response, data, &size);
-				//dbg("cgi data %d\n%s#\n", size, data);
-				if (ret != EINCOMPLETE)
+				int rest = size;
+				while (rest > 0)
 				{
-					char *offset = data;
-					if (ctx->state < STATE_HEADERCOMPLETE)
+					ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
+					//dbg("parse %d cgi data %d\n%s#\n", ret, size, ctx->chunk);
+					if (ret != EINCOMPLETE)
 					{
-						httpmessage_addcontent(response, NULL, NULL, -1);
-						if (*offset == 0)
+						char *offset = ctx->chunk;
+						if (ctx->state < STATE_HEADERCOMPLETE)
 						{
-							size = 0;
+							/**
+							 * The Content-Type must be added byt the CGI
+							 */
+							httpmessage_addcontent(response, "none", NULL, -1);
+							if (*offset == '\0')
+							{
+								size = 0;
+							}
+							ctx->state = STATE_HEADERCOMPLETE;
 						}
+						if (size > 0 && rest == 0)
+						{
+							/**
+							 * The Content-Type must be added byt the CGI
+							 */
+							httpmessage_addcontent(response, "none", offset, size);
+						}
+						ret = ECONTINUE;
 					}
-					ctx->state = STATE_HEADERCOMPLETE;
-					if (size > 0)
-					{
-						httpmessage_addcontent(response, NULL, offset, size);
-					}
-					ret = ECONTINUE;
 				}
 			}
 		}
 		else
+		{
 			ctx->state = STATE_OUTFINISH;
+			warn("cgi complete");
+		}
 	}
 
 	if (ctx->state >= STATE_OUTFINISH)
 	{
-		int status, ret;
+		int status;
+#if defined(RESULT_302)
 		/**
 		 * RFC 3875 : 6.2.3
 		 */
 		char *location = httpmessage_REQUEST(response, str_location);
 		if (location != NULL && location[0] != '\0')
 			httpmessage_result(response, RESULT_302);
+#endif
 		ret = waitpid(ctx->pid, &status, WNOHANG);
 		ctx->state = STATE_END;
 		ctx->pid = 0;

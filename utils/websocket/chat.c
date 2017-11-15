@@ -27,10 +27,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <errno.h>
 #include <pwd.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

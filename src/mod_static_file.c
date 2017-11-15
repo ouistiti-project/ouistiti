@@ -50,12 +50,33 @@
 #endif
 
 /**
+ * transfer function for getfile_connector
+ */
+int mod_send_read(static_file_connector_t *private, http_message_t *response);
+#ifdef SENDFILE
+extern int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
+#endif
+
+/**
  * USE_PRIVATE is used to keep a sample of cade which uses
  * the httpmessage_private function
  */
 typedef struct _static_file_connector_s static_file_connector_t;
 
 int mod_send(static_file_connector_t *private, http_message_t *response);
+
+int static_file_close(static_file_connector_t *private)
+{
+	if (private->filepath)
+		free(private->filepath);
+	private->filepath = NULL;
+	if (private->path_info)
+		free(private->path_info);
+	private->path_info = NULL;
+	private->fd = 0;
+	private->func = NULL;
+	private->dir = NULL;
+}
 
 static int static_file_connector(void *arg, http_message_t *request, http_message_t *response)
 {
@@ -77,44 +98,27 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (private->filepath == NULL)
 		{
 			dbg("static file: %s not exist", private->path_info);
+			free(private->path_info);
+			private->path_info = NULL;
 			return ret;
 		}
 		else if (S_ISDIR(filestat.st_mode))
 		{
 			int length = strlen(private->filepath);
-			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-
-			if ((private->filepath[length - 1] != '/') ||
-				(X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
+			if (private->filepath[length - 1] != '/')
 			{
-				if (private->mod->config->options & STATIC_FILE_FILESTORAGE)
-				{
-					private->type |= STATIC_FILE_DIRLISTING;
-					return EREJECT;
-				}
-				else
 #if defined(RESULT_301)
-				{
-					char *location = calloc(1, strlen(private->path_info) + 2);
-					sprintf(location, "%s/", private->path_info);
-					httpmessage_addheader(response, str_location, location);
-					httpmessage_result(response, RESULT_301);
-					free(location);
-					free(private->filepath);
-					private->filepath = NULL;
-					free(private->path_info);
-					private->path_info = NULL;
-					return ESUCCESS;
-				}
+				char *location = calloc(1, strlen(private->path_info) + 2);
+				sprintf(location, "%s/", private->path_info);
+				httpmessage_addheader(response, str_location, location);
+				httpmessage_result(response, RESULT_301);
+				free(location);
+				static_file_close(private);
+				return ESUCCESS;
 #else
-				{
-					free(private->filepath);
-					private->filepath = NULL;
-					free(private->path_info);
-					private->path_info = NULL;
-					dbg("static file: reject directory path bad formatting");
-					return EREJECT;
-				}
+				static_file_close(private);
+				dbg("static file: reject directory path bad formatting");
+				return EREJECT;
 #endif
 			}
 			char ext_str[64];
@@ -126,6 +130,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				*ext_end = 0;
 
 			char *dirpath = private->filepath;
+			private->filepath = NULL;
 			while(ext != NULL)
 			{
 				private->filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
@@ -149,29 +154,31 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			if (!private->filepath)
 			{
 				private->filepath = dirpath;
-				private->type |= STATIC_FILE_DIRLISTING;
-				return EREJECT;
+#ifdef DIRLISTING
+				if (config->options & STATIC_FILE_DIRLISTING)
+				{
+					private->func = dirlisting_connector;
+				}
+#else
+				warn("static file: %s is directory", private->path_info);
+				static_file_close(private);
+				return  EREJECT;
+#endif
+			}
+			else
+			{
+				free(dirpath);
+				private->func = getfile_connector;
 			}
 		}
 		else
-			ret = ECONTINUE;
-		if (ret != ECONTINUE)
-		{
-			dbg("static file: %s not found (%s)", private->path_info, strerror(errno));
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
-			return EREJECT;
-		}
+			private->func = getfile_connector;
+
 		char *fileext = strrchr(private->filepath, '.');
 		if (fileext && utils_searchexp(fileext, config->ignored_ext) == ESUCCESS)
 		{
 			warn("static file: %s forbidden extension", private->path_info);
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+			static_file_close(private);
 			return  EREJECT;
 		}
 		private->size = filestat.st_size;
@@ -184,29 +191,17 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		if (fileext && utils_searchexp(fileext, config->accepted_ext) != ESUCCESS)
 		{
 			warn("static file: forbidden extension");
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+			static_file_close(private);
 #if defined(RESULT_403)
 			httpmessage_result(response, RESULT_403);
 			return ESUCCESS;
 #endif
 		}
 	}
-	else
-	{
-		warn("static_file: internal error %d", private->fd);
-	}
-	/**
-	 * this connector reject always
-	 * another connector will continue with filepath
-	 * to send the data
-	 **/
-	return  EREJECT;
+	return EREJECT;
 }
 
-static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
+int getfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	static_file_connector_t *private = (static_file_connector_t *)arg;
 	_mod_static_file_mod_t *mod = private->mod;
@@ -218,10 +213,7 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 	{
 		warn("static file: empty file");
 #if defined(RESULT_204)
-		free(private->filepath);
-		private->filepath = NULL;
-		free(private->path_info);
-		private->path_info = NULL;
+		static_file_close(private);
 		httpmessage_result(response, RESULT_204);
 		return ESUCCESS;
 #endif
@@ -231,12 +223,10 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		private->fd = open(private->filepath, O_RDONLY);
 		if (private->fd < 0)
 		{
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
-			private->fd = 0;
-			return EREJECT;
+			httpmessage_result(response, RESULT_403);
+			err("static file open %s %s", private->filepath, strerror(errno));
+			static_file_close(private);
+			return ESUCCESS;
 		}
 		else
 		{
@@ -245,12 +235,11 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 			lseek(private->fd, private->offset, SEEK_CUR);
 			dbg("static file: send %s (%d)", private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
-			// create a content for an empty file
-			if (private->size == 0)
-			{
-				char empty[1] = {0};
-				httpmessage_addcontent(response, NULL, empty, 1);
-			}
+			mod->transfer = mod_send_read;
+#ifdef SENDFILE
+			if (config->options & STATIC_FILE_SENDFILE)
+				mod->transfer = mod_send_sendfile;
+#endif
 		}
 	}
 	else if (private->fd)
@@ -259,8 +248,14 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		ret = mod->transfer(private, response);
 		if (ret < 0)
 		{
+			if (errno == EAGAIN)
+				return EINCOMPLETE;
+			warn("static file: end %s (%d,%s)", private->filepath, ret, strerror(errno));
 			close(private->fd);
-			private->fd = 0;
+			static_file_close(private);
+			/**
+			 * it is too late to set an error here
+			 */
 			return EREJECT;
 		}
 		private->offset += ret;
@@ -268,11 +263,7 @@ static int transfer_connector(void *arg, http_message_t *request, http_message_t
 		if (ret == 0 || private->size <= 0)
 		{
 			close(private->fd);
-			private->fd = 0;
-			free(private->filepath);
-			private->filepath = NULL;
-			free(private->path_info);
-			private->path_info = NULL;
+			static_file_close(private);
 			return ESUCCESS;
 		}
 	}
@@ -294,6 +285,14 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response)
 	return ret;
 }
 
+static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	if (private->func)
+		return private->func(arg, request, response);
+	return EREJECT;
+}
+
 static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;
@@ -303,19 +302,7 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	ctx->mod = mod;
 	ctx->ctl = ctl;
 
-#ifdef DIRLISTING
-	if (config->options & STATIC_FILE_DIRLISTING)
-		httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
-#endif
-#ifdef SENDFILE
-	if (config->options & STATIC_FILE_SENDFILE)
-		mod->transfer = mod_send_sendfile;
-#endif
 	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
-#ifdef FILESTORAGE
-	if (config->options & STATIC_FILE_FILESTORAGE)
-		httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx);
-#endif
 #ifdef RANGEREQUEST
 	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
 #endif
@@ -343,7 +330,6 @@ void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file
 
 	mod->config = config;
 	mod->vhost = vhost;
-	mod->transfer = mod_send_read;
 	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, mod);
 
 	return mod;

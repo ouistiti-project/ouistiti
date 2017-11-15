@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_filestorage.c: callbacks and management of files
+ * mod_filestorage.c: RESTfull file storage module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -40,6 +40,7 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_static_file.h"
+#include "mod_dirlisting.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -49,70 +50,81 @@
 #define dbg(...)
 #endif
 
+const char *str_put = "PUT";
+const char *str_delete = "DELETE";
+
 static int filestorage_checkname(static_file_connector_t *private, http_message_t *response)
 {
+	_mod_static_file_mod_t *mod = private->mod;
+	mod_static_file_t *config = (mod_static_file_t *)mod->config;
 	if (private->path_info[0] == '.')
 	{
-		warn("file name not allowed %s", private->path_info);
-#if defined RESULT_403
-		httpmessage_result(response, RESULT_403);
-#else
-		httpmessage_result(response, RESULT_400);
-#endif
-		free(private->filepath);
-		private->filepath = NULL;
-		free(private->path_info);
-		private->path_info = NULL;
-		return ESUCCESS;
+		return  EREJECT;
 	}
-	return EREJECT;
+	char *fileext = strrchr(private->path_info, '.');
+	if (fileext && utils_searchexp(fileext, config->ignored_ext) == ESUCCESS)
+	{
+		return  EREJECT;
+	}
+
+	/**
+	 * file is found
+	 * check the extension
+	 */
+	if (fileext && utils_searchexp(fileext, config->accepted_ext) != ESUCCESS)
+	{
+		return  EREJECT;
+	}
+	return ESUCCESS;
 }
 
-int filestorage_connector(void *arg, http_message_t *request, http_message_t *response)
+int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
 	static_file_connector_t *private = (static_file_connector_t *)arg;
 	_mod_static_file_mod_t *mod = private->mod;
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
 
-	if (private->path_info == NULL)
-		return ret;
-	char *method = httpmessage_REQUEST(request, "method");
-	if (!strcmp(method, "PUT"))
-	{
-		if (filestorage_checkname(private, response) == ESUCCESS)
-			return ESUCCESS;
 		if (private->fd == 0)
 		{
-			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
 			int length = strlen(private->path_info);
-			if (private->path_info[length] == '/')
+			if (private->path_info[length - 1] == '/')
 			{
+				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"name\":\"", -1);
+				httpmessage_appendcontent(response, private->path_info, -1);
+				httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 				if (mkdir(private->filepath, 0777) > 0)
 				{
+					err("directory creation not allowed %s", private->path_info);
+					httpmessage_appendcontent(response, "KO\"}", -1);
 #if defined RESULT_403
 					httpmessage_result(response, RESULT_403);
 #else
 					httpmessage_result(response, RESULT_400);
 #endif
 				}
+				else
+				{
+					warn("directory creation %s", private->path_info);
+					httpmessage_appendcontent(response, "OK\"}", -1);
+				}
 				ret = ESUCCESS;
-				free(private->filepath);
-				private->filepath = NULL;
-				free(private->path_info);
-				private->path_info = NULL;
+				static_file_close(private);
+
 			}
 			else
 			{
 				private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
 				if (private->fd > 0)
 				{
-					dbg("file open to write %d", private->fd);
-					ret = ECONTINUE;
+					ret = EINCOMPLETE;
 				}
 				else
 				{
-					warn("file creation not allowed %s", private->path_info);
+					err("file creation not allowed %s", private->path_info);
+					httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
+					httpmessage_appendcontent(response, private->path_info, -1);
+					httpmessage_appendcontent(response, "\"}", -1);
 #if defined RESULT_403
 					httpmessage_result(response, RESULT_403);
 #else
@@ -120,14 +132,15 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 #endif
 					ret = ESUCCESS;
 					private->fd = 0;
-					free(private->filepath);
-					private->filepath = NULL;
-					free(private->path_info);
-					private->path_info = NULL;
+					static_file_close(private);
 				}
 			}
 		}
-		if (private->fd > 0)
+		/**
+		 * we are into PRECONTENT, the data is no yet available
+		 * Then the first loop as to complete on the opening
+		 */
+		else if (private->fd > 0)
 		{
 			char *input;
 			int inputlen;
@@ -136,45 +149,49 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 			if (inputlen > 0 && rest > 0)
 			{
 				write(private->fd, input, inputlen);
-				ret = ECONTINUE;
+				ret = EINCOMPLETE;
 			}
 			else
 			{
-				warn("file storage %s from %d", private->path_info, private->fd);
-				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\"}", 33);
+				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
+				httpmessage_appendcontent(response, private->path_info, -1);
+				httpmessage_appendcontent(response, "\"}", -1);
 				close(private->fd);
 				private->fd = 0;
 				ret = ESUCCESS;
-				free(private->filepath);
-				private->filepath = NULL;
-				free(private->path_info);
-				private->path_info = NULL;
+				static_file_close(private);
 			}
 		}
-	}
-	else if (!strcmp(method, "POST") && private->fd == 0)
-	{
-		if (filestorage_checkname(private, response) == ESUCCESS)
-			return ESUCCESS;
-		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
+	return ret;
+}
+
+int postfile_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	_mod_static_file_mod_t *mod = private->mod;
+	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+
 		warn("change %s", private->filepath);
-		httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"result\":\"OK\"}", 31);
-		private->fd = 0;
-		ret = ESUCCESS;
-		free(private->filepath);
-		private->filepath = NULL;
-		free(private->path_info);
-		private->path_info = NULL;
-	}
-	else if (!strcmp(method, "DELETE") && private->fd == 0)
-	{
-		if (filestorage_checkname(private, response) == ESUCCESS)
-			return ESUCCESS;
-		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
+		httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"result\":\"OK\",\"name\":\"", -1);
+		httpmessage_appendcontent(response, private->path_info, -1);
+		httpmessage_appendcontent(response, "\"}", 2);
+		static_file_close(private);
+	return ESUCCESS;
+}
+
+int deletefile_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	_mod_static_file_mod_t *mod = private->mod;
+	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+
+		httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"name\":\"", -1);
+		httpmessage_appendcontent(response, private->path_info, -1);
+		httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 		if (unlink(private->filepath) > 0)
 		{
-			warn("file removing not allowed %s", private->path_info);
-			httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"result\":\"KO\"}", 33);
+			err("file removing not allowed %s", private->path_info);
+			httpmessage_appendcontent(response, "KO\"}", -1);
 #if defined RESULT_403
 			httpmessage_result(response, RESULT_403);
 #else
@@ -184,15 +201,143 @@ int filestorage_connector(void *arg, http_message_t *request, http_message_t *re
 		else
 		{
 			warn("remove file : %s", private->path_info);
-			httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"result\":\"OK\"}", 33);
+			httpmessage_appendcontent(response, "OK\"}", -1);
 		}
-		private->fd = 0;
-		ret = ESUCCESS;
-		free(private->filepath);
-		private->filepath = NULL;
-		free(private->path_info);
-		private->path_info = NULL;
-	}
-	return ret;
+		static_file_close(private);
+	return ESUCCESS;
 }
 
+static int filestorage_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret =  EREJECT;
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	_mod_static_file_mod_t *mod = private->mod;
+	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+
+	if (private->func == NULL)
+	{
+		struct stat filestat;
+		if (private->path_info)
+			free(private->path_info);
+		char *uri = httpmessage_REQUEST(request,"uri");
+		private->path_info = utils_urldecode(uri);
+		if (private->path_info == NULL)
+			return EREJECT;
+		char *method = httpmessage_REQUEST(request, "method");
+		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
+		if ((private->filepath == NULL) && (!strcmp(method, "PUT")))
+		{
+			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
+			private->func = putfile_connector;
+		}
+		else if (private->filepath && filestorage_checkname(private, response) == ESUCCESS)
+		{
+			if (S_ISDIR(filestat.st_mode))
+			{
+				char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+				if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") == NULL)
+				{
+#if defined(RESULT_301)
+					int length = strlen(private->path_info);
+					char *location = calloc(1, length + 13);
+					if (strrchr(private->path_info, '/') > private->path_info + length - 2)
+						sprintf(location, "/%sindex.html", private->path_info);
+					else
+						sprintf(location, "/%s/index.html", private->path_info);
+					httpmessage_addheader(response, str_location, location);
+					httpmessage_result(response, RESULT_301);
+					free(location);
+					static_file_close(private);
+					return ESUCCESS;
+#else
+					static_file_close(private);
+					dbg("static file: reject directory path bad formatting");
+					return EREJECT;
+#endif
+				}
+				else if (!strcmp(method, "GET"))
+				{
+					private->func = dirlisting_connector;
+				}
+			}
+			else if (!strcmp(method, "PUT"))
+			{
+				private->func = putfile_connector;
+			}
+			else if (!strcmp(method, "POST"))
+			{
+				private->func = postfile_connector;
+			}
+			else if (!strcmp(method, "DELETE"))
+			{
+				private->func = deletefile_connector;
+			}
+			else if (!strcmp(method, "GET"))
+			{
+				private->func = getfile_connector;
+				private->size = filestat.st_size;
+				private->offset = 0;
+			}
+		}
+		else
+			warn("filestorage: forbidden file %s", private->filepath);
+	}
+	return  EREJECT;
+}
+
+static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	static_file_connector_t *private = (static_file_connector_t *)arg;
+	if (private->func)
+		return private->func(arg, request, response);
+	static_file_close(private);
+	return EREJECT;
+}
+
+static void *_mod_filestorage_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+{
+	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;
+	mod_static_file_t *config = mod->config;
+	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
+
+	ctx->mod = mod;
+	ctx->ctl = ctl;
+	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+#ifdef RANGEREQUEST
+	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
+#endif
+	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx);
+
+	return ctx;
+}
+
+static void _mod_filestorage_freectx(void *vctx)
+{
+	static_file_connector_t *ctx = vctx;
+	if (ctx->path_info)
+	{
+		free(ctx->path_info);
+		ctx->path_info = NULL;
+	}
+	free(ctx);
+}
+
+void *mod_filestorage_create(http_server_t *server, char *vhost, mod_static_file_t *config)
+{
+	_mod_static_file_mod_t *mod = calloc(1, sizeof(*mod));
+
+	if (config == NULL)
+		return NULL;
+
+	mod->config = config;
+	mod->vhost = vhost;
+	httpserver_addmod(server, _mod_filestorage_getctx, _mod_filestorage_freectx, mod);
+	httpserver_addmethod(server, str_put, 1);
+	httpserver_addmethod(server, str_delete, 1);
+	return mod;
+}
+
+void mod_filestorage_destroy(void *data)
+{
+	free(data);
+}

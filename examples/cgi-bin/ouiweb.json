@@ -1,0 +1,8 @@
+#!/bin/bash
+echo "Content-Type: text/json"
+echo 
+echo 
+echo "{\"apps\":["
+cat /etc/passwd | awk -v host=$SERVER_ADDR 'BEGIN { FS=":"; } {if ( $4 == "33" && $1 != "public" && $1 != "www-data" ) {print "{\"name\":\""$1"\",\"href\":\"https://"host""$6"/\",\"image\":\"public/"$1"/splash.jpg\",\"desc\":\"\"}," }}'
+echo {}
+echo "]}"
