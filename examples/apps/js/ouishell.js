@@ -100,7 +100,12 @@ class Authenticate
 						self.onnotfound.call(self);
 				}
 				else if (xhr.status > 0)
-					alert("authentication error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
+				{
+					if (self.onerror != undefined)
+					{
+						self.onerror.call(self, xhr.status);
+					}
+				}
 			}
 			return true;
 		}
@@ -185,7 +190,12 @@ class Open
 					}
 				}
 				else if (xhr.status > 0)
-					alert("open "+self.directory+self.file.name+" error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
+				{
+					if (self.onerror != undefined)
+					{
+						self.onerror.call(self, xhr.status);
+					}
+				}
 			}
 			return true;
 		}
@@ -197,6 +207,7 @@ class Open
 		xhr.open("GET", target);
 		//xhr.responseType = "arraybuffer";
 		xhr.responseType = "blob";
+		xhr.withCredentials = true;
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 		if (authorization)
 			xhr.setRequestHeader("Authorization",authorization);
@@ -261,8 +272,10 @@ class Remove
 					if (self.onnotfound != undefined)
 						self.onnotfound.call(self, xhr.responseURL);
 				}
-				else if (xhr.status > 0)
-					alert("delete error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
+				else if (self.onerror != undefined)
+				{
+					self.onerror.call(self, xhr.status);
+				}
 			}
 			return true;
 		}
@@ -344,8 +357,10 @@ class Change
 					if (self.onnotfound != undefined)
 						self.onnotfound.call(self, xhr.responseURL);
 				}
-				else if (xhr.status > 0)
-					alert("change error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
+				else if (self.onerror != undefined)
+				{
+					self.onerror.call(self, xhr.status);
+				}
 			}
 			return true;
 		}
@@ -393,7 +408,7 @@ class UpLoader
 		const self = this;
 		
 		self.file = file;
-		self.reader.addEventListener("loadend", function (evt)
+		self.reader.onloadend = function(evt)
 			{
 				const array = new Uint8ClampedArray(evt.target.result);
 				self.file.data = array;
@@ -404,7 +419,7 @@ class UpLoader
 					if (self.onload != undefined)
 						self.onload.call(self, self.file);
 				}
-			});
+			};
 		self.reader.onerror = function(err) {
           alert("load error "+err);
         };
@@ -426,7 +441,7 @@ class UpLoader
 						self.onupload.call(self, JSON.parse(xhr.responseText));
 					self.file = undefined;
 				}
-				else if (xhr.status === 403)
+				else if (xhr.status === 403 || xhr.status === 401)
 				{
 					if (self.onauthenticate != undefined)
 						self.onauthenticate.call(self, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -440,8 +455,10 @@ class UpLoader
 						self.onnotfound.call(self, url);
 					}
 				}
-				else if (xhr.status > 0)
-					alert("upload error "+xhr.status+" "+xhr.readyState+" "+XMLHttpRequest.DONE);
+				else if (self.onerror != undefined)
+				{
+					self.onerror.call(self, xhr.status);
+				}
 			}
 			return true;
 		}
@@ -499,6 +516,11 @@ class Shell
 			if (self.onnotfound != undefined)
 				self.onnotfound.call(self, file);
 		}
+		this.open.onerror = function(status)
+		{
+			if (self.onerror != undefined)
+				self.onerror(status);
+		}
 		this.remove = new Remove(this.root);
 		this.remove.onload = function(file)
 		{
@@ -510,6 +532,11 @@ class Shell
 			if (self.onauthenticate != undefined)
 				self.onauthenticate.call(self, challenge, result);
 		}
+		this.remove.onerror = function(status)
+		{
+			if (self.onerror != undefined)
+				self.onerror(status);
+		}
 		this.uploader = new UpLoader(this.root);
 		this.onput = undefined;
 		this.uploader.onload = function(file)
@@ -518,13 +545,18 @@ class Shell
 			if (self.onput != undefined)
 				ret = self.onput.call(self, file);
 			if (self.uploader.isready && (ret == true || ret == undefined))
-				self.uploader.exec();
+				self.uploader.exec(self.authorization);
 		}
 		this.uploader.onauthenticate = function(challenge, result)
 		{
 			self.authenticate.challenge = challenge;
 			if (self.onauthenticate != undefined)
 				self.onauthenticate.call(self, challenge, result);
+		}
+		this.uploader.onerror = function(status)
+		{
+			if (self.onerror != undefined)
+				self.onerror(status);
 		}
 		this.authenticate = new Authenticate("Basic");
 		this.authenticate.onauthorization = function(user)
@@ -540,7 +572,16 @@ class Shell
 			if (self.onauthenticate != undefined)
 				self.onauthenticate.call(self, challenge, result);
 		}
+		this.authenticate.onerror = function(status)
+		{
+			if (self.onerror != undefined)
+				self.onerror(status);
+		}
 		this.authenticate.get();
+	}
+	generateid()
+	{
+		return 1;
 	}
 	login(user, password)
 	{
@@ -559,11 +600,21 @@ class Shell
 	}
 	cd(directory)
 	{
-		this.cwd = directory;
-		this.ls();
+		const self = this;
+		const id = self.generateid();
+		if (self.onbegin != undefined)
+		{
+			self.onbegin(id);
+		}
+		self.cwd = directory;
+		if (self.oncompleted != undefined)
+		{
+			self.oncompleted(id);
+		}
 	}
 	ls(directory)
 	{
+		var filename = undefined;
 		if (directory == undefined)
 		{
 			directory = this.cwd;
@@ -573,6 +624,7 @@ class Shell
 			directory = this.cwd + directory;
 		}
 		const self = this;
+		const id = this.generateid();
 		this.open.onload = function(resultjson)
 		{
 			self.content = resultjson.content;
@@ -585,11 +637,13 @@ class Shell
 				}
 				self.onchange(self.content);
 			}
-		}
+		};
 		this.open.open(directory);
-		var file = new Blob();		
+		var file = new Blob();
+		file.name = filename;
 		this.open.set(file);
 		this.open.exec(this.authorization);
+		return id;
 	}
 	launch(file)
 	{
@@ -598,14 +652,34 @@ class Shell
 	}
 	rm(filename)
 	{
+		const self = this;
+		const id = this.generateid();
+		if (self.onbegin != undefined)
+		{
+			self.onbegin(id);
+		}
+		self.remove.onload = function(file)
+		{
+			if (self.oncompleted != undefined)
+			{
+				self.oncompleted(id);
+			}
+		};
 		var file = new Blob();
 		file.name = filename;
-		this.remove.open(this.cwd);
-		this.remove.set(file);
-		this.remove.exec(this.authorization);
+		self.remove.open(self.cwd);
+		self.remove.set(file);
+		self.remove.exec(self.authorization);
+		return id;
 	}
 	paste()
 	{
+		const self = this;
+		const id = this.generateid();
+		if (self.onbegin != undefined)
+		{
+			self.onbegin(id);
+		}
 		if (self.dashboard.length > 0)
 		{
 			var copy = self.dashboard.shift();
@@ -615,6 +689,13 @@ class Shell
 				{
 					if (file.cut == true)
 					{
+						self.remove.onload = function(file)
+						{
+							if (self.oncompleted != undefined)
+							{
+								self.oncompleted(id);
+							}
+						};
 						self.remove.open(self.cwd);
 						file.name = file.oldname;
 						self.remove.set(file);
@@ -622,14 +703,18 @@ class Shell
 					}
 					else
 					{
-						self.ls();
+						if (self.oncompleted != undefined)
+						{
+							self.oncompleted(id);
+						}
 					}
-				}
+				};
 				self.uploader.open(self.cwd);
 				self.uploader.set(copy.file);
 				self.uploader.exec(self.authorization);
 			}
 		}
+		return id;
 	}
 	cp(filename, copyname, cut)
 	{
@@ -638,14 +723,22 @@ class Shell
 		file.newname = copyname;
 		file.cut = cut;
 		const self = this;
+		const id = this.generateid();
+		if (self.onbegin != undefined)
+		{
+			self.onbegin(id);
+		}
 		this.open.onload = function(file)
 		{
 			if (file.newname != undefined)
 			{
 				self.uploader.onupload = function(file)
 				{
-					self.ls();
-				}
+					if (self.oncompleted != undefined)
+					{
+						self.oncompleted(id);
+					}
+				};
 				self.uploader.open(self.cwd);
 				file.name = file.newname;
 				self.uploader.set(file);
@@ -659,16 +752,31 @@ class Shell
 		this.open.open(this.cwd);
 		this.open.set(file);
 		this.open.exec(this.authorization);
+		return id;
 	}
 	mv(oldname, newname)
 	{
 		var fileold = new Blob();
 		fileold.name = oldname;
 		const self = this;
+		const id = this.generateid();
+		if (self.onbegin != undefined)
+		{
+			self.onbegin(id);
+		}
 		this.open.onload = function(file)
 		{
+			//consol.log("file "+file.name+" loaded");
 			self.uploader.onupload = function(resultjson)
 			{
+				//consol.log("file "+file.name+" uploaded");
+				self.remove.onload = function(file)
+				{
+					if (self.oncompleted != undefined)
+					{
+						self.oncompleted(id);
+					}
+				};
 				self.remove.open(self.cwd);
 				self.remove.set(fileold);
 				self.remove.exec(self.authorization);
@@ -681,29 +789,48 @@ class Shell
 		this.open.open(this.cwd);
 		this.open.set(fileold);
 		this.open.exec(this.authorization);
+		return id;
 	}
 	mkdir(directory)
 	{
 		const self = this;
+		const id = this.generateid();
+		if (self.onbegin != undefined)
+		{
+			self.onbegin(id);
+		}
 		this.uploader.onupload = function(resultjson)
 		{
-			self.ls();
-		}
+			if (self.oncompleted != undefined)
+			{
+				self.oncompleted(id);
+			}
+		};
 		if (directory != undefined)
 			this.uploader.open(this.cwd+"/"+directory);
 		else
 			this.uploader.open(this.cwd);
 		this.uploader.set();
 		this.uploader.exec(this.authorization);
+		return id;
 	}
 	put(file)
 	{
 		const self = this;
+		const id = this.generateid();
+		if (self.onbegin != undefined)
+		{
+			self.onbegin(id);
+		}
 		this.uploader.onupload = function(resultjson)
 		{
-			self.ls();
-		}
+			if (self.oncompleted != undefined)
+			{
+				self.oncompleted(id);
+			}
+		};
 		this.uploader.open(this.cwd);
 		this.uploader.get(file);
+		return id;
 	}
 };
