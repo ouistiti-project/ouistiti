@@ -72,6 +72,7 @@ static http_server_config_t mod_auth_config;
 
 static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 static void _mod_auth_freectx(void *vctx);
+static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 
 struct _mod_auth_ctx_s
@@ -217,6 +218,8 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
+	if (mod->authz->type & AUTHZ_HOME_E)
+		httpclient_addconnector(ctl, mod->vhost, _home_connector, ctx);
 	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx);
 
 	return ctx;
@@ -227,6 +230,31 @@ static void _mod_auth_freectx(void *vctx)
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
 	free(ctx->authenticate);
 	free(ctx);
+}
+
+static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret = EREJECT;
+	char *home = httpmessage_SESSION(request, "%authhome", NULL);
+	if (home)
+	{
+		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
+		int homelength = strlen(home);
+		if (strncmp(home + 1, uri, homelength - 1) != 0)
+		{
+			dbg("redirect the url to home %s", home);
+#if defined(RESULT_301)
+			char *location = calloc(1, homelength + 1 + 1);
+			sprintf(location, "%s/", home);
+			httpmessage_addheader(response, str_location, location);
+			httpmessage_result(response, RESULT_301);
+			free(location);
+			ret = ESUCCESS;
+#endif
+		}
+		free(uri);
+	}
+	return ret;
 }
 
 #define CONTENTCHUNK 63
@@ -277,6 +305,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				httpmessage_addheader(response, (char *)str_xuser, user);
 				httpmessage_SESSION(request, "%authtype", (char *)mod->type);
 				ret = EREJECT;
+				//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
+				//sprintf(value, "%s=%s", str_authorization, authentication);
+				httpmessage_addheader(response, (char *)str_authorization, authentication);
+				//free(value);
 
 				if (mod->authz->rules->group)
 				{
@@ -293,96 +325,71 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					if (home)
 					{
 						httpmessage_SESSION(request, "%authhome", home);
-						if (*home == '/')
-							home++;
-						int homelength = strlen(home);
-						if ((mod->authz->type & AUTHZ_HOME_E) && (strncmp(home, uri, homelength) != 0))
-						{
-							dbg("redirect the url to home %s", home);
-#if defined(RESULT_301)
-							char *location = calloc(1, 1 + homelength + strlen(uriencoded) + 1);
-							sprintf(location, "/%s%s", home, uriencoded);
-							httpmessage_addheader(response, str_location, location);
-							httpmessage_result(response, RESULT_301);
-							free(location);
-							ret = ESUCCESS;
-#endif
-						}
 					}
 				}
-				//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
-				//sprintf(value, "%s=%s", str_authorization, authentication);
-				httpmessage_addheader(response, (char *)str_authorization, authentication);
-				//free(value);
-			}
-			else
-			{
-				authorization = NULL;
 			}
 		}
-		else
-			authorization = NULL;
-
-		if (authorization == NULL || authorization[0] == '\0')
+	}
+	if (ret != EREJECT)
+	{
+		int length = CONTENTCHUNK;
+		if (mod->loginfd == 0)
 		{
-			int length = CONTENTCHUNK;
-			if (mod->loginfd == 0)
+			ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+			if (ret == ESUCCESS)
 			{
-				ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
-				if (ret == ESUCCESS)
+				dbg("auth challenge failed");
+#if defined(RESULT_403)
+				char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+				if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
 				{
-					dbg("auth challenge failed");
-#if defined(RESULT_403)
-					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-					if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
-					{
-						httpmessage_result(response, RESULT_403);
-					}
-					else
+					httpmessage_result(response, RESULT_403);
+				}
+				else
 #endif
-					if (mod->config->login)
-					{
-						mod->loginfd = open(mod->config->login, O_RDONLY);
-						struct stat stat;
-						fstat(mod->loginfd, &stat);
-						length = stat.st_size;
-						httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
+				if (mod->config->login)
+				{
+					mod->loginfd = open(mod->config->login, O_RDONLY);
+					struct stat stat;
+					fstat(mod->loginfd, &stat);
+					length = stat.st_size;
+					httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
 #if defined(RESULT_403)
-						httpmessage_result(response, RESULT_403);
+					httpmessage_result(response, RESULT_403);
 #elif defined(RESULT_401)
+					httpmessage_result(response, RESULT_401);
+#else
+					httpmessage_result(response, RESULT_400);
+#endif
+				}
+				else
+				{
+#if defined(RESULT_401)
 						httpmessage_result(response, RESULT_401);
 #else
 						httpmessage_result(response, RESULT_400);
 #endif
-					}
-					else
-					{
-#if defined(RESULT_401)
-							httpmessage_result(response, RESULT_401);
-#else
-							httpmessage_result(response, RESULT_400);
-#endif
-					}
 				}
 			}
-			if (mod->loginfd > 0)
+		 }
+		if (mod->loginfd > 0)
+		{
+			char content[CONTENTCHUNK];
+			length = (length < CONTENTCHUNK)?length:CONTENTCHUNK;
+			length = read(mod->loginfd, content, length);
+			if (length > 0)
 			{
-				char content[CONTENTCHUNK];
-				length = (length < CONTENTCHUNK)?length:CONTENTCHUNK;
-				length = read(mod->loginfd, content, length);
-				if (length > 0)
-				{
-					httpmessage_addcontent(response, "text/html", content, length);
-					ret = ECONTINUE;
-				}
-				else
-				{
-					close(mod->loginfd);
-					mod->loginfd = 0;
-					ret = ESUCCESS;
-				}
+				httpmessage_addcontent(response, "text/html", content, length);
+				ret = ECONTINUE;
+			}
+			else
+			{
+				close(mod->loginfd);
+				mod->loginfd = 0;
+				ret = ESUCCESS;
 			}
 		}
+
 	}
 	free(uri);
 	return ret;
