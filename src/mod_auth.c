@@ -284,11 +284,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	authorization = httpmessage_REQUEST(request, (char *)str_authenticate);
 	if (authorization != NULL && authorization[0] != '\0')
 	{
-#if defined(RESULT_401)
-		httpmessage_result(response, RESULT_401);
-#else
-		httpmessage_result(response, RESULT_400);
-#endif
 		ret = ESUCCESS;
 	}
 
@@ -347,42 +342,39 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (mod->loginfd == 0)
 		{
 			ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
-			if (ret == ESUCCESS)
+		}
+		if (ret == ESUCCESS)
+		{
+			dbg("auth challenge failed");
+			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+			if (mod->config->login)
 			{
-				dbg("auth challenge failed");
-#if defined(RESULT_403)
-				char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-				if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
-				{
-					httpmessage_result(response, RESULT_403);
-				}
-				else
-#endif
-				if (mod->config->login)
-				{
-					mod->loginfd = open(mod->config->login, O_RDONLY);
-					struct stat stat;
-					fstat(mod->loginfd, &stat);
-					length = stat.st_size;
-					httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
-#if defined(RESULT_403)
-					httpmessage_result(response, RESULT_403);
-#elif defined(RESULT_401)
-					httpmessage_result(response, RESULT_401);
-#else
-					httpmessage_result(response, RESULT_400);
-#endif
-				}
-				else
-				{
-#if defined(RESULT_401)
-						httpmessage_result(response, RESULT_401);
-#else
-						httpmessage_result(response, RESULT_400);
-#endif
-				}
+				mod->loginfd = open(mod->config->login, O_RDONLY);
+				struct stat stat;
+				fstat(mod->loginfd, &stat);
+				length = stat.st_size;
+				httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
 			}
-		 }
+			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) ||
+				(mod->loginfd > 0))
+			{
+#if defined(RESULT_403)
+				httpmessage_result(response, RESULT_403);
+#elif defined(RESULT_401)
+				httpmessage_result(response, RESULT_401);
+#else
+				httpmessage_result(response, RESULT_400);
+#endif
+			}
+			else
+			{
+#if defined(RESULT_401)
+				httpmessage_result(response, RESULT_401);
+#else
+				httpmessage_result(response, RESULT_400);
+#endif
+			}
+		}
 		if (mod->loginfd > 0)
 		{
 			char content[CONTENTCHUNK];
