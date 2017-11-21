@@ -281,6 +281,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 	}
 
+	authorization = httpmessage_REQUEST(request, (char *)str_authenticate);
+	if (authorization != NULL && authorization[0] != '\0')
+	{
+#if defined(RESULT_401)
+		httpmessage_result(response, RESULT_401);
+#else
+		httpmessage_result(response, RESULT_400);
+#endif
+		ret = ESUCCESS;
+	}
+
 	if (ret == ECONTINUE)
 	{
 		if (authorization == NULL || authorization[0] == '\0')
