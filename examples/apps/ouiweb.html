@@ -30,17 +30,24 @@ shell.onauthenticate = function(authenticate, result)
 		$("#LoginResult").removeClass("hidden");
 	}
 	$("#LoginButton").removeClass("hidden");
+	$("#UserButton").addClass("hidden");
 	$("#LogoutButton").addClass("hidden");
 	$(".ProtectedButton").addClass("hidden");
+	var carousel = $("#Applications");
+	carousel.find("div.carousel-inner").html("");
+	carousel.find("ol.carousel-indicators").html("");
 }
 shell.onauthorization = function(user)
 {
 	$("#LoginArea").removeClass("has-error");
 	$("#LoginArea").prop("aria-invalid",false)
 	$("#LoginButton").addClass("hidden");
+	$("#UserButton").html(user.name);
+	$("#UserButton").removeClass("hidden");
 	$("#LogoutButton").removeClass("hidden");
 	$(".ProtectedButton").removeClass("hidden");
 	$("#LoginBox").modal('hide');
+	loadApps("apps/ouiweb.json", shell.root);
 }
 loadApps = function(url, root)
 {
@@ -64,9 +71,9 @@ loadApps = function(url, root)
 						carousel.find("ol.carousel-indicators").append(elm);
 						var img = "<div class='item "+active+"'>";
 						if (data.apps[i].href.lastIndexOf("?") == -1)
-							img += "<a href='"+data.apps[i].href+"?root="+root+"' target='_blank'>";
+							img += "<a data-href=\""+data.apps[i].href+"?root="+root+"\" onclick='shell.launch(this.getAttribute(\"data-href\"));' target='_blank'>";
 						else
-							img += "<a href='"+data.apps[i].href+"&root="+root+"' target='_blank'>";
+							img += "<a data-href=\""+data.apps[i].href+"&root="+root+"\" onclick='shell.launch(this.getAttribute(\"data-href\"));' target='_blank'>";
 						img += "<img src='"+data.apps[i].image+"' class='img-rounded' alt='"+data.apps[i].name+"' style='float:none;margin: 0 auto;max-height:800px'>";
 						img += "<div class='carousel-caption'>";
 						img += "<h3>"+data.apps[i].name+"</h3>";
@@ -93,8 +100,7 @@ loadApps = function(url, root)
 
 onLoad = function()
 {
-	loadApps("apps/ouiweb.json", shell.root);
-	shell.login();
+//	$("#LoginBox").modal('show');
 	var dir = "";
 	//var dir = ".";
 	shell.cd(dir);
@@ -144,15 +150,20 @@ onLoad = function()
 						<button type="button" class="btn btn-default" data-toggle="modal" data-target="#LoginBox" id="LoginButton">
 							<span class='glyphicon glyphicon-user' aria-hidden="true"></span>
 						</button>
-						<button type="button" class="btn btn-default hidden" id="LogoutButton">
-							<span class='glyphicon glyphicon-off'></span>
-						</button>
+						<div class="input-group">
+							<div class="input-group-btn">
+								<button type="button" class="btn btn-default hidden" id="UserButton"></button>
+								<button type="button" class="btn btn-default hidden" id="LogoutButton">&nbsp;
+									<span class='glyphicon glyphicon-off'></span>&nbsp;
+								</button>
+							</div>
+						</div>
 					</form>
 				</div>
 			</div>
 		</nav> 
 		<div class="container">
-			<div id="Applications" class="carousel slide" data-ride="carousel">
+			<div id="Applications" class="carousel slide ProtectedButton" data-ride="carousel">
 				<!-- Indicators -->
 				<ol class="carousel-indicators">
 				</ol>

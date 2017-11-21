@@ -81,6 +81,7 @@ shell.onauthorization = function(user)
 	$("#LogoutButton").removeClass("hidden");
 	$(".ProtectedButton").removeClass("hidden");
 	$("#LoginBox").modal('hide');
+	shell.ls();
 }
 onLoad = function()
 {
