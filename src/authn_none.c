@@ -70,13 +70,10 @@ int authn_none_challenge(void *arg, http_message_t *request, http_message_t *res
 	authn_none_t *mod = (authn_none_t *)arg;
 	authn_none_config_t *config = mod->config;
 	struct passwd *pw = NULL;
-dbg("auth none %p", config->user);
 	if (config->user)
 	{
-dbg("auth none %s", config->user);
 		pw = getpwnam(config->user);
 	}
-dbg("auth none %p", pw);
 	if (pw)
 	{
 		setgid(pw->pw_gid);
