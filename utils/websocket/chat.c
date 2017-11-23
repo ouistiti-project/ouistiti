@@ -214,7 +214,11 @@ int chat(user_t *user, char *buffer, int length)
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
+	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>] [-w] [ -h]\n", argv[0]);
+	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection\n");
+	fprintf(stderr, "\t-m <num>\tset the maximum number of clients\n");
+	fprintf(stderr, "\t-u <name>\tset the user to run\n");
+	fprintf(stderr, "\t-w \tstart chat with specific ouistiti features\n");
 }
 
 static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%2hd\"}";
@@ -279,6 +283,7 @@ int main(int argc, char **argv)
 		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
 		if (ret == 0)
 		{
+			chmod(addr.sun_path, 0777);
 			ret = listen(sock, maxclients);
 		}
 		if (ret == 0)
@@ -367,6 +372,7 @@ int main(int argc, char **argv)
 				}
 			} while(newsock > 0);
 		}
+		unlink(addr.sun_path);
 	}
 	if (ret)
 	{

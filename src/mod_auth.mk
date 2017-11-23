@@ -4,6 +4,9 @@ slib-$(STATIC)+=mod_auth
 mod_auth_SOURCES+=mod_auth.c
 mod_auth_CFLAGS+=-I../libhttpserver/include
 
+mod_auth_SOURCES-$(AUTHN_NONE)+=authn_none.c
+mod_auth_CFLAGS-$(AUTHN_NONE)+=-DAUTHN_NONE
+
 mod_auth_SOURCES-$(AUTHN_BASIC)+=authn_basic.c
 mod_auth_CFLAGS-$(AUTHN_BASIC)+=-DAUTHN_BASIC
 

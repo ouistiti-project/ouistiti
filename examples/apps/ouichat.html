@@ -11,20 +11,27 @@
 		<script src="js/ouichat.js"></script>
 		<script language="javascript" type="text/javascript">
 var chat = new Chat("");
+var users = new Array();
 chat.onmessage = function(message)
 {
 	var color = "";
-	if (message.color)
-		color = "color: "+message.color+";"
-	var divclass="";
-	if (message.id != chat.id)
+	var divclass = "";
+	if (message.id != chat.user.id)
 	{
-		identity = $("#users #"+message.id+" .name").html();
+		if (users[message.id] != undefined)
+		{
+			identity = users[message.id].nickname;
+			color = "color: "+users[message.id].color+";"
+		}
+		else
+		{
+			identity = $("#users #"+message.id+" .name").html();
+		}
 		divclass += "bg-warning pull-right";
 	}
 	else
 	{
-		identity = "You";
+		identity = "Me";
 		divclass += "bg-info pull-left";
 	}
 	if (message.private != undefined)
@@ -34,6 +41,7 @@ chat.onmessage = function(message)
 }
 chat.onhello = function(user)
 {
+	users[user.id] = user;
 	if (user.color)
 		color = "color: "+user.color+";"
 	var entry = $("#UsersList #"+user.id);
@@ -58,12 +66,12 @@ chat.onalert = function(text)
 }
 chat.onconnect = function()
 {
-	$("#UserButton").prop("disable", true);
+	$("#PrefButton").prop("disable", true);
 	$("#InputBox").prop("readonly", false);
 }
 chat.onclose = function()
 {
-	$("#UserButton").prop("disabled", false);
+	$("#PrefButton").prop("disabled", false);
 	$("#InputBox").prop("readonly", true);
 	$("#UsersList").html("");
 	$("#UsersList2").html("");
@@ -94,7 +102,6 @@ shell.onauthenticate = function(authenticate, result)
 	$("#LoginButton").removeClass("hidden");
 	$("#UserButton").addClass("hidden");
 	$("#LogoutButton").addClass("hidden");
-	$("#CommBox").addClass("hidden");
 	$(".ProtectedButton").addClass("hidden");
 }
 shell.onauthorization = function(user)
@@ -106,7 +113,6 @@ shell.onauthorization = function(user)
 	$("#UserButton").html(user.name);
 	$("#UserButton").removeClass("hidden");
 	$("#LogoutButton").removeClass("hidden");
-	$("#CommBox").removeClass("hidden");
 	$(".ProtectedButton").removeClass("hidden");
 	$("#LoginBox").modal("hide");
 
@@ -124,7 +130,7 @@ connect = function()
 	else if (location.protocol === "https:")
 		chat.uri = "wss://";
 	chat.uri += location.hostname;
-	chat.uri += $("#wsUri").val();
+	chat.uri += shell.root+$("#wsUri").val();
 	chat.connect();
 	$("#UserBox").modal("hide");
 }
@@ -139,6 +145,7 @@ onLoad = function()
 	var logout = document.getElementById("LogoutButton");
 	logout.onclick = function(event)
 	{
+		chat.disconnect();
 		shell.logout();
 	}
 
@@ -173,7 +180,7 @@ onLoad = function()
 					<ul class="nav navbar-nav">
 						<li class="dropdown ProtectedButton hidden"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">File<span class="caret"></span></a>
 							<ul class="dropdown-menu">
-								<li><a href="#" data-toggle="modal" data-target="#UserBox" id="UserButton">Preferences</a></li>
+								<li><a href="#" data-toggle="modal" data-target="#UserBox" id="PrefButton">Preferences</a></li>
 							</ul>
 						</li>
 						<li class="dropdown ProtectedButton hidden"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Users<span class="caret"></span></a>
@@ -266,16 +273,18 @@ onLoad = function()
 
 		<div class="container-fluid">
 			<div class="row">
-				<div class="col-md-4 hidden-xs hidden-sm">
+				<div class="col-sm-4 hidden-xs">
 					<div class="panel panel-default">
 						<div class="panel-heading">Users</div>
-						<ul class="list-group pull-left collapse" id="UsersList">
+						<div class="panel-body">
+						<ul class="list-group pull-left" id="UsersList">
 						</ul>
+						</div>
 					</div>
 				</div>
 
-				<div class="col-xs-12 col-md-8">
-					<div class="panel panel-default hidden" id="CommBox">
+				<div class="col-xs-12 col-sm-8">
+					<div class="panel panel-default" id="CommBox">
 						<div class="panel-heading">
 						  <input type="text" class="form-control" placeholder="message" aria-describedby="sizing-addon2" id="InputBox" readonly>
 						</div>

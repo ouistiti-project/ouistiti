@@ -51,6 +51,16 @@ shell.onchange = function(content)
 	elm.class += " active";
 	changedir.appendChild(elm);
 
+	if (content.length == 0)
+	{
+		$("#Message").html("<strong>Empty directory</strong>");
+		$("#Message").removeClass("hidden");
+	}
+	else
+	{
+		$("#Message").html();
+		$("#Message").addClass("hidden");
+	}
 	var ls = document.getElementById("ls");
 	ls.innerHTML = "";
 	for (i = 0; i < content.length; i++) {
@@ -64,7 +74,7 @@ shell.onchange = function(content)
 		else if (content[i].type == 8)
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-file col-xs-1 center'></span>";
-			elm.innerHTML += "<span class='name col-xs-8'><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.launch(\""+content[i].name+"\");'>"+content[i].name+"</a></span>";
+			elm.innerHTML += "<span class='name col-xs-8'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.launch(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
 		}
 		else
 		{
@@ -76,10 +86,11 @@ shell.onchange = function(content)
 		var hidden = "";
 		if (!shell.authenticate.islog)
 			hidden=" hidden";
-		deletemenu = "<li class='ProtectedButton"+hidden+"'><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.rm(\""+content[i].name+"\");'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
-		renamemenu = "<li class='ProtectedButton"+hidden+"'><a href='#' data-href='' onclick='$(\"#MvOldName\").val(\""+content[i].name+"\");' data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
-		copymenu = "<li class='ProtectedButton"+hidden+"'><a href='#' data-href='' onclick='shell.cp(\""+content[i].name+"\");'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
-		dropmenu = "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"+deletemenu+renamemenu+copymenu+"</ul>";
+		downloadmenu =	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.open(\""+content[i].name+"\");'><span class='glyphicon glyphicon-download'></span> download</a></li>"
+		deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.rm(\""+content[i].name+"\");'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
+		renamemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='$(\"#MvOldName\").val(\""+content[i].name+"\");' data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
+		copymenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.cp(\""+content[i].name+"\");'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
+		dropmenu = "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"+downloadmenu+deletemenu+renamemenu+copymenu+"</ul>";
 		dropdown = "<span class='dropdown'><button href='#' id='menu"+i+"' class='btn btn-default dropdown-toggle' data-toggle='dropdown' role='button' aria-haspopup='true' aria-expanded='false'><span class='glyphicon glyphicon-list'></span></button>"+dropmenu+"</span>";
 		elm.innerHTML += "<span class='col-xs-1 col-pull-right center'>"+dropdown+"</span>";
 		ls.appendChild(elm);
@@ -90,8 +101,28 @@ shell.onput = function(file)
 	var ret = confirm("upload "+file.name);
 	return ret;
 }
+shell.onbegin = function(id)
+{
+	$("#ReloadButton").addClass("btn-warning");
+}
+shell.oncompleted = function(id)
+{
+	$("#ReloadButton").removeClass("btn-warning");
+	shell.ls();
+}
+shell.onerror = function(status)
+{
+	$("#ReloadButton").removeClass("btn-warning");
+	shell.ls();
+}
+shell.onnotfound = function(file)
+{
+	$("#ReloadButton").removeClass("btn-warning");
+	shell.ls();
+}
 shell.onauthenticate = function(authenticate, result)
 {
+	$("#ReloadButton").removeClass("btn-warning");
 	if (result != undefined)
 	{
 		if (result == "failed")
@@ -171,6 +202,12 @@ onLoad = function()
 	//var dir = ".";
 	shell.cd(dir);
 //	var login = document.getElementById("LoginButton");
+	var reload = document.getElementById("ReloadButton");
+	reload.onclick = function(event)
+	{
+		$("#ReloadButton").removeClass("btn-warning");
+		shell.ls();
+	}
 	var login = document.getElementById("LoginExec");
 	login.onclick = function(event)
 	{
@@ -216,6 +253,9 @@ onLoad = function()
 						</li>
 					</ul>
 					<form class="navbar-form navbar-right">
+						<button type="button" class="btn btn-default hidden ProtectedButton" id="ReloadButton">
+							<span class='glyphicon glyphicon-refresh' aria-hidden="true"></span>&nbsp
+						</button>
 						<label class="btn btn-default navbar-btn hidden" for="UploadStart" id="UploadButton"><input id="UploadStart" type="file" style="display:none;"/>
 							<span class='glyphicon glyphicon-cloud-upload' aria-hidden="true"></span>&nbsp
 						</label>
@@ -239,8 +279,11 @@ onLoad = function()
 					</form>
 				</div>
 			</div>
-		</nav> 
-		<ul class="list-group container" id="ls"></ul>
+		</nav>
+		<div class="container">
+			<div id="Message" class="row hidden alert alert-warning"></div>
+			<ul class="list-group" id="ls"></ul>
+		</div>
 		
 		<!-- Upload -->
 		<div class="modal fade" id="UploadBox" tabindex="-1" role="dialog" aria-labelledby="UploadLabel">

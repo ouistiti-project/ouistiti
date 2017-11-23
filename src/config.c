@@ -218,6 +218,15 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 
 		char *type = NULL;
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
+#ifdef AUTHN_NONE
+		if (type != NULL && !strncmp(type, "None", 4))
+		{
+			authn_none_config_t *authn_config = calloc(1, sizeof(*authn_config));
+			auth->authn_type = AUTHN_NONE_E;
+			config_setting_lookup_string(configauth, "user", (const char **)&authn_config->user);
+			auth->authn_config = authn_config;
+		}
+#endif
 #ifdef AUTHN_BASIC
 		if (type != NULL && !strncmp(type, "Basic", 5))
 		{

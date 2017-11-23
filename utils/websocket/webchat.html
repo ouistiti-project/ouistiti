@@ -21,14 +21,22 @@
 		<script type="text/javascript" language="javascript" src="js/jquery.min.js"></script>
 		<script language="javascript" type="text/javascript">
 var chat;
-
+var users = new Array();
 function writeToScreen(message)
 {
 	var color = "";
-	if (message.color)
-		color = "color: "+message.color+";"
 	if (message.id != chat.id)
-		identity = $("#users #"+message.id+" .name").html();
+	{
+		if (users[message.id] != undefined)
+		{
+			identity = $("#users #"+users[message.id].nickname+" .name").html();
+			color = "color: "+users[message.id].color+";"
+		}
+		else
+		{
+			identity = $("#users #"+message.id+" .name").html();
+		}
+	}
 	else
 		identity = "You";
 	var divclass="";
@@ -40,11 +48,12 @@ function writeToScreen(message)
 
 function addUser(message)
 {
-	if (message.color)
-		color = "color: "+message.color+";"
+	users[message.id] = message.data;
+	if (message.data.color)
+		color = "color: "+message.data.color+";"
 	var entry = $("#users #"+message.id);
 	if (entry.length == 0)
-		$("#users").append("<div id='"+message.id+"' style='"+color+"' class='user'><span class='name'>"+message.data+"</span></div>");
+		$("#users").append("<div id='"+message.id+"' style='"+color+"' class='user'><span class='name'>"+message.data.nickname+"</span></div>");
 	$("#users #"+message.id).on("click", function()
 	{
 		chat.whois(this.id);
@@ -100,7 +109,7 @@ webchat = function(identity, ouistiti)
 
 	this.disconnect = function()
 	{
-		var msg = {type : "goodbye", id: this.id, data: "goodbye", color: this.color};
+		var msg = {type : "goodbye", id: this.id, data: {name: "goodbye", color: this.color}};
 		websocket.send(JSON.stringify(msg));
 		alert("quit");
 		websocket.close();
@@ -122,14 +131,14 @@ webchat = function(identity, ouistiti)
 
 	this.hello = function()
 	{
-		var msg = {type : "hello", id: this.id, data: this.identity, color: this.color};
+		var msg = {type : "hello", id: this.id, data: {id: this.id, nickname: this.identity, color: this.color}};
 		var msg_str = JSON.stringify(msg);
 		websocket.send(msg_str);
 	};
 
 	this.welcome = function()
 	{
-		var msg = {type : "welcome", id: this.id, data: this.identity, color: this.color};
+		var msg = {type : "welcome", id: this.id, data: {nickname: this.identity, color: this.color}};
 		websocket.send(JSON.stringify(msg));
 	};
 
