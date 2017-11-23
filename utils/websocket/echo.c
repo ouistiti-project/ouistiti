@@ -165,6 +165,7 @@ int main(int argc, char **argv)
 		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
 		if (ret == 0)
 		{
+			chmod(addr.sun_path, 0777);
 			ret = listen(sock, maxclients);
 		}
 		if (ret == 0)
