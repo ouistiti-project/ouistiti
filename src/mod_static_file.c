@@ -234,6 +234,12 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			lseek(private->fd, private->offset, SEEK_CUR);
 			dbg("static file: send %s (%d)", private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
+			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
+			{
+				close(private->fd);
+				private->fd = 0;
+				return ESUCCESS;
+			}
 			mod->transfer = mod_send_read;
 #ifdef SENDFILE
 			if (config->options & STATIC_FILE_SENDFILE)
