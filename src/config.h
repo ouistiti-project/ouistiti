@@ -62,6 +62,7 @@ typedef struct serverconfig_s
 typedef struct ouistiticonfig_s
 {
 	char *user;
+	char *pidfile;
 	serverconfig_t *servers[MAX_SERVERS];
 } ouistiticonfig_t;
 
