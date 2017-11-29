@@ -591,7 +591,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 							}
 							ctx->state = STATE_HEADERCOMPLETE;
 						}
-						if (size > 0 && rest == 0)
+						else if (size > 0 && rest == 0)
 						{
 							/**
 							 * The Content-Type must be added byt the CGI
