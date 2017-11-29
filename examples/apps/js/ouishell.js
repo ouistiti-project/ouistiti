@@ -602,8 +602,8 @@ class Shell
 		}.bind(this);
 		this.authenticate.onerror = function(status)
 		{
-			if (this.onerror != undefined)
-				this.onerror(status);
+			//if (this.onerror != undefined)
+			//	this.onerror(status);
 		}
 		this.authenticate.get();
 	}

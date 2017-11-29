@@ -86,13 +86,21 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		{
 			warn("dirlisting: open /%s", private->path_info);
 			httpmessage_addcontent(response, (char*)utils_getmime(".json"), NULL, -1);
-
-			int length = strlen(private->path_info);
-			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
-			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, private->path_info);
-			httpmessage_addcontent(response, (char*)utils_getmime(".json"), data, strlen(data));
-			free(data);
-			ret = ECONTINUE;
+			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
+			{
+				closedir(private->dir);
+				private->dir = NULL;
+				ret = ESUCCESS;
+			}
+			else
+			{
+				int length = strlen(private->path_info);
+				char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
+				snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, private->path_info);
+				httpmessage_addcontent(response, (char*)utils_getmime(".json"), data, strlen(data));
+				free(data);
+				ret = ECONTINUE;
+			}
 		}
 		else
 		{
@@ -106,6 +114,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	{
 		httpclient_shutdown(private->ctl);
 		closedir(private->dir);
+		private->dir = NULL;
 		static_file_close(private);
 		ret = ESUCCESS;
 	}

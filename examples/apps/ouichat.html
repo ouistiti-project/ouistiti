@@ -38,6 +38,15 @@ chat.onmessage = function(message)
 		divclass += " private";
 	var div="<div class='message col-xs-11 "+divclass+"' ><span style='"+color+"' class='name'>"+identity+"</span>: <span class='message'>" + message.data+"</span></div>";
 	$("#output").prepend(div);
+	if ((identity != "Me") && (Notification.permission === "granted"))
+	{
+		var options =
+		{
+			body: identity+" : "+message.data,
+		}
+		var notif = new Notification("OuiChat message from "+identity, options);
+		setTimeout(notfi.close.bind(notif), 4000);
+	}
 }
 chat.onhello = function(user)
 {

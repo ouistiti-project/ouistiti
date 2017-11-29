@@ -61,11 +61,19 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 	sigaddset(&sigset, SIGPIPE);
 	sigprocmask(SIG_BLOCK, &sigset, NULL);
 
-	ret = httpclient_wait(private->ctl, 1);
+	do
+	{
+		ret = httpclient_wait(private->ctl, 1);
+	}
+	while (ret == EINCOMPLETE);
 	if (ret > 0)
 	{
-		int sock = ret;
-		ret = sendfile(sock, private->fd, NULL, size);
+		do
+		{
+			int sock = ret;
+			ret = sendfile(sock, private->fd, NULL, size);
+		}
+		while (ret < 0 && errno == EINTR);
 	}
 	if (ret >= 0)
 		sigprocmask(SIG_UNBLOCK, &sigset, NULL);
@@ -74,7 +82,8 @@ int mod_send_sendfile(static_file_connector_t *private, http_message_t *response
 		ret = -1;
 		errno = EAGAIN;
 	}
-
+	if (ret < 0)
+		warn("sendfile %d %d", ret, errno);
 	return ret;
 }
 

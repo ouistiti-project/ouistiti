@@ -84,14 +84,14 @@ shell.onchange = function(content)
 		elm.innerHTML += "<span class='col-xs-2 col-pull-right center'>"+content[i].size+"</span>";
 
 		var hidden = "";
-		if (!shell.authenticate.islog)
+		if (!shell.authenticate.islog || shell.user == undefined)
 			hidden=" hidden";
-		downloadmenu =	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.open(\""+content[i].name+"\");'><span class='glyphicon glyphicon-download'></span> download</a></li>"
+		downloadmenu =	"<li class=''><a href='#' data-href=\""+content[i].name+"\" onclick='shell.open(\""+content[i].name+"\");'><span class='glyphicon glyphicon-download'></span> download</a></li>"
 		deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.rm(\""+content[i].name+"\");'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
 		renamemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='$(\"#MvOldName\").val(\""+content[i].name+"\");' data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
 		copymenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.cp(\""+content[i].name+"\");'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
-		dropmenu = "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"+downloadmenu+deletemenu+renamemenu+copymenu+"</ul>";
-		dropdown = "<span class='dropdown'><button href='#' id='menu"+i+"' class='btn btn-default dropdown-toggle' data-toggle='dropdown' role='button' aria-haspopup='true' aria-expanded='false'><span class='glyphicon glyphicon-list'></span></button>"+dropmenu+"</span>";
+		dropmenu 	= "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"+downloadmenu+deletemenu+renamemenu+copymenu+"</ul>";
+		dropdown 	= "<span class='dropdown'><button href='#' id='menu"+i+"' class='btn btn-default dropdown-toggle' data-toggle='dropdown' role='button' aria-haspopup='true' aria-expanded='false'><span class='glyphicon glyphicon-list'></span></button>"+dropmenu+"</span>";
 		elm.innerHTML += "<span class='col-xs-1 col-pull-right center'>"+dropdown+"</span>";
 		ls.appendChild(elm);
 	}
@@ -150,11 +150,14 @@ shell.onauthorization = function(user)
 	$("#LoginArea").removeClass("has-error");
 	$("#LoginArea").prop("aria-invalid",false)
 	$("#LoginButton").addClass("hidden");
-	$("#UserButton").html(user.name);
-	$("#UserButton").removeClass("hidden");
-	$("#LogoutButton").removeClass("hidden");
-	$("#UploadButton").removeClass("hidden");
-	$("#LoginBox").modal('hide');
+	if (user != undefined)
+	{
+		$("#UserButton").html(user.name);
+		$("#UserButton").removeClass("hidden");
+		$("#LogoutButton").removeClass("hidden");
+		$("#UploadButton").removeClass("hidden");
+		$("#LoginBox").modal('hide');
+	}
 	$(".ProtectedButton").removeClass("hidden");
 	shell.ls();
 }

@@ -76,11 +76,14 @@ shell.onauthorization = function(user)
 	$("#LoginArea").removeClass("has-error");
 	$("#LoginArea").prop("aria-invalid",false)
 	$("#LoginButton").addClass("hidden");
-	$("#UserButton").html(user.name);
-	$("#UserButton").removeClass("hidden");
-	$("#LogoutButton").removeClass("hidden");
+	if (user != undefined)
+	{
+		$("#UserButton").html(user.name);
+		$("#UserButton").removeClass("hidden");
+		$("#LogoutButton").removeClass("hidden");
+		$("#LoginBox").modal('hide');
+	}
 	$(".ProtectedButton").removeClass("hidden");
-	$("#LoginBox").modal('hide');
 	shell.ls();
 }
 onLoad = function()
