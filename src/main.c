@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <signal.h>
 #include <sys/stat.h>
 
@@ -100,6 +101,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-h \tshow this help and exit\n");
 	fprintf(stderr, "\t-V \treturn the version and exit\n");
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
+	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
 }
 
 static servert_t *first = NULL;
@@ -119,6 +121,34 @@ handler(int sig, siginfo_t *si, void *arg)
 	}
 }
 
+static void _setpidfile(char *pidfile)
+{
+	if (pidfile[0] != '\0')
+	{
+		int pidfd = open(pidfile,O_RDWR|O_CREAT,0640);
+		if (pidfd > 0)
+		{
+			char buffer[32];
+			int length;
+			pid_t pid = 1;
+
+			if (lockf(pidfd, F_TLOCK,0)<0)
+			{
+				err("server already running");
+				exit(0);
+			}
+			pid = getpid();
+			length = snprintf(buffer, 32, "%d\n", pid);
+			write(pidfd, buffer, length);
+		}
+		else
+		{
+			err("pid file error %s", strerror(errno));
+			pidfile = NULL;
+		}
+	}
+}
+
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
@@ -127,6 +157,7 @@ int main(int argc, char * const *argv)
 	servert_t *server;
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
+	char *pidfile = NULL;
 	serverconfig_t *it;
 	int i;
 	int daemonize = 0;
@@ -139,11 +170,14 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "f:hDV");
+		opt = getopt(argc, argv, "f:p:hDV");
 		switch (opt)
 		{
 			case 'f':
 				configfile = optarg;
+			break;
+			case 'p':
+				pidfile = optarg;
 			break;
 			case 'h':
 				display_help(argv);
@@ -159,6 +193,12 @@ int main(int argc, char * const *argv)
 		}
 	} while(opt != -1);
 #endif
+
+	if (daemonize && fork() != 0)
+	{
+		return 0;
+	}
+
 #ifdef STATIC_CONFIG
 	ouistiticonfig = &g_ouistiticonfig;
 #else
@@ -168,10 +208,10 @@ int main(int argc, char * const *argv)
 	if (ouistiticonfig == NULL)
 		return -1;
 
-	if (daemonize && fork() != 0)
-	{
-		return 0;
-	}
+	if (pidfile)
+		_setpidfile(pidfile);
+	else if (ouistiticonfig->pidfile)
+		_setpidfile(ouistiticonfig->pidfile);
 
 	struct sigaction action;
 	action.sa_flags = SA_SIGINFO;
