@@ -90,6 +90,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 			{
 				closedir(private->dir);
 				private->dir = NULL;
+				static_file_close(private);
 				ret = ESUCCESS;
 			}
 			else
