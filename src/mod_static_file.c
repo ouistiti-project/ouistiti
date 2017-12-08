@@ -238,6 +238,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			{
 				close(private->fd);
 				private->fd = 0;
+				static_file_close(private);
 				return ESUCCESS;
 			}
 			mod->transfer = mod_send_read;

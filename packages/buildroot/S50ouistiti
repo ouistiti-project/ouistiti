@@ -39,12 +39,17 @@ init() {
 
 start() {
 	printf "Starting ouistiti: "
-	start-stop-daemon -S -q -p ${RUNDIR}/ouistiti.pid --exec ${SBINDIR}/ouistiti -- -f ${SYSCONFDIR}/ouistiti.conf
+#	start-stop-daemon -S -q -p ${RUNDIR}/ouistiti.pid --exec ${SBINDIR}/ouistiti -- -D -f ${SYSCONFDIR}/ouistiti.conf
+	${SBINDIR}/ouistiti -D -p ${RUNDIR}/ouistiti.pid -f ${SYSCONFDIR}/ouistiti.conf
 	echo "OK"
+	mkdir ${RUNDIR}/websocket
+	chmod a+rw ${RUNDIR}/websocket
+	nohup /usr/bin/websocket_chat -R ${RUNDIR}/websocket -u www-data -w &
 }
 stop() {
 	printf "Stopping ouistiti: "
-	start-stop-daemon -K -q -p ${RUNDIR}/ouistiti.pid
+#	start-stop-daemon -K -q -p ${RUNDIR}/ouistiti.pid
+	kill $(cat ${RUNDIR}/ouistiti.pid)
 	echo "OK"
 }
 restart() {

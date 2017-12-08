@@ -331,6 +331,7 @@ class Change
 		this.onauthenticate = undefined;
 		this.onnotfound = undefined;
 		this.post = new Object();
+		this.post.type = "header";
 	}
 
 	open(directory)
@@ -346,16 +347,19 @@ class Change
 		this.file = file;
 	}
 
-	post(message, type)
+	command(message, type)
 	{
-		this.post.type = type;
+		if (type != undefined)
+			this.post.type = type;
+		else
+			this.post.type = "header";
 		if (this.post.type == "text/json")
 			this.post.data = JSON.stringify(message);
 		else
 			this.post.data = message;
 	}
 
-	exec(newname, authorization)
+	exec(authorization)
 	{
 		const xhr = this.uploadXHR;
 
@@ -398,7 +402,17 @@ class Change
 			directory = "";
 		xhr.open("POST", directory+this.file.name);
 		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-		xhr.setRequestHeader("Content-Type", this.post.type);
+
+		if (this.post.type == "header")
+		{
+			xhr.setRequestHeader("X-POST-CMD", this.post.data.cmd);
+			xhr.setRequestHeader("X-POST-ARG", this.post.data.arg);
+			this.post.data = undefined;
+		}
+		else
+		{
+			xhr.setRequestHeader("Content-Type", this.post.type);
+		}
 		if (authorization)
 			xhr.setRequestHeader("Authorization",authorization);
 		xhr.send(this.post.data);
@@ -550,10 +564,6 @@ class Shell
 				this.onerror(status);
 		}.bind(this);
 		this.remove = new Remove(this.root);
-		this.remove.onload = function(file)
-		{
-			this.ls();
-		}.bind(this);
 		this.remove.onauthenticate = function(challenge, result)
 		{
 			this.authenticate.challenge = challenge;
@@ -586,6 +596,7 @@ class Shell
 			if (this.onerror != undefined)
 				this.onerror(status);
 		}.bind(this);
+		this.change = new Change(this.root);
 		this.authenticate = new Authenticate("Basic");
 		this.authenticate.onauthorization = function(user)
 		{
@@ -602,9 +613,9 @@ class Shell
 		}.bind(this);
 		this.authenticate.onerror = function(status)
 		{
-			//if (this.onerror != undefined)
-			//	this.onerror(status);
-		}
+			if (this.onerror != undefined)
+				this.onerror(status);
+		}.bind(this);
 		this.authenticate.get();
 	}
 	generateid()
@@ -780,13 +791,30 @@ class Shell
 	}
 	mv(oldname, newname)
 	{
-		var fileold = new Blob();
-		fileold.name = oldname;
 		const id = this.generateid();
 		if (this.onbegin != undefined)
 		{
 			this.onbegin(id);
 		}
+		var file = new Blob();
+		file.name = oldname;
+		this.change.onload = function(file)
+		{
+			if (this.oncompleted != undefined)
+			{
+				this.oncompleted(id);
+			}
+		}.bind(this);
+		this.change.open(this.cwd);
+		this.change.set(file);
+		var data = {
+			cmd: "mv",
+			arg: this.root + this.cwd + "/" + newname,
+		};
+		this.change.command(data);
+		this.change.exec(this.authorization);
+		
+/*
 		this.open.onload = function(file)
 		{
 			//consol.log("file "+file.name+" loaded");
@@ -812,6 +840,7 @@ class Shell
 		this.open.open(this.cwd);
 		this.open.set(fileold);
 		this.open.exec(this.authorization);
+*/
 		return id;
 	}
 	mkdir(directory)
