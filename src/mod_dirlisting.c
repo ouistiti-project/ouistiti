@@ -84,7 +84,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		private->dir = opendir(private->filepath);
 		if (private->dir)
 		{
-			warn("dirlisting: open /%s", private->path_info);
+			dbg("dirlisting: open /%s", private->path_info);
 			httpmessage_addcontent(response, (char*)utils_getmime(".json"), NULL, -1);
 			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
 			{

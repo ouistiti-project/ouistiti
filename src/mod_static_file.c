@@ -190,7 +190,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		 */
 		if (utils_searchexp(private->path_info, config->accepted_ext) != ESUCCESS)
 		{
-			warn("static file: forbidden extension");
+			dbg("static file: forbidden extension");
 			static_file_close(private);
 #if defined(RESULT_403)
 			httpmessage_result(response, RESULT_403);
@@ -211,7 +211,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		return EREJECT;
 	else if (private->size == 0)
 	{
-		warn("static file: empty file");
+		dbg("static file: empty file");
 #if defined(RESULT_204)
 		static_file_close(private);
 		httpmessage_result(response, RESULT_204);
@@ -269,7 +269,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		private->size -= ret;
 		if (ret == 0 || private->size <= 0)
 		{
-			warn("static file: send %s", private->filepath);
+			dbg("static file: send %s", private->filepath);
 			close(private->fd);
 			static_file_close(private);
 			return ESUCCESS;

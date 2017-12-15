@@ -507,7 +507,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			}
 			if (utils_searchexp(str, config->accepted_ext) != ESUCCESS)
 			{
-				warn("cgi: %s not accepted extension", ctx->path_info);
+				dbg("cgi: %s not accepted extension", ctx->path_info);
 				free(filepath);
 				return EREJECT;
 			}
@@ -559,7 +559,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
-				warn("cgi read %s", strerror(errno));
+				dbg("cgi read %s", strerror(errno));
 			}
 			else
 			{
@@ -606,7 +606,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		else
 		{
 			ctx->state = STATE_OUTFINISH;
-			warn("cgi complete");
+			dbg("cgi complete");
 		}
 	}
 
