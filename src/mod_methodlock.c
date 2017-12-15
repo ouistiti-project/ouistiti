@@ -118,7 +118,7 @@ static void *_mod_methodlock_getctx(void *arg, http_client_t *ctl, struct sockad
 {
 	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, mod);
+	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, mod, "methodlock");
 
 	return arg;
 }

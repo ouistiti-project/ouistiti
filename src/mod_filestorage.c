@@ -52,6 +52,9 @@
 
 const char *str_put = "PUT";
 const char *str_delete = "DELETE";
+const char *str_OK = "OK";
+const char *str_KO = "KO";
+const char *str_filestorage = "filestorage";
 
 static int filestorage_checkname(static_file_connector_t *private, http_message_t *response)
 {
@@ -305,11 +308,11 @@ static void *_mod_filestorage_getctx(void *arg, http_client_t *ctl, struct socka
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx, str_filestorage);
 #ifdef RANGEREQUEST
-	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_filestorage);
 #endif
-	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx, str_filestorage);
 
 	return ctx;
 }

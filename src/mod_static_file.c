@@ -57,6 +57,7 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response);
 extern int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
 #endif
 
+const char *str_static_file = "static file";
 /**
  * USE_PRIVATE is used to keep a sample of cade which uses
  * the httpmessage_private function
@@ -309,11 +310,11 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	ctx->mod = mod;
 	ctx->ctl = ctl;
 
-	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx, str_static_file);
 #ifdef RANGEREQUEST
-	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_static_file);
 #endif
-	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx, str_static_file);
 
 	return ctx;
 }
