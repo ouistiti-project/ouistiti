@@ -47,6 +47,8 @@
 #define dbg(...)
 #endif
 
+static const char str_server[] = "server";
+
 typedef struct _mod_server_s _mod_server_t;
 
 struct _mod_server_s
@@ -65,7 +67,7 @@ static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *
 {
 	_mod_server_t *mod = (_mod_server_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, server_connector, NULL, "server");
+	httpclient_addconnector(ctl, mod->vhost, server_connector, NULL, str_server);
 
 	return mod;
 }
@@ -75,7 +77,7 @@ void *mod_server_create(http_server_t *server, char *vhost, void *config)
 	_mod_server_t *mod = calloc(1, sizeof(*mod));
 
 	mod->vhost = vhost;
-	httpserver_addmod(server, _mod_server_getctx, NULL, mod);
+	httpserver_addmod(server, _mod_server_getctx, NULL, mod, str_server);
 
 	return mod;
 }

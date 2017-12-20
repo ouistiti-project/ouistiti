@@ -73,7 +73,7 @@ static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 
-const char *str_auth = "auth";
+static const char str_auth[] = "auth";
 
 struct _mod_auth_ctx_s
 {
@@ -174,7 +174,7 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 		mod->type = str_authenticate_types[config->authn_type];
 		mod->typelength = strlen(mod->type);
 
-		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
+		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod, str_auth);
 	}
 	else
 	{

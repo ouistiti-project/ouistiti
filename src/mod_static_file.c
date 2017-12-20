@@ -57,7 +57,8 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response);
 extern int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
 #endif
 
-const char *str_static_file = "static file";
+static const char str_static_file[] = "static file";
+
 /**
  * USE_PRIVATE is used to keep a sample of cade which uses
  * the httpmessage_private function
@@ -338,7 +339,7 @@ void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file
 
 	mod->config = config;
 	mod->vhost = vhost;
-	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, mod);
+	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, mod, str_static_file);
 
 	return mod;
 }
