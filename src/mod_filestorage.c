@@ -50,8 +50,11 @@
 #define dbg(...)
 #endif
 
-const char *str_put = "PUT";
-const char *str_delete = "DELETE";
+static const char str_put[] = "PUT";
+static const char str_delete[] = "DELETE";
+static const char str_OK[] = "OK";
+static const char str_KO[] = "KO";
+static const char str_filestorage[] = "filestorage";
 
 static int filestorage_checkname(static_file_connector_t *private, http_message_t *response)
 {
@@ -164,6 +167,24 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	return ret;
 }
 
+typedef int (*changefunc)(const char *oldpath, const char *newpath);
+static int changename(mod_static_file_t *config, char *oldpath, char *newname, changefunc func)
+{
+	int ret = -1;
+	if (newname && newname[0] != '\0')
+	{
+		char *newpath = utils_buildpath(config->docroot, newname, "", "", NULL);
+		if (newpath)
+		{
+			warn("change %s to %s", oldpath, newpath);
+			if (!func(oldpath, newpath))
+				ret = 0;
+			free(newpath);
+		}
+	}
+	return ret;
+}
+
 int postfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	static_file_connector_t *private = (static_file_connector_t *)arg;
@@ -171,8 +192,31 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	mod_static_file_t *config = (mod_static_file_t *)mod->config;
 
 	warn("change %s", private->filepath);
-	httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"result\":\"OK\",\"name\":\"", -1);
+	char *result = (char *)str_KO;
+	char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
+	if (cmd && !strcmp("mv", cmd))
+	{
+		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		if (!changename(config, private->filepath, arg, rename))
+			result = (char *)str_OK;
+	}
+	else if (cmd && !strcmp("chmod", cmd))
+	{
+		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		int mod = atoi(arg);
+		if (!chmod(private->filepath, mod))
+			result = (char *)str_OK;
+	}
+	else if (cmd && !strcmp("ln", cmd))
+	{
+		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		if (!changename(config, private->filepath, arg, symlink))
+			result = (char *)str_OK;
+	}
+	httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"name\":\"", -1);
 	httpmessage_appendcontent(response, private->path_info, -1);
+	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
+	httpmessage_appendcontent(response, result, -1);
 	httpmessage_appendcontent(response, "\"}", 2);
 	static_file_close(private);
 	return ESUCCESS;
@@ -187,7 +231,14 @@ int deletefile_connector(void *arg, http_message_t *request, http_message_t *res
 	httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"name\":\"", -1);
 	httpmessage_appendcontent(response, private->path_info, -1);
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
-	if (unlink(private->filepath) > 0)
+	struct stat statistic;
+	stat(private->filepath, &statistic);
+	int (*rmfunction)(const char *pathname);
+	if (S_ISDIR(statistic.st_mode))
+		rmfunction = rmdir;
+	else
+		rmfunction = unlink;
+	if (rmfunction(private->filepath) < 0)
 	{
 		err("file removing not allowed %s", private->path_info);
 		httpmessage_appendcontent(response, "KO\"}", -1);
@@ -283,7 +334,7 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 			}
 		}
 		else
-			warn("filestorage: forbidden file %s", private->filepath);
+			warn("filestorage: forbidden file %s", private->path_info);
 	}
 	return  EREJECT;
 }
@@ -305,11 +356,11 @@ static void *_mod_filestorage_getctx(void *arg, http_client_t *ctl, struct socka
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx, str_filestorage);
 #ifdef RANGEREQUEST
-	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_filestorage);
 #endif
-	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx, str_filestorage);
 
 	return ctx;
 }
@@ -334,7 +385,7 @@ void *mod_filestorage_create(http_server_t *server, char *vhost, mod_static_file
 
 	mod->config = config;
 	mod->vhost = vhost;
-	httpserver_addmod(server, _mod_filestorage_getctx, _mod_filestorage_freectx, mod);
+	httpserver_addmod(server, _mod_filestorage_getctx, _mod_filestorage_freectx, mod, str_filestorage);
 	httpserver_addmethod(server, str_put, 1);
 	httpserver_addmethod(server, str_delete, 1);
 	return mod;

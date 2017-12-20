@@ -37,6 +37,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sched.h>
+#include <sys/stat.h>
 
 typedef int (*server_t)(int sock);
 

@@ -57,6 +57,7 @@
 static char str_null[] = "";
 static char str_gatewayinterface[] = "CGI/1.1";
 static char str_contenttype[] = "Content-Type";
+static const char str_cgi[] = "cgi";
 
 typedef struct _mod_cgi_config_s _mod_cgi_config_t;
 typedef struct _mod_cgi_s _mod_cgi_t;
@@ -108,7 +109,7 @@ void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modco
 	mod->vhost = vhost;
 	mod->server = server;
 
-	httpserver_addmod(server, _mod_cgi_getctx, _mod_cgi_freectx, mod);
+	httpserver_addmod(server, _mod_cgi_getctx, _mod_cgi_freectx, mod, str_cgi);
 
 	return mod;
 }
@@ -129,7 +130,7 @@ static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *add
 	if (mod->config->chunksize == 0)
 		mod->config->chunksize = 64;
 	ctx->chunk = malloc(mod->config->chunksize + 1);
-	httpclient_addconnector(ctl, mod->vhost, _cgi_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, _cgi_connector, ctx, str_cgi);
 
 	return ctx;
 }
@@ -507,7 +508,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			}
 			if (utils_searchexp(str, config->accepted_ext) != ESUCCESS)
 			{
-				warn("cgi: %s not accepted extension", ctx->path_info);
+				dbg("cgi: %s not accepted extension", ctx->path_info);
 				free(filepath);
 				return EREJECT;
 			}
@@ -559,7 +560,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
-				warn("cgi read %s", strerror(errno));
+				dbg("cgi read %s", strerror(errno));
 			}
 			else
 			{
@@ -606,7 +607,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		else
 		{
 			ctx->state = STATE_OUTFINISH;
-			warn("cgi complete");
+			dbg("cgi complete");
 		}
 	}
 

@@ -57,6 +57,8 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response);
 extern int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
 #endif
 
+static const char str_static_file[] = "static file";
+
 /**
  * USE_PRIVATE is used to keep a sample of cade which uses
  * the httpmessage_private function
@@ -189,7 +191,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		 */
 		if (utils_searchexp(private->path_info, config->accepted_ext) != ESUCCESS)
 		{
-			warn("static file: forbidden extension");
+			dbg("static file: forbidden extension");
 			static_file_close(private);
 #if defined(RESULT_403)
 			httpmessage_result(response, RESULT_403);
@@ -210,7 +212,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		return EREJECT;
 	else if (private->size == 0)
 	{
-		warn("static file: empty file");
+		dbg("static file: empty file");
 #if defined(RESULT_204)
 		static_file_close(private);
 		httpmessage_result(response, RESULT_204);
@@ -268,7 +270,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		private->size -= ret;
 		if (ret == 0 || private->size <= 0)
 		{
-			warn("static file: send %s", private->filepath);
+			dbg("static file: send %s", private->filepath);
 			close(private->fd);
 			static_file_close(private);
 			return ESUCCESS;
@@ -309,11 +311,11 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 	ctx->mod = mod;
 	ctx->ctl = ctl;
 
-	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx, str_static_file);
 #ifdef RANGEREQUEST
-	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_static_file);
 #endif
-	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx, str_static_file);
 
 	return ctx;
 }
@@ -337,7 +339,7 @@ void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file
 
 	mod->config = config;
 	mod->vhost = vhost;
-	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, mod);
+	httpserver_addmod(server, _mod_static_file_getctx, _mod_static_file_freectx, mod, str_static_file);
 
 	return mod;
 }
