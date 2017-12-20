@@ -37,6 +37,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sched.h>
+#include <sys/stat.h>
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
