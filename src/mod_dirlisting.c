@@ -64,7 +64,9 @@ typedef struct _static_file_connector_s static_file_connector_t;
 #define DIRLISTING_FOOTER "\
 {}]}"
 
-static char *_sizeunit[] = {
+static const char str_dirlisting[] = "dirlisting";
+
+static const char *_sizeunit[] = {
 	"B",
 	"kB",
 	"MB",
@@ -84,7 +86,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		private->dir = opendir(private->filepath);
 		if (private->dir)
 		{
-			warn("dirlisting: open /%s", private->path_info);
+			dbg("dirlisting: open /%s", private->path_info);
 			httpmessage_addcontent(response, (char*)utils_getmime(".json"), NULL, -1);
 			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
 			{
@@ -166,7 +168,7 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx);
+	httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx, str_dirlisting);
 
 	return ctx;
 }
@@ -191,7 +193,7 @@ void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_static_file_
 
 	mod->config = config;
 	mod->vhost = vhost;
-	httpserver_addmod(server, _mod_dirlisting_getctx, _mod_dirlisting_freectx, mod);
+	httpserver_addmod(server, _mod_dirlisting_getctx, _mod_dirlisting_freectx, mod, str_dirlisting);
 
 	return mod;
 }

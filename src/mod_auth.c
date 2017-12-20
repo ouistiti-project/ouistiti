@@ -68,12 +68,12 @@
 typedef struct _mod_auth_s _mod_auth_t;
 typedef struct _mod_auth_ctx_s _mod_auth_ctx_t;
 
-static http_server_config_t mod_auth_config;
-
 static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
+
+static const char str_auth[] = "auth";
 
 struct _mod_auth_ctx_s
 {
@@ -174,7 +174,7 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 		mod->type = str_authenticate_types[config->authn_type];
 		mod->typelength = strlen(mod->type);
 
-		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod);
+		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod, str_auth);
 	}
 	else
 	{
@@ -219,8 +219,8 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
 	if (mod->authz->type & AUTHZ_HOME_E)
-		httpclient_addconnector(ctl, mod->vhost, _home_connector, ctx);
-	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx);
+		httpclient_addconnector(ctl, mod->vhost, _home_connector, ctx, str_auth);
+	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx, str_auth);
 
 	return ctx;
 }

@@ -47,6 +47,8 @@
 #define dbg(...)
 #endif
 
+static const char str_methodlock[] = "methodlock";
+
 typedef struct _mod_methodlock_s _mod_methodlock_t;
 
 struct _mod_methodlock_s
@@ -118,7 +120,7 @@ static void *_mod_methodlock_getctx(void *arg, http_client_t *ctl, struct sockad
 {
 	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, mod);
+	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, mod, str_methodlock);
 
 	return arg;
 }
@@ -129,7 +131,7 @@ void *mod_methodlock_create(http_server_t *server, char *vhost, void *config)
 
 	mod->vhost = vhost;
 	mod->unlock_groups = config;
-	httpserver_addmod(server, _mod_methodlock_getctx, NULL, mod);
+	httpserver_addmod(server, _mod_methodlock_getctx, NULL, mod, str_methodlock);
 
 	return mod;
 }
