@@ -47,9 +47,9 @@ shell.onauthorization = function(user)
 		$("#UserButton").html(user.name);
 		$("#UserButton").removeClass("hidden");
 		$("#LogoutButton").removeClass("hidden");
-		$("#LoginBox").modal('hide');
+		$(".ProtectedButton").removeClass("hidden");
 	}
-	$(".ProtectedButton").removeClass("hidden");
+	$("#LoginBox").modal('hide');
 	loadApps("apps/ouiweb.json", shell.root);
 }
 loadApps = function(url, root)
@@ -67,11 +67,13 @@ loadApps = function(url, root)
 				{
 					var active = "active";
 					var carousel = $("#Applications");
+					var indicators = carousel.find("ol.carousel-indicators").html("");
+					var inner = carousel.find("div.carousel-inner").html("");
 					var data = JSON.parse(xhr.responseText.trim());
 					for (i = 0; i < data.apps.length; i++)
 					{
 						var elm = "<li data-target='#Applications' data-slide-to='"+i+"' class='"+active+"'></li>";
-						carousel.find("ol.carousel-indicators").append(elm);
+						indicators.append(elm);
 						var img = "<div class='item "+active+"'>";
 						if (data.apps[i].href.lastIndexOf("?") == -1)
 							img += "<a data-href=\""+data.apps[i].href+"?root="+root+"\" onclick='shell.launch(this.getAttribute(\"data-href\"));' target='_blank'>";
@@ -84,7 +86,7 @@ loadApps = function(url, root)
 						img += "</div>";
 						img += "</a>";
 						img += "</div>";
-						carousel.find("div.carousel-inner").append(img);
+						inner.append(img);
 						active="";
 					}
 				}
@@ -103,11 +105,8 @@ loadApps = function(url, root)
 
 onLoad = function()
 {
-//	$("#LoginBox").modal('show');
-	var dir = "";
-	//var dir = ".";
-	shell.cd(dir);
-//	var login = document.getElementById("LoginButton");
+	shell.login();
+
 	var login = document.getElementById("LoginExec");
 	login.onclick = function(event)
 	{

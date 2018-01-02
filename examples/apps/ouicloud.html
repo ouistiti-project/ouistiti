@@ -1,5 +1,7 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 	<head>
+		<title>Ouistiti: Files browser</title>
 		<!--
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -29,6 +31,30 @@ function startReadFromDrag(evt) {
     evt.preventDefault();
 }
 
+function downloadFile(filepath)
+{
+
+	var downloader = new Open(shell.root);
+	var file = new Blob();
+	file.name = filepath;
+	downloader.open(shell.cwd);
+	downloader.set(file);
+	downloader.onload = function (file)
+	{
+		var download = document.createElement("a");
+		if (file.name.substr(0,2) == '$a')
+		{
+			file.name = window.atob(file.name.substr(2));
+		}
+		var url = window.URL.createObjectURL(file);
+		download.href = url;
+		download.download = file.name
+		download.click();
+		window.URL.revokeObjectURL(url);
+	}
+	downloader.exec(shell.authorization);
+}
+
 var shell = new Shell("");
 shell.onchange = function(content)
 {
@@ -38,7 +64,7 @@ shell.onchange = function(content)
 	elm.innerHTML="<a href='#' class='glyphicon glyphicon-home hidden-text' onclick='shell.cd(\"/\")'> </a>";
 	var directories = this.cwd.split('/');
 	var directory = "";
-	for (i = 1; i < directories.length; i++) {
+	for (i = 0; i < directories.length; i++) {
 		if (directories[i].length > 0)
 		{
 			directory+="/"+directories[i];
@@ -63,35 +89,44 @@ shell.onchange = function(content)
 	}
 	var ls = document.getElementById("ls");
 	ls.innerHTML = "";
+
 	for (i = 0; i < content.length; i++) {
-		elm = document.createElement("li");
+		var elm = document.createElement("li");
 		elm.className = "list-group-item row";
+
+		var hidden = "";
+		if (!shell.authenticate.islog || shell.user == undefined)
+			hidden=" hidden";
+		var downloadmenu =	"<li class=''><a href='#' data-href=\""+content[i].name+"\" onclick='downloadFile(\""+content[i].name+"\");'><span class='glyphicon glyphicon-download'></span> download</a></li>"
+		var deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.rm(\""+content[i].name+"\");'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
+		var renamemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
+		var copymenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.cp(\""+content[i].name+"\");'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
+		var sharemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" data-toggle='modal' data-target='#ShareBox'><span class='glyphicon glyphicon-share'></span> share</a></li>"
+
+		var dropmenu 	= "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"
+
 		if (content[i].type == 4)
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-folder-open col-xs-1 center'></span>";
 			elm.innerHTML += "<span class='name col-xs-8'><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
+			dropmenu	+= deletemenu+renamemenu;
 		}
 		else if (content[i].type == 8)
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-file col-xs-1 center'></span>";
 			elm.innerHTML += "<span class='name col-xs-8'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.launch(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
+			dropmenu	+= downloadmenu+deletemenu+renamemenu+copymenu+sharemenu;
 		}
 		else
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-link col-xs-1'></span>";
 			elm.innerHTML += "<span class='name col-xs-8'>"+content[i].name+"</span>";
+			dropmenu	+= downloadmenu+deletemenu+renamemenu+copymenu+sharemenu;
 		}
 		elm.innerHTML += "<span class='col-xs-2 col-pull-right center'>"+content[i].size+"</span>";
 
-		var hidden = "";
-		if (!shell.authenticate.islog || shell.user == undefined)
-			hidden=" hidden";
-		downloadmenu =	"<li class=''><a href='#' data-href=\""+content[i].name+"\" onclick='shell.open(\""+content[i].name+"\");'><span class='glyphicon glyphicon-download'></span> download</a></li>"
-		deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.rm(\""+content[i].name+"\");'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
-		renamemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='$(\"#MvOldName\").val(\""+content[i].name+"\");' data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
-		copymenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.cp(\""+content[i].name+"\");'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
-		dropmenu 	= "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"+downloadmenu+deletemenu+renamemenu+copymenu+"</ul>";
-		dropdown 	= "<span class='dropdown'><button href='#' id='menu"+i+"' class='btn btn-default dropdown-toggle' data-toggle='dropdown' role='button' aria-haspopup='true' aria-expanded='false'><span class='glyphicon glyphicon-list'></span></button>"+dropmenu+"</span>";
+		dropmenu	+= "</ul>";
+		var dropdown 	= "<span class='dropdown'><button href='#' id='menu"+i+"' class='btn btn-default dropdown-toggle' data-toggle='dropdown' role='button' aria-haspopup='true' aria-expanded='false'><span class='glyphicon glyphicon-list'></span></button>"+dropmenu+"</span>";
 		elm.innerHTML += "<span class='col-xs-1 col-pull-right center'>"+dropdown+"</span>";
 		ls.appendChild(elm);
 	}
@@ -142,7 +177,7 @@ shell.onauthenticate = function(authenticate, result)
 	$("#LoginButton").removeClass("hidden");
 	$("#UserButton").addClass("hidden");
 	$("#LogoutButton").addClass("hidden");
-	$("#UploadButton").addClass("hidden");
+	$("#ReloadButton").addClass("hidden");
 	$(".ProtectedButton").addClass("hidden");
 }
 shell.onauthorization = function(user)
@@ -150,67 +185,32 @@ shell.onauthorization = function(user)
 	$("#LoginArea").removeClass("has-error");
 	$("#LoginArea").prop("aria-invalid",false)
 	$("#LoginButton").addClass("hidden");
+	$("#ReloadButton").removeClass("hidden");
 	if (user != undefined)
 	{
 		$("#UserButton").html(user.name);
 		$("#UserButton").removeClass("hidden");
 		$("#LogoutButton").removeClass("hidden");
-		$("#UploadButton").removeClass("hidden");
 		$("#LoginBox").modal('hide');
+		$(".ProtectedButton").removeClass("hidden");
 	}
-	$(".ProtectedButton").removeClass("hidden");
 	shell.ls();
 }
-/*
-shell.onput = function(file)
-{
-	if (file.type.match("text/html"))
-	{
-		var elm = document.createElement("iframe");
-		elm.width=240;
-		elm.height=297;
-		elm.style="border:1px solid #d3d3d3;";
-		elm.document.innerHTML = new TextDecoder("utf-8").decode(file.data);
-		document.getElementById("op").appendChild(elm);
-	}
-	if (file.type.match("text/plain"))
-	{
-		var elm = document.createElement("div");
-		elm.width=240;
-		elm.height=297;
-		elm.style="border:1px solid #d3d3d3;";
-		elm.innerHTML = new TextDecoder("utf-8").decode(file.data);
-		document.getElementById("op").appendChild(elm);
-	}
-	if (file.type.match("image/*"))
-	{
-		var elm = document.createElement("canvas");
-		elm.width=240;
-		elm.height=297;
-		elm.style="border:1px solid #d3d3d3;";
-		var image = new ImageData(file.data, 240, 297);
-		var ctx = elm.getContext("2d");
-		ctx.drawImage(image, 0, 0);
-		document.getElementById("op").appendChild(elm);		
-	}
-}
-*/
 
 onLoad = function()
 {
 	shell.login();
+
 	var fileselector = document.getElementById("UploadStart");
 	fileselector.onchange = startRead;
-	var dir = "";
-	//var dir = ".";
-	shell.cd(dir);
-//	var login = document.getElementById("LoginButton");
+
 	var reload = document.getElementById("ReloadButton");
 	reload.onclick = function(event)
 	{
 		$("#ReloadButton").removeClass("btn-warning");
 		shell.ls();
 	}
+
 	var login = document.getElementById("LoginExec");
 	login.onclick = function(event)
 	{
@@ -220,6 +220,17 @@ onLoad = function()
 	logout.onclick = function(event)
 	{
 		shell.logout();
+	}
+
+	var download = location.search.substring(1).split("&");
+	download = download.find(function(elem){
+			return elem.startsWith("download=");
+		});
+	if (download)
+	{
+		var filepath = download.split("=")[1];
+		if (filepath)
+			downloadFile(filepath);
 	}
 }
 		</script>
@@ -238,7 +249,7 @@ onLoad = function()
 				</div>
 				<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 					<ul class="nav navbar-nav">
-						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">File<span class="caret"></span></a>
+						<li class="dropdown ProtectedButton hidden"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">File<span class="caret"></span></a>
 							<ul class="dropdown-menu">
 								<li><a href="#" data-toggle="modal" data-target="#UploadBox">Upload</a></li>
 								<li><a href="#" data-toggle="modal" data-target="#MkdirBox">Make Dir</a></li>
@@ -256,10 +267,10 @@ onLoad = function()
 						</li>
 					</ul>
 					<form class="navbar-form navbar-right">
-						<button type="button" class="btn btn-default hidden ProtectedButton" id="ReloadButton">
+						<button type="button" class="btn btn-default hidden" id="ReloadButton">
 							<span class='glyphicon glyphicon-refresh' aria-hidden="true"></span>&nbsp
 						</button>
-						<label class="btn btn-default navbar-btn hidden" for="UploadStart" id="UploadButton"><input id="UploadStart" type="file" style="display:none;"/>
+						<label class="btn btn-default navbar-btn ProtectedButton hidden" for="UploadStart" id="UploadButton"><input id="UploadStart" type="file" style="display:none;"/>
 							<span class='glyphicon glyphicon-cloud-upload' aria-hidden="true"></span>&nbsp
 						</label>
 						<div class="form-group hidden">
@@ -339,6 +350,18 @@ onLoad = function()
 			</div>
 		</div>
 		<div class="modal fade" id="MvBox" tabindex="-1" role="dialog" aria-labelledby="MvLabel">
+<script type="text/javascript">
+$('#MvBox').on('show.bs.modal', function (event)
+{
+	var button = $(event.relatedTarget)
+	var filename = button.data("href");
+	$(this).find('#MvOldName').val(filename);
+	$(this).find('.btn-primary').on('click', function (e)
+		{
+			shell.mv($('#MvOldName').val(),$('#MvName').val());
+		});
+});
+</script>
 			<div class="modal-dialog" role="document">
 				<div class="modal-content">
 					<div class="modal-header">
@@ -365,7 +388,96 @@ onLoad = function()
 					</div>
 					<div class="modal-footer">
 						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-						<button type="button" class="btn btn-primary" data-dismiss="modal" id="MvExec" onclick="shell.mv($('#MvOldName').val(),$('#MvName').val());">OK</button>
+						<button type="button" class="btn btn-primary" data-dismiss="modal" id="MvExec">OK</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="modal fade" id="ShareBox" tabindex="-1" role="dialog" aria-labelledby="ShareLabel">
+<script type="text/javascript">
+//$('#ShareBox').changeHref = function (filename, encrypt)
+ShareBox_changeHref = function (filename, encrypt)
+{
+	var linkname = "$";
+	if (!encrypt)
+	{
+		linkname += "a";
+	}
+	linkname += window.btoa(encodeURIComponent(filename));
+	linkname = encodeURIComponent(linkname);
+	var pathname = "";
+	if (location.pathname.startsWith(shell.root))
+		pathname = location.pathname.substr(shell.root.length);
+	else
+		pathname = location.pathname;
+	var shareurl = "http://"+location.hostname+pathname+"?root=/share/"+shell.user.name+"&download="+linkname;
+	$('#ShareHref').val(shareurl);
+	return linkname;
+};
+$('#ShareBox').on('show.bs.modal', function (event)
+{
+	$('#ShareBox').find('.input-group * input[type=checkbox]').on('change', function(e)
+	{
+		var checked = $(this).prop('checked');
+		var parent = $(this).parents('.input-group')[0];
+		var field = $(parent).find('input[type=checkbox]')[0];
+		var readonly = $(field).prop('readOnly');
+		$(field).prop('readOnly', checked);
+		var filename = $('#ShareName').val();
+		//$('#ShareBox').changeHref(filename, checked);
+		ShareBox_changeHref(filename, checked);
+	});
+	$('#ShareBox').find('.btn-primary').on('click', function (e)
+	{
+		var filename = $('#ShareName').val();
+		var checked = $('#ShareEncrypt').prop('checked');
+		var linkname = ShareBox_changeHref(filename, checked);
+		if (!checked)
+		{
+			shell.ln(filename,shell.root+"/share/"+linkname);
+		}
+	});
+	var button = $(event.relatedTarget)
+	var filename = button.data("href");
+	$(this).find('#ShareName').val(filename);
+	var checked = $('#ShareEncrypt').prop('checked');
+	//$('#ShareBox').changeHref(filename, encrypt);
+	ShareBox_changeHref(filename, checked);
+});
+</script>
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<h4 class="modal-title" id="ShareLabel">Share</h4>
+					</div>
+					<div class="modal-body">
+						<form>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon">File to share</span>
+									<input type="text" class="form-control" id="ShareName" placeholder="file name" readonly="true"/>
+								</div>
+								<!--div class="input-group">
+									<span class="input-group-addon" id="ShareEncryptField">
+										<input type="checkbox" id="ShareEncrypt" aria-label=""/> Encrypt
+									</span>
+									<input type="password" class="form-control" id="SharePhrasspath" aria-describedby="ShareEncryptField"/>
+								</div-->
+							</div>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon">URL to share</span>
+									<input type="text" class="form-control" id="ShareHref" placeholder="http://" readonly="true"/>
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" data-dismiss="modal" id="ShareExec">OK</button>
 					</div>
 				</div>
 			</div>

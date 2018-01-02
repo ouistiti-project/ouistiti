@@ -1,1 +1,21 @@
-{"apps":[{"name":"ouiCloud","image":"apps/images/ouicloud.png","href":"apps/ouicloud.html","desc":"manage your data"},{"name":"ouiAlbum","image":"apps/images/ouialbum.png","href":"apps/ouialbum.html?cwd=/album","desc":"manage your photos"}]}
+{
+"apps":[
+	{
+	"name":"ouiCloud",
+	"image":"apps/images/ouicloud.png",
+	"href":"apps/ouicloud.html",
+	"desc":"manage your data"
+	},
+	{
+	"name":"ouiAlbum",
+	"image":"apps/images/ouialbum.png",
+	"href":"apps/ouialbum.html?cwd=/album",
+	"desc":"manage your photos"
+	},
+	{
+	"name":"ouiChat",
+	"image":"apps/images/ouichat.png",
+	"href":"apps/ouichat.html",
+	"desc":"discuss with your friends"
+	}
+]}

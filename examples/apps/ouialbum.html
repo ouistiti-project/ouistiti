@@ -1,5 +1,6 @@
 <html>
 	<head>
+		<title>Ouistiti: Images</title>
 		<!--
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -23,20 +24,22 @@ shell.onchange = function(content)
 	}
 	else
 	{
-		$("#Message").html();
+		$("#Message").html("");
 		$("#Message").addClass("hidden");
 	}
+	var indicators = carousel.find("ol.carousel-indicators").html("");
+	var inner = carousel.find("div.carousel-inner").html("");
 	for (i = 0; i < content.length; i++) {
 		var ext = content[i].name.split('.');
 		ext = ext[ext.length - 1];
 		if (imageExt.indexOf(ext) != -1)
 		{
 			var elm = "<li data-target='#Album' data-slide-to='"+i+"' class='"+active+"'></li>";
-			carousel.find("ol.carousel-indicators").append(elm);
+			indicators.append(elm);
 			var img = "<div class='item "+active+"'>";
-			img += "<img src='"+shell.root+shell.cwd+content[i].name+"' class='img-rounded' alt='"+content[i].name+"' style='float: none; margin: 0 auto;max-height: 800px'>";
+			img += "<img src='"+shell.root+"/"+shell.cwd+"/"+content[i].name+"' class='img-rounded' alt='"+content[i].name+"' style='float: none; margin: 0 auto;max-height: 800px'>";
 			img += "</div>";
-			carousel.find("div.carousel-inner").append(img);
+			inner.append(img);
 			active="";
 		}
 	}
@@ -81,27 +84,14 @@ shell.onauthorization = function(user)
 		$("#UserButton").html(user.name);
 		$("#UserButton").removeClass("hidden");
 		$("#LogoutButton").removeClass("hidden");
-		$("#LoginBox").modal('hide');
+		$(".ProtectedButton").removeClass("hidden");
 	}
-	$(".ProtectedButton").removeClass("hidden");
+	$("#LoginBox").modal('hide');
 	shell.ls();
 }
 onLoad = function()
 {
 	shell.login();
-	var dir = location.search.substring(1).split("&");
-	dir = dir.find(function(elem){
-			return elem.startsWith("cwd=");
-		});
-	if (dir!= undefined)
-	{
-		dir = dir.split("=")[1];
-		if (dir.lastIndexOf('/') != dir.length - 1)
-			dir += '/';
-	}
-	else
-		dir = "";
-	shell.cd(dir);
 	var reload = document.getElementById("ReloadButton");
 	reload.onclick = function(event)
 	{
@@ -135,12 +125,13 @@ onLoad = function()
 				</div>
 				<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 					<ul class="nav navbar-nav">
-<!--
-						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">File<span class="caret"></span></a>
+						<li class="dropdown ProtectedButton hidden"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">File<span class="caret"></span></a>
 							<ul class="dropdown-menu">
+								<li><a href="#" data-toggle="modal" data-target="#MkdirBox">new Album</a></li>
+								<li><a href="#" data-toggle="modal" data-target="#ShareBox">share</a></li>
+								<li><a target="_blank" href="ouicloud.html" onclick="this.href+='?root='+shell.root+'&cwd='+shell.cwd;">open directory</a></li>
 							</ul>
 						</li>
--->
 					</ul>
 					<form class="navbar-form navbar-right">
 						<button type="button" class="btn btn-default hidden ProtectedButton" id="ReloadButton">
@@ -187,6 +178,97 @@ onLoad = function()
 					<span class="glyphicon glyphicon-chevron-right"></span>
 					<span class="sr-only">Next</span>
 				</a>
+			</div>
+		</div>
+		<div class="modal fade" id="MkdirBox" tabindex="-1" role="dialog" aria-labelledby="MkdirLabel">
+<script >
+$(function($)
+{
+	$("#MkdirExec").on("click", function(e) {
+		shell.oncompleted = function(id)
+		{
+			var cwd = shell.cwd+"/"+$('#MkdirName').val();
+			location.search = "root="+shell.root+"&cwd="+cwd;
+		};
+		shell.mkdir($('#MkdirName').val());
+	});
+});
+</script>
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="MkdirLabel">Make Directory</h4>
+					</div>
+					<div class="modal-body">
+						<form>
+							<div class="input-group">
+							  <span class="input-group-addon" id="MkdirField">New</span>
+							  <input type="text" class="form-control" placeholder="newdir" aria-describedby="MkdirField" name="file" id="MkdirName" >
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" data-dismiss="modal" id="MkdirExec">OK</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="modal fade" id="ShareBox" tabindex="-1" role="dialog" aria-labelledby="ShareLabel">
+<script type="text/javascript">
+//$('#ShareBox').changeHref = function (filename, encrypt)
+ShareBox_changeHref = function (filename, encrypt)
+{
+	var linkname = "$";
+	if (!encrypt)
+	{
+		linkname += "a";
+	}
+	linkname += window.btoa(encodeURIComponent(filename));
+	linkname = encodeURIComponent(linkname);
+	var pathname = "";
+	if (location.pathname.startsWith(shell.root))
+		pathname = location.pathname.substr(shell.root.length);
+	else
+		pathname = location.pathname;
+	var shareurl = "http://"+location.hostname+pathname+"?root=/share/"+shell.user.name+"&cwd="+linkname;
+	$('#ShareHref').val(shareurl);
+	return linkname;
+};
+$('#ShareBox').on('show.bs.modal', function (event)
+{
+	$('#ShareBox').find('.btn-primary').on('click', function (e)
+	{
+		var linkname = ShareBox_changeHref(shell.cwd, false);
+		shell.ln("",shell.root+"/share/"+linkname);
+	});
+	ShareBox_changeHref(shell.cwd, false);
+});
+</script>
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+						<h4 class="modal-title" id="ShareLabel">Share</h4>
+					</div>
+					<div class="modal-body">
+						<form>
+							<div class="form-group">
+								<div class="input-group">
+									<span class="input-group-addon">URL to share</span>
+									<input type="text" class="form-control" id="ShareHref" placeholder="http://" readonly="true"/>
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-primary" data-dismiss="modal" id="ShareExec">OK</button>
+					</div>
+				</div>
 			</div>
 		</div>
 		<div class="modal fade" id="LoginBox" tabindex="-1" role="dialog" aria-labelledby="LoginLabel">

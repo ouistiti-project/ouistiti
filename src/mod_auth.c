@@ -78,6 +78,7 @@ static const char str_auth[] = "auth";
 struct _mod_auth_ctx_s
 {
 	_mod_auth_t *mod;
+	http_client_t *ctl;
 	char *authenticate;
 };
 
@@ -215,6 +216,7 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
 
 	ctx->mod = mod;
+	ctx->ctl = ctl;
 
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
@@ -306,7 +308,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			char *user = mod->authn->rules->check(mod->authn->ctx, method, authentication);
 			if (user != NULL)
 			{
-				dbg("user \"%s\" accepted", user);
+				warn("user \"%s\" accepted from %p", user, ctx->ctl);
 				httpmessage_SESSION(request, "%user", user);
 				httpmessage_addheader(response, (char *)str_xuser, user);
 				httpmessage_SESSION(request, "%authtype", (char *)mod->type);
