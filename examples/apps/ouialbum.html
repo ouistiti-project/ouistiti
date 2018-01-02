@@ -29,20 +29,39 @@ shell.onchange = function(content)
 	}
 	var indicators = carousel.find("ol.carousel-indicators").html("");
 	var inner = carousel.find("div.carousel-inner").html("");
+	var albumslist = $("#AlbumsList").html("").addClass("hidden");
 	for (i = 0; i < content.length; i++) {
-		var ext = content[i].name.split('.');
-		ext = ext[ext.length - 1];
-		if (imageExt.indexOf(ext) != -1)
+		if (content[i].type == 4)
 		{
-			var elm = "<li data-target='#Album' data-slide-to='"+i+"' class='"+active+"'></li>";
-			indicators.append(elm);
-			var img = "<div class='item "+active+"'>";
-			img += "<img src='"+shell.root+"/"+shell.cwd+"/"+content[i].name+"' class='img-rounded' alt='"+content[i].name+"' style='float: none; margin: 0 auto;max-height: 800px'>";
-			img += "</div>";
-			inner.append(img);
-			active="";
+			albumslist.removeClass("hidden");
+			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
+			albumslist.append(elm);
+		}
+		else if (content[i].type == 8)
+		{
+			var ext = content[i].name.split('.');
+			ext = ext[ext.length - 1].toLowerCase();
+			if (imageExt.indexOf(ext) != -1)
+			{
+				var elm = "<li data-target='#Album' data-slide-to='"+i+"' class='"+active+"'></li>";
+				indicators.append(elm);
+				var img = "<div class='item "+active+"'>";
+				img += "<img src='"+shell.root+"/"+shell.cwd+"/"+content[i].name+"' class='img-rounded' alt='"+content[i].name+"' style='float: none; margin: 0 auto;max-height: 800px'>";
+				img += "</div>";
+				inner.append(img);
+				active="";
+			}
 		}
 	}
+}
+shell.onbegin = function(id)
+{
+	$("#ReloadButton").addClass("btn-warning");
+}
+shell.oncompleted = function(id)
+{
+	$("#ReloadButton").removeClass("btn-warning");
+	shell.ls();
 }
 shell.onnotfound = function(url)
 {
@@ -92,6 +111,8 @@ shell.onauthorization = function(user)
 onLoad = function()
 {
 	shell.login();
+	if ((shell.user != undefined) && (location.search.indexOf("cwd=") < 0))
+		shell.cd(shell.user.directories.image);
 	var reload = document.getElementById("ReloadButton");
 	reload.onclick = function(event)
 	{
@@ -130,6 +151,10 @@ onLoad = function()
 								<li><a href="#" data-toggle="modal" data-target="#MkdirBox">new Album</a></li>
 								<li><a href="#" data-toggle="modal" data-target="#ShareBox">share</a></li>
 								<li><a target="_blank" href="ouicloud.html" onclick="this.href+='?root='+shell.root+'&cwd='+shell.cwd;">open directory</a></li>
+							</ul>
+						</li>
+						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Albums<span class="caret"></span></a>
+							<ul class="dropdown-menu hidden" id="AlbumsList">
 							</ul>
 						</li>
 					</ul>
@@ -232,7 +257,7 @@ ShareBox_changeHref = function (filename, encrypt)
 		pathname = location.pathname.substr(shell.root.length);
 	else
 		pathname = location.pathname;
-	var shareurl = "http://"+location.hostname+pathname+"?root=/share/"+shell.user.name+"&cwd="+linkname;
+	var shareurl = "http://"+location.hostname+pathname+"?root="+shell.directories.share+"/"+shell.user.name+"&cwd="+linkname;
 	$('#ShareHref').val(shareurl);
 	return linkname;
 };
@@ -241,7 +266,7 @@ $('#ShareBox').on('show.bs.modal', function (event)
 	$('#ShareBox').find('.btn-primary').on('click', function (e)
 	{
 		var linkname = ShareBox_changeHref(shell.cwd, false);
-		shell.ln("",shell.root+"/share/"+linkname);
+		shell.ln("",shell.root+shell.user.directories.share+"/"+linkname);
 	});
 	ShareBox_changeHref(shell.cwd, false);
 });

@@ -5,6 +5,7 @@
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 		-->
+		<title>Ouistiti</title>
 		<link href="apps/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 		<script src="apps/js/jquery.min.js"></script>
 		<script src="apps/js/bootstrap.min.js"></script>
@@ -70,8 +71,11 @@ loadApps = function(url, root)
 					var indicators = carousel.find("ol.carousel-indicators").html("");
 					var inner = carousel.find("div.carousel-inner").html("");
 					var data = JSON.parse(xhr.responseText.trim());
+					var i;
 					for (i = 0; i < data.apps.length; i++)
 					{
+						if (data.apps[i].href == undefined)
+							continue;
 						var elm = "<li data-target='#Applications' data-slide-to='"+i+"' class='"+active+"'></li>";
 						indicators.append(elm);
 						var img = "<div class='item "+active+"'>";

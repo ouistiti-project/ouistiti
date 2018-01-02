@@ -200,6 +200,8 @@ shell.onauthorization = function(user)
 onLoad = function()
 {
 	shell.login();
+	if ((shell.user != undefined) && (location.search.indexOf("cwd=") < 0))
+		shell.cd(shell.user.directories.documents);
 
 	var fileselector = document.getElementById("UploadStart");
 	fileselector.onchange = startRead;
@@ -410,7 +412,7 @@ ShareBox_changeHref = function (filename, encrypt)
 		pathname = location.pathname.substr(shell.root.length);
 	else
 		pathname = location.pathname;
-	var shareurl = "http://"+location.hostname+pathname+"?root=/share/"+shell.user.name+"&download="+linkname;
+	var shareurl = "http://"+location.hostname+pathname+"?root="+shell.directories.share+"/"+shell.user.name+"&download="+linkname;
 	$('#ShareHref').val(shareurl);
 	return linkname;
 };
@@ -434,7 +436,7 @@ $('#ShareBox').on('show.bs.modal', function (event)
 		var linkname = ShareBox_changeHref(filename, checked);
 		if (!checked)
 		{
-			shell.ln(filename,shell.root+"/share/"+linkname);
+			shell.ln(filename,shell.root+shell.user.directories.share+"/"+linkname);
 		}
 	});
 	var button = $(event.relatedTarget)

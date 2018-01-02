@@ -7,6 +7,13 @@ class User
 		this.name = name;
 		this.group = group;
 		this.home = home;
+		this.directories =
+		{
+			image:"/Images",
+			share:"/Public",
+			documents:"/Documents",
+			private:"/Private"
+		};
 	}
 };
 
@@ -22,6 +29,7 @@ class Authenticate
 		this.password = undefined;
 		this.authorization = undefined;
 		this.method = "HEAD";
+		// remove the file's name from pathname
 		this.url = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '')
 		this.islog = false;
 		this.onauthorization = undefined;
@@ -51,10 +59,11 @@ class Authenticate
 	}
 	digest()
 	{
-		var realm = this.challenge.search("realm=").split(" ")[0].split("=");
+		var challenge = this.challenge.split(",");
+		var realm = challenge.find(function(elm) { return elm.startsWith("realm=");}).split(" ")[0].split("=");
 		var uri = this.url;
-		var nonce = this.challenge.search("nonce=").split(" ")[0].split("=");
-		var qop = this.challenge.search("qop=").split(" ")[0].split("=");
+		var nonce = challenge.find(function(elm) { return elm.startsWith("nonce=");}).split(" ")[0].split("=");
+		var qop   = challenge.find(function(elm) { return elm.startsWith("qop="  );}).split(" ")[0].split("=");
 		var digest = "";
 		var a1= this.encoder.encode(this.username+":"+realm+":"+this.password);
 		var a2= this.encoder.encode(this.method+":"+uri);
@@ -168,9 +177,13 @@ class Open
 
 	open(directory)
 	{
-		this.directory = this.root + "/";
+		if (directory[0] != '/')
+			this.directory = this.root;
+		else
+			this.directory = "";
 		this.directory += directory
-		if (directory[directory.length - 1] != '/')
+		var length = this.directory.length - 1;
+		if (this.directory.charAt(length) != '/')
 			this.directory += '/';
 	}
 	set(file)
@@ -234,7 +247,32 @@ class Open
 
 	go(target)
 	{
-		window.open(this.directory+target);
+		var targetlocation = target.split("://");
+		var scheme;
+		var hostname;
+		var pathname;
+		if (targetlocation.length == 2)
+		{
+			scheme = targetlocation[0];
+			var index = targetlocation[1].indexOf("/");
+			hostname = targetlocation[1].substring(0, index);
+			pathname = targetlocation[1].substring(index);
+		}
+		else if (targetlocation.length == 1)
+		{
+			scheme = location.protocol.replace(/:?$/, '');
+			hostname = location.hostname;
+			pathname = targetlocation[0];
+			if (!pathname.startsWith('/'))
+				pathname = this.directory+pathname;
+		}
+		switch (scheme)
+		{
+			case "http":
+			case "https":
+				window.open(scheme+"://"+hostname+pathname);
+			break;
+		}
 	}
 };
 class Remove
@@ -251,9 +289,13 @@ class Remove
 
 	open(directory)
 	{
-		this.directory = this.root + "/";
+		if (directory[0] != '/')
+			this.directory = this.root;
+		else
+			this.directory = "";
 		this.directory += directory
-		if (directory[directory.length - 1] != '/')
+		var length = this.directory.length - 1;
+		if (this.directory.charAt(length) != '/')
 			this.directory += '/';
 	}
 
@@ -323,9 +365,13 @@ class Change
 
 	open(directory)
 	{
-		this.directory = this.root + "/";
+		if (directory[0] != '/')
+			this.directory = this.root;
+		else
+			this.directory = "";
 		this.directory += directory
-		if (directory[directory.length - 1] != '/')
+		var length = this.directory.length - 1;
+		if (this.directory.charAt(length) != '/')
 			this.directory += '/';
 	}
 
@@ -423,11 +469,14 @@ class UpLoader
 
 	open(directory)
 	{
-		this.directory = this.root + "/";
+		if (directory[0] != '/')
+			this.directory = this.root;
+		else
+			this.directory = "";
 		this.directory += directory
-		if (directory[directory.length - 1] != '/')
+		var length = this.directory.length - 1;
+		if (this.directory.charAt(length) != '/')
 			this.directory += '/';
-		//this.file.data = "";
 	}
 	set(file)
 	{
@@ -518,21 +567,32 @@ class Shell
 {
 	constructor(output)
 	{
+		this.directories =
+		{
+			image:"/public/images",
+			share:"/public",
+			documents:"/",
+			private:"/private"
+		};
 		var search = location.search.substring(1).split("&");
 		var root = search.find(function(elem){
 				return elem.startsWith("root=");
 			});
+		this.root = "/";
 		if (root)
 		{
 			root = root.split("=")[1];
 			if (root.lastIndexOf('/') != root.length - 1)
 				root += '/';
-			this.root = root.replace(/\\/g,'/').replace(/\/[^\/]*$/, '');
+			this.root += root.replace(/\\/g,'/').replace(/^\/?|\/?$/, '');
 			if (this.root == "/")
 				this.root = "";
 		}
 		else
-			this.root = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '');
+		{
+			//remove the last part of the pathname, the name of the file and the rest...
+			this.root += location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
+		}
 		var cwd = search.find(function(elem){
 				return elem.startsWith("cwd=");
 			});
@@ -541,10 +601,10 @@ class Shell
 			cwd = cwd.split("=")[1];
 			if (cwd.lastIndexOf('/') != cwd.length - 1)
 				cwd += '/';
-			this.cwd = cwd.replace(/\\/g,'/').replace(/\/[^\/]*$/, '');
+			this.cwd = cwd.replace(/\\/g,'/').replace(/^\/?|\/?$/, '');
 		}
 		else
-			this.cwd = "/";
+			this.cwd = "";
 		this.dashboard = new Array();
 		this.open = new Open(this.root);
 		this.open.onauthenticate = function(challenge, result)
@@ -602,8 +662,11 @@ class Shell
 		{
 			this.user = user;
 			this.authorization = this.authenticate.authorization;
-			if (this.onauthorization != undefined)
-				this.onauthorization.call(this, user);
+			this.configure("/"+this.root+"/.config/ouistiti/ouishell.json", function()
+				{
+					if (this.onauthorization != undefined)
+						this.onauthorization.call(this, this.user);
+				});
 		}.bind(this);
 		this.authenticate.onauthenticate = function(challenge, result)
 		{
@@ -616,7 +679,34 @@ class Shell
 			if (this.onerror != undefined)
 				this.onerror(status);
 		}.bind(this);
-		this.authenticate.get();
+	}
+	configure(url, callback)
+	{
+		const xhr = new XMLHttpRequest();
+
+		xhr.onreadystatechange = function()
+		{
+			if (xhr.readyState === XMLHttpRequest.DONE)
+			{
+				if (xhr.status === 200)
+				{
+					var type = xhr.getResponseHeader("Content-Type");
+					if (type == "text/json")
+					{
+						var data = JSON.parse(xhr.responseText.trim());
+						if (data.directories != undefined)
+						{
+							this.user.directories = Object.assign(this.user.directories, data.directories);
+						}
+					}
+				}
+				if (callback)
+					callback.call(this);
+			}
+		}.bind(this);
+		xhr.open("GET", url, true);
+		xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+		xhr.send();
 	}
 	generateid()
 	{
@@ -645,10 +735,8 @@ class Shell
 		{
 			this.onbegin(id);
 		}
-		directory = directory.replace(/\\/g,'/');
-		//directory = directory.replace(/\/[^\/]*$/,'');
-		directory = directory.replace(/\/$/g,'');
-		this.cwd  = directory.replace(/^\//g,'');
+		this.cwd = directory.replace(/\\/g,'/').replace(/^\/?|\/?$/, '');
+		//.replace(/\/[^\/]*$/, '');
 		if (this.oncompleted != undefined)
 		{
 			this.oncompleted(id);
