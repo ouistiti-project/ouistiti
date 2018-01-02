@@ -17,16 +17,8 @@ shell.onchange = function(content)
 	var imageExt = ["jpg","png","gif"];
 	var carousel = $("#Album");
 	var active = "active";
-	if (content.length == 0)
-	{
-		$("#Message").html("<strong>Empty directory</strong>");
-		$("#Message").removeClass("hidden");
-	}
-	else
-	{
-		$("#Message").html("");
-		$("#Message").addClass("hidden");
-	}
+	$("#Message").html("<strong>Empty directory</strong>");
+	$("#Message").removeClass("hidden");
 	var indicators = carousel.find("ol.carousel-indicators").html("");
 	var inner = carousel.find("div.carousel-inner").html("");
 	var albumslist = $("#AlbumsList").html("").addClass("hidden");
@@ -50,6 +42,8 @@ shell.onchange = function(content)
 				img += "</div>";
 				inner.append(img);
 				active="";
+				$("#Message").html("");
+				$("#Message").addClass("hidden");
 			}
 		}
 	}

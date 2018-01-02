@@ -662,7 +662,7 @@ class Shell
 		{
 			this.user = user;
 			this.authorization = this.authenticate.authorization;
-			this.configure("/"+this.root+"/.config/ouistiti/ouishell.json", function()
+			this.configure(this.root+"/.config/ouistiti/ouishell.json", function()
 				{
 					if (this.onauthorization != undefined)
 						this.onauthorization.call(this, this.user);
