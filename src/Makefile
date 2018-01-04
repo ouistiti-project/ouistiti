@@ -32,6 +32,7 @@ $(TARGET)_LIBS-$(VHOSTS)+=:mod_vhosts.so
 $(TARGET)_LIBS-$(METHODLOCK)+=:mod_methodlock.so
 $(TARGET)_LIBS-$(WEBSOCKET)+=:mod_websocket.so
 $(TARGET)_LIBS-$(SERVERHEADER)+=:mod_server.so
+$(TARGET)_LIBS-$(CLIENTFILTER)+=:mod_clientfilter.so
 else
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
@@ -42,6 +43,7 @@ $(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts
 $(TARGET)_LIBS-$(METHODLOCK)+=mod_methodlock
 $(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
 $(TARGET)_LIBS-$(SERVERHEADER)+=mod_server
+$(TARGET)_LIBS-$(CLIENTFILTER)+=mod_clientfilter
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
 
@@ -81,6 +83,7 @@ $(TARGET)_CFLAGS-$(VHOSTS)+=-DVHOSTS
 $(TARGET)_CFLAGS-$(METHODLOCK)+=-DMETHODLOCK
 $(TARGET)_CFLAGS-$(WEBSOCKET)+=-DWEBSOCKET
 $(TARGET)_CFLAGS-$(SERVERHEADER)+=-DSERVERHEADER
+$(TARGET)_CFLAGS-$(CLIENTFILTER)+=-DCLIENTFILTER
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -91,3 +94,4 @@ subdir-$(AUTH)+=mod_auth.mk
 subdir-$(VHOSTS)+=mod_vhosts.mk
 subdir-$(METHODLOCK)+=mod_methodlock.mk
 subdir-$(SERVERHEADER)+=mod_server.mk
+subdir-$(CLIENTFILTER)+=mod_clientfilter.mk

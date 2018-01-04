@@ -87,6 +87,7 @@ typedef struct server_s
 	void *mod_filestorage;
 	void *mod_cgi;
 	void *mod_auth;
+	void *mod_clientfilter;
 	void *mod_methodlock;
 	void *mod_server;
 	void *mod_websocket;
@@ -257,6 +258,12 @@ int main(int argc, char * const *argv)
 			{
 				if (server->config->vhosts[i])
 					server->mod_vhosts[i] = mod_vhost_create(server->server,server->config->vhosts[i]);
+			}
+#endif
+#if defined CLIENTFILTER
+			if (server->config->modules.clientfilter)
+			{
+				server->mod_clientfilter = mod_clientfilter_create(server->server, NULL, server->config->modules.clientfilter);
 			}
 #endif
 #if defined AUTH

@@ -142,6 +142,27 @@ static mod_tls_t *tls_config(config_setting_t *iterator)
 #define tls_config(...) NULL
 #endif
 
+#ifdef CLIENTFILTER
+static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int tls)
+{
+	mod_clientfilter_t *clientfilter = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "clientfilter");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "clientfilter");
+#endif
+	if (config)
+	{
+		clientfilter = calloc(1, sizeof(*clientfilter));
+		config_setting_lookup_string(config, "accept", (const char **)&clientfilter->accept);
+		config_setting_lookup_string(config, "deny", (const char **)&clientfilter->deny);
+	}
+	return clientfilter;
+}
+#else
+#define clientfilter_config(...) NULL
+#endif
+
 #ifdef AUTH
 static const char *str_realm = "ouistiti";
 static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
@@ -359,6 +380,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 		vhost->modules.static_file = static_file_config(iterator, tls);
 		vhost->modules.filestorage = filestorage_config(iterator, tls);
 		vhost->modules.auth = auth_config(iterator, tls);
+		vhost->modules.clientfilter = clientfilter_config(iterator, tls);
 		vhost->modules.cgi = cgi_config(iterator, tls);
 		vhost->modules.websocket = websocket_config(iterator, tls);
 	}
@@ -442,6 +464,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->modules.static_file = static_file_config(iterator,(config->tls!=NULL));
 					config->modules.filestorage = filestorage_config(iterator,(config->tls!=NULL));
 					config->modules.auth = auth_config(iterator,(config->tls!=NULL));
+					config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
