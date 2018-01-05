@@ -10,7 +10,13 @@
 	"name":"ouiAlbum",
 	"image":"apps/images/ouialbum.png",
 	"href":"apps/ouialbum.html?cwd=/album",
-	"desc":"manage your photos"
+	"desc":"watch your photos"
+	},
+	{
+	"name":"ouiPlayMusic",
+	"image":"apps/images/ouiplaymusic.png",
+	"href":"apps/ouiplaymusic.html",
+	"desc":"listen your musics"
 	},
 	{
 	"name":"ouiChat",
