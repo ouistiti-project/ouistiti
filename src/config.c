@@ -421,6 +421,27 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 				err("log file error %s", strerror(errno));
 		}
 		config_lookup_string(&configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
+		config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
+		if (configmimes)
+		{
+			int count = config_setting_length(configmimes);
+			int i;
+			for (i = 0; i < count && i < MAX_SERVERS; i++)
+			{
+				char *ext = NULL;
+				char *mime = NULL;
+				config_setting_t *iterator = config_setting_get_elem(configmimes, i);
+				if (iterator)
+				{
+					config_setting_lookup_string(iterator, "ext", (const char **)&ext);
+					config_setting_lookup_string(iterator, "mime", (const char **)&mime);
+					if (mime != NULL && ext != NULL)
+					{
+						utils_addmime(ext, mime);
+					}
+				}
+			}
+		}
 		config_setting_t *configservers = config_lookup(&configfile, "servers");
 		if (configservers)
 		{
