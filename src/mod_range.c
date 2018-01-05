@@ -69,7 +69,7 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 		if (end != NULL)
 		{
 			int offset = filesize;
-			if (*(end+1) != '*')
+			if (*(end+1) >= '0' && *(end+1) <= '9')
 				offset = atoi(end+1);
 			if (offset > filesize || offset < private->offset)
 			{
