@@ -59,6 +59,7 @@
 #include "mod_vhosts.h"
 #include "mod_methodlock.h"
 #include "mod_server.h"
+#include "mod_redirect404.h"
 
 #if defined WEBSOCKET
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
@@ -91,6 +92,7 @@ typedef struct server_s
 	void *mod_methodlock;
 	void *mod_server;
 	void *mod_websocket;
+	void *mod_redirect404;
 	void *mod_vhosts[MAX_SERVERS - 1];
 
 	struct server_s *next;
@@ -310,6 +312,9 @@ int main(int argc, char * const *argv)
 #if defined STATIC_FILE
 			if (server->config->modules.static_file)
 				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->modules.static_file);
+#endif
+#if defined REDIRECT404
+			server->mod_redirect404 = mod_redirect404_create(server->server, NULL, server->config->modules.redirect404);
 #endif
 		}
 		server = server->next;

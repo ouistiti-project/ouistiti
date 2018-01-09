@@ -366,6 +366,23 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 #define websocket_config(...) NULL
 #endif
 
+#ifdef REDIRECT404
+static mod_redirect404_t *redirect404_config(config_setting_t *iterator, int tls)
+{
+	mod_redirect404_t *redirect404 = NULL;
+	char *redirect = NULL;
+	config_setting_lookup_string(iterator, "error_redirection", (const char **)&redirect);
+	if (redirect)
+	{
+		redirect404 = calloc(1, sizeof(*redirect404));
+		redirect404->redirect = redirect;
+	}
+	return redirect404;
+}
+#else
+#define redirect404_config(...) NULL
+#endif
+
 #ifdef VHOSTS
 static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 {
@@ -488,6 +505,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
+					config->modules.redirect404 = redirect404_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
 					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
