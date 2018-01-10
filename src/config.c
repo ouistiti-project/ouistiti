@@ -62,6 +62,7 @@ static char *pidfile = NULL;
 static int pidfd = 0;
 
 #ifdef STATIC_FILE
+static const char *str_index = "index.html";
 #define static_file_config(iterator, tls) file_config(iterator, tls, "static_file")
 static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char *entry)
 {
@@ -77,8 +78,11 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 		char *transfertype = NULL;
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
-		config_setting_lookup_string(configstaticfile, "accepted_ext", (const char **)&static_file->accepted_ext);
-		config_setting_lookup_string(configstaticfile, "ignored_ext", (const char **)&static_file->ignored_ext);
+		config_setting_lookup_string(configstaticfile, "allow", (const char **)&static_file->allow);
+		config_setting_lookup_string(configstaticfile, "deny", (const char **)&static_file->deny);
+		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
+		if (static_file->defaultpage == NULL)
+			static_file->defaultpage = str_index;
 		config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&transfertype);
 		char *ext = transfertype;
 
@@ -154,7 +158,7 @@ static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int t
 	if (config)
 	{
 		clientfilter = calloc(1, sizeof(*clientfilter));
-		config_setting_lookup_string(config, "accept", (const char **)&clientfilter->accept);
+		config_setting_lookup_string(config, "allow", (const char **)&clientfilter->accept);
 		config_setting_lookup_string(config, "deny", (const char **)&clientfilter->deny);
 	}
 	return clientfilter;
@@ -291,8 +295,8 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
 	{
 		cgi = calloc(1, sizeof(*cgi));
 		config_setting_lookup_string(configcgi, "docroot", (const char **)&cgi->docroot);
-		config_setting_lookup_string(configcgi, "accepted_ext", (const char **)&cgi->accepted_ext);
-		config_setting_lookup_string(configcgi, "ignored_ext", (const char **)&cgi->ignored_ext);
+		config_setting_lookup_string(configcgi, "allow", (const char **)&cgi->allow);
+		config_setting_lookup_string(configcgi, "deny", (const char **)&cgi->deny);
 		cgi->nbenvs = 0;
 		cgi->chunksize = 64;
 		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);

@@ -41,9 +41,10 @@ extern "C"
 #endif
 typedef struct mod_static_file_s
 {
-	char *docroot;
-	char *accepted_ext;
-	char *ignored_ext;
+	const char *docroot;
+	const char *allow;
+	const char *deny;
+	const char *defaultpage;
 	int options;
 } mod_static_file_t;
 

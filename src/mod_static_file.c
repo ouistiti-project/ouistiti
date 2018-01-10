@@ -96,66 +96,38 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;
+		if (utils_searchexp(private->path_info, config->deny) == ESUCCESS &&
+			utils_searchexp(private->path_info, config->allow) != ESUCCESS)
+		{
+			warn("static file: %s forbidden extension", private->path_info);
+			static_file_close(private);
+			return  EREJECT;
+		}
+
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
 		if (private->filepath == NULL)
 		{
 			dbg("static file: %s not exist", private->path_info);
-			free(private->path_info);
-			private->path_info = NULL;
-			return ret;
 		}
 		else if (S_ISDIR(filestat.st_mode))
 		{
-			int length = strlen(private->filepath);
-			if (private->filepath[length - 1] != '/')
+			int length = strlen(private->path_info);
+			if (length > 0 && private->path_info[length - 1] != '/')
 			{
 #if defined(RESULT_301)
-				char *location = calloc(1, strlen(private->path_info) + 2);
-				sprintf(location, "%s/", private->path_info);
+				char *location = calloc(1, length + 3);
+				sprintf(location, "/%s/", private->path_info);
 				httpmessage_addheader(response, str_location, location);
 				httpmessage_result(response, RESULT_301);
 				free(location);
 				static_file_close(private);
 				return ESUCCESS;
 #else
-				static_file_close(private);
 				dbg("static file: reject directory path bad formatting");
-				return EREJECT;
 #endif
 			}
-			char ext_str[64];
-			ext_str[63] = 0;
-			strncpy(ext_str, config->accepted_ext, 63);
-			char *ext = ext_str;
-			char *ext_end = strchr(ext, ',');
-			if (ext_end)
-				*ext_end = 0;
-
-			char *dirpath = private->filepath;
-			private->filepath = NULL;
-			while(ext != NULL)
+			else
 			{
-				private->filepath = utils_buildpath(config->docroot, private->path_info, "index", ext, &filestat);
-				if (private->filepath && !S_ISDIR(filestat.st_mode))
-				{
-					ret = ECONTINUE;
-					break;
-				}
-				else if (ext_end)
-					ext = ext_end + 1;
-				else
-				{
-					break;
-				}
-				ext_end = strchr(ext, ',');
-				if (ext_end)
-					*ext_end = 0;
-				free(private->filepath);
-				private->filepath = NULL;
-			}
-			if (!private->filepath)
-			{
-				private->filepath = dirpath;
 #ifdef DIRLISTING
 				if (config->options & STATIC_FILE_DIRLISTING)
 				{
@@ -163,42 +135,32 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 				}
 #else
 				warn("static file: %s is directory", private->path_info);
-				static_file_close(private);
-				return  EREJECT;
 #endif
-			}
-			else
-			{
-				free(dirpath);
-				private->func = getfile_connector;
+				char *indexpath = utils_buildpath(config->docroot, private->path_info,
+												config->defaultpage, "", &filestat);
+				if (indexpath)
+				{
+#if defined(RESULT_301)
+					char *location = calloc(1, length + strlen(config->defaultpage) + 2);
+					sprintf(location, "/%s%s", private->path_info, config->defaultpage);
+					httpmessage_addheader(response, str_location, location);
+					httpmessage_result(response, RESULT_301);
+					free(indexpath);
+					static_file_close(private);
+					return ESUCCESS;
+#endif
+				}
 			}
 		}
 		else
+		{
 			private->func = getfile_connector;
-
-		if (utils_searchexp(private->path_info, config->ignored_ext) == ESUCCESS)
-		{
-			warn("static file: %s forbidden extension", private->path_info);
-			static_file_close(private);
-			return  EREJECT;
+			private->size = filestat.st_size;
 		}
-		private->size = filestat.st_size;
 		private->offset = 0;
-
-		/**
-		 * file is found
-		 * check the extension
-		 */
-		if (utils_searchexp(private->path_info, config->accepted_ext) != ESUCCESS)
-		{
-			dbg("static file: forbidden extension");
-			static_file_close(private);
-#if defined(RESULT_403)
-			httpmessage_result(response, RESULT_403);
-			return ESUCCESS;
-#endif
-		}
 	}
+	if (private->func == NULL)
+		static_file_close(private);
 	return EREJECT;
 }
 

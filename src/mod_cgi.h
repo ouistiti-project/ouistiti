@@ -37,8 +37,8 @@ extern "C"
 typedef struct mod_cgi_config_s
 {
 	char *docroot;
-	char *accepted_ext;
-	char *ignored_ext;
+	char *allow;
+	char *deny;
 	const char **env;
 	int nbenvs;
 	int chunksize;

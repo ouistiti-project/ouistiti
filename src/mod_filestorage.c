@@ -64,16 +64,8 @@ static int filestorage_checkname(static_file_connector_t *private, http_message_
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(private->path_info, config->ignored_ext) == ESUCCESS)
-	{
-		return  EREJECT;
-	}
-
-	/**
-	 * file is found
-	 * check the extension
-	 */
-	if (utils_searchexp(private->path_info, config->accepted_ext) != ESUCCESS)
+	if (utils_searchexp(private->path_info, config->deny) == ESUCCESS &&
+		utils_searchexp(private->path_info, config->allow) != ESUCCESS)
 	{
 		return  EREJECT;
 	}
@@ -295,22 +287,29 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 					}
 					else
 					{
-#if defined(RESULT_301)
-						char *location = calloc(1, length + 13);
-						if (strrchr(private->path_info, '/') > private->path_info + length - 2)
-							sprintf(location, "/%sindex.html", private->path_info);
-						else
-							sprintf(location, "/%s/index.html", private->path_info);
-						httpmessage_addheader(response, str_location, location);
-						httpmessage_result(response, RESULT_301);
-						free(location);
-						static_file_close(private);
-						return ESUCCESS;
+#ifdef DIRLISTING
+						if (config->options & STATIC_FILE_DIRLISTING)
+						{
+							private->func = dirlisting_connector;
+						}
 #else
-						static_file_close(private);
-						dbg("static file: reject directory path bad formatting");
-						return EREJECT;
+						warn("static file: %s is directory", private->path_info);
 #endif
+						char *indexpath = utils_buildpath(config->docroot, private->path_info,
+														config->defaultpage, "", &filestat);
+						if (indexpath)
+						{
+							free(indexpath);
+#if defined(RESULT_301)
+							char *location = calloc(1, length + strlen(config->defaultpage) + 2);
+							sprintf(location, "/%s%s", private->path_info, config->defaultpage);
+							httpmessage_addheader(response, str_location, location);
+							httpmessage_result(response, RESULT_301);
+							free(location);
+							static_file_close(private);
+							return ESUCCESS;
+#endif
+						}
 					}
 				}
 				else

@@ -486,7 +486,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			filepath = calloc(1, length + 1);
 			snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
 
-			if (utils_searchexp(str, config->ignored_ext) == ESUCCESS)
+			if (utils_searchexp(str, config->deny) == ESUCCESS &&
+				utils_searchexp(str, config->allow) != ESUCCESS)
 			{
 				dbg("cgi: %s forbidden extension", ctx->path_info);
 				free(filepath);
@@ -503,12 +504,6 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			if (S_ISDIR(filestat.st_mode))
 			{
 				dbg("cgi: %s is directory", ctx->path_info);
-				free(filepath);
-				return EREJECT;
-			}
-			if (utils_searchexp(str, config->accepted_ext) != ESUCCESS)
-			{
-				dbg("cgi: %s not accepted extension", ctx->path_info);
 				free(filepath);
 				return EREJECT;
 			}
