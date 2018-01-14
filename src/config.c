@@ -337,7 +337,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 	{
 		char *mode = NULL;
 		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "protocols", (const char **)&ws->services);
+		config_setting_lookup_string(configws, "services", (const char **)&ws->services);
 		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
 		config_setting_lookup_string(configws, "mode", (const char **)&mode);
 		char *ext = mode;
