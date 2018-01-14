@@ -34,6 +34,7 @@ $(TARGET)_LIBS-$(WEBSOCKET)+=:mod_websocket.so
 $(TARGET)_LIBS-$(SERVERHEADER)+=:mod_server.so
 $(TARGET)_LIBS-$(CLIENTFILTER)+=:mod_clientfilter.so
 $(TARGET)_LIBS-$(REDIRECT404)+=:mod_redirect404.so
+$(TARGET)_LIBS-$(WEBSTREAM)+=:mod_webstream.so
 else
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
@@ -46,6 +47,7 @@ $(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
 $(TARGET)_LIBS-$(SERVERHEADER)+=mod_server
 $(TARGET)_LIBS-$(CLIENTFILTER)+=mod_clientfilter
 $(TARGET)_LIBS-$(REDIRECT404)+=mod_redirect404
+$(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
 
@@ -87,6 +89,7 @@ $(TARGET)_CFLAGS-$(WEBSOCKET)+=-DWEBSOCKET
 $(TARGET)_CFLAGS-$(SERVERHEADER)+=-DSERVERHEADER
 $(TARGET)_CFLAGS-$(CLIENTFILTER)+=-DCLIENTFILTER
 $(TARGET)_CFLAGS-$(REDIRECT404)+=-DREDIRECT404
+$(TARGET)_CFLAGS-$(WEBSTREAM)+=-DWEBSTREAM
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -99,3 +102,4 @@ subdir-$(METHODLOCK)+=mod_methodlock.mk
 subdir-$(SERVERHEADER)+=mod_server.mk
 subdir-$(CLIENTFILTER)+=mod_clientfilter.mk
 subdir-$(REDIRECT404)+=mod_redirect404.mk
+subdir-$(WEBSTREAM)+=mod_webstream.mk

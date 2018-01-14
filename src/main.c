@@ -60,6 +60,7 @@
 #include "mod_methodlock.h"
 #include "mod_server.h"
 #include "mod_redirect404.h"
+#include "mod_webstream.h"
 
 #if defined WEBSOCKET
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
@@ -93,6 +94,7 @@ typedef struct server_s
 	void *mod_server;
 	void *mod_websocket;
 	void *mod_redirect404;
+	void *mod_webstream;
 	void *mod_vhosts[MAX_SERVERS - 1];
 
 	struct server_s *next;
@@ -286,6 +288,12 @@ int main(int argc, char * const *argv)
 			if (server->config->modules.cgi)
 				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->modules.cgi);
 #endif
+#if defined WEBSTREAM
+			if (server->config->modules.webstream)
+				server->mod_webstream = mod_webstream_create(server->server, NULL, 
+							server->config->modules.webstream, default_webstream_run, 
+							server->config->modules.webstream);
+#endif
 #if defined WEBSOCKET
 			if (server->config->modules.websocket)
 			{
@@ -373,6 +381,10 @@ int main(int argc, char * const *argv)
 #if defined CGI
 		if (server->mod_cgi)
 			mod_cgi_destroy(server->mod_cgi);
+#endif
+#if defined WEBSTREAM
+		if (server->mod_webstream)
+			mod_webstream_destroy(server->mod_webstream);
 #endif
 #if defined AUTH
 		if (server->mod_auth)

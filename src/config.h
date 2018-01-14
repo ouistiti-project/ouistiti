@@ -39,6 +39,7 @@
 #include "mod_auth.h"
 #include "mod_clientfilter.h"
 #include "mod_redirect404.h"
+#include "mod_webstream.h"
 #include "httpserver/mod_websocket.h"
 #include "httpserver/mod_mbedtls.h"
 #define WEBSOCKET_REALTIME 0x01
@@ -52,6 +53,7 @@ typedef struct modulesconfig_s
 	mod_clientfilter_t *clientfilter;
 	mod_websocket_t *websocket;
 	mod_redirect404_t *redirect404;
+	mod_webstream_t *webstream;
 } modulesconfig_t;
 
 typedef struct serverconfig_s

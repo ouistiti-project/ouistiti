@@ -106,6 +106,11 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 #if defined SERVERHEADER
 	mod->mod_server = mod_server_create(server, config->hostname, NULL);
 #endif
+#if defined WEBSTREAM
+	mod->mod_webstream = mod_webstream_create(server, config->hostname,
+							config->modules.webstream, default_webstream_run,
+							config->modules.webstream);
+#endif
 #if defined WEBSOCKET
 	if (config->modules.websocket)
 	{

@@ -370,6 +370,29 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 #define websocket_config(...) NULL
 #endif
 
+#ifdef WEBSTREAM
+static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
+{
+	mod_webstream_t *ws = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configws = config_setting_get_member(iterator, "webstream");
+#else
+	config_setting_t *configws = config_setting_lookup(iterator, "webstream");
+#endif
+	if (configws)
+	{
+		char *mode = NULL;
+		ws = calloc(1, sizeof(*ws));
+		config_setting_lookup_string(configws, "services", (const char **)&ws->services);
+		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
+		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+	}
+	return ws;
+}
+#else
+#define webstream_config(...) NULL
+#endif
+
 #ifdef REDIRECT404
 static mod_redirect404_t *redirect404_config(config_setting_t *iterator, int tls)
 {
@@ -510,6 +533,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
 					config->modules.redirect404 = redirect404_config(iterator,(config->tls!=NULL));
+					config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
 					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
