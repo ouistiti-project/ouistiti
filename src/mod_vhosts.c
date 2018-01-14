@@ -131,6 +131,10 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	if (config->modules.static_file)
 		mod->mod_static_file = mod_static_file_create(server, config->hostname, config->modules.static_file);
 #endif
+#if defined REDIRECT404
+	if (config->modules.redirect404)
+		mod->mod_redirect404 = mod_redirect404_create(server, config->hostname, config->modules.redirect404);
+#endif
 
 	return mod;
 }
