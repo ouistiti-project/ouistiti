@@ -119,7 +119,9 @@ handler(int sig, siginfo_t *si, void *arg)
 	while (server != NULL)
 	{
 		if (server->server)
+		{
 			httpserver_disconnect(server->server);
+		}
 		server = server->next;
 	}
 }
