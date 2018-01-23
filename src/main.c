@@ -111,11 +111,10 @@ void display_help(char * const *argv)
 
 static servert_t *first = NULL;
 static char run = 0;
-static void
-handler(int sig, siginfo_t *si, void *arg)
+static void handler(int sig, siginfo_t *si, void *arg)
 {
 	run = 'q';
-	servert_t *server = arg;
+	servert_t *server;
 	server = first;
 
 	while (server != NULL)
@@ -147,6 +146,7 @@ static void _setpidfile(char *pidfile)
 			pid = getpid();
 			length = snprintf(buffer, 32, "%d\n", pid);
 			write(pidfd, buffer, length);
+			close(pidfd);
 		}
 		else
 		{

@@ -58,8 +58,6 @@
 static config_t configfile;
 static char *logfile = NULL;
 static int logfd = 0;
-static char *pidfile = NULL;
-static int pidfd = 0;
 
 #ifdef STATIC_FILE
 static const char *str_index = "index.html";
@@ -591,8 +589,6 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
 	int i;
 
-	if (pidfd > 0)
-		close(pidfd);
 	if (logfd > 0)
 		close(logfd);
 	config_destroy(&configfile);
