@@ -36,6 +36,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
+#include <errno.h>
 
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
@@ -72,6 +73,7 @@ int authn_none_challenge(void *arg, http_message_t *request, http_message_t *res
 	struct passwd *pw = NULL;
 	if (config->user)
 	{
+		errno = 0;
 		pw = getpwnam(config->user);
 	}
 	if (pw)
@@ -81,7 +83,12 @@ int authn_none_challenge(void *arg, http_message_t *request, http_message_t *res
 	}
 	else
 	{
-		err("Security set the user of authentication in configuration");
+		if (errno == 0 || errno == ENOENT || errno == ESRCH ||
+				errno == EBADF || errno == EPERM)
+			err("Security set the user of authentication in configuration");
+		else
+			err("auth getpwnam error %s", strerror(errno));
+		setuid(1000);
 	}
 	return EREJECT;
 }
