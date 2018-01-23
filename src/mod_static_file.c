@@ -175,18 +175,33 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	else if (private->size == 0)
 	{
 		dbg("static file: empty file");
-#if defined(RESULT_204)
+		if (private->fd > 0)
+			close(private->fd);
 		static_file_close(private);
+#if defined(RESULT_204)
 		httpmessage_result(response, RESULT_204);
-		return ESUCCESS;
+#else
+		const char *mime = NULL;
+		mime = utils_getmime(private->filepath);
+		httpmessage_addcontent(response, (char *)mime, NULL, private->size);
 #endif
+		return ESUCCESS;
 	}
 	if (private->fd == 0)
 	{
 		private->fd = open(private->filepath, O_RDONLY);
 		if (private->fd < 0)
 		{
-			httpmessage_result(response, RESULT_403);
+#ifdef RESULT_500
+			if (errno == ENFILE || errno == EMFILE)
+				httpmessage_result(response, RESULT_500);
+			else
+#endif
+#ifdef RESULT_403
+				httpmessage_result(response, RESULT_403);
+#else
+				httpmessage_result(response, RESULT_400);
+#endif
 			err("static file open %s %s", private->filepath, strerror(errno));
 			static_file_close(private);
 			return ESUCCESS;
