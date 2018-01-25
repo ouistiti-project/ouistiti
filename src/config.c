@@ -37,6 +37,7 @@
 #include <libconfig.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/utils.h"
 
 #include "httpserver/mod_mbedtls.h"
 #include "httpserver/mod_websocket.h"
