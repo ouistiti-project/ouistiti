@@ -348,7 +348,10 @@ int main(int argc, char * const *argv)
 		server = server->next;
 	}
 
-	while(run != 'q') sleep(120);
+	while(run != 'q')
+	{
+		httpserver_run(first->server);
+	}
 
 	server = first;
 	while (server != NULL)
