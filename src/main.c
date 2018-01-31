@@ -168,6 +168,7 @@ int main(int argc, char * const *argv)
 	serverconfig_t *it;
 	int i;
 	int daemonize = 0;
+	int serverid = -1;
 
 	setbuf(stdout, NULL);
 
@@ -177,9 +178,12 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "f:p:hDV");
+		opt = getopt(argc, argv, "s:f:p:hDV");
 		switch (opt)
 		{
+			case 's':
+				serverid = atoi(optarg) - 1;
+			break;
 			case 'f':
 				configfile = optarg;
 			break;
@@ -244,13 +248,25 @@ int main(int argc, char * const *argv)
 		}
 	}
 #endif
-	for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
+	if (serverid < 0)
+	{
+		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
+		{
+			server = calloc(1, sizeof(*server));
+			server->config = it;
+
+			server->server = httpserver_create(server->config->server);
+			server->next = first;
+			first = server;
+		}
+	}
+	else
 	{
 		server = calloc(1, sizeof(*server));
-		server->config = it;
+		server->config = ouistiticonfig->servers[serverid];
 
 		server->server = httpserver_create(server->config->server);
-		server->next = first;
+		server->next = NULL;
 		first = server;
 	}
 	server = first;
