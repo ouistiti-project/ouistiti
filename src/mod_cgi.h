@@ -26,8 +26,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_SKELETON_H__
-#define __MOD_SKELETON_H__
+#ifndef __MOD_CGI_H__
+#define __MOD_CGI_H__
 
 #ifdef __cplusplus
 extern "C"
@@ -42,6 +42,7 @@ typedef struct mod_cgi_config_s
 	const char **env;
 	int nbenvs;
 	int chunksize;
+	int timeout;
 } mod_cgi_config_t;
 
 void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);
