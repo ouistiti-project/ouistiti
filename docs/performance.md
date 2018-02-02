@@ -52,13 +52,13 @@ Memory footprint
 
 ### target(3):
 
-	finished in 13 sec, 113 millisec and 591 microsec, 457 req/s, 90 kbyte/s
+	finished in 11 sec, 196 millisec and 848 microsec, 535 req/s, 106 kbyte/s
 	requests: 6000 total, 6000 started, 6000 done, 6000 succeeded, 0 failed, 0 errored
 
 Memory footprint
 
-	VmPeak:	    8668 kB
-	VmSize:	    4844 kB
+	VmPeak:	    8008 kB
+	VmSize:	    4796 kB
 
 ### target(4):
 
@@ -106,12 +106,12 @@ Memory footprint:
 
 ### target(3):
 
-	finished in 10 sec, 928 millisec and 317 microsec, 549 req/s, 108 kbyte/s
+	finished in 11 sec, 523 millisec and 448 microsec, 520 req/s, 103 kbyte/s
 	requests: 6000 total, 6000 started, 6000 done, 6000 succeeded, 0 failed, 0 errored
 
 Memory footprint
 
-	VmPeak:	    7876 kB
+	VmPeak:	    6952 kB
 	VmSize:	    4480 kB
 
 ### target(4):
