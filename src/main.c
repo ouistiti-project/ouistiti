@@ -125,6 +125,7 @@ static void handler(int sig, siginfo_t *si, void *arg)
 		}
 		server = server->next;
 	}
+	kill(0, SIGPIPE);
 }
 
 static void _setpidfile(char *pidfile)
@@ -366,7 +367,8 @@ int main(int argc, char * const *argv)
 
 	while(run != 'q')
 	{
-		httpserver_run(first->server);
+		if (httpserver_run(first->server) == ESUCCESS)
+			break;
 	}
 
 	server = first;
