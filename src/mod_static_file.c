@@ -211,7 +211,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			const char *mime = NULL;
 			mime = utils_getmime(private->filepath);
 			lseek(private->fd, private->offset, SEEK_CUR);
-			dbg("static file: send %s (%d)", private->filepath, private->size);
+			dbg("static file %p: send %s (%d)", private->ctl, private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
 			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
 			{
