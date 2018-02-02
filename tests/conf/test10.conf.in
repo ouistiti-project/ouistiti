@@ -11,11 +11,11 @@ servers= ({
 			passwd = "test";
 			group = "user";
 		};
-		static_file = {
+		filestorage = {
 			docroot = "%PWD%/tests/htdocs";
 			accepted_ext = ".html,.*htm*,.css,.js,.txt,*";
 			ignored_ext = ".htaccess,.php";
-			transfer_type = "dirlisting,filestorage";
+			transfer_type = "dirlisting";
 		};
 	});
 

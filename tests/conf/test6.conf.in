@@ -6,7 +6,7 @@ servers= ({
 		version="HTTP11";
 		websocket = {
 			root = "/tmp";
-			protocols = "echo";
+			services = "echo";
 		};
 	});
 
