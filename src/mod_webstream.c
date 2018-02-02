@@ -38,6 +38,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/ioctl.h>
+#include <signal.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -84,13 +85,13 @@ static int webstream_connector(void *arg, http_message_t *request, http_message_
 
 		if (ret == ESUCCESS && mimetype != NULL)
 		{
-			ctx->socket = httpmessage_lock(response);
 			httpmessage_addcontent(response, mimetype, "", -1);
 			ret = ECONTINUE;
 		}
 	}
 	else
 	{
+		ctx->socket = httpmessage_lock(response);
 		ctx->mod->run(ctx->mod->runarg, ctx->socket, ctx->protocol, request);
 		free(ctx->protocol);
 		ctx->protocol = NULL;
@@ -233,7 +234,22 @@ int default_webstream_run(void *arg, int socket, char *protocol, http_message_t 
 		info.recvreq = httpclient_addreceiver(ctl, NULL, NULL);
 		info.sendresp = httpclient_addsender(ctl, NULL, NULL);
 
-		_webstream_main(&info);
+		/**
+		 * ignore SIGCHLD allows the child to die without to create a zombie.
+		 */
+		struct sigaction action;
+		action.sa_flags = SA_SIGINFO;
+		sigemptyset(&action.sa_mask);
+		action.sa_handler = SIG_IGN;
+		sigaction(SIGCHLD, &action, NULL);
+
+		pid_t pid;
+
+		if ((pid = fork()) == 0)
+		{
+			_webstream_main(&info);
+			exit(0);
+		}
 	}
 	return wssock;
 }
