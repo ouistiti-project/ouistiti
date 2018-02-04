@@ -75,13 +75,14 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 			{
 				goto notsatisfiable;
 			}
-			private->size = offset - private->offset;
+			private->size = offset - private->offset - 1;
 		}
 		char buffer[256];
 		snprintf(buffer, 256, "bytes %d-%d/%d", private->offset, private->offset + private->size, filesize);
 		httpmessage_addheader(response, "Content-Range", buffer);
 		httpmessage_result(response, RESULT_206);
 	}
+	httpmessage_addheader(response, "Accept-Ranges", "bytes");
 	return EREJECT;
 notsatisfiable:
 	free(private->filepath);

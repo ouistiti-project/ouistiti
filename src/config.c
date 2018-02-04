@@ -107,6 +107,12 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 					warn("sendfile configuration is not allowed with tls");
 			}
 #endif
+#ifdef RANGEREQUEST
+			if (!strncmp(ext, "range", length))
+			{
+				static_file->options |= STATIC_FILE_RANGE;
+			}
+#endif
 			ext = ext_end;
 		}
 	}

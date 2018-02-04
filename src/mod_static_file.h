@@ -33,7 +33,7 @@
 
 #define STATIC_FILE_DIRLISTING 0x01
 #define STATIC_FILE_SENDFILE 0x02
-#define STATIC_FILE_FILESTORAGE 0x04
+#define STATIC_FILE_RANGE 0x04
 
 #ifdef __cplusplus
 extern "C"

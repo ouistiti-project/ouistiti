@@ -290,7 +290,8 @@ static void *_mod_static_file_getctx(void *arg, http_client_t *ctl, struct socka
 
 	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx, str_static_file);
 #ifdef RANGEREQUEST
-	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_static_file);
+	if (config->options & STATIC_FILE_RANGE)
+		httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_static_file);
 #endif
 	httpclient_addconnector(ctl, mod->vhost, static_file_connector, ctx, str_static_file);
 

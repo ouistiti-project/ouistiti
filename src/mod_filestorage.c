@@ -357,7 +357,8 @@ static void *_mod_filestorage_getctx(void *arg, http_client_t *ctl, struct socka
 	ctx->ctl = ctl;
 	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx, str_filestorage);
 #ifdef RANGEREQUEST
-	httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_filestorage);
+	if (config->options & STATIC_FILE_RANGE)
+		httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_filestorage);
 #endif
 	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx, str_filestorage);
 
