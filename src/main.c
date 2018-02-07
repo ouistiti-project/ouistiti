@@ -276,6 +276,13 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
+#if defined MBEDTLS
+			/**
+			 * TLS must be first to free the connection after all others modules
+			 */
+			if (server->config->tls)
+				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
+#endif
 #if defined VHOSTS
 			for (i = 0; i < (MAX_SERVERS - 1); i++)
 			{
@@ -284,6 +291,9 @@ int main(int argc, char * const *argv)
 			}
 #endif
 #if defined CLIENTFILTER
+			/**
+			 * clientfilter must be at the beginning to stop the connection if necessary
+			 */
 			if (server->config->modules.clientfilter)
 			{
 				server->mod_clientfilter = mod_clientfilter_create(server->server, NULL, server->config->modules.clientfilter);
@@ -326,10 +336,6 @@ int main(int argc, char * const *argv)
 					NULL, server->config->modules.websocket,
 					run, server->config->modules.websocket);
 			}
-#endif
-#if defined MBEDTLS
-			if (server->config->tls)
-				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
 #endif
 #if defined FILESTORAGE
 			if (server->config->modules.filestorage)
