@@ -308,7 +308,6 @@ int main(int argc, char * const *argv)
 #if defined WEBSTREAM
 			if (server->config->modules.webstream)
 				server->mod_webstream = mod_webstream_create(server->server, NULL, 
-							server->config->modules.webstream, default_webstream_run, 
 							server->config->modules.webstream);
 #endif
 #if defined WEBSOCKET

@@ -386,11 +386,37 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 #endif
 	if (configws)
 	{
-		char *mode = NULL;
+		char *url = NULL;
 		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "services", (const char **)&ws->services);
-		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
-		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+		config_setting_lookup_string(configws, "mimetype", (const char **)&ws->mimetype);
+		config_setting_lookup_string(configws, "pathname", (const char **)&ws->pathname);
+		config_setting_lookup_string(configws, "url", (const char **)&url);
+		ws->options |= WS_SOCK_STREAM;
+		char *address = strstr(url, "://");
+		if (address != NULL)
+		{
+			if (!strncmp(url, "http", 4))
+				ws->options |= WS_PROTO_HTTP;
+			address += 3;
+		}
+		else
+		{
+			address = url;
+		}
+		ws->address = address;
+		struct stat filestat;
+		if ((stat(address, &filestat) == 0) && S_ISSOCK(filestat.st_mode))
+			ws->options |= WS_AF_UNIX;
+		else
+		{
+			ws->options |= WS_AF_INET;
+			char *portstr = strchr(address, ':');
+			if (portstr != NULL)
+			{
+				*portstr = '\0';
+				ws->port = atoi(portstr+1);
+			}
+		}
 	}
 	return ws;
 }

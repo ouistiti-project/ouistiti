@@ -37,15 +37,24 @@ extern "C"
 typedef int (*mod_webstream_run_t)(void *arg, int socket, char *protocol, http_message_t *request);
 int default_webstream_run(void *arg, int socket, char *protocol, http_message_t *request);
 
+#define WS_SOCK_STREAM 0x01
+#define WS_SOCK_DGRAM 0x02
+#define WS_AF_UNIX 0x10
+#define WS_AF_INET 0x20
+#define WS_PROTO_DIRECT 0x0000
+#define WS_PROTO_HTTP 0x0100
+
 typedef struct mod_webstream_s mod_webstream_t;
 struct mod_webstream_s
 {
-	char *services;
-	char *path;
+	char *mimetype;
+	char *pathname;
+	char *address;
+	int port;
 	int options;
 };
 
-void *mod_webstream_create(http_server_t *server, char *vhost, void *config, mod_webstream_run_t run, void *runarg);
+void *mod_webstream_create(http_server_t *server, char *vhost, mod_webstream_t *config);
 void mod_webstream_destroy(void *data);
 
 #ifdef __cplusplus

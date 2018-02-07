@@ -55,12 +55,13 @@
 typedef struct _mod_webstream_s _mod_webstream_t;
 typedef struct _mod_webstream_ctx_s _mod_webstream_ctx_t;
 
+typedef int (*socket_t)(mod_webstream_t *config);
+
 struct _mod_webstream_s
 {
 	mod_webstream_t *config;
 	void *vhost;
-	mod_webstream_run_t run;
-	void *runarg;
+	socket_t socket;
 };
 
 struct _mod_webstream_ctx_s
@@ -68,7 +69,15 @@ struct _mod_webstream_ctx_s
 	_mod_webstream_t *mod;
 	char *protocol;
 	int socket;
+	int client;
+	pid_t pid;
+	http_client_t *ctl;
 };
+
+static int _webstream_tcpip(mod_webstream_t *config);
+static int _webstream_unixstream(mod_webstream_t *config);
+
+int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
 
 static const char str_webstream[] = "webstream";
 
@@ -76,25 +85,30 @@ static int webstream_connector(void *arg, http_message_t *request, http_message_
 {
 	int ret = EREJECT;
 	_mod_webstream_ctx_t *ctx = (_mod_webstream_ctx_t *)arg;
+	_mod_webstream_t *mod = ctx->mod;
 
-	if (ctx->protocol == NULL)
+	if (ctx->client == 0)
 	{
-		const char *mimetype = utils_getmime(ctx->protocol);
-		ctx->protocol = utils_urldecode(httpmessage_REQUEST(request, "uri"));
-		ret = utils_searchexp(ctx->protocol, ctx->mod->config->services);
-
-		if (ret == ESUCCESS && mimetype != NULL)
+		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
+dbg("webstream compare %s %s", uri, mod->config->pathname);
+		if (utils_searchexp(uri, mod->config->pathname) == ESUCCESS)
 		{
-			httpmessage_addcontent(response, mimetype, "", -1);
-			ret = ECONTINUE;
+			httpmessage_addcontent(response, mod->config->mimetype, "", -1);
+
+			int wssock = mod->socket(mod->config);
+
+			if (wssock > 0)
+			{
+				ctx->client = wssock;
+				ret = ECONTINUE;
+			}
 		}
+		free(uri);
 	}
 	else
 	{
 		ctx->socket = httpmessage_lock(response);
-		ctx->mod->run(ctx->mod->runarg, ctx->socket, ctx->protocol, request);
-		free(ctx->protocol);
-		ctx->protocol = NULL;
+		ctx->pid = _webstream_run(ctx, request);
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -106,6 +120,7 @@ static void *_mod_webstream_getctx(void *arg, http_client_t *ctl, struct sockadd
 
 	_mod_webstream_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	ctx->mod = mod;
+	ctx->ctl = ctl;
 	httpclient_addconnector(ctl, mod->vhost, webstream_connector, ctx, str_webstream);
 
 	return ctx;
@@ -115,19 +130,45 @@ static void _mod_webstream_freectx(void *arg)
 {
 	_mod_webstream_ctx_t *ctx = (_mod_webstream_ctx_t *)arg;
 
+	if (ctx->pid > 0)
+	{
+#ifdef VTHREAD
+		dbg("webstream: waitpid");
+		waitpid(ctx->pid, NULL, 0);
+		warn("webstream: end stream %p", ctx->ctl);
+#else
+		/**
+		 * ignore SIGCHLD allows the child to die without to create a z$
+		 */
+		struct sigaction action;
+		action.sa_flags = SA_SIGINFO;
+		sigemptyset(&action.sa_mask);
+		action.sa_handler = SIG_IGN;
+		sigaction(SIGCHLD, &action, NULL);
+#endif
+		waitpid(ctx->pid, NULL, 0);
+	}
 	free(ctx);
 }
 
-void *mod_webstream_create(http_server_t *server, char *vhost, void *config, mod_webstream_run_t run, void *runarg)
+void *mod_webstream_create(http_server_t *server, char *vhost, mod_webstream_t *config)
 {
 	_mod_webstream_t *mod = calloc(1, sizeof(*mod));
 
 	mod->vhost = vhost;
 	mod->config = config;
-	mod->run = run;
-	mod->runarg = runarg;
+
+	if (config->options == (WS_SOCK_STREAM | WS_AF_UNIX))
+	{
+		mod->socket = _webstream_unixstream;
+	}
+	if (config->options == (WS_SOCK_STREAM | WS_AF_INET))
+	{
+		mod->socket = _webstream_tcpip;
+	}
+
 	httpserver_addmod(server, _mod_webstream_getctx, _mod_webstream_freectx, mod, str_webstream);
-	warn("webstream support %s %s", mod->config->path, mod->config->services);
+	warn("webstream support %s %s", mod->config->pathname, mod->config->address);
 	return mod;
 }
 
@@ -136,16 +177,23 @@ void mod_webstream_destroy(void *data)
 	free(data);
 }
 
-static int _webstream_socket(void *arg, char *protocol)
+static int _webstream_unixaddress(mod_webstream_t *config, struct sockaddr_un *addr)
 {
-	mod_webstream_t *config = (mod_webstream_t *)arg;
-	int sock;
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	snprintf(addr.sun_path, sizeof(addr.sun_path) - 1, "%s/%s", config->path, protocol);
+	memset(addr, 0, sizeof(struct sockaddr_un));
+	addr->sun_family = AF_UNIX;
+	snprintf(addr->sun_path, sizeof(addr->sun_path) - 1, "%s", config->address);
 
-	dbg("webstream %s", addr.sun_path);
+	dbg("webstream %s", addr->sun_path);
+	return 0;
+}
+
+static int _webstream_unixstream(mod_webstream_t *config)
+{
+	int sock;
+
+	struct sockaddr_un addr;
+	_webstream_unixaddress(config, &addr);
+
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock > 0)
 	{
@@ -159,6 +207,37 @@ static int _webstream_socket(void *arg, char *protocol)
 	if (sock == -1)
 	{
 		warn("webstream error: %s", strerror(errno));
+	}
+	return sock;
+}
+
+static int _webstream_tcpip(mod_webstream_t *config)
+{
+	int sock;
+	struct addrinfo hints;
+	struct addrinfo *result, *rp;
+
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_INET;    /* Allow IPv4 or IPv6 */
+	hints.ai_socktype = SOCK_STREAM; /* Stream socket */
+	hints.ai_flags = AI_PASSIVE;    /* For wildcard IP address */
+	hints.ai_protocol = 0;          /* Any protocol */
+	hints.ai_canonname = NULL;
+	hints.ai_addr = NULL;
+	hints.ai_next = NULL;
+	getaddrinfo(config->address, NULL, &hints, &result);
+
+	for (rp = result; rp != NULL; rp = rp->ai_next)
+	{
+		sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+		if (sock == -1)
+			continue;
+
+		((struct sockaddr_in *)rp->ai_addr)->sin_port = htons(config->port);
+		if (connect(sock, rp->ai_addr, rp->ai_addrlen) == 0)
+			break;
+		close(sock);
+		sock = -1;
 	}
 	return sock;
 }
@@ -206,7 +285,10 @@ static void *_webstream_main(void *arg)
 						if (outlength == EINCOMPLETE)
 							continue;
 						if (outlength == EREJECT)
+						{
+							end = 1;
 							break;
+						}
 						size += outlength;
 					}
 				}
@@ -222,34 +304,19 @@ static void *_webstream_main(void *arg)
 	return 0;
 }
 
-int default_webstream_run(void *arg, int socket, char *protocol, http_message_t *request)
+int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 {
-	int wssock = _webstream_socket(arg, protocol);
+	pid_t pid;
 
-	if (wssock > 0)
+	_webstream_main_t info = {.socket = ctx->socket, .client = ctx->client};
+	info.ctx = httpclient_context(ctx->ctl);
+	info.recvreq = httpclient_addreceiver(ctx->ctl, NULL, NULL);
+	info.sendresp = httpclient_addsender(ctx->ctl, NULL, NULL);
+
+	if ((pid = fork()) == 0)
 	{
-		_webstream_main_t info = {.socket = socket, .client = wssock};
-		http_client_t *ctl = httpmessage_client(request);
-		info.ctx = httpclient_context(ctl);
-		info.recvreq = httpclient_addreceiver(ctl, NULL, NULL);
-		info.sendresp = httpclient_addsender(ctl, NULL, NULL);
-
-		/**
-		 * ignore SIGCHLD allows the child to die without to create a zombie.
-		 */
-		struct sigaction action;
-		action.sa_flags = SA_SIGINFO;
-		sigemptyset(&action.sa_mask);
-		action.sa_handler = SIG_IGN;
-		sigaction(SIGCHLD, &action, NULL);
-
-		pid_t pid;
-
-		if ((pid = fork()) == 0)
-		{
-			_webstream_main(&info);
-			exit(0);
-		}
+		_webstream_main(&info);
+		exit(0);
 	}
-	return wssock;
+	return pid;
 }
