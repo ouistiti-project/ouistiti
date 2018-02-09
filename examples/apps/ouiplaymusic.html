@@ -1,6 +1,8 @@
 <html>
 	<head>
 		<title>Ouistiti: Music</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 		<!--
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -19,12 +21,13 @@ shell.onchange = function(content)
 
 	var imageExt = ["mp3","ac3","ogg"];
 	var playlist = $("#PlayList").html("");
-	var albumslist = $("#AlbumsList").html("").addClass("hidden");
+	var albumslist = $("#AlbumsList").html("");
+	var elm = "<li><a href='#' data-href='"+this.cwd+"/..' onclick='shell.cd(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-arrow-left'>back</span></a></li>";
+	albumslist.append(elm);	
 	var itemcount = 0;
 	for (i = 0; i < content.length; i++) {
 		if (content[i].type == 4)
 		{
-			albumslist.removeClass("hidden");
 			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
 			albumslist.append(elm);
 		}
@@ -115,7 +118,14 @@ musicplay = function(index)
 	$("#Player source").attr("src", href).attr("type", type);
 	player.load();
 	player.oncanplaythrough = player.play();
+	player.onerror = function (evt) {
+		$("#MusicTitle").html("");
+	};
+	player.onabort = function (evt) {
+		$("#MusicTitle").html("");
+	};
 	$("#Player").on("ended", function (evt) {
+		$("#MusicTitle").html("");
 		var list = $("#PlayList").children("a");
 		var current = $("#PlayList").children("a.active")[0];
 		var index = $.inArray(current, list);
@@ -128,7 +138,7 @@ onLoad = function()
 {
 	shell.login();
 	if ((shell.user != undefined) && (location.search.indexOf("cwd=") < 0))
-		shell.cd(shell.user.directories.image);
+		shell.cd(shell.user.directories.music);
 	var reload = document.getElementById("ReloadButton");
 	reload.onclick = function(event)
 	{
@@ -170,7 +180,7 @@ onLoad = function()
 							</ul>
 						</li>
 						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Albums<span class="caret"></span></a>
-							<ul class="dropdown-menu hidden" id="AlbumsList">
+							<ul class="dropdown-menu" id="AlbumsList">
 							</ul>
 						</li>
 					</ul>
@@ -206,7 +216,7 @@ onLoad = function()
 					<div class="panel panel-default">
 						<div class="panel-heading"><h3>Play List</h3></div>
 						<div class="panel-body">
-							<div class="list-group container-fluid" id="PlayList">
+							<div class="list-group container-fluid ProtectedButton" id="PlayList">
 							</div>
 						</div>
 					</div>
@@ -217,7 +227,7 @@ onLoad = function()
 						<div class="panel-heading"><h3 id="MusicTitle"></h3></div>
 						<div class="panel-body">
 							<div class="container-fluid">
-								<audio id="Player" class="row" controls>
+								<audio id="Player" class="row ProtectedButton" controls>
 									<source src="#" type="audio/mpeg"/>
 								</audio>
 							</div>

@@ -1,5 +1,7 @@
 <html>
 	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 		<!--
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -34,6 +36,7 @@ shell.onauthenticate = function(authenticate, result)
 	$("#UserButton").addClass("hidden");
 	$("#LogoutButton").addClass("hidden");
 	$(".ProtectedButton").addClass("hidden");
+
 	var carousel = $("#Applications");
 	carousel.find("div.carousel-inner").html("");
 	carousel.find("ol.carousel-indicators").html("");
@@ -51,6 +54,7 @@ shell.onauthorization = function(user)
 		$(".ProtectedButton").removeClass("hidden");
 	}
 	$("#LoginBox").modal('hide');
+
 	loadApps("apps/ouiweb.json", shell.root);
 }
 loadApps = function(url, root)

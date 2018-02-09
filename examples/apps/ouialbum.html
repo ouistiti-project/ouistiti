@@ -21,11 +21,12 @@ shell.onchange = function(content)
 	$("#Message").removeClass("hidden");
 	var indicators = carousel.find("ol.carousel-indicators").html("");
 	var inner = carousel.find("div.carousel-inner").html("");
-	var albumslist = $("#AlbumsList").html("").addClass("hidden");
+	var albumslist = $("#AlbumsList").html("");
+	var elm = "<li><a href='#' data-href='"+this.cwd+"/..' onclick='shell.cd(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-arrow-left'>back</span></a></li>";
+	albumslist.append(elm);	
 	for (i = 0; i < content.length; i++) {
 		if (content[i].type == 4)
 		{
-			albumslist.removeClass("hidden");
 			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
 			albumslist.append(elm);
 		}
@@ -148,7 +149,7 @@ onLoad = function()
 							</ul>
 						</li>
 						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Albums<span class="caret"></span></a>
-							<ul class="dropdown-menu hidden" id="AlbumsList">
+							<ul class="dropdown-menu" id="AlbumsList">
 							</ul>
 						</li>
 					</ul>

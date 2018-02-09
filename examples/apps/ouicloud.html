@@ -2,6 +2,8 @@
 <html lang="en">
 	<head>
 		<title>Ouistiti: Files browser</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 		<!--
 		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
@@ -105,22 +107,28 @@ shell.onchange = function(content)
 
 		var dropmenu 	= "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"
 
+		var mime = "";
+		if (content[i].mime != undefined)
+		{
+			mime += content[i].mime;
+		}
+
 		if (content[i].type == 4)
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-folder-open col-xs-1 center'></span>";
-			elm.innerHTML += "<span class='name col-xs-8'><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
+			elm.innerHTML += "<span class='name col-xs-6'><a href='#' data-mime='"+mime+"' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
 			dropmenu	+= deletemenu+renamemenu;
 		}
 		else if (content[i].type == 8)
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-file col-xs-1 center'></span>";
-			elm.innerHTML += "<span class='name col-xs-8'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.launch(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
+			elm.innerHTML += "<span class='name col-xs-6'><a href='#' data-mime='"+mime+"' data-href=\""+content[i].name+"\" onclick='shell.launch(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
 			dropmenu	+= downloadmenu+deletemenu+renamemenu+copymenu+sharemenu;
 		}
 		else
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-link col-xs-1'></span>";
-			elm.innerHTML += "<span class='name col-xs-8'>"+content[i].name+"</span>";
+			elm.innerHTML += "<span class='name col-xs-6' data-mime='"+mime+"'>"+content[i].name+"</span>";
 			dropmenu	+= downloadmenu+deletemenu+renamemenu+copymenu+sharemenu;
 		}
 		elm.innerHTML += "<span class='col-xs-2 col-pull-right center'>"+content[i].size+"</span>";

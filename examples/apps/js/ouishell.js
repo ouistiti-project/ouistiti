@@ -10,6 +10,7 @@ class User
 		this.directories =
 		{
 			image:"/Images",
+			music:"/Musics",
 			share:"/Public",
 			documents:"/Documents",
 			private:"/Private"
