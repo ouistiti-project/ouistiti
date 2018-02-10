@@ -62,7 +62,7 @@
 #include "mod_redirect404.h"
 #include "mod_webstream.h"
 
-#if defined WEBSOCKET
+#if defined WEBSOCKET || defined WEBSTREAM
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
 #endif
 
@@ -338,7 +338,10 @@ int main(int argc, char * const *argv)
 				 * default_websocket_run. But it doesn't run with TLS
 				 **/
 				if (server->config->modules.websocket->options & WEBSOCKET_REALTIME)
+				{
 					run = ouistiti_websocket_run;
+					warn("server %p runs realtime websocket!", server->server);
+				}
 #endif
 				server->mod_websocket = mod_websocket_create(server->server,
 					NULL, server->config->modules.websocket,

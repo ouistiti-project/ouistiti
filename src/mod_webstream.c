@@ -39,10 +39,14 @@
 #include <sys/un.h>
 #include <sys/ioctl.h>
 #include <signal.h>
+#include <wait.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_webstream.h"
+
+extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);
+extern int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request);
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -55,7 +59,7 @@
 typedef struct _mod_webstream_s _mod_webstream_t;
 typedef struct _mod_webstream_ctx_s _mod_webstream_ctx_t;
 
-typedef int (*socket_t)(mod_webstream_t *config);
+typedef int (*socket_t)(mod_webstream_t *config, char *filepath);
 
 struct _mod_webstream_s
 {
@@ -74,33 +78,66 @@ struct _mod_webstream_ctx_s
 	http_client_t *ctl;
 };
 
-static int _webstream_tcpip(mod_webstream_t *config);
-static int _webstream_unixstream(mod_webstream_t *config);
-
 int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
 
 static const char str_webstream[] = "webstream";
+
+static int _checkname(_mod_webstream_ctx_t *ctx, char *pathname)
+{
+	_mod_webstream_t *mod = ctx->mod;
+	mod_webstream_t *config = (mod_webstream_t *)mod->config;
+	if (pathname[0] == '.')
+	{
+		return  EREJECT;
+	}
+	if (utils_searchexp(pathname, config->deny) == ESUCCESS &&
+		utils_searchexp(pathname, config->allow) != ESUCCESS)
+	{
+		return  EREJECT;
+	}
+	return ESUCCESS;
+}
 
 static int webstream_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
 	_mod_webstream_ctx_t *ctx = (_mod_webstream_ctx_t *)arg;
 	_mod_webstream_t *mod = ctx->mod;
+	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 
 	if (ctx->client == 0)
 	{
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
-dbg("webstream compare %s %s", uri, mod->config->pathname);
-		if (utils_searchexp(uri, mod->config->pathname) == ESUCCESS)
+		if (_checkname(ctx, uri) != ESUCCESS)
 		{
-			httpmessage_addcontent(response, mod->config->mimetype, "", -1);
+			free(uri);
+			return ret;
+		}
 
-			int wssock = mod->socket(mod->config);
-
-			if (wssock > 0)
+		struct stat filestat;
+		char *filepath = utils_buildpath(config->docroot, uri, "", "", &filestat);
+		if (filepath)
+		{
+			if (S_ISSOCK(filestat.st_mode))
 			{
-				ctx->client = wssock;
-				ret = ECONTINUE;
+				ctx->socket = httpmessage_keepalive(response);
+				int wssock;
+				if (config->options & WEBSOCKET_REALTIME)
+				{
+					wssock = ouistiti_websocket_run(NULL, ctx->socket, filepath, request);
+				}
+				else
+					wssock = ouistiti_websocket_socket(NULL, ctx->socket, filepath, request);
+
+				if (wssock > 0)
+				{
+					const char *mime = NULL;
+					mime = utils_getmime(filepath);
+					httpmessage_addcontent(response, mime, "", -1);
+
+					ctx->client = wssock;
+					ret = ECONTINUE;
+				}
 			}
 		}
 		free(uri);
@@ -108,7 +145,10 @@ dbg("webstream compare %s %s", uri, mod->config->pathname);
 	else
 	{
 		ctx->socket = httpmessage_lock(response);
-		ctx->pid = _webstream_run(ctx, request);
+		if (!(config->options & WEBSOCKET_REALTIME))
+		{
+			ctx->pid = _webstream_run(ctx, request);
+		}
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -158,88 +198,13 @@ void *mod_webstream_create(http_server_t *server, char *vhost, mod_webstream_t *
 	mod->vhost = vhost;
 	mod->config = config;
 
-	if (config->options == (WS_SOCK_STREAM | WS_AF_UNIX))
-	{
-		mod->socket = _webstream_unixstream;
-	}
-	if (config->options == (WS_SOCK_STREAM | WS_AF_INET))
-	{
-		mod->socket = _webstream_tcpip;
-	}
-
 	httpserver_addmod(server, _mod_webstream_getctx, _mod_webstream_freectx, mod, str_webstream);
-	warn("webstream support %s %s", mod->config->pathname, mod->config->address);
 	return mod;
 }
 
 void mod_webstream_destroy(void *data)
 {
 	free(data);
-}
-
-static int _webstream_unixaddress(mod_webstream_t *config, struct sockaddr_un *addr)
-{
-	memset(addr, 0, sizeof(struct sockaddr_un));
-	addr->sun_family = AF_UNIX;
-	snprintf(addr->sun_path, sizeof(addr->sun_path) - 1, "%s", config->address);
-
-	dbg("webstream %s", addr->sun_path);
-	return 0;
-}
-
-static int _webstream_unixstream(mod_webstream_t *config)
-{
-	int sock;
-
-	struct sockaddr_un addr;
-	_webstream_unixaddress(config, &addr);
-
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock > 0)
-	{
-		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
-		if (ret < 0)
-		{
-			close(sock);
-			sock = -1;
-		}
-	}
-	if (sock == -1)
-	{
-		warn("webstream error: %s", strerror(errno));
-	}
-	return sock;
-}
-
-static int _webstream_tcpip(mod_webstream_t *config)
-{
-	int sock;
-	struct addrinfo hints;
-	struct addrinfo *result, *rp;
-
-	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = AF_INET;    /* Allow IPv4 or IPv6 */
-	hints.ai_socktype = SOCK_STREAM; /* Stream socket */
-	hints.ai_flags = AI_PASSIVE;    /* For wildcard IP address */
-	hints.ai_protocol = 0;          /* Any protocol */
-	hints.ai_canonname = NULL;
-	hints.ai_addr = NULL;
-	hints.ai_next = NULL;
-	getaddrinfo(config->address, NULL, &hints, &result);
-
-	for (rp = result; rp != NULL; rp = rp->ai_next)
-	{
-		sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-		if (sock == -1)
-			continue;
-
-		((struct sockaddr_in *)rp->ai_addr)->sin_port = htons(config->port);
-		if (connect(sock, rp->ai_addr, rp->ai_addrlen) == 0)
-			break;
-		close(sock);
-		sock = -1;
-	}
-	return sock;
 }
 
 typedef struct _webstream_main_s _webstream_main_t;

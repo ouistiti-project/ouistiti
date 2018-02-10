@@ -388,35 +388,32 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 	if (configws)
 	{
 		char *url = NULL;
+		char *mode = NULL;
 		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "mimetype", (const char **)&ws->mimetype);
-		config_setting_lookup_string(configws, "pathname", (const char **)&ws->pathname);
-		config_setting_lookup_string(configws, "url", (const char **)&url);
-		ws->options |= WS_SOCK_STREAM;
-		char *address = strstr(url, "://");
-		if (address != NULL)
+		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
+		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
+		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
+		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+		char *ext = mode;
+
+		while (ext != NULL)
 		{
-			if (!strncmp(url, "http", 4))
-				ws->options |= WS_PROTO_HTTP;
-			address += 3;
-		}
-		else
-		{
-			address = url;
-		}
-		ws->address = address;
-		struct stat filestat;
-		if ((stat(address, &filestat) == 0) && S_ISSOCK(filestat.st_mode))
-			ws->options |= WS_AF_UNIX;
-		else
-		{
-			ws->options |= WS_AF_INET;
-			char *portstr = strchr(address, ':');
-			if (portstr != NULL)
+			int length;
+			length = strlen(ext);
+			char *ext_end = strchr(ext, ',');
+			if (ext_end)
 			{
-				*portstr = '\0';
-				ws->port = atoi(portstr+1);
+				length -= strlen(ext_end + 1) + 1;
+				ext_end++;
 			}
+			if (!strncmp(ext, "direct", length))
+			{
+				if (!tls)
+					ws->options |= WEBSOCKET_REALTIME;
+				else
+					warn("realtime configuration is not allowed with tls");
+			}
+			ext = ext_end;
 		}
 	}
 	return ws;

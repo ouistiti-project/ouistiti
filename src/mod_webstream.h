@@ -34,23 +34,14 @@ extern "C"
 {
 #endif
 
-typedef int (*mod_webstream_run_t)(void *arg, int socket, char *protocol, http_message_t *request);
-int default_webstream_run(void *arg, int socket, char *protocol, http_message_t *request);
-
-#define WS_SOCK_STREAM 0x01
-#define WS_SOCK_DGRAM 0x02
-#define WS_AF_UNIX 0x10
-#define WS_AF_INET 0x20
-#define WS_PROTO_DIRECT 0x0000
-#define WS_PROTO_HTTP 0x0100
+#define WEBSOCKET_REALTIME 0x01
 
 typedef struct mod_webstream_s mod_webstream_t;
 struct mod_webstream_s
 {
-	char *mimetype;
-	char *pathname;
-	char *address;
-	int port;
+	char *docroot;
+	char *allow;
+	char *deny;
 	int options;
 };
 

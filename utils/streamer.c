@@ -55,6 +55,8 @@ typedef int (*server_t)(int sock);
 typedef struct stream_s stream_t;
 typedef struct buffer_s buffer_t;
 
+extern int ouistiti_recvaddr(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+
 struct stream_s
 {
 	int sock;
@@ -162,21 +164,19 @@ void help(char **argv)
 	fprintf(stderr, "\t-m <num>\tset the maximum number of clients\n");
 	fprintf(stderr, "\t-u <name>\tset the user to run\n");
 	fprintf(stderr, "\t-w \tstart chat with specific ouistiti features\n");
+	fprintf(stderr, "\t-n <name> \tthe name of the stream\n");
 }
 
 static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%2hd\"}";
 const char *str_username = "apache";
-#ifndef SOCKDOMAIN
-#define SOCKDOMAIN AF_UNIX
-#endif
-#ifndef SOCKPROTOCOL
-#define SOCKPROTOCOL 0
-#endif
+
+#define OPTION_OUISTITI 0x01
+
 int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/websocket";
+	char *root = "/var/run/ouistiti";
 	char *proto = "stream";
 	int maxclients = 50;
 	const char *username = str_username;
@@ -185,7 +185,7 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:R:m:h");
+		opt = getopt(argc, argv, "u:R:m:hon:");
 		switch (opt)
 		{
 			case 'R':
@@ -198,11 +198,27 @@ int main(int argc, char **argv)
 			case 'm':
 				maxclients = atoi(optarg);
 			break;
+			case 'n':
+				proto = optarg;
+			break;
 			case 'u':
 				username = optarg;
 			break;
+			case 'o':
+				options |= OPTION_OUISTITI;
+			break;
 		}
 	} while(opt != -1);
+
+	if (access(root, R_OK|W_OK|X_OK))
+	{
+		if (mkdir(root, 0777))
+		{
+			err("access %s error %s", root, strerror(errno));
+			return -1;
+		}
+		chmod(root, 0777);
+	}
 
 	if (getuid() == 0)
 	{
@@ -212,7 +228,7 @@ int main(int argc, char **argv)
 		setuid(user->pw_uid);
 	}
 
-	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);
+	sock = socket(PF_UNIX, SOCK_STREAM, 0);
 	if (sock > 0)
 	{
 		struct sockaddr_un addr;
@@ -241,25 +257,22 @@ int main(int argc, char **argv)
 				FD_SET(sock, &rfds);
 
 				ret = select(maxfd + 1, &rfds, NULL, NULL, NULL);
-				if (ret > 0)
+				if (ret > 0 && FD_ISSET(sock, &rfds))
 				{
-					if (FD_ISSET(sock, &rfds))
+					newsock = accept(sock, NULL, NULL);
+					dbg("streamer: new client");
+					if (newsock > 0)
 					{
-						struct sockaddr_storage addr;
-						int addrsize = sizeof(addr);
-						newsock = accept(sock, (struct sockaddr *)&addr, &addrsize);
-						dbg("streamer: new client");
-						if (newsock > 0)
+						if (options & OPTION_OUISTITI)
 						{
-							startstream(newsock, &origin);
+							newsock = ouistiti_recvaddr(newsock, NULL, NULL);
 						}
-						else
-						{
-							dbg("streamer: accept error %d %s", newsock, strerror(errno));
-						}
+						startstream(newsock, &origin);
 					}
 					else
-						dbg("streamer: error %d %s", ret, strerror(errno));
+					{
+						dbg("streamer: accept error %d %s", newsock, strerror(errno));
+					}
 				}
 				else
 				{
