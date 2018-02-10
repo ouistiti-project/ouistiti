@@ -146,6 +146,16 @@ int main(int argc, char **argv)
 		}
 	} while(opt != -1);
 
+	if (access(root, R_OK|W_OK|X_OK))
+	{
+		if (mkdir(root, 0777))
+		{
+			err("access %s error %s", root, strerror(errno));
+			return -1;
+		}
+		chmod(root, 0777);
+	}
+
 	if (getuid() == 0)
 	{
 		struct passwd *user = NULL;
