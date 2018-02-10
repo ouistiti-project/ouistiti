@@ -37,6 +37,7 @@
 #include <libconfig.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/utils.h"
 
 #include "httpserver/mod_mbedtls.h"
 #include "httpserver/mod_websocket.h"
@@ -58,10 +59,9 @@
 static config_t configfile;
 static char *logfile = NULL;
 static int logfd = 0;
-static char *pidfile = NULL;
-static int pidfd = 0;
 
 #ifdef STATIC_FILE
+static const char *str_index = "index.html";
 #define static_file_config(iterator, tls) file_config(iterator, tls, "static_file")
 static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char *entry)
 {
@@ -77,8 +77,11 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 		char *transfertype = NULL;
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
-		config_setting_lookup_string(configstaticfile, "accepted_ext", (const char **)&static_file->accepted_ext);
-		config_setting_lookup_string(configstaticfile, "ignored_ext", (const char **)&static_file->ignored_ext);
+		config_setting_lookup_string(configstaticfile, "allow", (const char **)&static_file->allow);
+		config_setting_lookup_string(configstaticfile, "deny", (const char **)&static_file->deny);
+		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
+		if (static_file->defaultpage == NULL)
+			static_file->defaultpage = str_index;
 		config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&transfertype);
 		char *ext = transfertype;
 
@@ -102,6 +105,12 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 					static_file->options |= STATIC_FILE_SENDFILE;
 				else
 					warn("sendfile configuration is not allowed with tls");
+			}
+#endif
+#ifdef RANGEREQUEST
+			if (!strncmp(ext, "range", length))
+			{
+				static_file->options |= STATIC_FILE_RANGE;
 			}
 #endif
 			ext = ext_end;
@@ -142,6 +151,27 @@ static mod_tls_t *tls_config(config_setting_t *iterator)
 #define tls_config(...) NULL
 #endif
 
+#ifdef CLIENTFILTER
+static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int tls)
+{
+	mod_clientfilter_t *clientfilter = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "clientfilter");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "clientfilter");
+#endif
+	if (config)
+	{
+		clientfilter = calloc(1, sizeof(*clientfilter));
+		config_setting_lookup_string(config, "allow", (const char **)&clientfilter->accept);
+		config_setting_lookup_string(config, "deny", (const char **)&clientfilter->deny);
+	}
+	return clientfilter;
+}
+#else
+#define clientfilter_config(...) NULL
+#endif
+
 #ifdef AUTH
 static const char *str_realm = "ouistiti";
 static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
@@ -155,9 +185,9 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 	if (configauth)
 	{
 		auth = calloc(1, sizeof(*auth));
-		config_setting_lookup_string(configauth, "login", (const char **)&auth->login);
-		config_setting_lookup_string(configauth, "protect", (const char **)&auth->protect);
-		config_setting_lookup_string(configauth, "unprotect", (const char **)&auth->unprotect);
+		config_setting_lookup_string(configauth, "error_redirection", &auth->redirect);
+		config_setting_lookup_string(configauth, "protect", &auth->protect);
+		config_setting_lookup_string(configauth, "unprotect", &auth->unprotect);
 #ifdef AUTHZ_UNIX
 		if (auth->authz_config == NULL)
 		{
@@ -270,8 +300,8 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
 	{
 		cgi = calloc(1, sizeof(*cgi));
 		config_setting_lookup_string(configcgi, "docroot", (const char **)&cgi->docroot);
-		config_setting_lookup_string(configcgi, "accepted_ext", (const char **)&cgi->accepted_ext);
-		config_setting_lookup_string(configcgi, "ignored_ext", (const char **)&cgi->ignored_ext);
+		config_setting_lookup_string(configcgi, "allow", (const char **)&cgi->allow);
+		config_setting_lookup_string(configcgi, "deny", (const char **)&cgi->deny);
 		cgi->nbenvs = 0;
 		cgi->chunksize = 64;
 		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);
@@ -312,8 +342,9 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 	{
 		char *mode = NULL;
 		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "protocols", (const char **)&ws->services);
-		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
+		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
+		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
+		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
 		config_setting_lookup_string(configws, "mode", (const char **)&mode);
 		char *ext = mode;
 
@@ -328,7 +359,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 				ext_end++;
 			}
 #ifdef WEBSOCKET_RT
-			if (!strncmp(ext, "realtime", length))
+			if (!strncmp(ext, "direct", length))
 			{
 				if (!tls)
 					ws->options |= WEBSOCKET_REALTIME;
@@ -345,6 +376,69 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 #define websocket_config(...) NULL
 #endif
 
+#ifdef WEBSTREAM
+static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
+{
+	mod_webstream_t *ws = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configws = config_setting_get_member(iterator, "webstream");
+#else
+	config_setting_t *configws = config_setting_lookup(iterator, "webstream");
+#endif
+	if (configws)
+	{
+		char *url = NULL;
+		char *mode = NULL;
+		ws = calloc(1, sizeof(*ws));
+		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
+		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
+		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
+		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+		char *ext = mode;
+
+		while (ext != NULL)
+		{
+			int length;
+			length = strlen(ext);
+			char *ext_end = strchr(ext, ',');
+			if (ext_end)
+			{
+				length -= strlen(ext_end + 1) + 1;
+				ext_end++;
+			}
+			if (!strncmp(ext, "direct", length))
+			{
+				if (!tls)
+					ws->options |= WEBSOCKET_REALTIME;
+				else
+					warn("realtime configuration is not allowed with tls");
+			}
+			ext = ext_end;
+		}
+	}
+	return ws;
+}
+#else
+#define webstream_config(...) NULL
+#endif
+
+#ifdef REDIRECT404
+static mod_redirect404_t *redirect404_config(config_setting_t *iterator, int tls)
+{
+	mod_redirect404_t *redirect404 = NULL;
+	char *redirect = NULL;
+	config_setting_lookup_string(iterator, "error_redirection", (const char **)&redirect);
+	if (redirect)
+	{
+		redirect404 = calloc(1, sizeof(*redirect404));
+		redirect404->redirect = redirect;
+	}
+	return redirect404;
+}
+#else
+#define redirect404_config(...) NULL
+#endif
+
 #ifdef VHOSTS
 static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 {
@@ -359,6 +453,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 		vhost->modules.static_file = static_file_config(iterator, tls);
 		vhost->modules.filestorage = filestorage_config(iterator, tls);
 		vhost->modules.auth = auth_config(iterator, tls);
+		vhost->modules.clientfilter = clientfilter_config(iterator, tls);
 		vhost->modules.cgi = cgi_config(iterator, tls);
 		vhost->modules.websocket = websocket_config(iterator, tls);
 	}
@@ -399,6 +494,27 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 				err("log file error %s", strerror(errno));
 		}
 		config_lookup_string(&configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
+		config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
+		if (configmimes)
+		{
+			int count = config_setting_length(configmimes);
+			int i;
+			for (i = 0; i < count && i < MAXSERVERS; i++)
+			{
+				char *ext = NULL;
+				char *mime = NULL;
+				config_setting_t *iterator = config_setting_get_elem(configmimes, i);
+				if (iterator)
+				{
+					config_setting_lookup_string(iterator, "ext", (const char **)&ext);
+					config_setting_lookup_string(iterator, "mime", (const char **)&mime);
+					if (mime != NULL && ext != NULL)
+					{
+						utils_addmime(ext, mime);
+					}
+				}
+			}
+		}
 		config_setting_t *configservers = config_lookup(&configfile, "servers");
 		if (configservers)
 		{
@@ -420,9 +536,9 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config_setting_lookup_int(iterator, "port", &config->server->port);
 					config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
 					config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
-					config->server->chunksize = 64;
+					config->server->chunksize = DEFAULT_CHUNKSIZE;
 					config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
-					config->server->maxclients = 10;
+					config->server->maxclients = DEFAULT_MAXCLIENTS;
 					config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
 					config->server->version = HTTP11;
 					const char *version = NULL;
@@ -442,8 +558,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->modules.static_file = static_file_config(iterator,(config->tls!=NULL));
 					config->modules.filestorage = filestorage_config(iterator,(config->tls!=NULL));
 					config->modules.auth = auth_config(iterator,(config->tls!=NULL));
+					config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
+					config->modules.redirect404 = redirect404_config(iterator,(config->tls!=NULL));
+					config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
 					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
@@ -501,8 +620,6 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
 	int i;
 
-	if (pidfd > 0)
-		close(pidfd);
 	if (logfd > 0)
 		close(logfd);
 	config_destroy(&configfile);

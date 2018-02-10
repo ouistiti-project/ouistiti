@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_cgi.h: Simple HTTP module
+ * mod_redirect404.h: Redirect the request on 404 error
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -26,27 +26,21 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_CGI_H__
-#define __MOD_CGI_H__
+#ifndef __MOD_REDIRECT404_H__
+#define __MOD_REDIRECT404_H__
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-typedef struct mod_cgi_config_s
+typedef struct mod_redirect404_s
 {
-	char *docroot;
-	char *allow;
-	char *deny;
-	const char **env;
-	int nbenvs;
-	int chunksize;
-	int timeout;
-} mod_cgi_config_t;
+	char *redirect;
+} mod_redirect404_t;
 
-void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);
-void mod_cgi_destroy(void *mod);
+void *mod_redirect404_create(http_server_t *server, char *vhost, mod_redirect404_t *modconfig);
+void mod_redirect404_destroy(void *mod);
 
 #ifdef __cplusplus
 }

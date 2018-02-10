@@ -12,7 +12,6 @@ class Chat
 {
 	constructor(uri)
 	{
-		const self = this;
 		this.ouistitiserver = true;
 		this.uri = uri;
 		this.user = undefined;
@@ -23,18 +22,18 @@ class Chat
 		this.onhello = undefined;
 		this.ongoodbye = undefined;
 		this.onalert = undefined;
+		Notification.requestPermission()
 	}
 
 	connect()
 	{
-		const self = this;
 		if (this.user == undefined)
 			return;
 		this.ws = new WebSocket(this.uri, "chat");
-		this.ws.onopen = function(evt) { self._onopen.call(self, evt) };
-		this.ws.onclose = function(evt) { self._onclose.call(self, evt) };
-		this.ws.onmessage = function(evt) { self._onmessage.call(self, evt) };
-		this.ws.onerror = function(evt) { self._onerror.call(self, evt) };
+		this.ws.onopen = function(evt) { this._onopen.call(this, evt) }.bind(this);
+		this.ws.onclose = function(evt) { this._onclose.call(this, evt) }.bind(this);
+		this.ws.onmessage = function(evt) { this._onmessage.call(this, evt) }.bind(this);
+		this.ws.onerror = function(evt) { this._onerror.call(this, evt) }.bind(this);
 	}
 
 	disconnect()

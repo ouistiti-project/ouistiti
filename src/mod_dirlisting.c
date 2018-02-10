@@ -59,7 +59,7 @@ typedef struct _static_file_connector_s static_file_connector_t;
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
-#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":\"%u %s\",\"type\":%d},"
+#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":\"%u %s\",\"type\":%d,\"mime\":\"%s\"},"
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
 #define DIRLISTING_FOOTER "\
 {}]}"
@@ -139,10 +139,16 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 					size /= 1024;
 					unit++;
 				}
+				const char *mime = "inode/directory";
+				if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
+				{
+					mime = utils_getmime(ent->d_name);
+				}
+				length += strlen(mime);
 
 				length += 4 + 2 + 4;
 				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12));
+				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
 				char *content = httpmessage_addcontent(response, NULL, data, -1);
 				free(data);
 			}

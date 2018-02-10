@@ -1,5 +1,5 @@
 /*****************************************************************************
- * authn_none.c: None Authentication mode
+ * mod_redirect404.c: Redirect the request on 404 error
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -26,21 +26,18 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-/**
- * this module doesn't authenticate the user.
- * It changes the owner of the client process only.
- */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
-#include <pwd.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <errno.h>
 
 #include "httpserver/httpserver.h"
-#include "mod_auth.h"
-#include "authn_none.h"
+#include "httpserver/utils.h"
+#include "mod_redirect404.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -50,64 +47,67 @@
 #define dbg(...)
 #endif
 
-typedef struct authn_none_s authn_none_t;
-struct authn_none_s
+typedef struct _mod_redirect404_s _mod_redirect404_t;
+
+static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
+static void _mod_redirect404_freectx(void *vctx);
+static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response);
+
+static const char str_redirect404[] = "redirect404";
+
+struct _mod_redirect404_s
 {
-	authn_none_config_t *config;
-	authz_t *authz;
-	char *challenge;
+	mod_redirect404_t	*config;
+	char *vhost;
 };
 
-void *authn_none_create(authz_t *authz, void *arg)
+void *mod_redirect404_create(http_server_t *server, char *vhost, mod_redirect404_t *config)
 {
-	authn_none_t *mod = calloc(1, sizeof(*mod));
-	mod->config = (authn_none_config_t *)arg;
+	_mod_redirect404_t *mod;
 
+	if (!config)
+		return NULL;
+
+	mod = calloc(1, sizeof(*mod));
+	mod->config = config;
+	mod->vhost = vhost;
+
+	httpserver_addmod(server, _mod_redirect404_getctx, _mod_redirect404_freectx, mod, str_redirect404);
 	return mod;
 }
 
-int authn_none_challenge(void *arg, http_message_t *request, http_message_t *response)
+void mod_redirect404_destroy(void *arg)
 {
-	authn_none_t *mod = (authn_none_t *)arg;
-	authn_none_config_t *config = mod->config;
-	struct passwd *pw = NULL;
-	if (config->user)
-	{
-		errno = 0;
-		pw = getpwnam(config->user);
-	}
-	if (pw)
-	{
-		setgid(pw->pw_gid);
-		setuid(pw->pw_uid);
-	}
-	else
-	{
-		if (errno == 0 || errno == ENOENT || errno == ESRCH ||
-				errno == EBADF || errno == EPERM)
-			err("Security set the user of authentication in configuration");
-		else
-			err("auth getpwnam error %s", strerror(errno));
-		setuid(1000);
-	}
-	return EREJECT;
-}
-
-char *authn_none_check(void *arg, char *method, char *string)
-{
-	return NULL;
-}
-
-void authn_none_destroy(void *arg)
-{
-	authn_none_t *mod = (authn_none_t *)arg;
+	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
 	free(mod);
 }
 
-authn_rules_t authn_none_rules =
+static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
-	.create = authn_none_create,
-	.challenge = authn_none_challenge,
-	.check = authn_none_check,
-	.destroy = authn_none_destroy,
-};
+	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
+	mod_redirect404_t *config = mod->config;
+
+	httpclient_addconnector(ctl, mod->vhost, _mod_redirect404_connector, arg, str_redirect404);
+	return mod;
+}
+
+static void _mod_redirect404_freectx(void *vctx)
+{
+}
+
+static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
+	mod_redirect404_t *config = mod->config;
+
+#if defined(RESULT_301)
+	if (config->redirect)
+		httpmessage_addheader(response, str_location, config->redirect);
+	else
+		httpmessage_addheader(response, str_location, "/");
+	httpmessage_result(response, RESULT_301);
+	return ESUCCESS;
+#else
+#error "redirect404 needs to define 301"
+#endif
+}

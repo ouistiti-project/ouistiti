@@ -78,6 +78,7 @@ static const char str_auth[] = "auth";
 struct _mod_auth_ctx_s
 {
 	_mod_auth_t *mod;
+	http_client_t *ctl;
 	char *authenticate;
 };
 
@@ -89,7 +90,6 @@ struct _mod_auth_s
 	authn_t *authn;
 	authz_t *authz;
 	int typelength;
-	int loginfd;
 };
 
 const char *str_authenticate = "WWW-Authenticate";
@@ -215,6 +215,7 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
 
 	ctx->mod = mod;
+	ctx->ctl = ctl;
 
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
@@ -240,7 +241,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	{
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
 		int homelength = strlen(home);
-		if (strncmp(home + 1, uri, homelength - 1) != 0)
+		if (homelength > 0 && strncmp(home + 1, uri, homelength - 1) != 0)
 		{
 			dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)
@@ -263,21 +264,33 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	int ret = ECONTINUE;
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
+	mod_auth_t *config = mod->config;
 	char *authorization = NULL;
 	char *uriencoded = httpmessage_REQUEST(request, "uri");
 	char *uri = utils_urldecode(uriencoded);
 	int protect = 1;
-	protect = utils_searchexp(uri, mod->config->protect);
+	protect = utils_searchexp(uri, config->protect);
 	if (protect != ESUCCESS)
 	{
 		ret = EREJECT;
 	}
 	else
 	{
-		protect = utils_searchexp(uri, mod->config->unprotect);
+		protect = utils_searchexp(uri, config->unprotect);
 		if (protect == ESUCCESS)
 		{
 			ret = EREJECT;
+		}
+		const char *redirect = config->redirect;
+		if (redirect)
+		{
+			if (redirect[0] == '/')
+				redirect++;
+			protect = utils_searchexp(uri, redirect);
+			if (protect == ESUCCESS)
+			{
+				ret = EREJECT;
+			}
 		}
 	}
 
@@ -306,15 +319,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			char *user = mod->authn->rules->check(mod->authn->ctx, method, authentication);
 			if (user != NULL)
 			{
-				dbg("user \"%s\" accepted", user);
+				warn("user \"%s\" accepted from %p", user, ctx->ctl);
 				httpmessage_SESSION(request, "%user", user);
 				httpmessage_addheader(response, (char *)str_xuser, user);
 				httpmessage_SESSION(request, "%authtype", (char *)mod->type);
 				ret = EREJECT;
-				//char *value = malloc(strlen(str_authorization) + strlen(authentication) + 2);
-				//sprintf(value, "%s=%s", str_authorization, authentication);
-				httpmessage_addheader(response, (char *)str_authorization, authentication);
-				//free(value);
 
 				if (mod->authz->rules->group)
 				{
@@ -339,24 +348,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ret != EREJECT)
 	{
 		int length = CONTENTCHUNK;
-		if (mod->loginfd == 0)
-		{
-			ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
-		}
+		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 		if (ret == ESUCCESS)
 		{
 			dbg("auth challenge failed");
 			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-			if (mod->config->login)
-			{
-				mod->loginfd = open(mod->config->login, O_RDONLY);
-				struct stat stat;
-				fstat(mod->loginfd, &stat);
-				length = stat.st_size;
-				httpmessage_addcontent(response, "text/html", NULL, stat.st_size);
-			}
-			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) ||
-				(mod->loginfd > 0))
+			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
 			{
 #if defined(RESULT_403)
 				httpmessage_result(response, RESULT_403);
@@ -365,6 +362,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 #else
 				httpmessage_result(response, RESULT_400);
 #endif
+			}
+			else if (config->redirect)
+			{
+				httpmessage_addheader(response, str_location, config->redirect);
+				httpmessage_result(response, RESULT_301);
 			}
 			else
 			{
@@ -375,24 +377,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 #endif
 			}
 		}
-		if (mod->loginfd > 0)
-		{
-			char content[CONTENTCHUNK];
-			length = (length < CONTENTCHUNK)?length:CONTENTCHUNK;
-			length = read(mod->loginfd, content, length);
-			if (length > 0)
-			{
-				httpmessage_addcontent(response, "text/html", content, length);
-				ret = ECONTINUE;
-			}
-			else
-			{
-				close(mod->loginfd);
-				mod->loginfd = 0;
-				ret = ESUCCESS;
-			}
-		}
-
 	}
 	free(uri);
 	return ret;

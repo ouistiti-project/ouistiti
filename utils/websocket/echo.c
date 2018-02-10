@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/websocket";
+	char *root = "/var/run/ouistiti";
 	char *proto = "echo";
 	int maxclients = 50;
 	const char *username = str_username;
@@ -145,6 +145,16 @@ int main(int argc, char **argv)
 			break;
 		}
 	} while(opt != -1);
+
+	if (access(root, R_OK|W_OK|X_OK))
+	{
+		if (mkdir(root, 0777))
+		{
+			err("access %s error %s", root, strerror(errno));
+			return -1;
+		}
+		chmod(root, 0777);
+	}
 
 	if (getuid() == 0)
 	{

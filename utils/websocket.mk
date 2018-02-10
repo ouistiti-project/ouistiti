@@ -1,6 +1,6 @@
 WS_SRC:=websocket/
 lib-$(WEBSOCKET)+=ouistiti_ws
-ouistiti_ws_SOURCES+=websocket.c
+ouistiti_ws_SOURCES+=websocket.c utils.c
 ouistiti_ws_LIBS+=dl
 ouistiti_ws_LIBS+=websocket
 ouistiti_ws_CFLAGS+=-I../libhttpserver/include
