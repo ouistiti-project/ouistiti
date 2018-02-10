@@ -33,7 +33,7 @@
 
 #define STATIC_FILE_DIRLISTING 0x01
 #define STATIC_FILE_SENDFILE 0x02
-#define STATIC_FILE_FILESTORAGE 0x04
+#define STATIC_FILE_RANGE 0x04
 
 #ifdef __cplusplus
 extern "C"
@@ -41,9 +41,10 @@ extern "C"
 #endif
 typedef struct mod_static_file_s
 {
-	char *docroot;
-	char *accepted_ext;
-	char *ignored_ext;
+	const char *docroot;
+	const char *allow;
+	const char *deny;
+	const char *defaultpage;
 	int options;
 } mod_static_file_t;
 

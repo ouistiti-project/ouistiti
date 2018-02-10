@@ -6,15 +6,15 @@ servers= ({
 		version="HTTP11";
 		static_file = {
 			docroot = "%PWD%/tests/htdocs";
-			accepted_ext = ".html,.htm,.css,.js,.txt,*";
-			ignored_ext = ".htaccess,.php";
+			allow = ".html,.htm,.css,.js,.txt,*";
+			deny = ".htaccess,.php";
 		};
 		vhosts = ({
 			hostname="test";
 			static_file = {
 				docroot = "%PWD%/tests/htdocs/vhost";
-				accepted_ext = ".html,.htm,.css,.js,.txt,*";
-				ignored_ext = ".htaccess,.php";
+				allow = ".html,.htm,.css,.js,.txt,*";
+				deny = ".htaccess,.php";
 			};
 		});
 	});

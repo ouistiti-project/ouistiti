@@ -1,5 +1,5 @@
 /*****************************************************************************
- * authn_none.c: None Authentication mode
+ * mod_clientfilter.c: filter the client address module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -26,21 +26,18 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-/**
- * this module doesn't authenticate the user.
- * It changes the owner of the client process only.
- */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
-#include <pwd.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <errno.h>
 
 #include "httpserver/httpserver.h"
-#include "mod_auth.h"
-#include "authn_none.h"
+#include "httpserver/utils.h"
+#include "mod_clientfilter.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -50,64 +47,81 @@
 #define dbg(...)
 #endif
 
-typedef struct authn_none_s authn_none_t;
-struct authn_none_s
+typedef struct _mod_clientfilter_s _mod_clientfilter_t;
+
+static void *_mod_clientfilter_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
+static void _mod_clientfilter_freectx(void *vctx);
+
+static const char str_clientfilter[] = "clientfilter";
+
+struct _mod_clientfilter_s
 {
-	authn_none_config_t *config;
-	authz_t *authz;
-	char *challenge;
+	mod_clientfilter_t	*config;
+	char *vhost;
+	http_client_t *ctl;
 };
 
-void *authn_none_create(authz_t *authz, void *arg)
-{
-	authn_none_t *mod = calloc(1, sizeof(*mod));
-	mod->config = (authn_none_config_t *)arg;
+static const char *str_wilcard = "*";
+static const char *str_empty = "";
 
+void *mod_clientfilter_create(http_server_t *server, char *vhost, mod_clientfilter_t *config)
+{
+	_mod_clientfilter_t *mod;
+
+	if (!config)
+		return NULL;
+
+	mod = calloc(1, sizeof(*mod));
+	mod->config = config;
+	mod->vhost = vhost;
+
+	httpserver_addmod(server, _mod_clientfilter_getctx, _mod_clientfilter_freectx, mod, str_clientfilter);
 	return mod;
 }
 
-int authn_none_challenge(void *arg, http_message_t *request, http_message_t *response)
+void mod_clientfilter_destroy(void *arg)
 {
-	authn_none_t *mod = (authn_none_t *)arg;
-	authn_none_config_t *config = mod->config;
-	struct passwd *pw = NULL;
-	if (config->user)
-	{
-		errno = 0;
-		pw = getpwnam(config->user);
-	}
-	if (pw)
-	{
-		setgid(pw->pw_gid);
-		setuid(pw->pw_uid);
-	}
-	else
-	{
-		if (errno == 0 || errno == ENOENT || errno == ESRCH ||
-				errno == EBADF || errno == EPERM)
-			err("Security set the user of authentication in configuration");
-		else
-			err("auth getpwnam error %s", strerror(errno));
-		setuid(1000);
-	}
-	return EREJECT;
-}
-
-char *authn_none_check(void *arg, char *method, char *string)
-{
-	return NULL;
-}
-
-void authn_none_destroy(void *arg)
-{
-	authn_none_t *mod = (authn_none_t *)arg;
+	_mod_clientfilter_t *mod = (_mod_clientfilter_t *)arg;
 	free(mod);
 }
 
-authn_rules_t authn_none_rules =
+static void *_mod_clientfilter_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
-	.create = authn_none_create,
-	.challenge = authn_none_challenge,
-	.check = authn_none_check,
-	.destroy = authn_none_destroy,
-};
+	_mod_clientfilter_t *mod = (_mod_clientfilter_t *)arg;
+	mod_clientfilter_t *config = mod->config;
+	int protect = 1, ret = ESUCCESS;
+	static char address[NI_MAXHOST];
+
+	mod->ctl = ctl;
+	if (!getnameinfo(addr, addrsize, address, NI_MAXHOST, 0, 0, NI_NUMERICHOST))
+	{
+		if (config->deny)
+		{
+			protect = utils_searchexp(address, mod->config->deny);
+			if (protect == ESUCCESS)
+			{
+				ret = EREJECT;
+				if (config->accept)
+				{
+					protect = utils_searchexp(address, mod->config->accept);
+					if (protect == ESUCCESS)
+					{
+						ret = ESUCCESS;
+					}
+					else
+						warn("clientfilter: refuses %s", address);
+				}
+			}
+		}
+	}
+	else
+	{
+		err("clientfilter: getnameinfo %s", strerror(errno));
+	}
+	return (ret == ESUCCESS)?(void *)-1: NULL;
+}
+
+static void _mod_clientfilter_freectx(void *vctx)
+{
+}
+

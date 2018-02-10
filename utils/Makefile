@@ -23,3 +23,8 @@ ouipasswd_LIBS-$(MBEDTLS)+=mbedcrypto
 ouipasswd_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 sysconf-${FILE_CONFIG}+=ouistiti.conf
+
+bin-$(WEBSTREAM)+=streamer
+streamer_SOURCES+=streamer.c utils.c
+streamer_LIBS+=pthread
+streamer_CFLAGS-$(DEBUG)+=-g -DDEBUG

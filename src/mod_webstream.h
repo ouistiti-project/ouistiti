@@ -1,10 +1,10 @@
 /*****************************************************************************
- * mod_cgi.h: Simple HTTP module
- * this file is part of https://github.com/ouistiti-project/ouistiti
+ * mod_webstream.h: webstream server module
+ * this file is part of https://github.com/ouistiti-project/libhttpserver
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
- * Authors: Marc Chalain <marc.chalain@gmail.com
+ * Authors: Marc Chalain <marc.chalain@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,27 +26,27 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_CGI_H__
-#define __MOD_CGI_H__
+#ifndef __MOD_WEBSTREAM_H__
+#define __MOD_WEBSTREAM_H__
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-typedef struct mod_cgi_config_s
+#define WEBSOCKET_REALTIME 0x01
+
+typedef struct mod_webstream_s mod_webstream_t;
+struct mod_webstream_s
 {
 	char *docroot;
 	char *allow;
 	char *deny;
-	const char **env;
-	int nbenvs;
-	int chunksize;
-	int timeout;
-} mod_cgi_config_t;
+	int options;
+};
 
-void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);
-void mod_cgi_destroy(void *mod);
+void *mod_webstream_create(http_server_t *server, char *vhost, mod_webstream_t *config);
+void mod_webstream_destroy(void *data);
 
 #ifdef __cplusplus
 }

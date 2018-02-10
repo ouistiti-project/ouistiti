@@ -108,6 +108,8 @@ void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modco
 	mod->config = modconfig;
 	mod->vhost = vhost;
 	mod->server = server;
+	if (modconfig->timeout == 0)
+		modconfig->timeout = 3;
 
 	httpserver_addmod(server, _mod_cgi_getctx, _mod_cgi_freectx, mod, str_cgi);
 
@@ -486,7 +488,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			filepath = calloc(1, length + 1);
 			snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
 
-			if (utils_searchexp(str, config->ignored_ext) == ESUCCESS)
+			if (utils_searchexp(str, config->deny) == ESUCCESS &&
+				utils_searchexp(str, config->allow) != ESUCCESS)
 			{
 				dbg("cgi: %s forbidden extension", ctx->path_info);
 				free(filepath);
@@ -503,12 +506,6 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			if (S_ISDIR(filestat.st_mode))
 			{
 				dbg("cgi: %s is directory", ctx->path_info);
-				free(filepath);
-				return EREJECT;
-			}
-			if (utils_searchexp(str, config->accepted_ext) != ESUCCESS)
-			{
-				dbg("cgi: %s not accepted extension", ctx->path_info);
 				free(filepath);
 				return EREJECT;
 			}
@@ -548,7 +545,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	{
 		int sret;
 		fd_set rfds;
-		struct timeval timeout = { 3,0 };
+		struct timeval timeout = { config->timeout,0 };
 
 		FD_ZERO(&rfds);
 		FD_SET(ctx->fromcgi[0], &rfds);
@@ -560,11 +557,13 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
-				dbg("cgi read %s", strerror(errno));
+				if (size < 0)
+					err("cgi read %s", strerror(errno));
 			}
 			else
 			{
 				ctx->chunk[size] = 0;
+				dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
 				/**
 				 * if content_length is not null, parcgi is able to
 				 * create the content.
@@ -576,16 +575,16 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				while (rest > 0)
 				{
 					ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
-					//dbg("parse %d cgi data %d\n%s#\n", ret, size, ctx->chunk);
+					dbg("parse %d cgi data %d %d\n%s#\n", ret, size, rest, ctx->chunk);
 					if (ret != EINCOMPLETE)
 					{
 						char *offset = ctx->chunk;
 						if (ctx->state < STATE_HEADERCOMPLETE)
 						{
 							/**
-							 * The Content-Type must be added byt the CGI
+							 * The Content-Type must be added by the CGI
 							 */
-							httpmessage_addcontent(response, "none", NULL, -1);
+							httpmessage_addcontent(response, "none", "", 0);
 							if (*offset == '\0')
 							{
 								size = 0;
@@ -595,18 +594,19 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 						else if (size > 0 && rest == 0)
 						{
 							/**
-							 * The Content-Type must be added byt the CGI
+							 * The Content-Type must be added by the CGI
 							 */
 							httpmessage_addcontent(response, "none", offset, size);
 						}
-						ret = ECONTINUE;
 					}
+						ret = ECONTINUE;
 				}
 			}
 		}
 		else
 		{
 			ctx->state = STATE_OUTFINISH;
+			kill(ctx->pid, SIGTERM);
 			dbg("cgi complete");
 		}
 	}

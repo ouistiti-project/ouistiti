@@ -106,7 +106,7 @@ int socket(int domain, int type, int protocol)
 			{
 				wsconfig.type = WS_TEXT;
 			}
-			sock = std_socket(AF_UNIX, SOCK_DGRAM, 0);
+			sock = std_socket(AF_UNIX, SOCK_STREAM, 0);
 
 			_websocket_t *socket = calloc(1, sizeof(*socket));
 			socket->sock = sock;
@@ -131,12 +131,6 @@ int bind(int sockfd, const struct sockaddr *addr,
 
 int listen(int sockfd, int backlog)
 {
-	_websocket_t *socket = _websocket_first;
-	while (socket && socket->sock != sockfd) socket = socket->next;
-	if (socket)
-	{
-		return 0;
-	}
 	return std_listen(sockfd, backlog);
 }
 
@@ -147,35 +141,40 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 	if (sockinfo)
 	{
 		int ret = -1;
-		struct msghdr msg = {0};
-		int length;
-		char buffer[256];
-		struct iovec io = { .iov_base = buffer, .iov_len = sizeof(buffer) };
-		msg.msg_iov = &io;
-		msg.msg_iovlen = 1;
 
-		char c_buffer[256];
-		memset(c_buffer, 0, sizeof(c_buffer));
-		msg.msg_control = c_buffer;
-		msg.msg_controllen = sizeof(c_buffer);
-
-		recvmsg(sockinfo->sock, &msg, 0);
-
-		if (addrlen && addr && msg.msg_iov)
+		ret = std_accept(sockfd, NULL, NULL);
+		if (ret > 0)
 		{
-			length = *addrlen;
-			*addrlen = msg.msg_iov[0].iov_len;
-			length = (*addrlen < length)? *addrlen: length;
-			memcpy(addr, msg.msg_iov[0].iov_base, length);
-		}
-		{
-			struct cmsghdr *cmsg;
-			unsigned char *data;
+			struct msghdr msg = {0};
+			int length;
+			char buffer[256];
+			struct iovec io = { .iov_base = buffer, .iov_len = sizeof(buffer) };
+			msg.msg_iov = &io;
+			msg.msg_iovlen = 1;
 
-			cmsg = CMSG_FIRSTHDR(&msg);
-			data = CMSG_DATA(cmsg);
-			if (data)
-				ret = *(int *)data;
+			char c_buffer[256];
+			memset(c_buffer, 0, sizeof(c_buffer));
+			msg.msg_control = c_buffer;
+			msg.msg_controllen = sizeof(c_buffer);
+
+			recvmsg(ret, &msg, 0);
+
+			if (addrlen && addr && msg.msg_iov)
+			{
+				length = *addrlen;
+				*addrlen = msg.msg_iov[0].iov_len;
+				length = (*addrlen < length)? *addrlen: length;
+				memcpy(addr, msg.msg_iov[0].iov_base, length);
+			}
+			{
+				struct cmsghdr *cmsg;
+				unsigned char *data;
+
+				cmsg = CMSG_FIRSTHDR(&msg);
+				data = CMSG_DATA(cmsg);
+				if (data)
+					ret = *(int *)data;
+			}
 		}
 		if (ret > 0)
 		{

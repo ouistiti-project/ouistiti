@@ -1,17 +1,24 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<!--link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css"-->
-		<link href="css/bootstrap.min.css" rel="stylesheet" type="text/css">
-		<!--script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
-		<script src="js/jquery.min.js"></script>
+		<title>Ouistiti: Chat messaging</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<!--
+		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+		-->
+		<link href="css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="js/jquery.min.js"></script>
 		<script src="js/bootstrap.min.js"></script>
 		<script src="js/ouishell.js"></script>
 		<script src="js/ouichat.js"></script>
 		<script language="javascript" type="text/javascript">
+var shell = new Shell("");
 var chat = new Chat("");
 var users = new Array();
+
 chat.onmessage = function(message)
 {
 	var color = "";
@@ -85,10 +92,9 @@ chat.onclose = function()
 	$("#UsersList").html("");
 	$("#UsersList2").html("");
 
-	$("#UserBox").modal("show");
+//	$("#UserBox").modal("show");
 };
 
-var shell = new Shell("");
 shell.onauthenticate = function(authenticate, result)
 {
 	if (result != undefined)
@@ -107,24 +113,30 @@ shell.onauthenticate = function(authenticate, result)
 		}
 		$("#LoginResult").removeClass("hidden");
 	}
-	chat.disconnect();
 	$("#LoginButton").removeClass("hidden");
 	$("#UserButton").addClass("hidden");
 	$("#LogoutButton").addClass("hidden");
 	$(".ProtectedButton").addClass("hidden");
+
+	chat.disconnect();
 }
+
 shell.onauthorization = function(user)
 {
-	$("#NickName").val(user.name);
 	$("#LoginArea").removeClass("has-error");
 	$("#LoginArea").prop("aria-invalid",false)
 	$("#LoginButton").addClass("hidden");
-	$("#UserButton").html(user.name);
-	$("#UserButton").removeClass("hidden");
-	$("#LogoutButton").removeClass("hidden");
-	$(".ProtectedButton").removeClass("hidden");
+	if (user != undefined)
+	{
+		$("#UserButton").html(user.name);
+		$("#UserButton").removeClass("hidden");
+		$("#LogoutButton").removeClass("hidden");
+		$(".ProtectedButton").removeClass("hidden");
+	}
 	$("#LoginBox").modal("hide");
 
+	if (user != undefined)
+		$("#NickName").val(user.name);
 	$("#UserBox").modal("show");
 }
 
@@ -146,6 +158,8 @@ connect = function()
 
 onLoad = function()
 {
+	shell.login();
+
 	var login = document.getElementById("LoginExec");
 	login.onclick = function(event)
 	{

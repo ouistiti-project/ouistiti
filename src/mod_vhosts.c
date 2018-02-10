@@ -44,6 +44,7 @@
 #include "mod_static_file.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
+#include "mod_clientfilter.h"
 #include "mod_vhosts.h"
 #include "mod_methodlock.h"
 #include "mod_server.h"
@@ -70,6 +71,7 @@ struct _mod_vhost_s
 	void *mod_dirlisting;
 	void *mod_cgi;
 	void *mod_auth;
+	void *mod_clientfilter;
 	void *mod_websocket;
 	void *mod_methodlock;
 	void *mod_server;
@@ -86,6 +88,12 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod->config = config;
 
 	dbg("create vhost for %s", config->hostname);
+#if defined CLIENTFILTER
+	if (config->modules.clientfilter)
+	{
+		mod->mod_clientfilter = mod_clientfilter_create(server->server, NULL, config->modules.clientfilter);
+	}
+#endif
 #if defined AUTH
 	if (config->modules.auth)
 	{
@@ -97,6 +105,11 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 #endif
 #if defined SERVERHEADER
 	mod->mod_server = mod_server_create(server, config->hostname, NULL);
+#endif
+#if defined WEBSTREAM
+	mod->mod_webstream = mod_webstream_create(server, config->hostname,
+							config->modules.webstream, default_webstream_run,
+							config->modules.webstream);
 #endif
 #if defined WEBSOCKET
 	if (config->modules.websocket)
@@ -122,6 +135,10 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 #if defined STATIC_FILE
 	if (config->modules.static_file)
 		mod->mod_static_file = mod_static_file_create(server, config->hostname, config->modules.static_file);
+#endif
+#if defined REDIRECT404
+	if (config->modules.redirect404)
+		mod->mod_redirect404 = mod_redirect404_create(server, config->hostname, config->modules.redirect404);
 #endif
 
 	return mod;

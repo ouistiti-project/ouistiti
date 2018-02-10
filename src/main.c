@@ -59,8 +59,10 @@
 #include "mod_vhosts.h"
 #include "mod_methodlock.h"
 #include "mod_server.h"
+#include "mod_redirect404.h"
+#include "mod_webstream.h"
 
-#if defined WEBSOCKET
+#if defined WEBSOCKET || defined WEBSTREAM
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
 #endif
 
@@ -87,9 +89,12 @@ typedef struct server_s
 	void *mod_filestorage;
 	void *mod_cgi;
 	void *mod_auth;
+	void *mod_clientfilter;
 	void *mod_methodlock;
 	void *mod_server;
 	void *mod_websocket;
+	void *mod_redirect404;
+	void *mod_webstream;
 	void *mod_vhosts[MAX_SERVERS - 1];
 
 	struct server_s *next;
@@ -106,19 +111,21 @@ void display_help(char * const *argv)
 
 static servert_t *first = NULL;
 static char run = 0;
-static void
-handler(int sig, siginfo_t *si, void *arg)
+static void handler(int sig, siginfo_t *si, void *arg)
 {
 	run = 'q';
-	servert_t *server = arg;
+	servert_t *server;
 	server = first;
 
 	while (server != NULL)
 	{
 		if (server->server)
+		{
 			httpserver_disconnect(server->server);
+		}
 		server = server->next;
 	}
+	kill(0, SIGPIPE);
 }
 
 static void _setpidfile(char *pidfile)
@@ -140,6 +147,7 @@ static void _setpidfile(char *pidfile)
 			pid = getpid();
 			length = snprintf(buffer, 32, "%d\n", pid);
 			write(pidfd, buffer, length);
+			close(pidfd);
 		}
 		else
 		{
@@ -161,6 +169,7 @@ int main(int argc, char * const *argv)
 	serverconfig_t *it;
 	int i;
 	int daemonize = 0;
+	int serverid = -1;
 
 	setbuf(stdout, NULL);
 
@@ -170,9 +179,12 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "f:p:hDV");
+		opt = getopt(argc, argv, "s:f:p:hDV");
 		switch (opt)
 		{
+			case 's':
+				serverid = atoi(optarg) - 1;
+			break;
 			case 'f':
 				configfile = optarg;
 			break;
@@ -237,13 +249,25 @@ int main(int argc, char * const *argv)
 		}
 	}
 #endif
-	for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
+	if (serverid < 0)
+	{
+		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
+		{
+			server = calloc(1, sizeof(*server));
+			server->config = it;
+
+			server->server = httpserver_create(server->config->server);
+			server->next = first;
+			first = server;
+		}
+	}
+	else
 	{
 		server = calloc(1, sizeof(*server));
-		server->config = it;
+		server->config = ouistiticonfig->servers[serverid];
 
 		server->server = httpserver_create(server->config->server);
-		server->next = first;
+		server->next = NULL;
 		first = server;
 	}
 	server = first;
@@ -252,11 +276,27 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
+#if defined MBEDTLS
+			/**
+			 * TLS must be first to free the connection after all others modules
+			 */
+			if (server->config->tls)
+				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
+#endif
 #if defined VHOSTS
 			for (i = 0; i < (MAX_SERVERS - 1); i++)
 			{
 				if (server->config->vhosts[i])
 					server->mod_vhosts[i] = mod_vhost_create(server->server,server->config->vhosts[i]);
+			}
+#endif
+#if defined CLIENTFILTER
+			/**
+			 * clientfilter must be at the beginning to stop the connection if necessary
+			 */
+			if (server->config->modules.clientfilter)
+			{
+				server->mod_clientfilter = mod_clientfilter_create(server->server, NULL, server->config->modules.clientfilter);
 			}
 #endif
 #if defined AUTH
@@ -275,6 +315,19 @@ int main(int argc, char * const *argv)
 			if (server->config->modules.cgi)
 				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->modules.cgi);
 #endif
+#if defined FILESTORAGE
+			if (server->config->modules.filestorage)
+				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->modules.filestorage);
+#endif
+#if defined STATIC_FILE
+			if (server->config->modules.static_file)
+				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->modules.static_file);
+#endif
+#if defined WEBSTREAM
+			if (server->config->modules.webstream)
+				server->mod_webstream = mod_webstream_create(server->server, NULL, 
+							server->config->modules.webstream);
+#endif
 #if defined WEBSOCKET
 			if (server->config->modules.websocket)
 			{
@@ -285,24 +338,18 @@ int main(int argc, char * const *argv)
 				 * default_websocket_run. But it doesn't run with TLS
 				 **/
 				if (server->config->modules.websocket->options & WEBSOCKET_REALTIME)
+				{
 					run = ouistiti_websocket_run;
+					warn("server %p runs realtime websocket!", server->server);
+				}
 #endif
 				server->mod_websocket = mod_websocket_create(server->server,
 					NULL, server->config->modules.websocket,
 					run, server->config->modules.websocket);
 			}
 #endif
-#if defined MBEDTLS
-			if (server->config->tls)
-				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
-#endif
-#if defined FILESTORAGE
-			if (server->config->modules.filestorage)
-				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->modules.filestorage);
-#endif
-#if defined STATIC_FILE
-			if (server->config->modules.static_file)
-				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->modules.static_file);
+#if defined REDIRECT404
+			server->mod_redirect404 = mod_redirect404_create(server->server, NULL, server->config->modules.redirect404);
 #endif
 		}
 		server = server->next;
@@ -326,7 +373,11 @@ int main(int argc, char * const *argv)
 		server = server->next;
 	}
 
-	while(run != 'q') sleep(120);
+	while(run != 'q')
+	{
+		if (httpserver_run(first->server) == ESUCCESS)
+			break;
+	}
 
 	server = first;
 	while (server != NULL)
@@ -359,6 +410,10 @@ int main(int argc, char * const *argv)
 #if defined CGI
 		if (server->mod_cgi)
 			mod_cgi_destroy(server->mod_cgi);
+#endif
+#if defined WEBSTREAM
+		if (server->mod_webstream)
+			mod_webstream_destroy(server->mod_webstream);
 #endif
 #if defined AUTH
 		if (server->mod_auth)

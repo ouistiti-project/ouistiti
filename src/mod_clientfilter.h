@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_cgi.h: Simple HTTP module
+ * mod_clientfilter.h: filter the client address module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -26,27 +26,22 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_CGI_H__
-#define __MOD_CGI_H__
+#ifndef __MOD_CLIENTFILTER_H__
+#define __MOD_CLIENTFILTER_H__
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-typedef struct mod_cgi_config_s
+typedef struct mod_clientfilter_s
 {
-	char *docroot;
-	char *allow;
+	char *accept;
 	char *deny;
-	const char **env;
-	int nbenvs;
-	int chunksize;
-	int timeout;
-} mod_cgi_config_t;
+} mod_clientfilter_t;
 
-void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);
-void mod_cgi_destroy(void *mod);
+void *mod_clientfilter_create(http_server_t *server, char *vhost, mod_clientfilter_t *modconfig);
+void mod_clientfilter_destroy(void *mod);
 
 #ifdef __cplusplus
 }

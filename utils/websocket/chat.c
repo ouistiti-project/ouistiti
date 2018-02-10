@@ -1,5 +1,5 @@
 /*****************************************************************************
- * websocket_echo.c: Simple echo server
+ * websocket_chat.c: Simple Chat server
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/websocket";
+	char *root = "/var/run/ouistiti";
 	char *proto = "chat";
 	int maxclients = 50;
 	const char *username = str_username;
@@ -263,6 +263,16 @@ int main(int argc, char **argv)
 				options |= WS_MSG;
 		}
 	} while(opt != -1);
+
+	if (access(root, R_OK|W_OK|X_OK))
+	{
+		if (mkdir(root, 0777))
+		{
+			err("access %s error %s", root, strerror(errno));
+			return -1;
+		}
+		chmod(root, 0777);
+	}
 
 	if (getuid() == 0)
 	{
@@ -323,7 +333,7 @@ int main(int argc, char **argv)
 							if (addr.ss_family == AF_INET)
 							{
 								struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr;
-								warn("echo: new connection from %s %p", inet_ntoa(addr_in->sin_addr), user);
+								warn("chat: new connection from %s %p", inet_ntoa(addr_in->sin_addr), user);
 							}
 							/*
 							char *buffer = calloc(1, strlen(str_hello) + 1);	
@@ -343,7 +353,7 @@ int main(int argc, char **argv)
 							length = read(user->sock, buffer, length);
 							if ((length <= 0) && (errno != EAGAIN))
 							{
-								warn("goodbye %p", user);
+								warn("chat: goodbye %p", user);
 								if (user->prev)
 								{
 									user->prev->next = user->next;
@@ -360,7 +370,7 @@ int main(int argc, char **argv)
 							}
 							else if (length > 0)
 							{
-								dbg("receive from %d : %s", user->sock, buffer);
+								dbg("chat: receive from %d : %s", user->sock, buffer);
 								if (options & WS_MSG)
 									chat(user, buffer, length);
 								else
@@ -377,7 +387,7 @@ int main(int argc, char **argv)
 	}
 	if (ret)
 	{
-		err("error : %s\n", strerror(errno));
+		err("chat: error %s\n", strerror(errno));
 	}
 	return ret;
 }

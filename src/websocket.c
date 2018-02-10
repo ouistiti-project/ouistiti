@@ -49,16 +49,14 @@
 #define dbg(...)
 #endif
 
-static int _websocket_socket(void *arg, char *protocol)
+int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request)
 {
-	mod_websocket_t *config = (mod_websocket_t *)arg;
-	int sock;
 	struct sockaddr_un addr;
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
-	snprintf(addr.sun_path, sizeof(addr.sun_path) - 1, "%s/%s", config->path, protocol);
+	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
 
-	sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock > 0)
 	{
 		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
@@ -75,7 +73,6 @@ static int _websocket_socket(void *arg, char *protocol)
 	return sock;
 }
 
-#define NUM_FD 1
 static int _websocket_connect(int client, int socket)
 {
 	struct msghdr msg = {0};
@@ -107,10 +104,11 @@ static int _websocket_connect(int client, int socket)
 	return sendmsg(client, &msg, MSG_DONTWAIT);
 }
 
-int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request)
+int ouistiti_websocket_run(void *arg, int sock, char *filepath, http_message_t *request)
 {
-	int client = _websocket_socket(arg, protocol);
+	int client = ouistiti_websocket_socket(arg, sock, filepath, request);
 	if (client)
-		_websocket_connect(client, socket);
-	return client;
+		_websocket_connect(client, sock);
+	dbg("websocket releases the socket for direct access");
+	return 0;
 }
