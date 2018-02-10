@@ -315,6 +315,14 @@ int main(int argc, char * const *argv)
 			if (server->config->modules.cgi)
 				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->modules.cgi);
 #endif
+#if defined FILESTORAGE
+			if (server->config->modules.filestorage)
+				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->modules.filestorage);
+#endif
+#if defined STATIC_FILE
+			if (server->config->modules.static_file)
+				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->modules.static_file);
+#endif
 #if defined WEBSTREAM
 			if (server->config->modules.webstream)
 				server->mod_webstream = mod_webstream_create(server->server, NULL, 
@@ -336,14 +344,6 @@ int main(int argc, char * const *argv)
 					NULL, server->config->modules.websocket,
 					run, server->config->modules.websocket);
 			}
-#endif
-#if defined FILESTORAGE
-			if (server->config->modules.filestorage)
-				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->modules.filestorage);
-#endif
-#if defined STATIC_FILE
-			if (server->config->modules.static_file)
-				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->modules.static_file);
 #endif
 #if defined REDIRECT404
 			server->mod_redirect404 = mod_redirect404_create(server->server, NULL, server->config->modules.redirect404);

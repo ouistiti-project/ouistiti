@@ -13,8 +13,8 @@ servers= ({
 		};
 		filestorage = {
 			docroot = "%PWD%/tests/htdocs";
-			accepted_ext = ".html,.*htm*,.css,.js,.txt,*";
-			ignored_ext = ".htaccess,.php";
+			allow = ".html,.*htm*,.css,.js,.txt,*";
+			deny = ".htaccess,.php";
 			transfer_type = "dirlisting";
 		};
 	});

@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/websocket";
+	char *root = "/var/run/ouistiti";
 	char *proto = "echo";
 	int maxclients = 50;
 	const char *username = str_username;

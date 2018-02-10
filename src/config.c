@@ -342,8 +342,9 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 	{
 		char *mode = NULL;
 		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "services", (const char **)&ws->services);
-		config_setting_lookup_string(configws, "root", (const char **)&ws->path);
+		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
+		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
+		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
 		config_setting_lookup_string(configws, "mode", (const char **)&mode);
 		char *ext = mode;
 
@@ -358,7 +359,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 				ext_end++;
 			}
 #ifdef WEBSOCKET_RT
-			if (!strncmp(ext, "realtime", length))
+			if (!strncmp(ext, "direct", length))
 			{
 				if (!tls)
 					ws->options |= WEBSOCKET_REALTIME;
