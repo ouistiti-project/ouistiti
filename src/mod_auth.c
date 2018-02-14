@@ -239,6 +239,9 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	char *home = httpmessage_SESSION(request, "%authhome", NULL);
 	if (home)
 	{
+		char *websocket = httpmessage_REQUEST(request, "Sec-WebSocket-Version");
+		if (websocket && websocket[0] != '\0')
+			return ret;
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
 		int homelength = strlen(home);
 		if (homelength > 0 && strncmp(home + 1, uri, homelength - 1) != 0)

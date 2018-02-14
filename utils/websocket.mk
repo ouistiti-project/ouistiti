@@ -30,6 +30,16 @@ endif
 
 websocket_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
+bin-$(WS_JSONRPC)+=websocket_jsonrpc
+websocket_jsonrpc_SOURCES+=$(WS_SRC)jsonrpc.c
+websocket_jsonrpc_LIBS+=dl jsonrpc jansson
+websocket_jsonrpc_LDFLAGS+=-L./jsonrpc
+websocket_jsonrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
+modules-$(WS_JSONRPC)+=jsonsql
+jsonsql_SOURCES+=$(WS_SRC)jsonsql.c
+jsonsql_LIBS+=sqlite3
+
 bin-$(WS_SYSLOGD)+=websocket_syslogd
 websocket_syslogd_SOURCES+=$(WS_SRC)syslogd.c
 ifeq ($(WEBSOCKET_RT), y)
