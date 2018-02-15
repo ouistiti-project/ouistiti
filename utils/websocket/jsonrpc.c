@@ -164,7 +164,7 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:R:m:hrL:C:");
+		opt = getopt(argc, argv, "u:n:R:m:hrL:C:");
 		switch (opt)
 		{
 			case 'R':

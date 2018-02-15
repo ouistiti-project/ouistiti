@@ -243,7 +243,7 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:R:m:wh");
+		opt = getopt(argc, argv, "u:n:R:m:wh");
 		switch (opt)
 		{
 			case 'R':
@@ -258,6 +258,9 @@ int main(int argc, char **argv)
 			break;
 			case 'u':
 				username = optarg;
+			break;
+			case 'n':
+				proto = optarg;
 			break;
 			case 'w':
 				options |= WS_MSG;

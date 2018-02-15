@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:R:m:h");
+		opt = getopt(argc, argv, "u:n:R:m:h");
 		switch (opt)
 		{
 			case 'R':
@@ -150,6 +150,9 @@ int main(int argc, char **argv)
 			break;
 			case 'u':
 				username = optarg;
+			break;
+			case 'n':
+				proto = optarg;
 			break;
 		}
 	} while(opt != -1);
