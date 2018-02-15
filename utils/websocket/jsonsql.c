@@ -82,7 +82,6 @@ static int method_exec(json_t *json_params, json_t **result, void *userdata)
 	jsonsql_ctx_t *ctx = (jsonsql_ctx_t *)userdata;
 	sqlite3 *db = ctx->db;
 	int ret = 0;
-	*result = json_array();
 	if (json_is_object(json_params))
 	{
 		const char *key;
@@ -100,17 +99,19 @@ static int method_exec(json_t *json_params, json_t **result, void *userdata)
 				const char *query = NULL;
 				char *error = NULL;
 				query = json_string_value(value);
+				*result = json_array();
 				int ret = sqlite3_exec(db, query, row_callback, result, &error);
 				if (ret != SQLITE_OK)
 				{
+					json_decref(*result);
 					*result = jsonrpc_error_object(ret, sqlite3_errmsg(db), json_string(sqlite3_errmsg(db)));
 				}
 				else if (json_array_size(*result) == 0)
 				{
-					json_t *row = json_object();
+					json_decref(*result);
+					*result = json_object();
 					json_t *value = json_string("Query OK");
-					json_object_set(row, "message", value);
-					json_array_append(*result, row);
+					json_object_set(*result, "message", value);
 				}
 			}
 		}
@@ -162,9 +163,9 @@ static int method_X(json_t *json_params, json_t **result, void *userdata, char *
 			}
 		}
 		int ret;
+		ret = sqlite3_step(statement);
 		do
 		{
-			ret = sqlite3_step(statement);
 			*result = json_object();
 			int i, nbColumns = sqlite3_column_count(statement);
 			for (i = 0; i < nbColumns; i++)
@@ -212,7 +213,8 @@ static int method_X(json_t *json_params, json_t **result, void *userdata, char *
 				break;
 				}
 			}
-		} while (0);//(ret == SQLITE_ROW);
+			ret = sqlite3_step(statement);
+		} while (ret == SQLITE_ROW);
 		sqlite3_finalize(statement);
 		if (db != ctx->db)
 			sqlite3_close(db);

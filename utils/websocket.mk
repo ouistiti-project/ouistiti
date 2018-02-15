@@ -32,8 +32,8 @@ websocket_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 bin-$(WS_JSONRPC)+=websocket_jsonrpc
 websocket_jsonrpc_SOURCES+=$(WS_SRC)jsonrpc.c
-websocket_jsonrpc_LIBS+=dl jsonrpc jansson
-websocket_jsonrpc_LDFLAGS+=-L./jsonrpc
+websocket_jsonrpc_SOURCES+=jsonrpc/jsonrpc.c
+websocket_jsonrpc_LIBS+=dl jansson
 websocket_jsonrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 modules-$(WS_JSONRPC)+=jsonsql

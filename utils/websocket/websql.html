@@ -45,7 +45,7 @@ var websocket;
 var rpc;
 function writeToScreen(message)
 {
-	$("#output").append("<p>"+message+"</p>");
+	$("#output").prepend("<p>"+message+"</p>");
 }
 
 function connect()
@@ -79,22 +79,43 @@ function onClose(evt)
 function onMessage(evt)
 {
 	rpc.parse(evt.data);
+	writeToScreen(rpc.params.query);
+	var type = typeof(rpc.result);
 	if (rpc.error != undefined)
-		writeToScreen('<span style="color: red;">ERROR:</span> ' + rpc.error.message);
-	else
+		writeToScreen('<span style="color: red;">ERROR: ' + rpc.error.message + '</span>');
+	else if (rpc.result.length > 0)
 	{
+		var first = 1;
 		var i;
-		writeToScreen('<span style="color: blue;">RESPONSE: ');
+		var resultstring = '<table style="border: 1px solid black;">';
 		for (i = 0; i < rpc.result.length; i++)
 		{
 			var result = rpc.result[i];
-			var resultstring = "";
+			if(first)
+			{
+				resultstring += '<tr style="padding:2px;border-spacing: 5px;">';
+				for (var property in result)
+				{
+					 resultstring += '<th style="padding:2px;border-spacing: 5px;">' + property + '</th>';
+				}
+				resultstring += '</tr>';
+				first = 0;
+			}
+			resultstring += '<tr style="padding:2px;border-spacing: 5px;">';
 			for (var property in result)
 			{
-				 resultstring += property + "(" + result[property] + ")| ";
+				resultstring += '<td style="padding:2px;border-spacing: 5px;">' + result[property] + '</td>';
 			}
-			writeToScreen(resultstring);
+			resultstring += '</tr>';
 		}
+		resultstring += '</table>';
+		writeToScreen(resultstring);
+	}
+	else if (type == "object")
+	{
+		var resultstring = 'Result: ';
+		resultstring += rpc.result.message;
+		writeToScreen(resultstring);
 	}
 }
 
@@ -118,7 +139,6 @@ $(document).ready(function() {
 				rpc = new JsonRPC("exec");
 				rpc.append("query", $(this).val());
 				var rpcstring = rpc.stringify();
-				alert("rpcstring "+rpcstring.length);
 				websocket.send(rpcstring);
 			}
 		});
@@ -127,10 +147,9 @@ $(document).ready(function() {
 		</script>
 	</head>
 	<body>
-		<title>WebSocket Test</title>
 		<xmp>
-create table groups("group");
-create table users("name","passwd","group" INTEGER);
+create table groups("group" TEXT UNIQUE);
+create table users("name" TEXT UNIQUE,"passwd","group" INTEGER FOREIGN KEY);
 insert into groups values("root");
 insert into groups values("users");
 insert into users values("root","?",(select ROWID from groups where "group"="root"));
@@ -141,9 +160,9 @@ select name, passwd,groups."group" from users,groups where users."group"=groups.
 			<input type="text" id="wsUri" value="ws://127.0.0.1/jsonrpc" />
 			<input type="button" id="connect" value="Connect" />
 			<input type="button" id="disconnect" value="Disconnect" />
-			<input type="text" id="input" />
 		</form>
-		<h2>WebSocket Test</h2>
+		<h2>SQL shell</h2>
+		<input style='width:80%;left:10%;' type="text" id="input" />
 
 		<div id="output"></div>
 	</body>
