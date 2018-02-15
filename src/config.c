@@ -218,6 +218,21 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			}
 		}
 #endif
+#ifdef AUTHZ_SQLITE
+		if (auth->authz_config == NULL)
+		{
+			char *path = NULL;
+
+			config_setting_lookup_string(configauth, "dbname", (const char **)&path);
+			if (path != NULL && path[0] != '0')
+			{
+				authz_sqlite_config_t *authz_config = calloc(1, sizeof(*authz_config));
+				authz_config->dbname = path;
+				auth->authz_type = AUTHZ_SQLITE_E;
+				auth->authz_config = authz_config;
+			}
+		}
+#endif
 #ifdef AUTHZ_SIMPLE
 		if (auth->authz_config == NULL)
 		{

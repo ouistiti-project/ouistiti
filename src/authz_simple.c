@@ -61,11 +61,6 @@ int authz_simple_check(void *arg, char *user, char *passwd)
 {
 	authz_simple_t *config = (authz_simple_t *)arg;
 
-	struct passwd *userpasswd = NULL;
-	userpasswd = getpwnam(user);
-	if (userpasswd)
-		warn("user %s pwd %d home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
-
 	if (!strcmp(user, config->user)  && !strcmp(passwd, config->passwd))
 		return 1;
 	return 0;
