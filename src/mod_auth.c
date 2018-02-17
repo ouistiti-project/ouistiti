@@ -52,6 +52,7 @@
 #include "authz_simple.h"
 #include "authz_file.h"
 #include "authz_unix.h"
+#include "authz_sqlite.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -154,6 +155,12 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
 	break;
 #endif
+#ifdef AUTHZ_SQLITE
+	case AUTHZ_SQLITE_E:
+		mod->authz->rules = &authz_sqlite_rules;
+		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
+	break;
+#endif
 	}
 	if (mod->authz->ctx == NULL)
 	{
@@ -239,6 +246,9 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	char *home = httpmessage_SESSION(request, "%authhome", NULL);
 	if (home)
 	{
+		char *websocket = httpmessage_REQUEST(request, "Sec-WebSocket-Version");
+		if (websocket && websocket[0] != '\0')
+			return ret;
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
 		int homelength = strlen(home);
 		if (homelength > 0 && strncmp(home + 1, uri, homelength - 1) != 0)

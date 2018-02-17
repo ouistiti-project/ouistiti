@@ -134,31 +134,27 @@ musicplay = function(index)
 	});
 }
 
-onLoad = function()
+$(document).ready(function()
 {
 	shell.login();
 	if ((shell.user != undefined) && (location.search.indexOf("cwd=") < 0))
 		shell.cd(shell.user.directories.music);
-	var reload = document.getElementById("ReloadButton");
-	reload.onclick = function(event)
+	$("ReloadButton").on("click", function(event)
 	{
 		shell.ls();
-	}
-//	var login = document.getElementById("LoginButton");
-	var login = document.getElementById("LoginExec");
-	login.onclick = function(event)
+	});
+	$("LoginExec").on("click", function(event)
 	{
 		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
-	}
-	var logout = document.getElementById("LogoutButton");
-	logout.onclick = function(event)
+	});
+	$("LogoutButton").on("click", function(event)
 	{
 		shell.logout();
-	}
-}
+	});
+});
 		</script>
 	</head>
-	<body onload="onLoad();" style="padding-top: 70px;">
+	<body style="padding-top: 70px;">
 		<nav class="navbar navbar-default navbar-fixed-top">
 			<div class="container-fluid">
 				<div class="navbar-header">

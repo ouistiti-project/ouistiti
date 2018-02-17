@@ -35,6 +35,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "websocket.h"
 #include "httpserver/websocket.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -44,8 +45,6 @@
 #else
 # define dbg(...)
 #endif
-
-#define AF_WEBSOCKET PF_MAX + 0x0100 /* on Linux currently 0x0129 */
 
 typedef struct _websocket_s _websocket_t;
 struct _websocket_s
