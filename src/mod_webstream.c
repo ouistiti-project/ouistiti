@@ -186,7 +186,6 @@ static void _mod_webstream_freectx(void *arg)
 		action.sa_handler = SIG_IGN;
 		sigaction(SIGCHLD, &action, NULL);
 #endif
-		waitpid(ctx->pid, NULL, 0);
 	}
 	free(ctx);
 }

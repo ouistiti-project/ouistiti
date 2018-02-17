@@ -1,10 +1,10 @@
 /*****************************************************************************
- * authz_simple.c: Check Authentication in configuration file
+ * websocket.c: socket wraper for websocket
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
- * Authors: Marc Chalain <marc.chalain@gmail.com>
+ * Authors: Marc Chalain <marc.chalain@gmail.com
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,75 +25,62 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
+#define _GNU_SOURCE
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <dlfcn.h>
 #include <stdlib.h>
-#include <string.h>
+#include <stdint.h>
 #include <stdio.h>
-#  include <pwd.h>
-
-#include "httpserver/httpserver.h"
-#include "mod_auth.h"
-#include "authz_simple.h"
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
 #define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #else
-#define dbg(...)
+# define dbg(...)
 #endif
 
-typedef authz_simple_config_t authz_simple_t;
-void *authz_simple_create(void *config)
+int ouistiti_recvaddr(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-	return config;
-}
+	int ret = -1;
+	struct msghdr msg = {0};
+	int length;
+	char buffer[256];
+	struct iovec io = { .iov_base = buffer, .iov_len = sizeof(buffer) };
+	msg.msg_iov = &io;
+	msg.msg_iovlen = 1;
 
-char *authz_simple_passwd(void *arg, char *user)
-{
-	authz_simple_t *config = (authz_simple_t *)arg;
-	if (!strcmp(user, config->user))
-		return config->passwd;
-	return NULL;
-}
+	char c_buffer[256];
+	memset(c_buffer, 0, sizeof(c_buffer));
+	msg.msg_control = c_buffer;
+	msg.msg_controllen = sizeof(c_buffer);
 
-int authz_simple_check(void *arg, char *user, char *passwd)
-{
-	authz_simple_t *config = (authz_simple_t *)arg;
-
-	if (!strcmp(user, config->user)  && !strcmp(passwd, config->passwd))
-		return 1;
-	return 0;
-}
-
-char *authz_simple_group(void *arg, char *user)
-{
-	authz_simple_t *config = (authz_simple_t *)arg;
-	if (!strcmp(user, config->user) && config->group && config->group[0] != '\0')
+	ret = recvmsg(sockfd, &msg, 0);
+	if (ret > 0)
 	{
-		return config->group;
-	}
-	if (!strcmp(user, "anonymous"))
-		return "anonymous";
-	return NULL;
-}
+		if (addrlen && addr && msg.msg_iov)
+		{
+			length = *addrlen;
+			*addrlen = msg.msg_iov[0].iov_len;
+			length = (*addrlen < length)? *addrlen: length;
+			memcpy(addr, msg.msg_iov[0].iov_base, length);
+		}
+		{
+			struct cmsghdr *cmsg;
+			unsigned char *data;
 
-char *authz_simple_home(void *arg, char *user)
-{
-	authz_simple_t *config = (authz_simple_t *)arg;
-	if (!strcmp(user, config->user) && config->home && config->home[0] != '\0')
-	{
-		return config->home;
+			cmsg = CMSG_FIRSTHDR(&msg);
+			data = CMSG_DATA(cmsg);
+			if (data)
+			{
+				ret = *(int *)data;
+				close(sockfd);
+			}
+		}
 	}
-	return NULL;
+	return ret;
 }
-
-authz_rules_t authz_simple_rules =
-{
-	.create = authz_simple_create,
-	.check = authz_simple_check,
-	.passwd = authz_simple_passwd,
-	.group = authz_simple_group,
-	.home = authz_simple_home,
-	.destroy = NULL,
-};

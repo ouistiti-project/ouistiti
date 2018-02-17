@@ -51,6 +51,12 @@ struct authz_file_config_s
 	char *path;
 };
 
+typedef struct authz_sqlite_config_s authz_sqlite_config_t;
+struct authz_sqlite_config_s
+{
+	char *dbname;
+};
+
 typedef void *(*authz_rule_create_t)(void *config);
 typedef int (*authz_rule_check_t)(void *arg, char *user, char *passwd);
 typedef char *(*authz_rule_passwd_t)(void *arg, char *user);
@@ -72,6 +78,7 @@ typedef enum
 	AUTHZ_SIMPLE_E = 1,
 	AUTHZ_FILE_E,
 	AUTHZ_UNIX_E,
+	AUTHZ_SQLITE_E,
 	AUTHZ_TYPE_MASK = 0x0F,
 	AUTHZ_HOME_E = 0x10,
 } authz_type_t;

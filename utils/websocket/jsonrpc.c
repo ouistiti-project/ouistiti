@@ -1,5 +1,5 @@
 /*****************************************************************************
- * websocket_echo.c: Simple echo server
+ * jsonrpc.c: json RPC server
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -38,6 +38,11 @@
 #include <arpa/inet.h>
 #include <sched.h>
 #include <sys/stat.h>
+#include <dlfcn.h>
+
+#include "../websocket.h"
+#include "httpserver/websocket.h"
+#include "jsonrpc.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -49,7 +54,8 @@
 
 typedef int (*server_t)(int sock);
 
-int echo(int sock)
+int jsonrpc_runner(int sock,
+	struct jsonrpc_method_entry_t *methods_table, void *methods_context)
 {
 	int ret = 0;
 
@@ -59,26 +65,37 @@ int echo(int sock)
 		FD_ZERO(&rfds);
 		FD_SET(sock, &rfds);
 
+		warn("select start");
 		ret = select(sock + 1, &rfds, NULL, NULL, NULL);
+		warn("select end");
 		if (ret > 0 && FD_ISSET(sock, &rfds))
 		{
-			char buffer[256];
-			ret = recv(sock, buffer, 256, MSG_NOSIGNAL);
+			char buffer[1500];
+			ret = recv(sock, buffer, 1500, MSG_NOSIGNAL);
+			err("recv %d", ret);
 			if (ret > 0)
 			{
+				// remove the null terminated
+				ret--;
 				printf("echo: receive %d %s\n", ret, buffer);
-				char *out = buffer;
+				char *out = jsonrpc_handler(buffer, ret, methods_table, methods_context);
 				ret = strlen(out);
 				ret = send(sock, out, ret, MSG_DONTWAIT | MSG_NOSIGNAL);
 			}
-			if (ret <= 0)
+		}
+		if (ret == 0)
+		{
+			printf("echo: close from server\n");
+			close(sock);
+			sock = -1;
+		}
+		if (ret < 0)
+		{
+			if (errno != EAGAIN)
 			{
-				if (errno != EAGAIN)
-				{
-					printf("echo: close %s\n", strerror(errno));
-					close(sock);
-					sock = -1;
-				}
+				printf("echo: close %s\n", strerror(errno));
+				close(sock);
+				sock = -1;
 			}
 		}
 	}
@@ -88,6 +105,20 @@ int echo(int sock)
 void help(char **argv)
 {
 	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
+}
+
+static char *g_library_config = NULL;
+typedef void *(*jsonrpc_init_t)(struct jsonrpc_method_entry_t **, char *config);
+typedef void (*jsonrpc_release_t)(void *ctx);
+jsonrpc_init_t jsonrpc_init = NULL;
+jsonrpc_release_t jsonrpc_release = NULL;
+int jsonrpc_server(int sock)
+{
+	struct jsonrpc_method_entry_t *table;
+	void *ctx = jsonrpc_init(&table, g_library_config);
+	int ret = jsonrpc_runner(sock, table, ctx);
+	jsonrpc_release(ctx);
+	return ret;
 }
 
 #ifndef PTHREAD
@@ -117,25 +148,23 @@ int start(server_t server, int newsock)
 #endif
 
 const char *str_username = "apache";
-#ifndef SOCKDOMAIN
-#define SOCKDOMAIN AF_UNIX
-#endif
-#ifndef SOCKPROTOCOL
-#define SOCKPROTOCOL 0
-#endif
+
 int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/ouistiti";
-	char *proto = "echo";
+	const char *root = "/var/run/ouistiti";
+	const char *name = "jsonrpc";
 	int maxclients = 50;
 	const char *username = str_username;
+	int domain = AF_UNIX;
+	int proto = 0;
+	void *lhandler = NULL;
 
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:n:R:m:h");
+		opt = getopt(argc, argv, "u:n:R:m:hrL:C:");
 		switch (opt)
 		{
 			case 'R':
@@ -152,10 +181,35 @@ int main(int argc, char **argv)
 				username = optarg;
 			break;
 			case 'n':
-				proto = optarg;
+				name = optarg;
+			break;
+			case 'r':
+				domain = AF_WEBSOCKET;
+				proto = WS_TEXT;
+			break;
+			case 'L':
+				lhandler = dlopen(optarg, RTLD_LAZY);
+				if (lhandler)
+				{
+					jsonrpc_init = (jsonrpc_init_t)dlsym(lhandler, "jsonrpc_init");
+					jsonrpc_release = (jsonrpc_release_t)dlsym(lhandler, "jsonrpc_release");
+				}
+				else
+				{
+					err("library not found: %s", dlerror());
+				}
+			break;
+			case 'C':
+				g_library_config = optarg;
 			break;
 		}
 	} while(opt != -1);
+
+	if (jsonrpc_init == NULL)
+	{
+		help(argv);
+		return -1;
+	}
 
 	if (access(root, R_OK|W_OK|X_OK))
 	{
@@ -175,13 +229,13 @@ int main(int argc, char **argv)
 		setuid(user->pw_uid);
 	}
 
-	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);
+	sock = socket(domain, SOCK_STREAM, proto);
 	if (sock > 0)
 	{
 		struct sockaddr_un addr;
 		memset(&addr, 0, sizeof(struct sockaddr_un));
 		addr.sun_family = AF_UNIX;
-		snprintf(addr.sun_path, sizeof(addr.sun_path) - 1, "%s/%s", root, proto);
+		snprintf(addr.sun_path, sizeof(addr.sun_path) - 1, "%s/%s", root, name);
 		unlink(addr.sun_path);
 
 		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
@@ -201,7 +255,7 @@ int main(int argc, char **argv)
 				printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
 				if (newsock > 0)
 				{
-					start(echo, newsock);
+					start(jsonrpc_server, newsock);
 				}
 			} while(newsock > 0);
 		}
@@ -210,5 +264,7 @@ int main(int argc, char **argv)
 	{
 		fprintf(stderr, "error : %s\n", strerror(errno));
 	}
+	if (lhandler != NULL)
+		dlclose(lhandler);
 	return ret;
 }
