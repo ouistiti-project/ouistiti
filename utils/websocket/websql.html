@@ -2,8 +2,6 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
-		<!--script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
-		<script type="text/javascript" language="javascript" src="js/jquery.min.js"></script>
 		<script language="javascript" type="text/javascript">
 class JsonRPC
 {
@@ -45,15 +43,28 @@ var websocket;
 var rpc;
 function writeToScreen(message)
 {
-	$("#output").prepend("<p>"+message+"</p>");
+	var _newLine = document.createElement("p");
+	_newLine.innerHTML = message;
+
+	var _output = document.getElementById("output");
+	_output.insertBefore(_newLine, _output.childNodes[0]);
 }
 
 function connect()
 {
-	$("#output").html("<div id=\"output\"></div>");
-	$("#wsUri").prop("readonly", true);
-	$("#input").prop("readonly", false);
-	websocket = new WebSocket($("#wsUri").val());
+	var _output = document.getElementById("output");
+	_output.innerHTML = "";
+
+	var _wsUri = document.getElementById("wsUri");
+	_wsUri.setAttribute("readonly", true);
+
+	var _input = document.getElementById("input");
+	_input.removeAttribute("readonly");
+
+	var _connect = document.getElementById("connect");
+	var _disconnect = document.getElementById("disconnect");
+
+	websocket = new WebSocket(_wsUri.value);
 	websocket.onopen = function(evt) { onOpen(evt) };
 	websocket.onclose = function(evt) { onClose(evt) };
 	websocket.onmessage = function(evt) { onMessage(evt) };
@@ -71,8 +82,17 @@ function onOpen(evt)
 }
 function onClose(evt)
 {
-	$("#wsUri").prop("readonly", false);
-	$("#input").prop("readonly", true);
+	var _wsUri = document.getElementById("wsUri");
+	_wsUri.removeAttribute("readonly");
+
+	var _input = document.getElementById("input");
+	_input.setAttribute("readonly", true);
+
+	var _connect = document.getElementById("connect");
+	_connect.removeAttribute("disable");
+	var _disconnect = document.getElementById("disconnect");
+	_disconnect.setAttribute("disable", true);
+
 	writeToScreen("DISCONNECTED");
 }
 
@@ -82,7 +102,12 @@ function onMessage(evt)
 	writeToScreen(rpc.params.query);
 	var type = typeof(rpc.result);
 	if (rpc.error != undefined)
-		writeToScreen('<span style="color: red;">ERROR: ' + rpc.error.message + '</span>');
+	{
+		if (rpc.error.message != undefined)
+			writeToScreen(rpc.error.message);
+		else
+			writeToScreen(rpc.error);
+	}
 	else if (rpc.result.length > 0)
 	{
 		var first = 1;
@@ -121,32 +146,51 @@ function onMessage(evt)
 
 function onError(evt)
 {
-	writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+	if (evt.data != undefined)
+		writeToScreen(evt.data);
+	else
+		writeToScreen("error on: "+evt.target.url+" ready state: "+evt.target.readyState);
 	websocket.close();
 }
 
-$(document).ready(function() {
-	$("#connect").on("click", connect);
-	$("#disconnect").on("click", disconnect);
-	$("#input").prop("readonly", true);
-	$("#input").on("keypress", function(e)
-		{
-			if (!e) {
-				e = window.event;
-			}
-			var keyCode = e.keyCode || e.which;
-			if (keyCode == '13'){
-				rpc = new JsonRPC("exec");
-				rpc.append("query", $(this).val());
-				var rpcstring = rpc.stringify();
-				websocket.send(rpcstring);
-			}
-		});
-});
+onLoad = function()
+{
+	var _input = document.getElementById("input");
+	_input.setAttribute("readonly", true);
+
+	var uri = "";
+	if (location.protocol === "http:")
+		uri += "ws://";
+	else if (location.protocol === "https:")
+		uri += "wss://";
+	uri += location.hostname;
+	uri += "/sql";
+	var _wsUri = document.getElementById("wsUri");
+	_wsUri.value = uri;
+
+	var _connect = document.getElementById("connect");
+	_connect.onclick = connect;
+	var _disconnect = document.getElementById("disconnect");
+	_disconnect.onclick = disconnect;
+	var _input = document.getElementById("input");
+	_input.onkeypress = function (e)
+	{
+		if (!e) {
+			e = window.event;
+		}
+		var keyCode = e.keyCode || e.which;
+		if (keyCode == '13'){
+			rpc = new JsonRPC("exec");
+			rpc.append("query", this.value);
+			var rpcstring = rpc.stringify();
+			websocket.send(rpcstring);
+		}
+	}.bind(_input);
+}
 
 		</script>
 	</head>
-	<body>
+	<body onload="onLoad();">
 		<xmp>
 create table groups("group" TEXT UNIQUE);
 create table users("name" TEXT UNIQUE,"passwd","group" INTEGER FOREIGN KEY);
