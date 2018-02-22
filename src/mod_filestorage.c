@@ -108,10 +108,20 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		}
 		else
 		{
-			private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
+			if (private->size > private->offset)
+			{
+				char range[20];
+				sprintf(range, "bytes %d/*", private->size);
+				httpmessage_addheader(response, "Content-Range", range);
+			}
+			else
+				private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
 			if (private->fd > 0)
 			{
+				if (private->offset > 0)
+					lseek(private->fd, private->offset, SEEK_CUR);
 				ret = EINCOMPLETE;
+				httpmessage_addcontent(response, "text/json", NULL, -1);
 			}
 			else
 			{
@@ -119,10 +129,17 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
 				httpmessage_appendcontent(response, private->path_info, -1);
 				httpmessage_appendcontent(response, "\"}", -1);
-#if defined RESULT_403
-				httpmessage_result(response, RESULT_403);
+				if (private->size > 0)
+#if defined RESULT_416
+					httpmessage_result(response, RESULT_416);
 #else
-				httpmessage_result(response, RESULT_400);
+					httpmessage_result(response, RESULT_400);
+#endif
+				else
+#if defined RESULT_403
+					httpmessage_result(response, RESULT_403);
+#else
+					httpmessage_result(response, RESULT_400);
 #endif
 				ret = ESUCCESS;
 				private->fd = 0;
@@ -136,16 +153,24 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	 */
 	else if (private->fd > 0)
 	{
+#ifdef DEBUG
+		static int filesize = 0;
+#endif
 		char *input;
 		int inputlen;
 		int rest;
 		rest = httpmessage_content(request, &input, &inputlen);
-		if (inputlen > 0 && rest > 0)
+
+		if (inputlen > 0)
 		{
-			write(private->fd, input, inputlen);
-			ret = EINCOMPLETE;
+#ifdef DEBUG
+			filesize += inputlen;
+#endif
+			ret = write(private->fd, input, inputlen);
 		}
-		else
+		if (rest == EINCOMPLETE)
+			ret = EINCOMPLETE;
+		else if (rest < 1)
 		{
 			httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
 			httpmessage_appendcontent(response, private->path_info, -1);
@@ -321,6 +346,8 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 			}
 			else if (!strcmp(method, "PUT"))
 			{
+				private->size = filestat.st_size;
+				private->offset = 0;
 				private->func = putfile_connector;
 			}
 			else if (!strcmp(method, "POST"))

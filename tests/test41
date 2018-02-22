@@ -1,4 +1,5 @@
-DESC="test to put file on the server"
+DESC="test to PUT file on the server"
+PREPARE="rm -f tests/htdocs/test41.txt"
 CONFIG=test10.conf
 TESTREQUEST=test41_rq.txt
 TESTCODE=200

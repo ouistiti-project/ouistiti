@@ -172,6 +172,7 @@ int main(int argc, char * const *argv)
 	int serverid = -1;
 
 	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	httpserver_software = servername;
 

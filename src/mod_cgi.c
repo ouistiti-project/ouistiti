@@ -528,11 +528,11 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		int inputlen;
 		int rest;
 		rest = httpmessage_content(request, &input, &inputlen);
-		if (rest > 0)
+		if (inputlen > 0)
 		{
 			write(ctx->tocgi[1], input, inputlen);
 		}
-		else
+		else if (rest != EINCOMPLETE)
 			ctx->state = STATE_INFINISH;
 		if (ctx->state == STATE_INFINISH)
 		{
