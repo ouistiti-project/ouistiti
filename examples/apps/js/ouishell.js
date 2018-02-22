@@ -15,6 +15,11 @@ class User
 			documents:"/Documents",
 			private:"/Private"
 		};
+		this.mimes = 
+		[
+			{ type:"image/*",appli:"ouialbum.html"},
+			{ type:"audio/*",appli:"ouiplaymusic.html"}
+		];
 	}
 };
 
@@ -246,7 +251,7 @@ class Open
 		xhr.send();
 	}
 
-	go(target)
+	go(target, application)
 	{
 		var targetlocation = target.split("://");
 		var scheme;
@@ -271,7 +276,14 @@ class Open
 		{
 			case "http":
 			case "https":
-				window.open(scheme+"://"+hostname+pathname);
+				if (application)
+				{
+					var applipath = location.pathname.match( /.*\// );
+					var url = scheme+"://"+hostname+applipath+"/"+application+"?file="+pathname;
+					window.open(url);
+				}
+				else
+					window.open(scheme+"://"+hostname+pathname);
 			break;
 		}
 	}
@@ -507,9 +519,11 @@ class UpLoader
 	{
 		const xhr = this.uploadXHR;
 
-		xhr.onprogess = function(event)
+		xhr.upload.onprogress = function(event)
 		{
-		}
+			if (this.onprogress != undefined)
+				this.onprogress(event.loaded / event.total * 100);
+		}.bind(this);
 		xhr.onreadystatechange = function()
 		{
 			if (xhr.readyState === XMLHttpRequest.DONE)
@@ -520,6 +534,11 @@ class UpLoader
 					if (this.onupload != undefined)
 						this.onupload.call(this, JSON.parse(xhr.responseText));
 					this.file = undefined;
+				}
+				else if (xhr.status === 416)
+				{
+					if (this.onerror != undefined)
+						this.onerror.call(this, "File already exists");
 				}
 				else if (xhr.status === 403 || xhr.status === 401)
 				{
@@ -571,6 +590,7 @@ class Shell
 		this.directories =
 		{
 			image:"/public/images",
+			music:"/public/musics",
 			share:"/public",
 			documents:"/",
 			private:"/private"
@@ -583,17 +603,17 @@ class Shell
 		if (root)
 		{
 			root = root.split("=")[1];
-			if (root.lastIndexOf('/') != root.length - 1)
-				root += '/';
-			this.root += root.replace(/\\/g,'/').replace(/^\/?|\/?$/, '');
-			if (this.root == "/")
-				this.root = "";
 		}
 		else
 		{
 			//remove the last part of the pathname, the name of the file and the rest...
-			this.root += location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
+			root = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
 		}
+		if (root.lastIndexOf('/') != root.length - 1)
+			root += '/';
+		this.root += root.replace(/\\/g,'/').replace(/^\/?|\/?$/, '');
+		if (this.root == "/")
+			this.root = "";
 		var cwd = search.find(function(elem){
 				return elem.startsWith("cwd=");
 			});
@@ -618,6 +638,8 @@ class Shell
 		{
 			if (this.onnotfound != undefined)
 				this.onnotfound.call(this, file);
+			else if (this.onerror != undefined)
+				this.onerror.call(this, "File not found");
 		}.bind(this);
 		this.open.onerror = function(status)
 		{
@@ -638,6 +660,7 @@ class Shell
 		}.bind(this);
 		this.uploader = new UpLoader(this.root);
 		this.onput = undefined;
+		this.onprogress = undefined;
 		this.uploader.onload = function(file)
 		{
 			var ret = true;
@@ -790,10 +813,21 @@ class Shell
 		this.open.exec(this.authorization);
 		return id;
 	}
-	launch(file)
+	launch(file, mime)
 	{
+		var application = undefined;
 		this.open.open(this.cwd);
-		this.open.go(file);
+		var i;
+		for (i = 0; i < this.user.mimes.length; i++)
+		{
+			var regexp = new RegExp(this.user.mimes[i].type);
+			if (regexp.test(mime))
+			{
+				application = this.user.mimes[i].appli;
+				break;
+			}
+		}
+		this.open.go(file, application);
 	}
 	rm(filename)
 	{
@@ -1015,6 +1049,14 @@ class Shell
 			if (this.oncompleted != undefined)
 			{
 				this.oncompleted(id);
+			}
+			this.uploader.onprogress = undefined;
+		}.bind(this);
+		this.uploader.onprogress = function(percent)
+		{
+			if (this.onprogress != undefined)
+			{
+				this.onprogress(id, percent);
 			}
 		}.bind(this);
 		this.uploader.open(this.cwd);

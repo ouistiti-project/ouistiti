@@ -14,11 +14,13 @@
 		<script type="text/javascript" src="js/bootstrap.min.js"></script>
 		<script type="text/javascript" src="js/ouishell.js"></script>
 		<script type="text/javascript">
+var upload_id = 0;
+var upload_file = "";
 function startRead(evt) {
     //var file = document.getElementById("file").files[0];
     var file = evt.target.files[0];
     if (file) {
-		shell.put(file);
+		upload_id = shell.put(file);
     }
     evt.stopPropagation();
     evt.preventDefault();
@@ -33,28 +35,9 @@ function startReadFromDrag(evt) {
     evt.preventDefault();
 }
 
-function downloadFile(filepath)
+function launchlink(elem)
 {
-
-	var downloader = new Open(shell.root);
-	var file = new Blob();
-	file.name = filepath;
-	downloader.open(shell.cwd);
-	downloader.set(file);
-	downloader.onload = function (file)
-	{
-		var download = document.createElement("a");
-		if (file.name.substr(0,2) == '$a')
-		{
-			file.name = window.atob(file.name.substr(2));
-		}
-		var url = window.URL.createObjectURL(file);
-		download.href = url;
-		download.download = file.name
-		download.click();
-		window.URL.revokeObjectURL(url);
-	}
-	downloader.exec(shell.authorization);
+	shell.launch($(elem).data("href"), $(elem).data("mime"));
 }
 
 var shell = new Shell("");
@@ -64,12 +47,12 @@ shell.onchange = function(content)
 	changedir.innerHTML = "";
 	var elm = document.createElement("li");
 	elm.innerHTML="<a href='#' class='glyphicon glyphicon-home hidden-text' onclick='shell.cd(\"/\")'> </a>";
-	var directories = this.cwd.split('/');
+	var directories = unescape(this.cwd).split('/');
 	var directory = "";
 	for (i = 0; i < directories.length; i++) {
 		if (directories[i].length > 0)
 		{
-			directory+="/"+directories[i];
+			directory+="/"+escape(directories[i]);
 			changedir.appendChild(elm);
 			elm = document.createElement("li");
 			//elm.className="col-xs-2";
@@ -81,17 +64,35 @@ shell.onchange = function(content)
 
 	if (content.length == 0)
 	{
-		$("#Message").html("<strong>Empty directory</strong>");
+		$("#Message").find("div.text").html("<strong>Empty directory</strong>");
 		$("#Message").removeClass("hidden");
 	}
 	else
 	{
-		$("#Message").html();
+		$("#Message").find("div.text").html();
 		$("#Message").addClass("hidden");
 	}
+	if (upload_id != 0)
+	{
+		$("#Message").find("div.text").html("Upload : "+ upload_file);
+		$("#Message").removeClass("hidden");
+		$("#Progress").removeClass("hidden");		
+	}
+
 	var ls = document.getElementById("ls");
 	ls.innerHTML = "";
 
+	content.sort(function (a,b)
+		{
+			if (a.type == b.type)
+			{
+				return a.name.localeCompare(b.name);
+			}
+			else
+			{
+				return a.type - b.type;
+			}
+		});
 	for (i = 0; i < content.length; i++) {
 		var elm = document.createElement("li");
 		elm.className = "list-group-item row";
@@ -99,11 +100,13 @@ shell.onchange = function(content)
 		var hidden = "";
 		if (!shell.authenticate.islog || shell.user == undefined)
 			hidden=" hidden";
-		var downloadmenu =	"<li class=''><a href='#' data-href=\""+content[i].name+"\" onclick='downloadFile(\""+content[i].name+"\");'><span class='glyphicon glyphicon-download'></span> download</a></li>"
-		var deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.rm(\""+content[i].name+"\");'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
-		var renamemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
-		var copymenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" onclick='shell.cp(\""+content[i].name+"\");'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
-		var sharemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+content[i].name+"\" data-toggle='modal' data-target='#ShareBox'><span class='glyphicon glyphicon-share'></span> share</a></li>"
+		var escapingname = escape(content[i].name);
+		//var downloadmenu =	"<li class=''><a href='#' data-href=\""+escapingname+"\" onclick='downloadFile(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-download'></span> download</a></li>"
+		var downloadmenu =	"<li class=''><a href=\""+shell.root+"/"+shell.cwd+"/"+escapingname+"\" download><span class='glyphicon glyphicon-download'></span> download</a></li>"
+		var deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" onclick='shell.rm(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
+		var renamemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
+		var copymenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" onclick='shell.cp(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
+		var sharemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" data-toggle='modal' data-target='#ShareBox'><span class='glyphicon glyphicon-share'></span> share</a></li>"
 
 		var dropmenu 	= "<ul class='dropdown-menu' aria-labelledby='menu"+i+"'>"
 
@@ -116,22 +119,24 @@ shell.onchange = function(content)
 		if (content[i].type == 4)
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-folder-open col-xs-1 center'></span>";
-			elm.innerHTML += "<span class='name col-xs-6'><a href='#' data-mime='"+mime+"' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
+			elm.innerHTML += "<span class='name col-sm-8 col-xs-10'><a href='#' data-mime='"+mime+"' data-href='"+this.cwd+"/"+escapingname+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
 			dropmenu	+= deletemenu+renamemenu;
+			elm.innerHTML += "<span class='col-sm-2 hidden-xs col-pull-right center'></span>";
 		}
 		else if (content[i].type == 8)
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-file col-xs-1 center'></span>";
-			elm.innerHTML += "<span class='name col-xs-6'><a href='#' data-mime='"+mime+"' data-href=\""+content[i].name+"\" onclick='shell.launch(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></span>";
+			elm.innerHTML += "<span class='name col-sm-8 col-xs-10'><a href='#' data-mime='"+mime+"' data-href=\""+escapingname+"\" onclick='launchlink(this)'>"+content[i].name+"</a></span>";
 			dropmenu	+= downloadmenu+deletemenu+renamemenu+copymenu+sharemenu;
+			elm.innerHTML += "<span class='col-sm-2 hidden-xs col-pull-right center'>"+content[i].size+"</span>";
 		}
 		else
 		{
 			elm.innerHTML = "<span class='glyphicon glyphicon-link col-xs-1'></span>";
-			elm.innerHTML += "<span class='name col-xs-6' data-mime='"+mime+"'>"+content[i].name+"</span>";
+			elm.innerHTML += "<span class='name col-sm-8 col-xs-10' data-mime='"+mime+"'>"+content[i].name+"</span>";
 			dropmenu	+= downloadmenu+deletemenu+renamemenu+copymenu+sharemenu;
+			elm.innerHTML += "<span class='col-sm-2 hidden-xs col-pull-right center'>"+content[i].size+"</span>";
 		}
-		elm.innerHTML += "<span class='col-xs-2 col-pull-right center'>"+content[i].size+"</span>";
 
 		dropmenu	+= "</ul>";
 		var dropdown 	= "<span class='dropdown'><button href='#' id='menu"+i+"' class='btn btn-default dropdown-toggle' data-toggle='dropdown' role='button' aria-haspopup='true' aria-expanded='false'><span class='glyphicon glyphicon-list'></span></button>"+dropmenu+"</span>";
@@ -142,6 +147,12 @@ shell.onchange = function(content)
 shell.onput = function(file)
 {
 	var ret = confirm("upload "+file.name);
+	if (ret)
+	{
+		upload_file = file.name;
+		$("#Message").removeClass("hidden").find("div.text").html("Upload : "+ upload_file);
+		$("#Progress").removeClass("hidden");
+	}
 	return ret;
 }
 shell.onbegin = function(id)
@@ -150,11 +161,26 @@ shell.onbegin = function(id)
 }
 shell.oncompleted = function(id)
 {
+	if (upload_id == id)
+	{
+		$("#Progress").addClass("hidden");
+		upload_id = 0;
+		upload_file = "";
+	}
 	$("#ReloadButton").removeClass("btn-warning");
 	shell.ls();
 }
+shell.onprogress = function(id, percent)
+{
+	var message = $("#Message");
+	var progress = $("#Progress");
+	var progressbar = progress.find("div[role=progressbar]");
+	progressbar[0].style.width = ""+percent+"%"
+}
 shell.onerror = function(status)
 {
+	$("#Progress").addClass("hidden");
+	updload_id = 0;
 	$("#ReloadButton").removeClass("btn-warning");
 	shell.ls();
 }
@@ -212,18 +238,18 @@ $(document).ready(function()
 		shell.cd(shell.user.directories.documents);
 
 	var fileselector = document.getElementById("UploadStart");
-	$("UploadStart").on("change", startRead);
+	$("#UploadStart").on("change", startRead);
 
-	$("ReloadButton").on("click", function(event)
+	$("#ReloadButton").on("click", function(event)
 	{
 		$("#ReloadButton").removeClass("btn-warning");
 		shell.ls();
 	});
-	$("LoginExec").on("click", function(event)
+	$("#LoginExec").on("click", function(event)
 	{
 		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
 	});
-	$("LogoutButton").on("click", function(event)
+	$("#LogoutButton").on("click", function(event)
 	{
 		shell.logout();
 	});
@@ -301,7 +327,13 @@ $(document).ready(function()
 			</div>
 		</nav>
 		<div class="container">
-			<div id="Message" class="row hidden alert alert-warning"></div>
+			<div id="Message" class="row hidden alert alert-warning">
+				<div class="text"></div>
+				<div id="Progress" class="row hidden progress">
+					<div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+					</div>
+				</div>
+			</div>
 			<ul class="list-group" id="ls"></ul>
 		</div>
 		
@@ -495,13 +527,13 @@ $('#ShareBox').on('show.bs.modal', function (event)
 						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 						<h4 class="modal-title" id="LoginLabel">Login</h4>
 					</div>
-					<div class="modal-body">
-						<form class="form-group" aria-describedby="LoginResult" id="LoginArea">
+					<form class="form-group" aria-describedby="LoginResult" id="LoginArea">
+						<div class="modal-body">
 							<span id="LoginResult"  class="help-block hidden"></span>
 							<div class="form-group">
 								<div class="input-group">
 									<span class="input-group-addon" id="UserField">User</span>
-									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" >
+									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" autofocus>
 								</div>
 							</div>
 							<div class="form-group">
@@ -510,12 +542,12 @@ $('#ShareBox').on('show.bs.modal', function (event)
 									<input type="password" class="form-control" placeholder="name" aria-describedby="PasswordField" id="LoginPassword" >
 								</div>
 							</div>
-						</form>
-					</div>
-					<div class="modal-footer">
-						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-						<button type="button" class="btn btn-primary" id="LoginExec">Login</button>
-					</div>
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+							<button type="submit" class="btn btn-primary" id="LoginExec">Login</button>
+						</div>
+					</form>
 				</div>
 			</div>
 		</div>
