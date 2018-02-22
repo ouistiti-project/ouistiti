@@ -185,7 +185,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 }
 
 typedef int (*changefunc)(const char *oldpath, const char *newpath);
-static int changename(mod_static_file_t *config, char *oldpath, char *newname, changefunc func)
+static int changename(mod_static_file_t *config, char *oldpath, const char *newname, changefunc func)
 {
 	int ret = -1;
 	if (newname && newname[0] != '\0')
@@ -210,23 +210,23 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 
 	warn("change %s", private->filepath);
 	char *result = (char *)str_KO;
-	char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
+	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
 	if (cmd && !strcmp("mv", cmd))
 	{
-		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (!changename(config, private->filepath, arg, rename))
 			result = (char *)str_OK;
 	}
 	else if (cmd && !strcmp("chmod", cmd))
 	{
-		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		int mod = atoi(arg);
 		if (!chmod(private->filepath, mod))
 			result = (char *)str_OK;
 	}
 	else if (cmd && !strcmp("ln", cmd))
 	{
-		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (!changename(config, private->filepath, arg, symlink))
 			result = (char *)str_OK;
 	}
@@ -286,11 +286,11 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 		struct stat filestat;
 		if (private->path_info)
 			free(private->path_info);
-		char *uri = httpmessage_REQUEST(request,"uri");
+		const char *uri = httpmessage_REQUEST(request,"uri");
 		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;
-		char *method = httpmessage_REQUEST(request, "method");
+		const char *method = httpmessage_REQUEST(request, "method");
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
 		if ((private->filepath == NULL) && (!strcmp(method, "PUT")))
 		{
@@ -304,7 +304,7 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 				if (S_ISDIR(filestat.st_mode))
 				{
 					int length = strlen(private->path_info);
-					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+					const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 					if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) ||
 						(private->path_info[length - 1] != '/'))
 					{

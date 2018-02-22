@@ -243,10 +243,10 @@ static void _mod_auth_freectx(void *vctx)
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	char *home = httpmessage_SESSION(request, "%authhome", NULL);
+	const char *home = httpmessage_SESSION(request, "%authhome", NULL);
 	if (home)
 	{
-		char *websocket = httpmessage_REQUEST(request, "Sec-WebSocket-Version");
+		const char *websocket = httpmessage_REQUEST(request, "Sec-WebSocket-Version");
 		if (websocket && websocket[0] != '\0')
 			return ret;
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
@@ -275,8 +275,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
-	char *authorization = NULL;
-	char *uriencoded = httpmessage_REQUEST(request, "uri");
+	const char *authorization = NULL;
+	const char *uriencoded = httpmessage_REQUEST(request, "uri");
 	char *uri = utils_urldecode(uriencoded);
 	int protect = 1;
 	protect = utils_searchexp(uri, config->protect);
@@ -325,8 +325,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			char *authentication = strchr(authorization, ' ');
 			if (authentication)
 				authentication++;
-			char *method = httpmessage_REQUEST(request, "method");
-			char *user = mod->authn->rules->check(mod->authn->ctx, method, authentication);
+			const char *method = httpmessage_REQUEST(request, "method");
+			char *user = mod->authn->rules->check(mod->authn->ctx, (char *)method, authentication);
 			if (user != NULL)
 			{
 				warn("user \"%s\" accepted from %p", user, ctx->ctl);
@@ -362,7 +362,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (ret == ESUCCESS)
 		{
 			dbg("auth challenge failed");
-			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+			const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
 			{
 #if defined(RESULT_403)

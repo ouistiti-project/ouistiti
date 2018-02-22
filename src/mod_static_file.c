@@ -92,7 +92,7 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		struct stat filestat;
 		if (private->path_info)
 			free(private->path_info);
-		char *uri = httpmessage_REQUEST(request,"uri");
+		const char *uri = httpmessage_REQUEST(request,"uri");
 		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;

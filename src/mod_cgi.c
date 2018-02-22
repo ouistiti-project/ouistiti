@@ -340,7 +340,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		char **env = NULL;
 
 		int i = 0;
-		char *uri = httpmessage_REQUEST(request, "uri");
+		const char *uri = httpmessage_REQUEST(request, "uri");
 		char *query = strchr(uri,'?');
 
 		env = calloc(sizeof(char *), NBENVS + ctx->mod->config->nbenvs + 1);
@@ -348,7 +348,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		{
 			int length = strlen(cgi_env[i].target) + cgi_env[i].length;
 			env[i] = (char *)calloc(1, length + 1);
-			char *value = NULL;
+			const char *value = NULL;
 			switch (i)
 			{
 				case DOCUMENT_ROOT:
@@ -618,7 +618,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		/**
 		 * RFC 3875 : 6.2.3
 		 */
-		char *location = httpmessage_REQUEST(response, str_location);
+		const char *location = httpmessage_REQUEST(response, str_location);
 		if (location != NULL && location[0] != '\0')
 			httpmessage_result(response, RESULT_302);
 #endif

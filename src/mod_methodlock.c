@@ -62,7 +62,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
 	int ret = ESUCCESS;
 
-	char *method = httpmessage_REQUEST(request, "method");
+	const char *method = httpmessage_REQUEST(request, "method");
 	switch (httpmessage_isprotected(request))
 	{
 	case -1:
@@ -82,7 +82,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 	break;
 	default:
 	{
-		char *group = httpmessage_SESSION(request, "%authgroup",NULL);
+		const char *group = httpmessage_SESSION(request, "%authgroup",NULL);
 		if (group && group[0] != '\0')
 		{
 			int length = strlen(group);
