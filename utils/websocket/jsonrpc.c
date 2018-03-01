@@ -164,7 +164,11 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
+#ifdef WEBSOCKET_RT
 		opt = getopt(argc, argv, "u:n:R:m:hrL:C:");
+#else
+		opt = getopt(argc, argv, "u:n:R:m:hL:C:");
+#endif
 		switch (opt)
 		{
 			case 'R':

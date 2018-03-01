@@ -144,36 +144,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 		ret = std_accept(sockfd, NULL, NULL);
 		if (ret > 0)
 		{
-			struct msghdr msg = {0};
-			int length;
-			char buffer[256];
-			struct iovec io = { .iov_base = buffer, .iov_len = sizeof(buffer) };
-			msg.msg_iov = &io;
-			msg.msg_iovlen = 1;
-
-			char c_buffer[256];
-			memset(c_buffer, 0, sizeof(c_buffer));
-			msg.msg_control = c_buffer;
-			msg.msg_controllen = sizeof(c_buffer);
-
-			recvmsg(ret, &msg, 0);
-
-			if (addrlen && addr && msg.msg_iov)
-			{
-				length = *addrlen;
-				*addrlen = msg.msg_iov[0].iov_len;
-				length = (*addrlen < length)? *addrlen: length;
-				memcpy(addr, msg.msg_iov[0].iov_base, length);
-			}
-			{
-				struct cmsghdr *cmsg;
-				unsigned char *data;
-
-				cmsg = CMSG_FIRSTHDR(&msg);
-				data = CMSG_DATA(cmsg);
-				if (data)
-					ret = *(int *)data;
-			}
+			ret = ouistiti_recvaddr(ret, addr, addrlen);
 		}
 		if (ret > 0)
 		{
