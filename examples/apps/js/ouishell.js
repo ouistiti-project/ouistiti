@@ -137,7 +137,11 @@ class Authenticate
 					if (this.onauthorization != undefined)
 						this.onauthorization.call(this, this.user);
 				}
-				else if (xhr.status === 403)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+				if (xhr.status === 403)
 				{
 					var challenge = xhr.getResponseHeader("WWW-Authenticate");
 					this.authorization = undefined;
@@ -156,6 +160,8 @@ class Authenticate
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -215,7 +221,12 @@ class Open
 						this.onload.call(this, xhr.response);
 					}
 				}
-				else if (xhr.status === 403)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+			
+				if (xhr.status === 403)
 				{
 					if (this.onauthenticate != undefined)
 						this.onauthenticate.call(this, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -225,7 +236,7 @@ class Open
 					if (this.onnotfound != undefined)
 					{
 						var url = document.createElement('a');
-						url .href = xhr.responseURL;
+						url.href = xhr.responseURL;
 						this.onnotfound.call(this, url);
 					}
 				}
@@ -233,6 +244,8 @@ class Open
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -251,7 +264,7 @@ class Open
 		xhr.send();
 	}
 
-	go(target, application)
+	go(target, search)
 	{
 		var targetlocation = target.split("://");
 		var scheme;
@@ -276,14 +289,7 @@ class Open
 		{
 			case "http":
 			case "https":
-				if (application)
-				{
-					var applipath = location.pathname.match( /.*\// );
-					var url = scheme+"://"+hostname+applipath+"/"+application+"?file="+pathname;
-					window.open(url);
-				}
-				else
-					window.open(scheme+"://"+hostname+pathname);
+				window.open(scheme+"://"+hostname+pathname+search);
 			break;
 		}
 	}
@@ -334,7 +340,11 @@ class Remove
 						this.onload.call(this, this.file);
 					}
 				}
-				else if (xhr.status === 403)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+				if (xhr.status === 403)
 				{
 					if (this.onauthenticate != undefined)
 						this.onauthenticate.call(this, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -348,6 +358,8 @@ class Remove
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -426,7 +438,11 @@ class Change
 						this.onload.call(this, file);
 					}
 				}
-				else if (xhr.status === 403)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+				if (xhr.status === 403)
 				{
 					if (this.onauthenticate != undefined)
 						this.onauthenticate.call(this, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -440,6 +456,8 @@ class Change
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -522,7 +540,7 @@ class UpLoader
 		xhr.upload.onprogress = function(event)
 		{
 			if (this.onprogress != undefined)
-				this.onprogress(event.loaded / event.total * 100);
+				this.onprogress(event.loaded, event.total);
 		}.bind(this);
 		xhr.onreadystatechange = function()
 		{
@@ -535,12 +553,11 @@ class UpLoader
 						this.onupload.call(this, JSON.parse(xhr.responseText));
 					this.file = undefined;
 				}
-				else if (xhr.status === 416)
-				{
-					if (this.onerror != undefined)
-						this.onerror.call(this, "File already exists");
-				}
-				else if (xhr.status === 403 || xhr.status === 401)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+				if (xhr.status === 403 || xhr.status === 401)
 				{
 					if (this.onauthenticate != undefined)
 						this.onauthenticate.call(this, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -558,6 +575,8 @@ class UpLoader
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -674,11 +693,6 @@ class Shell
 			this.authenticate.challenge = challenge;
 			if (this.onauthenticate != undefined)
 				this.onauthenticate.call(this, challenge, result);
-		}.bind(this);
-		this.uploader.onerror = function(status)
-		{
-			if (this.onerror != undefined)
-				this.onerror(status);
 		}.bind(this);
 		this.change = new Change(this.root);
 		this.authenticate = new Authenticate("Basic");
@@ -823,11 +837,15 @@ class Shell
 			var regexp = new RegExp(this.user.mimes[i].type);
 			if (regexp.test(mime))
 			{
-				application = this.user.mimes[i].appli;
+				var path = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
+				application = "/"+path+"/"+this.user.mimes[i].appli;
 				break;
 			}
 		}
-		this.open.go(file, application);
+		if (application != undefined)
+			this.open.go(application,"?root="+this.root+"&cwd="+this.cwd+"&file="+file);
+		else
+			this.open.go(file,"");
 	}
 	rm(filename)
 	{
@@ -1052,11 +1070,20 @@ class Shell
 			}
 			this.uploader.onprogress = undefined;
 		}.bind(this);
-		this.uploader.onprogress = function(percent)
+		this.uploader.onerror = function(status)
+		{
+			if (this.onerror != undefined)
+				this.onerror(status);
+			if (this.oncompleted != undefined)
+			{
+				this.oncompleted(id);
+			}
+		}.bind(this);
+		this.uploader.onprogress = function(loaded, total)
 		{
 			if (this.onprogress != undefined)
 			{
-				this.onprogress(id, percent);
+				this.onprogress(id, (loaded / total) * 100, loaded, total);
 			}
 		}.bind(this);
 		this.uploader.open(this.cwd);

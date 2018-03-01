@@ -22,13 +22,14 @@ shell.onchange = function(content)
 	var indicators = carousel.find("ol.carousel-indicators").html("");
 	var inner = carousel.find("div.carousel-inner").html("");
 	var albumslist = $("#AlbumsList").html("");
-	var elm = "<li><a href='#' data-href='"+escape(this.cwd)+"/..' onclick='shell.cd(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-arrow-left'>back</span></a></li>";
+	var elm = "<li><a href='#' data-href='"+encodeURIComponent(this.cwd)+"/..' onclick='shell.cd(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-arrow-left'>back</span></a></li>";
 	albumslist.append(elm);	
 	var startid = 0;
 	for (i = 0; i < content.length; i++) {
+		var escapingname = encodeURIComponent(content[i].name);
 		if (content[i].type == 4)
 		{
-			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+escape(content[i].name)+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
+			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+escapingname+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
 			albumslist.append(elm);
 		}
 		else if (content[i].type == 8)
@@ -40,7 +41,7 @@ shell.onchange = function(content)
 				var elm = "<li data-target='#Album' data-slide-to='"+i+"' class=''></li>";
 				indicators.append(elm);
 				var img = "<div data-slide-to='"+i+"' class='item '>";
-				img += "<img src='"+shell.root+"/"+shell.cwd+"/"+escape(content[i].name)+"' class='img-rounded' alt='"+escape(content[i].name)+"' style='float: none; margin: 0 auto;max-height: 800px'>";
+				img += "<img src='"+shell.root+"/"+shell.cwd+"/"+escapingname+"' class='img-rounded' alt='"+escapingname+"' style='float: none; margin: 0 auto;max-height: 800px'>";
 				img += "</div>";
 				inner.append(img);
 				$("#Message").html("");

@@ -20,7 +20,6 @@ shell.onchange = function(content)
 	$("#Message").html("<strong>Empty directory</strong>");
 	$("#Message").removeClass("hidden");
 
-	var imageExt = ["mp3","ac3","ogg"];
 	var playlist = $("#PlayList").html("");
 	var albumslist = $("#AlbumsList").html("");
 	var elm = "<li><a href='#' data-href='"+this.cwd+"/..' onclick='shell.cd(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-arrow-left'>back</span></a></li>";
@@ -37,20 +36,20 @@ shell.onchange = function(content)
 				return a.type - b.type;
 			}
 		});
-	for (i = 0; i < content.length; i++) {
+	for (i = 0; i < content.length; i++)
+	{
+		var escapingname = encodeURIComponent(content[i].name);
 		if (content[i].type == 4)
 		{
-			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+escape(content[i].name)+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
+			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+escapingname+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
 			albumslist.append(elm);
 		}
 		else if (content[i].type == 8)
 		{
 			var name = content[i].name.split('.');
-			var ext = name[name.length - 1].toLowerCase();
-			if (imageExt.indexOf(ext) != -1)
+			if (content[i].mime.startsWith("audio/"))
 			{
-				var type = "audio/mpeg";
-				var elm = "<a class='list-group-item' href='#' data-type='"+type+"' data-href='"+this.root+"/"+this.cwd+"/"+escape(content[i].name)+"' onclick='musicplay("+itemcount+");'>"+name[0]+"</a>";
+				var elm = "<a class='list-group-item' href='#' data-type='"+content[i].mime+"' data-href='"+this.root+"/"+this.cwd+"/"+escapingname+"' onclick='musicplay("+itemcount+");'>"+name[0]+"</a>";
 				itemcount += 1;
 				playlist.append(elm);
 				$("#Message").html("");
@@ -117,15 +116,15 @@ shell.onauthorization = function(user)
 	if (location.search.indexOf("file=") > 0)
 	{
 		var pos = location.search.indexOf("file=") + 5;
-		var end = location.search.indexOf("&");
+		var filepath = location.search.substring(pos);		
+		var end = filepath.indexOf("&");
 		if (end == -1)
 			end = undefined;
-		var filepath = location.search.substring(pos, end);
+		filepath = location.search.substring(pos,end);
 		pos = filepath.indexOf(shell.root);
 		if (pos == 0)
 			filepath = filepath.substring(shell.root.length);
 		startfile = filepath.replace( /.*\//, '');
-		shell.cd(filepath.match( /.*\// )[0]);
 	}
 	$("#LoginBox").modal('hide');
 	shell.ls();

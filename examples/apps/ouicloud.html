@@ -14,13 +14,27 @@
 		<script type="text/javascript" src="js/bootstrap.min.js"></script>
 		<script type="text/javascript" src="js/ouishell.js"></script>
 		<script type="text/javascript">
-var upload_id = 0;
-var upload_file = "";
+class UploadFile
+{
+	constructor (id, file)
+	{
+		this.id = id;
+		this.file = file;
+	}
+};
+var upload = undefined;
 function startRead(evt) {
     //var file = document.getElementById("file").files[0];
     var file = evt.target.files[0];
-    if (file) {
-		upload_id = shell.put(file);
+    if (upload && upload.error != undefined)
+    {
+		delete upload;
+		upload = undefined;
+	}
+    if (file && upload == undefined)
+    {
+		var upload_id = shell.put(file);
+		upload = new UploadFile(upload_id, file);
     }
     evt.stopPropagation();
     evt.preventDefault();
@@ -47,12 +61,12 @@ shell.onchange = function(content)
 	changedir.innerHTML = "";
 	var elm = document.createElement("li");
 	elm.innerHTML="<a href='#' class='glyphicon glyphicon-home hidden-text' onclick='shell.cd(\"/\")'> </a>";
-	var directories = unescape(this.cwd).split('/');
+	var directories = decodeURIComponent(this.cwd).split('/');
 	var directory = "";
 	for (i = 0; i < directories.length; i++) {
 		if (directories[i].length > 0)
 		{
-			directory+="/"+escape(directories[i]);
+			directory+="/"+encodeURIComponent(directories[i]);
 			changedir.appendChild(elm);
 			elm = document.createElement("li");
 			//elm.className="col-xs-2";
@@ -72,11 +86,10 @@ shell.onchange = function(content)
 		$("#Message").find("div.text").html();
 		$("#Message").addClass("hidden");
 	}
-	if (upload_id != 0)
+	if (upload != undefined)
 	{
-		$("#Message").find("div.text").html("Upload : "+ upload_file);
+		$("#Message").find("div.text").html("Upload : "+ upload.file.name);
 		$("#Message").removeClass("hidden");
-		$("#Progress").removeClass("hidden");		
 	}
 
 	var ls = document.getElementById("ls");
@@ -100,7 +113,7 @@ shell.onchange = function(content)
 		var hidden = "";
 		if (!shell.authenticate.islog || shell.user == undefined)
 			hidden=" hidden";
-		var escapingname = escape(content[i].name);
+		var escapingname = encodeURIComponent(content[i].name);
 		//var downloadmenu =	"<li class=''><a href='#' data-href=\""+escapingname+"\" onclick='downloadFile(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-download'></span> download</a></li>"
 		var downloadmenu =	"<li class=''><a href=\""+shell.root+"/"+shell.cwd+"/"+escapingname+"\" download><span class='glyphicon glyphicon-download'></span> download</a></li>"
 		var deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" onclick='shell.rm(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
@@ -149,9 +162,14 @@ shell.onput = function(file)
 	var ret = confirm("upload "+file.name);
 	if (ret)
 	{
-		upload_file = file.name;
-		$("#Message").removeClass("hidden").find("div.text").html("Upload : "+ upload_file);
+		$("#Message").removeClass("hidden").find("div.text").html("Upload <b>"+ file.name + "</b>:");
 		$("#Progress").removeClass("hidden");
+		$("#Progress").find("div[role=progressbar]")[0].style.width = 0;
+	}
+	else
+	{
+		delete upload;
+		upload = undefined;
 	}
 	return ret;
 }
@@ -161,33 +179,67 @@ shell.onbegin = function(id)
 }
 shell.oncompleted = function(id)
 {
-	if (upload_id == id)
+	$("#ReloadButton").removeClass("btn-warning");
+	if (upload != undefined && upload.id == id)
 	{
 		$("#Progress").addClass("hidden");
-		upload_id = 0;
-		upload_file = "";
+		if (upload.error == undefined)
+		{
+			delete upload;
+			upload = undefined;
+			shell.ls();
+		}
 	}
-	$("#ReloadButton").removeClass("btn-warning");
-	shell.ls();
+	else
+		shell.ls();
 }
-shell.onprogress = function(id, percent)
+shell.onprogress = function(id, percent, loaded, total)
 {
-	var message = $("#Message");
-	var progress = $("#Progress");
-	var progressbar = progress.find("div[role=progressbar]");
-	progressbar[0].style.width = ""+percent+"%"
+	if (loaded < total)
+	{
+		$("#Progress").removeClass("hidden");
+		if (upload != undefined)
+			upload.loaded = loaded;
+		$("#Progress").find("div[role=progressbar]")[0].style.width = ""+percent+"%";
+	}
+	else
+		$("#Progress").addClass("hidden");
 }
 shell.onerror = function(status)
 {
 	$("#Progress").addClass("hidden");
-	updload_id = 0;
+	var message = "";
+	if (upload != undefined)
+	{
+		message += "Upload <b>" + upload.file.name + "</b>: ";
+		upload.error = status;
+	}
+	switch (status)
+	{
+		case 416:
+			message += "File already existing";
+		break;
+		case 401:
+			message += "Authentication required";
+		break;
+		case 400:
+			message += "Server error";
+		break;
+		case 404:
+			message += "File not found";
+		break;
+		case 405:
+			message += "Request error";
+		break;
+		default:
+			message += "error: "+status;
+	}
+	$("#Message").removeClass("hidden").find("div.text").html(message);
 	$("#ReloadButton").removeClass("btn-warning");
-	shell.ls();
 }
 shell.onnotfound = function(file)
 {
 	$("#ReloadButton").removeClass("btn-warning");
-	shell.ls();
 }
 shell.onauthenticate = function(authenticate, result)
 {
