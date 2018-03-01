@@ -121,7 +121,9 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				if (private->offset > 0)
 					lseek(private->fd, private->offset, SEEK_CUR);
 				ret = EINCOMPLETE;
-				httpmessage_addcontent(response, "text/json", NULL, -1);
+				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
+				httpmessage_appendcontent(response, private->path_info, -1);
+				httpmessage_appendcontent(response, "\"}", -1);
 			}
 			else
 			{
@@ -172,9 +174,6 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			ret = EINCOMPLETE;
 		else if (rest < 1)
 		{
-			httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
-			httpmessage_appendcontent(response, private->path_info, -1);
-			httpmessage_appendcontent(response, "\"}", -1);
 			close(private->fd);
 			private->fd = 0;
 			ret = ESUCCESS;
