@@ -158,8 +158,8 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 #endif
 		char *input;
 		int inputlen;
-		int rest;
-		rest = httpmessage_content(request, &input, &inputlen);
+		unsigned long long rest;
+		inputlen = httpmessage_content(request, &input, &rest);
 
 		if (inputlen > 0)
 		{

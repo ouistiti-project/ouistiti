@@ -526,8 +526,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	{
 		char *input;
 		int inputlen;
-		int rest;
-		rest = httpmessage_content(request, &input, &inputlen);
+		unsigned long long rest;
+		inputlen = httpmessage_content(request, &input, &rest);
 		if (inputlen > 0)
 		{
 			write(ctx->tocgi[1], input, inputlen);
