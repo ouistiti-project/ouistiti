@@ -115,6 +115,11 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	}
 	else if (private->path_info == NULL)
 	{
+		/**
+		 * the content length is unknown before the sending.
+		 * We must close the socket to advertise the client.
+		 */
+		dbg("dirlisting: socket shutdown");
 		httpclient_shutdown(private->ctl);
 		closedir(private->dir);
 		private->dir = NULL;
@@ -132,7 +137,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 				int length = strlen(ent->d_name);
 				struct stat filestat;
 				stat(ent->d_name, &filestat);
-				int size = filestat.st_size;
+				size_t size = filestat.st_size;
 				int unit = 0;
 				while (size > 2000)
 				{
@@ -145,7 +150,6 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 					mime = utils_getmime(ent->d_name);
 				}
 				length += strlen(mime);
-
 				length += 4 + 2 + 4;
 				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
 				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
