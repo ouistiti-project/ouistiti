@@ -78,8 +78,8 @@ struct _static_file_connector_s
 	int fd;
 	DIR *dir;
 	http_connector_t func;
-	unsigned int size;
-	unsigned int offset;
+	unsigned long long size;
+	unsigned long long offset;
 };
 
 /**

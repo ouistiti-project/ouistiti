@@ -89,6 +89,9 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 
 	if (private->fd == 0)
 	{
+		private->size = 0;
+		private->offset = 0;
+
 		struct stat filestat;
 		if (private->path_info)
 			free(private->path_info);
@@ -210,7 +213,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		{
 			const char *mime = NULL;
 			mime = utils_getmime(private->filepath);
-			lseek(private->fd, private->offset, SEEK_CUR);
+			lseek(private->fd, private->offset, SEEK_SET);
 			dbg("static file %p: send %s (%d)", private->ctl, private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
 			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))

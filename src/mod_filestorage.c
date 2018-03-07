@@ -119,7 +119,9 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			if (private->fd > 0)
 			{
 				if (private->offset > 0)
-					lseek(private->fd, private->offset, SEEK_CUR);
+				{
+					lseek(private->fd, private->offset, SEEK_SET);
+				}
 				ret = EINCOMPLETE;
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
 				httpmessage_appendcontent(response, private->path_info, -1);
@@ -156,25 +158,48 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	else if (private->fd > 0)
 	{
 #ifdef DEBUG
-		static int filesize = 0;
+		static unsigned long long filesize = 0;
 #endif
 		char *input;
 		int inputlen;
 		unsigned long long rest;
 		inputlen = httpmessage_content(request, &input, &rest);
 
-		if (inputlen > 0)
+		while (inputlen > 0)
+		{
+			int wret = write(private->fd, input, inputlen);
+			if (wret < 0)
+			{
+				err("filestorage: access file error %s", strerror(errno));
+				if (errno != EAGAIN)
+				{
+#ifdef DEBUG
+					err("filestorage: store %llu bytes", filesize);
+#endif
+					close(private->fd);
+					private->fd = 0;
+					ret = EREJECT;
+					static_file_close(private);
+					break;
+				}
+			}
+			else if (wret > 0)
+			{
+#ifdef DEBUG
+				filesize += wret;
+#endif
+				inputlen -= wret;
+				input += wret;
+			}
+			ret = EINCOMPLETE;
+		}
+		if (rest < 1)
 		{
 #ifdef DEBUG
-			filesize += inputlen;
+			err("filestorage: store %llu bytes", filesize);
 #endif
-			ret = write(private->fd, input, inputlen);
-		}
-		if (rest == EINCOMPLETE)
-			ret = EINCOMPLETE;
-		else if (rest < 1)
-		{
-			close(private->fd);
+			if (private->fd)
+				close(private->fd);
 			private->fd = 0;
 			ret = ESUCCESS;
 			static_file_close(private);
@@ -282,6 +307,9 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 
 	if (private->func == NULL)
 	{
+		private->size = 0;
+		private->offset = 0;
+
 		struct stat filestat;
 		if (private->path_info)
 			free(private->path_info);
@@ -289,12 +317,15 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;
+
 		const char *method = httpmessage_REQUEST(request, "method");
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
 		if ((private->filepath == NULL) && (!strcmp(method, "PUT")))
 		{
 			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
 			private->func = putfile_connector;
+			private->size = 0;
+			private->offset = 0;
 		}
 		else if (private->filepath && filestorage_checkname(private, response) == ESUCCESS)
 		{

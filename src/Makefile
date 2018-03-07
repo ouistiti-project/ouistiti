@@ -9,6 +9,7 @@ main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
 $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
+$(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 
 $(TARGET)_CFLAGS-$(WEBSOCKET_RT)+=-DWEBSOCKET_RT
 $(TARGET)_SOURCES-$(WEBSOCKET_RT)+=websocket.c
