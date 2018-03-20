@@ -191,8 +191,9 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				inputlen -= wret;
 				input += wret;
 			}
-			ret = EINCOMPLETE;
 		}
+		if (inputlen == 0)
+			ret = EINCOMPLETE;
 		if (rest < 1)
 		{
 #ifdef DEBUG
