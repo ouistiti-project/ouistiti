@@ -109,20 +109,27 @@ shell.onauthorization = function(user)
 	}
 	if (location.search.indexOf("cwd=") < 0)
 		shell.cd(shell.user.directories.image);
-	if (location.search.indexOf("file=") > 0)
+	var pos = location.search.indexOf("file=");
+	if (pos > 0)
 	{
-		var pos = location.search.indexOf("file=") + 5;
-		var end = location.search.indexOf("&");
+		pos += 5;
+		var filepath = location.search.substring(pos);		
+		var end = filepath.indexOf("&");
 		if (end == -1)
 			end = undefined;
-		var filepath = location.search.substring(pos, end);
+		filepath = location.search.substring(pos,end);
 		pos = filepath.indexOf(shell.root);
 		if (pos == 0)
 			filepath = filepath.substring(shell.root.length);
 		startfile = filepath.replace( /.*\//, '');
-		shell.cd(filepath.match( /.*\// )[0]);
 	}
 	$("#LoginBox").modal('hide');
+	var pos = location.search.indexOf("autoplay=");
+	if (pos > 0)
+	{
+		if (location.search[pos + 9] = '0')
+			$("#Album").data("ride", "");
+	}
 	shell.ls();
 }
 $(document).ready(function()

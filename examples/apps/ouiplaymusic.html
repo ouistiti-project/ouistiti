@@ -113,9 +113,10 @@ shell.onauthorization = function(user)
 	}
 	if (location.search.indexOf("cwd=") < 0)
 		shell.cd(shell.user.directories.music);
-	if (location.search.indexOf("file=") > 0)
+	var pos = location.search.indexOf("file=")
+	if (pos > 0)
 	{
-		var pos = location.search.indexOf("file=") + 5;
+		pos += 5;
 		var filepath = location.search.substring(pos);		
 		var end = filepath.indexOf("&");
 		if (end == -1)

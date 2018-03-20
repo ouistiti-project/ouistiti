@@ -513,8 +513,10 @@ class UpLoader
 	{
 		this.file = file;
 	}
-	get(file)
+	get(file, offset)
 	{
+		if (offset != undefined)
+			return;
 		this.file = file;
 		this.reader.onloadend = function(evt)
 			{
@@ -569,6 +571,18 @@ class UpLoader
 						var url = document.createElement('a');
 						url .href = xhr.responseURL;
 						this.onnotfound.call(this, url);
+					}
+				}
+				else if (xhr.status === 416)
+				{
+					var crange = xhr.getResponseHeader("Content-Range");
+					if (crange != undefined)
+					{
+						var offset = crange.substring(0,crange.indexOf("/"));
+						if (this.file.size > offset)
+							this.get(this.file,offset);
+						else if (this.onerror != undefined)
+							this.onerror.call(this, xhr.status);
 					}
 				}
 				else if (this.onerror != undefined)
@@ -831,19 +845,28 @@ class Shell
 	{
 		var application = undefined;
 		this.open.open(this.cwd);
-		var i;
-		for (i = 0; i < this.user.mimes.length; i++)
+		if (this.user != undefined)
 		{
-			var regexp = new RegExp(this.user.mimes[i].type);
-			if (regexp.test(mime))
+			var i;
+			for (i = 0; i < this.user.mimes.length; i++)
 			{
-				var path = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
-				application = "/"+path+"/"+this.user.mimes[i].appli;
-				break;
+				var regexp = new RegExp(this.user.mimes[i].type);
+				if (regexp.test(mime))
+				{
+					var path = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
+					application = "/"+path+"/"+this.user.mimes[i].appli;
+					break;
+				}
 			}
 		}
 		if (application != undefined)
-			this.open.go(application,"?root="+this.root+"&cwd="+this.cwd+"&file="+file);
+		{
+			if (application.indexOf('?') == -1)
+				application = application+"?";
+			else
+				application = application+"&";
+			this.open.go(application,"root="+this.root+"&cwd="+this.cwd+"&file="+file);
+		}
 		else
 			this.open.go(file,"");
 	}

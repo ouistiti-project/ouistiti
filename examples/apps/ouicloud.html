@@ -16,10 +16,61 @@
 		<script type="text/javascript">
 class UploadFile
 {
-	constructor (id, file)
+	constructor(id, file)
 	{
 		this.id = id;
 		this.file = file;
+	}
+	destructor()
+	{
+		this.stop();
+	}
+	calculate()
+	{
+		if (this.time != undefined)	
+			this.time++;
+		if (this.loaded != undefined)
+		{
+			if (this.time == undefined)	
+				this.time = 1;
+			if (this.prevloaded != undefined)
+			//if (this.time > 0)
+			{
+				this.unit = "bps";
+				var bitrate = (this.loaded - this.prevloaded) * 8;
+				//var bitrate = (this.loaded / this.time) * 8;
+				if (bitrate > 1024)
+				{
+					this.unit = "kbps";
+					bitrate /= 1024;
+					if (bitrate > 1024)
+					{
+						this.unit = "Mbps";
+						bitrate /= 1024;
+					}
+				}
+				this.bitrate = bitrate;
+				if (this.onprogress)
+					this.onprogress.call(this, this.bitrate, this.unit);
+			}
+			if (!(this.time % 10) || (this.prevloaded != this.loaded))
+			{
+				this.prevloaded = this.loaded;
+			}
+		}
+	}
+	start()
+	{
+		this.timer = setInterval(this.calculate.bind(this),1000);
+	}
+	stop()
+	{
+		if (this.timer != undefined)
+		{
+			clearInterval(this.timer);
+			this.timer = undefined;
+			this.time = undefined;
+		}
 	}
 };
 var upload = undefined;
@@ -52,6 +103,15 @@ function startReadFromDrag(evt) {
 function launchlink(elem)
 {
 	shell.launch($(elem).data("href"), $(elem).data("mime"));
+}
+
+function rmfile(elem)
+{
+	var ret = confirm("remove "+file.name+" ?");
+	if (ret)
+	{
+		shell.rm($(elem).data('href'));
+	}
 }
 
 var shell = new Shell("");
@@ -116,7 +176,7 @@ shell.onchange = function(content)
 		var escapingname = encodeURIComponent(content[i].name);
 		//var downloadmenu =	"<li class=''><a href='#' data-href=\""+escapingname+"\" onclick='downloadFile(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-download'></span> download</a></li>"
 		var downloadmenu =	"<li class=''><a href=\""+shell.root+"/"+shell.cwd+"/"+escapingname+"\" download><span class='glyphicon glyphicon-download'></span> download</a></li>"
-		var deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" onclick='shell.rm(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
+		var deletemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" onclick='rmfile(this);'><span class='glyphicon glyphicon-trash'></span> delete</a></li>"
 		var renamemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" data-toggle='modal' data-target='#MvBox'><span class='glyphicon glyphicon-duplicate'></span> rename</a></li>"
 		var copymenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" onclick='shell.cp(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-copy'></span> copy</a></li>"
 		var sharemenu	=	"<li class='ProtectedButton"+hidden+"'><a href='#' data-href=\""+escapingname+"\" data-toggle='modal' data-target='#ShareBox'><span class='glyphicon glyphicon-share'></span> share</a></li>"
@@ -159,12 +219,17 @@ shell.onchange = function(content)
 }
 shell.onput = function(file)
 {
-	var ret = confirm("upload "+file.name);
+	var ret = confirm("upload "+file.name+" ?");
 	if (ret)
 	{
-		$("#Message").removeClass("hidden").find("div.text").html("Upload <b>"+ file.name + "</b>:");
+		$("#Message").removeClass("hidden").find("div.text").html("Upload <b>"+ file.name + "</b>: <span id='bitrate'></span>");
 		$("#Progress").removeClass("hidden");
 		$("#Progress").find("div[role=progressbar]")[0].style.width = 0;
+		upload.onprogress = function(bitrate, unit)
+		{
+			$("#bitrate").html(""+bitrate+" "+unit);
+		};
+		upload.start();
 	}
 	else
 	{
