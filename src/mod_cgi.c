@@ -575,7 +575,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				while (rest > 0)
 				{
 					ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
-					dbg("parse %d cgi data %d %d\n%s#\n", ret, size, rest, ctx->chunk);
+					dbg("cgi: parse %d data %d %d\n%s#\n", ret, size, rest, ctx->chunk);
 					if (ret != EINCOMPLETE)
 					{
 						char *offset = ctx->chunk;
@@ -599,7 +599,6 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 							httpmessage_addcontent(response, "none", offset, size);
 						}
 					}
-						ret = ECONTINUE;
 				}
 			}
 		}
