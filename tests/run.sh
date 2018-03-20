@@ -108,5 +108,6 @@ else
 	fi
 fi
 if [ $CONTINUE -eq 0 ]; then
+	sleep 10
 	kill $PID 2> /dev/null
 fi
