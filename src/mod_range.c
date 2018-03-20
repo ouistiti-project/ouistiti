@@ -63,27 +63,31 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 		rangesize = strstr(range, "bytes=");
 	if (rangesize)
 	{
+		int offset;
 		rangesize += 6;
-		private->offset = atoi(rangesize);
-		if (private->offset > filesize)
+		offset = atoi(rangesize);
+		if (offset > filesize)
 		{
 			goto notsatisfiable;
 		}
+		private->offset = offset;
 		char *end = strchr(rangesize, '-');
 		if (end != NULL)
 		{
-			int offset = filesize;
+			offset = filesize;
 			if (*(end+1) >= '0' && *(end+1) <= '9')
 				offset = atoi(end+1);
-			if (offset > filesize || offset < private->offset)
+			if (*(end+1) == '*')
+				offset = private->size - 1;
+			if (offset > (filesize - 1) || offset < private->offset)
 			{
 				goto notsatisfiable;
 			}
-			private->size = offset - private->offset - 1;
+			private->size = offset - private->offset + 1;
 		}
 
 		char buffer[256];
-		snprintf(buffer, 256, "bytes %d-%d/%d", private->offset, private->offset + private->size, filesize);
+		snprintf(buffer, 256, "bytes %d-%d/%d", private->offset, offset, filesize);
 		httpmessage_addheader(response, "Content-Range", buffer);
 		httpmessage_result(response, RESULT_206);
 	}
