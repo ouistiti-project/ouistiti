@@ -168,7 +168,7 @@ void *rungenerator(void *arg)
 						"\"use\":%d," \
 						"\"view\":%d", 
 						nmea_info.satinfo.inuse,
-						nmea_info.satinfo.inuse);
+						nmea_info.satinfo.inview);
 				strcat(buffer->data, "}");
 				if (nmea_info.satinfo.inuse > satinuse)
 				{
