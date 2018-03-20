@@ -81,7 +81,7 @@ struct authn_basic_s
 	char *challenge;
 };
 
-void *authn_basic_create(authz_t *authz, void *arg)
+static void *authn_basic_create(authz_t *authz, void *arg)
 {
 	char format_realm[] = "%s realm=\"%s\"";
 	const char *format = str_authenticate_types[AUTHN_BASIC_E];
@@ -106,7 +106,7 @@ void *authn_basic_create(authz_t *authz, void *arg)
 	return mod;
 }
 
-int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *response)
+static int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret;
 	authn_basic_t *mod = (authn_basic_t *)arg;
@@ -117,7 +117,7 @@ int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *re
 }
 
 static char user[256] = {0};
-char *authn_basic_check(void *arg, char *method, char *string)
+static char *authn_basic_check(void *arg, const char *method, const char *uri, char *string)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
 	char *passwd;
@@ -138,7 +138,7 @@ char *authn_basic_check(void *arg, char *method, char *string)
 	return NULL;
 }
 
-void authn_basic_destroy(void *arg)
+static void authn_basic_destroy(void *arg)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
 	if (mod->challenge)

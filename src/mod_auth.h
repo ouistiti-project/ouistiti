@@ -112,7 +112,7 @@ struct authn_digest_config_s
 typedef void *(*authn_rule_create_t)(authz_t *authz, void *config);
 typedef int (*authn_rule_setup_t)(void *arg, struct sockaddr *addr, int addrsize);
 typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);
-typedef char *(*authn_rule_check_t)(void *arg, char *method, char *string);
+typedef char *(*authn_rule_check_t)(void *arg, const char *method, const char *uri, char *string);
 typedef void (*authn_rule_destroy_t)(void *arg);
 typedef struct authn_rules_s authn_rules_t;
 struct authn_rules_s

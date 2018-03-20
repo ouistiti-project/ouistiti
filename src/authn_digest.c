@@ -152,7 +152,7 @@ static char *utils_stringify(unsigned char *data, int len)
 	return result;
 }
 
-void *authn_digest_create(authz_t *authz, void *config)
+static void *authn_digest_create(authz_t *authz, void *config)
 {
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
@@ -195,7 +195,7 @@ static void authn_digest_opaque(void *arg, char *opaque, int opaquelen)
 #endif
 }
 
-int authn_digest_setup(void *arg, struct sockaddr *addr, int addrsize)
+static int authn_digest_setup(void *arg, struct sockaddr *addr, int addrsize)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
@@ -204,7 +204,7 @@ int authn_digest_setup(void *arg, struct sockaddr *addr, int addrsize)
 	authn_digest_nonce(arg, mod->nonce, sizeof(mod->nonce) - 1);
 }
 
-int authn_digest_challenge(void *arg, http_message_t *request, http_message_t *response)
+static int authn_digest_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret;
 	authn_digest_t *mod = (authn_digest_t *)arg;
@@ -223,12 +223,12 @@ int authn_digest_challenge(void *arg, http_message_t *request, http_message_t *r
 
 struct authn_digest_computing_s
 {
-	char *(*digest)(char *a1, char *nonce, char *nc, char *cnonce, char *qop, char *a2);
-	char *(*a1)(char *username, char *realm, char *passwd);
-	char *(*a2)(char *method, char *uri, char *entity);
+	char *(*digest)(char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2);
+	char *(*a1)(const char *username, const char *realm, const char *passwd);
+	char *(*a2)(const char *method, const char *uri, const char *entity);
 };
 
-static char *authn_digest_md5_digest(char *a1, char *nonce, char *nc, char *cnonce, char *qop, char *a2)
+static char *authn_digest_md5_digest(char *a1, const const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2)
 {
 	if (a1 && a2)
 	{
@@ -262,7 +262,7 @@ static char *authn_digest_md5_digest(char *a1, char *nonce, char *nc, char *cnon
 	return NULL;
 }
 
-static char *authn_digest_md5_a1(char *username, char *realm, char *passwd)
+static char *authn_digest_md5_a1(const char *username, const char *realm, const char *passwd)
 {
 	if (passwd[0] != '$')
 	{
@@ -292,7 +292,7 @@ static char *authn_digest_md5_a1(char *username, char *realm, char *passwd)
 	return NULL;
 }
 
-static char *authn_digest_md5_a2(char *method, char *uri, char *entity)
+static char *authn_digest_md5_a2(const char *method, const char *uri, const char *entity)
 {
 	char A2[16];
 	MD5_ctx ctx;
@@ -319,7 +319,7 @@ struct authn_digest_computing_s authn_digest_md5_computing =
 struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
 
 static char *str_empty = "";
-char *authn_digest_check(void *arg, char *method, char *string)
+static char *authn_digest_check(void *arg, const char *method, const char *url, char *string)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 	char *passwd = NULL;
@@ -376,6 +376,11 @@ char *authn_digest_check(void *arg, char *method, char *string)
 	{
 		return NULL;
 	}
+	if (strcmp(url, uri))
+	{
+		warn("try connection on %s with authorization on %s", url, uri);
+		return NULL;
+	}
 	passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 	if (passwd && authn_digest_computing)
 	{
@@ -383,6 +388,7 @@ char *authn_digest_check(void *arg, char *method, char *string)
 		char *a2 = authn_digest_computing->a2(method, uri, NULL);
 		char *digest = authn_digest_computing->digest(a1, nonce, nc, cnonce, qop, a2);
 
+		//warn("Digest %s", digest);
 		if (digest && !strcmp(digest, response))
 		{
 			free (a1);
@@ -401,7 +407,7 @@ char *authn_digest_check(void *arg, char *method, char *string)
 	return NULL;
 }
 
-void authn_digest_destroy(void *arg)
+static void authn_digest_destroy(void *arg)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 	if (mod->challenge)

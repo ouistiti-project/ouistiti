@@ -326,7 +326,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			if (authentication)
 				authentication++;
 			const char *method = httpmessage_REQUEST(request, "method");
-			char *user = mod->authn->rules->check(mod->authn->ctx, (char *)method, authentication);
+			const char *uri = httpmessage_REQUEST(request, "uri");
+			char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
 			if (user != NULL)
 			{
 				warn("user \"%s\" accepted from %p", user, ctx->ctl);
