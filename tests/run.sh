@@ -60,7 +60,7 @@ PID=$!
 echo "${TARGET} started with pid ${PID}"
 sleep 2
 
-if [ -n "$DEBUG" -o -n "$CMDREQUEST" ]; then
+if [ -n "$DEBUG" ]; then
 	if [ -n "$CURLPARAM" ]; then
 		$CURL $CURLOUT -f -s -S $CURLPARAM
 	fi
@@ -78,6 +78,9 @@ else
 	if [ -n "$TESTREQUEST" ]; then
 		#result=$(printf "$(cat ${TESTDIR}$TESTREQUEST)" | $TESTCLIENT | $HTTPPARSER)
 		result=$(cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT | $HTTPPARSER)
+	fi
+	if [ -n "$CMDREQUEST" ]; then
+		result=$($CMDREQUEST | $TESTCLIENT | $HTTPPARSER)
 	fi
 	rescode=$(echo $result | gawk '{print $1}')
 	resheaderlen=$(echo $result | gawk '{print $2}')
@@ -108,6 +111,5 @@ else
 	fi
 fi
 if [ $CONTINUE -eq 0 ]; then
-	sleep 10
 	kill $PID 2> /dev/null
 fi
