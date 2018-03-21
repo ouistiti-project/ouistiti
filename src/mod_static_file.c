@@ -178,9 +178,6 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	else if (private->size == 0)
 	{
 		dbg("static file: empty file");
-		if (private->fd > 0)
-			close(private->fd);
-		static_file_close(private);
 #if defined(RESULT_204)
 		httpmessage_result(response, RESULT_204);
 #else
@@ -188,6 +185,9 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		mime = utils_getmime(private->filepath);
 		httpmessage_addcontent(response, (char *)mime, NULL, private->size);
 #endif
+		if (private->fd > 0)
+			close(private->fd);
+		static_file_close(private);
 		return ESUCCESS;
 	}
 	if (private->fd == 0)
@@ -214,7 +214,6 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			const char *mime = NULL;
 			mime = utils_getmime(private->filepath);
 			lseek(private->fd, private->offset, SEEK_SET);
-			dbg("static file %p: send %s (%d)", private->ctl, private->filepath, private->size);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
 			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
 			{
@@ -261,16 +260,28 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 
 int mod_send_read(static_file_connector_t *private, http_message_t *response)
 {
-	int ret, size;
+	int ret = 0, size, chunksize;
 
 	char content[CONTENTCHUNK];
-	size = (private->size < CONTENTCHUNK)? private->size : CONTENTCHUNK - 1;
-	ret = read(private->fd, content, size);
-	if (ret > 0)
+	do
 	{
-		content[ret] = 0;
-		httpmessage_addcontent(response, NULL, content, ret);
-	}
+		chunksize = ((private->size - ret) < CONTENTCHUNK)? (private->size - ret) : CONTENTCHUNK - 1;
+		size = read(private->fd, content, chunksize);
+		if (size > 0)
+		{
+			ret += size;
+			content[size] = 0;
+			size = httpmessage_appendcontent(response, content, size);
+			if ((private->size - ret) == 0)
+				break;
+		}
+		else
+		{
+			if (ret == 0)
+				ret = -1;
+			break;
+		}
+	} while (chunksize < size);
 	return ret;
 }
 

@@ -54,7 +54,7 @@ void mod_static_file_destroy(void *data);
 /**
  * interface to change the data transfer function
  */
-#define CONTENTCHUNK 63
+#define CONTENTCHUNK 64
 
 typedef struct _mod_static_file_mod_s _mod_static_file_mod_t;
 typedef struct _static_file_connector_s static_file_connector_t;
