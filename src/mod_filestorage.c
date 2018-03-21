@@ -191,9 +191,8 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				inputlen -= wret;
 				input += wret;
 			}
-		}
-		if (inputlen == 0)
 			ret = EINCOMPLETE;
+		}
 		if (rest < 1)
 		{
 #ifdef DEBUG
@@ -204,6 +203,11 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			private->fd = 0;
 			ret = ESUCCESS;
 			static_file_close(private);
+		}
+		if (ret == EREJECT)
+		{
+			httpmessage_result(response, RESULT_505);
+			ret = ESUCCESS;
 		}
 	}
 	return ret;
