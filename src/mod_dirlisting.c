@@ -153,7 +153,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 				length += 4 + 2 + 4;
 				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
 				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
-				char *content = httpmessage_addcontent(response, NULL, data, -1);
+				httpmessage_addcontent(response, NULL, data, -1);
 				free(data);
 			}
 			ret = ECONTINUE;
