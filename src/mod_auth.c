@@ -268,7 +268,6 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
-#define CONTENTCHUNK 63
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -358,7 +357,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	if (ret != EREJECT)
 	{
-		int length = CONTENTCHUNK;
 		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 		if (ret == ESUCCESS)
 		{
