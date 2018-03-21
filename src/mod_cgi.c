@@ -74,8 +74,10 @@ struct mod_cgi_ctx_s
 		STATE_START,
 		STATE_INFINISH,
 		STATE_HEADERCOMPLETE,
+		STATE_CONTENTCOMPLETE,
 		STATE_OUTFINISH,
 		STATE_END,
+		STATE_SHUTDOWN = 0x0100,
 	} state;
 	_mod_cgi_t *mod;
 	http_client_t *ctl;
@@ -522,7 +524,34 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		}
 		ctx->pid = _mod_cgi_fork(ctx, request);
 	}
-	if (ctx->tocgi[1] > 0 && ctx->state <= STATE_INFINISH)
+
+	if (ctx->state >= STATE_OUTFINISH)
+	{
+		int status;
+#if defined(RESULT_302)
+		/**
+		 * RFC 3875 : 6.2.3
+		 */
+		const char *location = httpmessage_REQUEST(response, str_location);
+		if (location != NULL && location[0] != '\0')
+			httpmessage_result(response, RESULT_302);
+#endif
+		ret = waitpid(ctx->pid, &status, WNOHANG);
+		if (ctx->state & STATE_SHUTDOWN);
+			httpclient_shutdown(ctx->ctl);
+
+		ctx->state = STATE_END;
+		ctx->pid = 0;
+		ret = ESUCCESS;
+	}
+	else if (ctx->state >= STATE_CONTENTCOMPLETE)
+	{
+		ctx->state = STATE_OUTFINISH;
+		kill(ctx->pid, SIGTERM);
+		dbg("cgi complete");
+		ret = ECONTINUE;
+	}
+	else if (ctx->tocgi[1] > 0 && ctx->state <= STATE_INFINISH)
 	{
 		char *input;
 		int inputlen;
@@ -540,8 +569,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			ctx->tocgi[1] = -1;
 		}
 	}
-
-	if (ctx->state >= STATE_INFINISH)
+	if (ctx->state >= STATE_INFINISH && ctx->state < STATE_OUTFINISH)
 	{
 		int sret;
 		fd_set rfds;
@@ -557,77 +585,59 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			if (size < 1)
 			{
 				ctx->state = STATE_OUTFINISH;
+				ret = ECONTINUE;
 				if (size < 0)
+				{
 					err("cgi read %s", strerror(errno));
+				}
 			}
 			else
 			{
 				ctx->chunk[size] = 0;
-				dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
+				//dbg("cgi: receive (%d)", size);
+				//dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
 				/**
 				 * if content_length is not null, parcgi is able to
 				 * create the content.
 				 * But the cgi know the length at the end, is too late
-				 * to set the header. And the parsecgi is ended just
-				 * after the header.
+				 * to set the header.
 				 */
 				int rest = size;
 				while (rest > 0)
 				{
 					ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
-					dbg("cgi: parse %d data %d %d\n%s#\n", ret, size, rest, ctx->chunk);
+					//dbg("cgi: parse %d data %d %d", ret, size, rest);
+					//dbg("cgi: parse %d data %d %d\n%s#", ret, size, rest, ctx->chunk);
 					if (ret != EINCOMPLETE)
 					{
 						char *offset = ctx->chunk;
-						if (ctx->state < STATE_HEADERCOMPLETE)
+						if (ctx->state == STATE_INFINISH)
 						{
-							/**
-							 * The Content-Type must be added by the CGI
-							 */
-							httpmessage_addcontent(response, "none", "", 0);
-							if (*offset == '\0')
-							{
-								size = 0;
-							}
-							ctx->state = STATE_HEADERCOMPLETE;
 						}
 						else if (size > 0 && rest == 0)
 						{
 							/**
-							 * The Content-Type must be added by the CGI
+							 * The Content-Type may be added by the CGI
 							 */
 							httpmessage_addcontent(response, "none", offset, size);
 						}
+						ctx->state = STATE_HEADERCOMPLETE;
+					}
+					if (ret == ESUCCESS)
+					{
+						ctx->state = STATE_CONTENTCOMPLETE;
 					}
 				}
 			}
 		}
 		else
 		{
-			ctx->state = STATE_OUTFINISH;
+			ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
 			kill(ctx->pid, SIGTERM);
 			dbg("cgi complete");
+			ret = ECONTINUE;
 		}
 	}
-
-	if (ctx->state >= STATE_OUTFINISH)
-	{
-		int status;
-#if defined(RESULT_302)
-		/**
-		 * RFC 3875 : 6.2.3
-		 */
-		const char *location = httpmessage_REQUEST(response, str_location);
-		if (location != NULL && location[0] != '\0')
-			httpmessage_result(response, RESULT_302);
-#endif
-		ret = waitpid(ctx->pid, &status, WNOHANG);
-		ctx->state = STATE_END;
-		ctx->pid = 0;
-		httpclient_shutdown(ctx->ctl);
-		ret = ESUCCESS;
-	}
-
 	/* this mod returns EINCOMPLETE 
 	 * because it needs to wait the end 
 	 * to know the length of the content */
