@@ -39,7 +39,7 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 
-#include "httpserver/mod_mbedtls.h"
+#include "httpserver/mod_tls.h"
 #include "httpserver/mod_websocket.h"
 #include "mod_static_file.h"
 #include "mod_cgi.h"
@@ -128,7 +128,7 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 #define filestorage_config(...) NULL
 #endif
 
-#if defined(MBEDTLS)
+#if defined(TLS)
 static mod_tls_t *tls_config(config_setting_t *iterator)
 {
 	mod_tls_t *tls = NULL;

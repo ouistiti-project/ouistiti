@@ -50,7 +50,7 @@
 
 #include "httpserver/httpserver.h"
 
-#include "httpserver/mod_mbedtls.h"
+#include "httpserver/mod_tls.h"
 #include "httpserver/mod_websocket.h"
 #include "mod_static_file.h"
 #include "mod_filestorage.h"
@@ -84,7 +84,7 @@ typedef struct server_s
 {
 	serverconfig_t *config;
 	http_server_t *server;
-	void *mod_mbedtls;
+	void *mod_tls;
 	void *mod_static_file;
 	void *mod_filestorage;
 	void *mod_cgi;
@@ -277,12 +277,12 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
-#if defined MBEDTLS
+#if defined TLS
 			/**
 			 * TLS must be first to free the connection after all others modules
 			 */
 			if (server->config->tls)
-				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
+				server->mod_tls = mod_tls_create(server->server, server->config->tls);
 #endif
 #if defined VHOSTS
 			for (i = 0; i < (MAX_SERVERS - 1); i++)
@@ -384,9 +384,9 @@ int main(int argc, char * const *argv)
 	while (server != NULL)
 	{
 		servert_t *next = server->next;
-#if defined MBEDTLS
-		if (server->mod_mbedtls)
-			mod_mbedtls_destroy(server->mod_mbedtls);
+#if defined TLS
+		if (server->mod_tls)
+			mod_tls_destroy(server->mod_tls);
 #endif
 #if defined STATIC_FILE
 		if (server->mod_static_file)
