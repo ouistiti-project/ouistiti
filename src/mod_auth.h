@@ -151,6 +151,8 @@ typedef struct mod_auth_s
 void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *modconfig);
 void mod_auth_destroy(void *mod);
 
+const char *auth_info(http_message_t *request, const char *key);
+
 #ifdef __cplusplus
 }
 #endif

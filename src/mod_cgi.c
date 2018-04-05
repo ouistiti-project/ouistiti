@@ -44,6 +44,7 @@
 #include "httpserver/uri.h"
 #include "httpserver/utils.h"
 #include "mod_cgi.h"
+#include "mod_auth.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
@@ -427,10 +428,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 					value = httpmessage_REQUEST(request, "remote_port");
 				break;
 				case REMOTE_USER:
-					value = httpmessage_SESSION(request, "%user", NULL);
+					value = auth_info(request, "user");
 				break;
 				case AUTH_TYPE:
-					value = httpmessage_SESSION(request, "%authtype", NULL);
+					value = auth_info(request, "type");
 				break;
 				case HTTP_COOKIE:
 					value = httpmessage_REQUEST(request, "Cookie");
