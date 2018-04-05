@@ -34,6 +34,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <sys/time.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
@@ -222,7 +223,12 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				static_file_close(private);
 				return ESUCCESS;
 			}
+			dbg("static file: send %llu bytes", private->size);
 			mod->transfer = mod_send_read;
+#ifdef DEBUG
+			gettimeofday(&private->start, NULL);
+			private->datasize = private->size;
+#endif
 #ifdef SENDFILE
 			if (config->options & STATIC_FILE_SENDFILE)
 				mod->transfer = mod_send_sendfile;
@@ -249,6 +255,15 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		private->size -= ret;
 		if (ret == 0 || private->size <= 0)
 		{
+#ifdef DEBUG
+			struct timeval stop;
+			struct timeval value;
+			gettimeofday(&stop, NULL);
+			timersub(&stop, &private->start, &value);
+			dbg("static file: %d:%3d", value.tv_sec, value.tv_usec/1000);
+			private->datasize *= 1000 / (value.tv_sec * 1000000 + value.tv_usec);
+			dbg("static file: bps %llu", private->datasize);
+#endif
 			dbg("static file: send %s", private->filepath);
 			close(private->fd);
 			static_file_close(private);

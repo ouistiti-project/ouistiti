@@ -36,6 +36,7 @@
 #include <sys/sendfile.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/time.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -126,7 +127,10 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
 				httpmessage_appendcontent(response, private->path_info, -1);
 				httpmessage_appendcontent(response, "\"}", -1);
-			}
+#ifdef DEBUG
+				gettimeofday(&private->start, NULL);
+#endif
+		}
 			else
 			{
 				err("file creation not allowed %s", private->path_info);
@@ -157,9 +161,6 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	 */
 	else if (private->fd > 0)
 	{
-#ifdef DEBUG
-		static unsigned long long filesize = 0;
-#endif
 		char *input;
 		int inputlen;
 		unsigned long long rest;
@@ -174,7 +175,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				if (errno != EAGAIN)
 				{
 #ifdef DEBUG
-					err("filestorage: store %llu bytes", filesize);
+					err("filestorage: store %llu bytes", private->datasize);
 #endif
 					close(private->fd);
 					private->fd = 0;
@@ -186,7 +187,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			else if (wret > 0)
 			{
 #ifdef DEBUG
-				filesize += wret;
+				private->datasize += wret;
 #endif
 				inputlen -= wret;
 				input += wret;
@@ -196,7 +197,14 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		if (rest < 1)
 		{
 #ifdef DEBUG
-			err("filestorage: store %llu bytes", filesize);
+			err("filestorage: store %llu bytes", private->datasize);
+			struct timeval stop;
+			struct timeval value;
+			gettimeofday(&stop, NULL);
+			timersub(&stop, &private->start, &value);
+			dbg("filestorage: %d:%3d", value.tv_sec, value.tv_usec/1000);
+			private->datasize *= 1000 / (value.tv_sec * 1000000 + value.tv_usec);
+			dbg("filestorage: bps %llu", private->datasize);
 #endif
 			if (private->fd)
 				close(private->fd);

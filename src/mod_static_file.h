@@ -80,6 +80,10 @@ struct _static_file_connector_s
 	http_connector_t func;
 	unsigned long long size;
 	unsigned long long offset;
+#ifdef DEBUG
+	struct timeval start;
+	unsigned long long datasize;
+#endif
 };
 
 /**
