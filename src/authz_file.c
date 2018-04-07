@@ -39,62 +39,9 @@
 #include <errno.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authz_file.h"
-
-#if defined(MBEDTLS)
-# include <mbedtls/base64.h>
-# define BASE64_encode(in, inlen, out, outlen) \
-	do { \
-		size_t cnt = 0; \
-		mbedtls_base64_encode(out, outlen, &cnt, in, inlen); \
-	}while(0)
-# define BASE64_decode(in, inlen, out, outlen) \
-	do { \
-		size_t cnt = 0; \
-		mbedtls_base64_decode(out, outlen, &cnt, in, inlen); \
-	}while(0)
-#else
-# include "b64/cencode.h"
-# define BASE64_encode(in, inlen, out, outlen) \
-	do { \
-		base64_encodestate state; \
-		base64_init_encodestate(&state); \
-		int cnt = base64_encode_block(in, inlen, out, &state); \
-		cnt = base64_encode_blockend(out + cnt, &state); \
-		out[cnt - 1] = '\0'; \
-	}while(0)
-#endif
-
-#if defined(MBEDTLS)
-# include <mbedtls/md5.h>
-# define MD5_ctx mbedtls_md5_context
-# define MD5_init(pctx) \
-	do { \
-		mbedtls_md5_init(pctx); \
-		mbedtls_md5_starts(pctx); \
-	} while(0)
-# define MD5_update(pctx, in, len) \
-	mbedtls_md5_update(pctx, in, len)
-# define MD5_finish(out, pctx) \
-	do { \
-		mbedtls_md5_finish((pctx), out); \
-		mbedtls_md5_free((pctx)); \
-	} while(0)
-#elif defined (MD5_RONRIVEST)
-# include "../utils/md5-c/global.h"
-# include "../utils/md5-c/md5.h"
-# define MD5_ctx MD5_CTX
-# define MD5_init MD5Init
-# define MD5_update MD5Update
-# define MD5_finish MD5Final
-#else
-# include "../utils/md5/md5.h"
-# define MD5_ctx md5_state_t
-# define MD5_init md5_init
-# define MD5_update md5_append
-# define MD5_finish(out, pctx) md5_finish(pctx, out)
-#endif
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -262,28 +209,33 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	{
 		if (chekpasswd[0] == '$')
 		{
+			hash_t *hash = NULL;
 			if (!strncmp(chekpasswd, "$a1", 3))
 			{
-				char md5passwd[16];
-				MD5_ctx ctx;
+				hash = hash_md5;
+			}
+			if (hash)
+			{
+				char hashpasswd[16];
+				void *ctx;
 				int length;
 
-				MD5_init(&ctx);
+				ctx = hash->init();
 				chekpasswd = strchr(chekpasswd, '$');
 				char *realm = strstr(chekpasswd, "realm=");
 				if (realm)
 				{
 					realm += 6;
 					int length = strchr(realm, '$') - realm;
-					MD5_update(&ctx, user, strlen(user));
-					MD5_update(&ctx, ":", 1);
-					MD5_update(&ctx, realm, length);
-					MD5_update(&ctx, ":", 1);
+					hash->update(ctx, user, strlen(user));
+					hash->update(ctx, ":", 1);
+					hash->update(ctx, realm, length);
+					hash->update(ctx, ":", 1);
 				}
-				MD5_update(&ctx, passwd, strlen(passwd));
-				MD5_finish(md5passwd, &ctx);
+				hash->update(ctx, passwd, strlen(passwd));
+				hash->finish(ctx, hashpasswd);
 				char b64passwd[25];
-				BASE64_encode(md5passwd, 16, b64passwd, 25);
+				base64->encode(hashpasswd, 16, b64passwd, 25);
 
 				chekpasswd = strrchr(chekpasswd, '$');
 				if (chekpasswd)

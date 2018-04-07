@@ -5,6 +5,8 @@ $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
 $(TARGET)_LIBS+=httpserver
+$(TARGET)_LDFLAGS+=-L ../httpserver/src/httpserver
+$(TARGET)_LDFLAGS+=-L ../httpserver/src
 main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
 $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
@@ -30,7 +32,7 @@ $(TARGET)_LIBS-$(WOLFTLS)+=:mod_wolftls.so
 $(TARGET)_LIBS-$(STATIC_FILE)+=:mod_static_file.so :utils_mod.so
 $(TARGET)_LIBS-$(FILESTORAGE)+=:mod_filestorage.so
 $(TARGET)_LIBS-$(CGI)+=:mod_cgi.so :utils_mod.so
-$(TARGET)_LIBS-$(AUTH)+=:mod_auth.so
+$(TARGET)_LIBS-$(AUTH)+=:mod_auth.so hash_mod
 $(TARGET)_LIBS-$(VHOSTS)+=:mod_vhosts.so
 $(TARGET)_LIBS-$(METHODLOCK)+=:mod_methodlock.so
 $(TARGET)_LIBS-$(WEBSOCKET)+=:mod_websocket.so
@@ -38,13 +40,14 @@ $(TARGET)_LIBS-$(SERVERHEADER)+=:mod_server.so
 $(TARGET)_LIBS-$(CLIENTFILTER)+=:mod_clientfilter.so
 $(TARGET)_LIBS-$(REDIRECT404)+=:mod_redirect404.so
 $(TARGET)_LIBS-$(WEBSTREAM)+=:mod_webstream.so
+$(TARGET)_LIBS-$(COOKIE)+=:mod_cookie.so
 else
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(WOLFTLS)+=mod_wolftls
 $(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
 $(TARGET)_LIBS-$(FILESTORAGE)+=mod_filestorage
 $(TARGET)_LIBS-$(CGI)+=mod_cgi utils_mod
-$(TARGET)_LIBS-$(AUTH)+=mod_auth
+$(TARGET)_LIBS-$(AUTH)+=mod_auth hash_mod
 $(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts
 $(TARGET)_LIBS-$(METHODLOCK)+=mod_methodlock
 $(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
@@ -61,12 +64,6 @@ $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
 #$(TARGET)_SOURCES-$(CGI)+=libmod_cgi.a libutils_mod.a
 #$(TARGET)_SOURCES-$(AUTH)+=libmod_auth.a
 #ifneq ($(MBEDTLS),y)
-#$(TARGET)_SOURCES-$(AUTH)+=../utils/libb64.a
-#ifeq ($(MD5_RONRIVEST),y)
-#$(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5-c/libmd5.a
-#else
-#$(TARGET)_SOURCES-$(AUTHN_DIGEST)+=../utils/md5/libmd5.a
-#endif
 #endif
 #$(TARGET)_SOURCES-$(VHOSTS)+=libmod_vhosts.a
 #$(TARGET)_SOURCES-$(METHODLOCK)+=libmod_methodlock.a

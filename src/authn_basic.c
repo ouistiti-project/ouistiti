@@ -31,39 +31,9 @@
 #include <stdio.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authn_basic.h"
-#if defined(MBEDTLS)
-# include <mbedtls/base64.h>
-# define BASE64_encode(in, inlen, out, outlen) \
-	do { \
-		size_t cnt = 0; \
-		mbedtls_base64_encode(out, outlen, &cnt, in, inlen); \
-	}while(0)
-# define BASE64_decode(in, inlen, out, outlen) \
-	do { \
-		size_t cnt = 0; \
-		mbedtls_base64_decode(out, outlen, &cnt, in, inlen); \
-	}while(0)
-#else
-# include "b64/cencode.h"
-# include "b64/cdecode.h"
-# define BASE64_encode(in, inlen, out, outlen) \
-	do { \
-		base64_encodestate state; \
-		base64_init_encodestate(&state); \
-		int cnt = base64_encode_block(in, inlen, out, &state); \
-		cnt = base64_encode_blockend(out + cnt, &state); \
-		out[cnt - 1] = '\0'; \
-	}while(0)
-# define BASE64_decode(in, inlen, out, outlen) \
-	do { \
-		base64_decodestate decoder; \
-		base64_init_decodestate(&decoder); \
-		int cnt = base64_decode_block(in, inlen, out, &decoder); \
-		out[cnt - 1] = '\0'; \
-	}while(0)
-#endif
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -123,7 +93,7 @@ static char *authn_basic_check(void *arg, const char *method, const char *uri, c
 	char *passwd;
 
 	memset(user, 0, 256);
-	BASE64_decode(string, strlen(string), user, 256);
+	base64->decode(string, strlen(string), user, 256);
 	passwd = strchr(user, ':');
 	if (passwd != NULL)
 	{

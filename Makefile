@@ -9,16 +9,6 @@ export MAXCHUNKS_HEADER=20
 export MAXCHUNKS_URI=4
 
 LIBHTTPSERVER_DIR:=libhttpserver
-LIBB64_DIR:=libb64
-
-ifneq ($(wildcard $(LIBB64_DIR)/Makefile),)
-subdir-y:=$(LIBB64_DIR)
-
-libb64_dir:=$(realpath $(LIBB64_DIR))
-export CFLAGS+=-I$(libb64_dir)/include/
-export LDFLAGS+=-L$(libb64_dir)/src -L$(libb64_dir)/src
-endif
-
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
 subdir-y:=$(LIBHTTPSERVER_DIR)
 

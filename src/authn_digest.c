@@ -32,68 +32,9 @@
 #include <time.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authn_digest.h"
-#if defined(MBEDTLS)
-# include <mbedtls/base64.h>
-# define BASE64_encode(in, inlen, out, outlen) \
-	do { \
-		size_t cnt = 0; \
-		mbedtls_base64_encode(out, outlen, &cnt, in, inlen); \
-	}while(0)
-# define BASE64_decode(in, inlen, out, outlen) \
-	do { \
-		size_t cnt = 0; \
-		mbedtls_base64_decode(out, outlen, &cnt, in, inlen); \
-	}while(0)
-#else
-# include "b64/cencode.h"
-# define BASE64_encode(in, inlen, out, outlen) \
-	do { \
-		base64_encodestate state; \
-		base64_init_encodestate(&state); \
-		int cnt = base64_encode_block(in, inlen, out, &state); \
-		cnt = base64_encode_blockend(out + cnt, &state); \
-		out[cnt - 1] = '\0'; \
-	}while(0)
-# include "b64/cdecode.h"
-# define BASE64_decode(in, inlen, out, outlen) \
-	do { \
-		base64_decodestate state; \
-		int cnt = base64_decode_block(in, inlen, out, &state); \
-		out[cnt - 1] = '\0'; \
-	}while(0)
-#endif
-
-#if defined(MBEDTLS)
-# include <mbedtls/md5.h>
-# define MD5_ctx mbedtls_md5_context
-# define MD5_init(pctx) \
-	do { \
-		mbedtls_md5_init(pctx); \
-		mbedtls_md5_starts(pctx); \
-	} while(0)
-# define MD5_update(pctx, in, len) \
-	mbedtls_md5_update(pctx, in, len)
-# define MD5_finish(out, pctx) \
-	do { \
-		mbedtls_md5_finish((pctx), out); \
-		mbedtls_md5_free((pctx)); \
-	} while(0)
-#elif defined (MD5_RONRIVEST)
-# include "../utils/md5-c/global.h"
-# include "../utils/md5-c/md5.h"
-# define MD5_ctx MD5_CTX
-# define MD5_init MD5Init
-# define MD5_update MD5Update
-# define MD5_finish MD5Final
-#else
-# include "../utils/md5/md5.h"
-# define MD5_ctx md5_state_t
-# define MD5_init md5_init
-# define MD5_update md5_append
-# define MD5_finish(out, pctx) md5_finish(pctx, out)
-#endif
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -176,7 +117,7 @@ static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 	srandom(time(NULL));
 	for (i = 0; i < 6; i++)
 		*(int *)(_nonce + i * 4) = random();
-	BASE64_encode(_nonce, 24, nonce, noncelen);
+	base64->encode(_nonce, 24, nonce, noncelen);
 #else
 	memcpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);
 	nonce[noncelen] = 0;
@@ -233,30 +174,30 @@ static char *authn_digest_md5_digest(char *a1, const const char *nonce, const ch
 	if (a1 && a2)
 	{
 		char digest[16];
-		MD5_ctx ctx;
+		void *ctx;
 
-		MD5_init(&ctx);
-		MD5_update(&ctx, a1, strlen(a1));
-		MD5_update(&ctx, ":", 1);
-		MD5_update(&ctx, nonce, strlen(nonce));
+		ctx = hash_md5->init();
+		hash_md5->update(ctx, a1, strlen(a1));
+		hash_md5->update(ctx, ":", 1);
+		hash_md5->update(ctx, nonce, strlen(nonce));
 		if (qop && !strcmp(qop, "auth"))
 		{
 			if (nc)
 			{
-				MD5_update(&ctx, ":", 1);
-				MD5_update(&ctx, nc, strlen(nc));
+				hash_md5->update(ctx, ":", 1);
+				hash_md5->update(ctx, nc, strlen(nc));
 			}
 			if (cnonce)
 			{
-				MD5_update(&ctx, ":", 1);
-				MD5_update(&ctx, cnonce, strlen(cnonce));
+				hash_md5->update(ctx, ":", 1);
+				hash_md5->update(ctx, cnonce, strlen(cnonce));
 			}
-			MD5_update(&ctx, ":", 1);
-			MD5_update(&ctx, qop, strlen(qop));
+			hash_md5->update(ctx, ":", 1);
+			hash_md5->update(ctx, qop, strlen(qop));
 		}
-		MD5_update(&ctx, ":", 1);
-		MD5_update(&ctx, a2, strlen(a2));
-		MD5_finish(digest, &ctx);
+		hash_md5->update(ctx, ":", 1);
+		hash_md5->update(ctx, a2, strlen(a2));
+		hash_md5->finish(ctx, digest);
 		return utils_stringify(digest, 16);
 	}
 	return NULL;
@@ -267,15 +208,15 @@ static char *authn_digest_md5_a1(const char *username, const char *realm, const 
 	if (passwd[0] != '$')
 	{
 		char A1[16];
-		MD5_ctx ctx;
+		void *ctx;
 
-		MD5_init(&ctx);
-		MD5_update(&ctx, username, strlen(username));
-		MD5_update(&ctx, ":", 1);
-		MD5_update(&ctx, realm, strlen(realm));
-		MD5_update(&ctx, ":", 1);
-		MD5_update(&ctx, passwd, strlen(passwd));
-		MD5_finish(A1, &ctx);
+		ctx = hash_md5->init();
+		hash_md5->update(ctx, username, strlen(username));
+		hash_md5->update(ctx, ":", 1);
+		hash_md5->update(ctx, realm, strlen(realm));
+		hash_md5->update(ctx, ":", 1);
+		hash_md5->update(ctx, passwd, strlen(passwd));
+		hash_md5->finish(ctx, A1);
 		return utils_stringify(A1, 16);
 	}
 	else if (!strncmp(passwd, "$a1", 3))
@@ -284,7 +225,7 @@ static char *authn_digest_md5_a1(const char *username, const char *realm, const 
 		if (passwd)
 		{
 			char b64passwd[17];
-			BASE64_decode(passwd, strlen(passwd), b64passwd, 17);
+			base64->decode(passwd, strlen(passwd), b64passwd, 17);
 			char *a1 = utils_stringify(b64passwd, 16);
 			return a1;
 		}
@@ -295,18 +236,18 @@ static char *authn_digest_md5_a1(const char *username, const char *realm, const 
 static char *authn_digest_md5_a2(const char *method, const char *uri, const char *entity)
 {
 	char A2[16];
-	MD5_ctx ctx;
+	void *ctx;
 
-	MD5_init(&ctx);
-	MD5_update(&ctx, method, strlen(method));
-	MD5_update(&ctx, ":", 1);
-	MD5_update(&ctx, uri, strlen(uri));
+	ctx = hash_md5->init();
+	hash_md5->update(ctx, method, strlen(method));
+	hash_md5->update(ctx, ":", 1);
+	hash_md5->update(ctx, uri, strlen(uri));
 	if (entity)
 	{
-	MD5_update(&ctx, ":", 1);
-		MD5_update(&ctx, entity, strlen(entity));
+		hash_md5->update(ctx, ":", 1);
+		hash_md5->update(ctx, entity, strlen(entity));
 	}
-	MD5_finish(A2, &ctx);
+	hash_md5->finish(ctx, A2);
 	return utils_stringify(A2, 16);
 }
 struct authn_digest_computing_s authn_digest_md5_computing = 

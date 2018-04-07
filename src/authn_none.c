@@ -39,6 +39,7 @@
 #include <errno.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authn_none.h"
 
