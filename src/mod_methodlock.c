@@ -37,6 +37,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
+#include "mod_auth.h"
 #include "mod_methodlock.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -82,7 +83,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 	break;
 	default:
 	{
-		const char *group = httpmessage_SESSION(request, "%authgroup",NULL);
+		const char *group = auth_info(request, "group");
 		if (group && group[0] != '\0')
 		{
 			int length = strlen(group);
