@@ -52,6 +52,7 @@
 
 #include "httpserver/mod_tls.h"
 #include "httpserver/mod_websocket.h"
+#include "httpserver/mod_cookie.h"
 #include "mod_static_file.h"
 #include "mod_filestorage.h"
 #include "mod_cgi.h"
@@ -85,6 +86,7 @@ typedef struct server_s
 	serverconfig_t *config;
 	http_server_t *server;
 	void *mod_tls;
+	void *mod_cookie;
 	void *mod_static_file;
 	void *mod_filestorage;
 	void *mod_cgi;
@@ -300,6 +302,9 @@ int main(int argc, char * const *argv)
 				server->mod_clientfilter = mod_clientfilter_create(server->server, NULL, server->config->modules.clientfilter);
 			}
 #endif
+#if defined COOKIE
+			server->mod_cookie = mod_cookie_create(server->server, NULL, NULL);
+#endif
 #if defined AUTH
 			if (server->config->modules.auth)
 			{
@@ -419,6 +424,10 @@ int main(int argc, char * const *argv)
 #if defined AUTH
 		if (server->mod_auth)
 			mod_auth_destroy(server->mod_auth);
+#endif
+#if defined COOKIE
+		if (server->mod_cookie)
+			mod_cookie_destroy(server->mod_cookie);
 #endif
 #if defined VHOSTS
 		for (i = 0; i < (MAX_SERVERS - 1); i++)

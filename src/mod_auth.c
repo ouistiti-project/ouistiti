@@ -333,13 +333,19 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret == ECONTINUE)
 	{
+		int cookie = 0;
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = httpmessage_REQUEST(request, (char *)str_authorization);
 		}
 		if (authorization == NULL || authorization[0] == '\0')
 		{
-			authorization = httpmessage_COOKIE(request, (char *)str_authorization);
+			authorization = cookie_get(request, (char *)str_authorization);
+			if (authorization)
+			{
+				authorization = strchr(authorization, '=') + 1;
+				cookie = 1;
+			}
 		}
 		if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
 		{
@@ -382,6 +388,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					httpmessage_addheader(response, str_xuser, user);
 					if (group)
 						httpmessage_addheader(response, str_xgroup, group);
+					cookie_set(request, str_authorization, (char *)authorization);
 				}
 				warn("user \"%s\" accepted from %p", user, ctx->ctl);
 				ret = EREJECT;
