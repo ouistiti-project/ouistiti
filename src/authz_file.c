@@ -214,14 +214,22 @@ int authz_file_check(void *arg, char *user, char *passwd)
 			{
 				hash = hash_md5;
 			}
+			if (!strncmp(chekpasswd, "$a5", 3))
+			{
+				hash = hash_sha256;
+			}
+			if (!strncmp(chekpasswd, "$a6", 3))
+			{
+				hash = hash_sha512;
+			}
 			if (hash)
 			{
-				char hashpasswd[16];
+				char hashpasswd[32];
 				void *ctx;
 				int length;
 
 				ctx = hash->init();
-				chekpasswd = strchr(chekpasswd, '$');
+				chekpasswd = strchr(chekpasswd+1, '$');
 				char *realm = strstr(chekpasswd, "realm=");
 				if (realm)
 				{
@@ -234,8 +242,8 @@ int authz_file_check(void *arg, char *user, char *passwd)
 				}
 				hash->update(ctx, passwd, strlen(passwd));
 				hash->finish(ctx, hashpasswd);
-				char b64passwd[25];
-				base64->encode(hashpasswd, 16, b64passwd, 25);
+				char b64passwd[50];
+				base64->encode(hashpasswd, hash->size, b64passwd, 50);
 
 				chekpasswd = strrchr(chekpasswd, '$');
 				if (chekpasswd)
