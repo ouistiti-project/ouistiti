@@ -51,7 +51,7 @@ struct authn_basic_s
 	char *challenge;
 };
 
-static void *authn_basic_create(authz_t *authz, void *arg)
+static void *authn_basic_create(authn_t *authn, authz_t *authz, void *arg)
 {
 	char format_realm[] = "%s realm=\"%s\"";
 	const char *format = str_authenticate_types[AUTHN_BASIC_E];

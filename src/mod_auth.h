@@ -109,7 +109,8 @@ struct authn_digest_config_s
 	char *opaque;
 };
 
-typedef void *(*authn_rule_create_t)(authz_t *authz, void *config);
+typedef struct authn_s authn_t;
+typedef void *(*authn_rule_create_t)(authn_t *authn, authz_t *authz, void *config);
 typedef int (*authn_rule_setup_t)(void *arg, struct sockaddr *addr, int addrsize);
 typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);
 typedef char *(*authn_rule_check_t)(void *arg, const char *method, const char *uri, char *string);

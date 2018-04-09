@@ -93,7 +93,7 @@ static char *utils_stringify(unsigned char *data, int len)
 	return result;
 }
 
-static void *authn_digest_create(authz_t *authz, void *config)
+static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 {
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
