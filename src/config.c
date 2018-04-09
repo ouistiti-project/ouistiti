@@ -295,6 +295,8 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			auth->authn_config = authn_config;
 		}
 #endif
+		if (auth->authn_config)
+			config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);		
 	}
 	return auth;
 }

@@ -130,12 +130,15 @@ typedef enum
 	AUTHN_BASIC_E = 1,
 	AUTHN_DIGEST_E,
 } authn_type_t;
-typedef struct authn_s authn_t;
+
+typedef struct hash_s hash_t;
+
 struct authn_s
 {
 	void *ctx;
 	authn_rules_t *rules;
 	authn_type_t type;
+	hash_t *hash;
 };
 
 typedef struct mod_auth_s
@@ -144,6 +147,7 @@ typedef struct mod_auth_s
 	authn_type_t authn_type;
 	void *authz_config;
 	authz_type_t authz_type;
+	const char *algo;
 	const char *redirect;
 	const char *protect;
 	const char *unprotect;

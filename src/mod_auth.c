@@ -45,6 +45,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authn_none.h"
 #include "authn_basic.h"
@@ -180,10 +181,33 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->type = config->authn_type;
+	if (config->algo)
+	{
+		if (hash_sha1 && !strcmp(config->algo, hash_sha1->name))
+		{
+			mod->authn->hash = hash_sha1;
+		}
+		if (hash_sha224 && !strcmp(config->algo, hash_sha224->name))
+		{
+			mod->authn->hash = hash_sha224;
+		}
+		if (hash_sha256 && !strcmp(config->algo, hash_sha256->name))
+		{
+			mod->authn->hash = hash_sha256;
+		}
+		if (hash_sha512 && !strcmp(config->algo, hash_sha512->name))
+		{
+			mod->authn->hash = hash_sha512;
+		}
+		if (hash_md5)
+		{
+			mod->authn->hash = hash_md5;
+		}
+	}
 	mod->authn->rules = authn_rules[config->authn_type];
 	if (mod->authn->rules && mod->authz->rules)
 	{
-		mod->authn->ctx = mod->authn->rules->create(mod->authz, config->authn_config);
+		mod->authn->ctx = mod->authn->rules->create(mod->authn, mod->authz, config->authn_config);
 	}
 	if (mod->authn->ctx)
 	{

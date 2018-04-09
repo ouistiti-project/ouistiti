@@ -49,6 +49,7 @@ struct authn_digest_s
 {
 	authn_digest_config_t *config;
 	authz_t *authz;
+	hash_t *hash;
 	char *challenge;
 	char opaque[33];
 	char nonce[35];
@@ -156,6 +157,11 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 						mod->nonce,
 						mod->opaque,
 						(mod->stale)?"true":"false");
+	if (mod->hash != hash_md5)
+	{
+		int len = strlen(mod->challenge);
+		snprintf(mod->challenge + len, 256 - len, " algorithm=\%s\"", mod->hash->name);
+	}
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
 	httpmessage_keepalive(response);
 	ret = ESUCCESS;
@@ -164,97 +170,107 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 
 struct authn_digest_computing_s
 {
-	char *(*digest)(char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2);
-	char *(*a1)(const char *username, const char *realm, const char *passwd);
-	char *(*a2)(const char *method, const char *uri, const char *entity);
+	char *(*digest)(hash_t * hash, char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2);
+	char *(*a1)(hash_t * hash, const char *username, const char *realm, const char *passwd);
+	char *(*a2)(hash_t * hash, const char *method, const char *uri, const char *entity);
 };
 
-static char *authn_digest_md5_digest(char *a1, const const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2)
+static char *authn_digest_digest(hash_t * hash, char *a1, const const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2)
 {
 	if (a1 && a2)
 	{
-		char digest[16];
+		char digest[32];
 		void *ctx;
 
-		ctx = hash_md5->init();
-		hash_md5->update(ctx, a1, strlen(a1));
-		hash_md5->update(ctx, ":", 1);
-		hash_md5->update(ctx, nonce, strlen(nonce));
+		ctx = hash->init();
+		hash->update(ctx, a1, strlen(a1));
+		hash->update(ctx, ":", 1);
+		hash->update(ctx, nonce, strlen(nonce));
 		if (qop && !strcmp(qop, "auth"))
 		{
 			if (nc)
 			{
-				hash_md5->update(ctx, ":", 1);
-				hash_md5->update(ctx, nc, strlen(nc));
+				hash->update(ctx, ":", 1);
+				hash->update(ctx, nc, strlen(nc));
 			}
 			if (cnonce)
 			{
-				hash_md5->update(ctx, ":", 1);
-				hash_md5->update(ctx, cnonce, strlen(cnonce));
+				hash->update(ctx, ":", 1);
+				hash->update(ctx, cnonce, strlen(cnonce));
 			}
-			hash_md5->update(ctx, ":", 1);
-			hash_md5->update(ctx, qop, strlen(qop));
+			hash->update(ctx, ":", 1);
+			hash->update(ctx, qop, strlen(qop));
 		}
-		hash_md5->update(ctx, ":", 1);
-		hash_md5->update(ctx, a2, strlen(a2));
-		hash_md5->finish(ctx, digest);
-		return utils_stringify(digest, 16);
+		hash->update(ctx, ":", 1);
+		hash->update(ctx, a2, strlen(a2));
+		hash->finish(ctx, digest);
+		return utils_stringify(digest, hash->size);
 	}
 	return NULL;
 }
 
-static char *authn_digest_md5_a1(const char *username, const char *realm, const char *passwd)
+static char *authn_digest_a1(hash_t * hash, const char *username, const char *realm, const char *passwd)
 {
 	if (passwd[0] != '$')
 	{
-		char A1[16];
+		char A1[32];
 		void *ctx;
 
-		ctx = hash_md5->init();
-		hash_md5->update(ctx, username, strlen(username));
-		hash_md5->update(ctx, ":", 1);
-		hash_md5->update(ctx, realm, strlen(realm));
-		hash_md5->update(ctx, ":", 1);
-		hash_md5->update(ctx, passwd, strlen(passwd));
-		hash_md5->finish(ctx, A1);
-		return utils_stringify(A1, 16);
+		ctx = hash->init();
+		hash->update(ctx, username, strlen(username));
+		hash->update(ctx, ":", 1);
+		hash->update(ctx, realm, strlen(realm));
+		hash->update(ctx, ":", 1);
+		hash->update(ctx, passwd, strlen(passwd));
+		hash->finish(ctx, A1);
+		return utils_stringify(A1, hash->size);
 	}
-	else if (!strncmp(passwd, "$a1", 3))
+	else if (!strncmp(passwd, "$a", 2))
 	{
-		passwd = strrchr(passwd + 1, '$') + 1;
-		if (passwd)
+		int decrypt = 0;
+		if (!strcmp(hash->name, "MD5") && passwd[2] == '1')
+			decrypt = 1;
+		if (!strcmp(hash->name, "SHA-256") && passwd[2] == '5')
+			decrypt = 1;
+		if (!strcmp(hash->name, "SHA-512") && passwd[2] == '6')
+			decrypt = 1;
+		if (decrypt)
 		{
-			char b64passwd[17];
-			base64->decode(passwd, strlen(passwd), b64passwd, 17);
-			char *a1 = utils_stringify(b64passwd, 16);
-			return a1;
+			passwd = strrchr(passwd + 1, '$') + 1;
+			if (passwd)
+			{
+				char b64passwd[17];
+				base64->decode(passwd, strlen(passwd), b64passwd, 17);
+				char *a1 = utils_stringify(b64passwd, 16);
+				return a1;
+			}
 		}
 	}
 	return NULL;
 }
 
-static char *authn_digest_md5_a2(const char *method, const char *uri, const char *entity)
+static char *authn_digest_a2(hash_t * hash, const char *method, const char *uri, const char *entity)
 {
-	char A2[16];
+	char A2[32];
 	void *ctx;
 
-	ctx = hash_md5->init();
-	hash_md5->update(ctx, method, strlen(method));
-	hash_md5->update(ctx, ":", 1);
-	hash_md5->update(ctx, uri, strlen(uri));
+	ctx = hash->init();
+	hash->update(ctx, method, strlen(method));
+	hash->update(ctx, ":", 1);
+	hash->update(ctx, uri, strlen(uri));
 	if (entity)
 	{
-		hash_md5->update(ctx, ":", 1);
-		hash_md5->update(ctx, entity, strlen(entity));
+		hash->update(ctx, ":", 1);
+		hash->update(ctx, entity, strlen(entity));
 	}
-	hash_md5->finish(ctx, A2);
-	return utils_stringify(A2, 16);
+	hash->finish(ctx, A2);
+	return utils_stringify(A2, hash->size);
 }
 struct authn_digest_computing_s authn_digest_md5_computing = 
 {
-	.digest = authn_digest_md5_digest,
-	.a1 = authn_digest_md5_a1,
-	.a2 = authn_digest_md5_a2,
+	.digest = authn_digest_digest,
+	.a1 = authn_digest_a1,
+	.a2 = authn_digest_a2,
 };
 
 struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
@@ -272,6 +288,7 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 	char *cnonce = str_empty;
 	char *nc = NULL;
 	char *opaque = str_empty;
+	char *algorithm = str_empty;
 	char *response = NULL;
 	int length, i;
 
@@ -280,6 +297,9 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 	{
 		switch (string[i])
 		{
+		case 'a':
+			utils_searchstring(&algorithm, string + i, "algorithm", sizeof("algorithm") - 1);
+		break;
 		case 'r':
 			utils_searchstring(&realm, string + i, "realm", sizeof("realm") - 1);
 			utils_searchstring(&response, string + i, "response", sizeof("response") - 1);
@@ -312,6 +332,16 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 		mod->stale %= 5;
 		return NULL;
 	}
+	if (strcmp(algorithm, mod->hash->name))
+	{
+#ifdef AUTH_DOWNGRADE
+		mod->hash = hash_md5;
+#else
+		mod->stale++;
+		mod->stale %= 5;
+		return NULL;
+#endif
+	}
 	mod->stale = 0;
 	if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
 	{
@@ -325,9 +355,9 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 	passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 	if (passwd && authn_digest_computing)
 	{
-		char *a1 = authn_digest_computing->a1(user, realm, passwd);
-		char *a2 = authn_digest_computing->a2(method, uri, NULL);
-		char *digest = authn_digest_computing->digest(a1, nonce, nc, cnonce, qop, a2);
+		char *a1 = authn_digest_computing->a1(mod->hash, user, realm, passwd);
+		char *a2 = authn_digest_computing->a2(mod->hash, method, uri, NULL);
+		char *digest = authn_digest_computing->digest(mod->hash, a1, nonce, nc, cnonce, qop, a2);
 
 		//warn("Digest %s", digest);
 		if (digest && !strcmp(digest, response))
