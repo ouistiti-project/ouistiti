@@ -28,7 +28,7 @@ endif
 
 ifeq ($(DYNAMIC),y)
 $(TARGET)_LIBS-$(MBEDTLS)+=:mod_mbedtls.so
-$(TARGET)_LIBS-$(WOLFTLS)+=:mod_wolftls.so
+$(TARGET)_LIBS-$(WOLFSSL)+=:mod_wolfssl.so
 $(TARGET)_LIBS-$(STATIC_FILE)+=:mod_static_file.so :utils_mod.so
 $(TARGET)_LIBS-$(FILESTORAGE)+=:mod_filestorage.so
 $(TARGET)_LIBS-$(CGI)+=:mod_cgi.so :utils_mod.so
@@ -43,7 +43,7 @@ $(TARGET)_LIBS-$(WEBSTREAM)+=:mod_webstream.so
 $(TARGET)_LIBS-$(COOKIE)+=:mod_cookie.so
 else
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
-$(TARGET)_LIBS-$(WOLFTLS)+=mod_wolftls
+$(TARGET)_LIBS-$(WOLFSSL)+=mod_wolfssl
 $(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file utils_mod
 $(TARGET)_LIBS-$(FILESTORAGE)+=mod_filestorage
 $(TARGET)_LIBS-$(CGI)+=mod_cgi utils_mod
@@ -72,10 +72,10 @@ $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
 #endif
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
-$(TARGET)_LIBRARY-$(WOLFTLS)+=wolfssl
+$(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl
 $(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DTLS
-$(TARGET)_CFLAGS-$(WOLFTLS)+=-DTLS
+$(TARGET)_CFLAGS-$(WOLFSSL)+=-DTLS
 $(TARGET)_CFLAGS-$(STATIC_FILE)+=-DSTATIC_FILE
 $(TARGET)_CFLAGS-$(SENDFILE)+=-DSENDFILE
 $(TARGET)_CFLAGS-$(DIRLISTING)+=-DDIRLISTING
