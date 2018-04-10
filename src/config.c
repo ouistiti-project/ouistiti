@@ -560,16 +560,20 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->server->version = HTTP11;
 					const char *version = NULL;
 					config_setting_lookup_string(iterator, "version", &version);
-					if (version && !strncmp(version, "HTTP", 4))
+					if (version)
 					{
-						if (version[4] == '0' && version[5] == '9')
-							config->server->version = HTTP09;
-						if (version[4] == '1' && version[5] == '0')
-							config->server->version = HTTP09;
-						if (version[6] == 'P' && version[7] == 'I' &&
-							version[8] == 'P' && version[9] == 'E')
-							config->server->version |= HTTP_PIPELINE;
+						int i = 0;
+						for (i = 0; httpversion[i] != NULL; i++)
+						{
+							if (!strcmp(version,  httpversion[i]))
+							{
+								config->server->version = i;
+								break;
+							}
+						}
 					}
+					config->server->versionstr = httpversion[config->server->version];
+
 					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 					config->tls = tls_config(iterator);
 					config->modules.static_file = static_file_config(iterator,(config->tls!=NULL));
