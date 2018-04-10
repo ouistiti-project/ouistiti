@@ -2,6 +2,3 @@
 	path = libhttpserver
 	url = https://github.com/mchalain/libhttpserver
 	branch = master
-[submodule "libb64"]
-	path = libb64
-	url = https://github.com/mchalain/libb64
