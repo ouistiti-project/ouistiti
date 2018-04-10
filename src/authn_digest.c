@@ -130,7 +130,7 @@ static void authn_digest_opaque(void *arg, char *opaque, int opaquelen)
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
 #ifndef DEBUG
-	BASE64_encode(mod->config->opaque, 22, opaque, opaquelen);
+	base64->encode(mod->config->opaque, 22, opaque, opaquelen);
 #else
 	memcpy(opaque, "5ccc069c403ebaf9f0171e9517f40e41", opaquelen);
 	opaque[opaquelen] = 0;
