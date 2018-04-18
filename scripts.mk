@@ -38,46 +38,45 @@ file?=$(notdir $(firstword $(MAKEFILE_LIST)))
 
 VERSIONFILE=version
 
+CROSS_COMPILE?=
+
 # CONFIG could define LD CC or/and CFLAGS
 # CONFIG must be included before "Commands for build and link"
-ifneq ($(builddir),)
-buildpath=$(if $(wildcard $(addprefix /.,$(builddir))),$(builddir),$(join $(srcdir),$(builddir)))
-obj=$(addprefix $(buildpath:%=%/),$(cwdir))
-else
-obj=
-endif
-hostobj:=$(srcdir:%=%/)host/$(cwdir)
-
 CONFIGURE_STATUS:=configure.status
 ifneq ($(wildcard $(obj)$(CONFIGURE_STATUS)),)
 include $(obj)$(CONFIGURE_STATUS)
-else
-ifneq ($(wildcard $(srcdir)$(CONFIGURE_STATUS)),)
+else ifneq ($(wildcard $(srcdir)$(CONFIGURE_STATUS)),)
 include $(srcdir)$(CONFIGURE_STATUS)
-endif
 endif
 
 CONFIG?=config
 ifneq ($(wildcard $(obj)$(CONFIG)),)
 configfile:=$(obj)$(CONFIG)
-else
-ifneq ($(wildcard $(srcdir)$(CONFIG)),)
+else ifneq ($(wildcard $(srcdir)$(CONFIG)),)
 configfile:=$(srcdir)$(CONFIG)
-endif
 endif
 ifneq ($(configfile),)
 include $(configfile)
 endif
 
+#ifneq ($(findstring -arch,$(CFLAGS)),)
+#ARCH=$(shell echo $(CFLAGS) 2>&1 | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
+#buildpath=$(join $(srcdir),$(ARCH))
+#endif
+ifneq ($(builddir),)
+buildpath=$(if $(wildcard $(addprefix /.,$(builddir))),$(builddir:%/=%)/,$(join $(srcdir),$(builddir:%/=%)/))
+else ifneq ($(CROSS_COMPILE),)
+buildpath=$(join $(srcdir),$(CROSS_COMPILE:%-=%)/)
+endif
+ifneq ($(buildpath),)
+obj=$(addprefix $(buildpath),$(cwdir))
+else
+obj=
+endif
+hostobj:=$(srcdir:%=%/)host/$(cwdir)
+
 ifneq ($(file),)
 include $(file)
-endif
-
-ifeq ($(obj),)
-ifneq ($(CROSS_COMPILE),)
-buildpath=$(join $(srcdir),$(CROSS_COMPILE))
-obj=$(addprefix $(buildpath:%=%/),$(cwdir))
-endif
 endif
 
 PATH:=$(value PATH):$(hostobj)
@@ -111,13 +110,24 @@ HOSTRANLIB=$(RANLIB)
 ldgcc=$(1) $(2)
 
 ifneq ($(CROSS_COMPILE),)
-	AS=$(CROSS_COMPILE:%-=%)-as
-	CC=$(CROSS_COMPILE:%-=%)-gcc
-	CXX=$(CROSS_COMPILE:%-=%)-g++
-	LD=$(CROSS_COMPILE:%-=%)-gcc
-	AR=$(CROSS_COMPILE:%-=%)-ar
-	RANLIB=$(CROSS_COMPILE:%-=%)-ranlib
-	ldgcc=-Wl,$(1),$(2)
+	ifeq ($(CC),cc)
+		CC:=gcc
+		CXX:=g++
+	endif
+	ifneq ($(findstring gcc,$(CC)),)
+		LD:=gcc
+		ldgcc=-Wl,$(1),$(2)
+	else
+		LD:=ld
+	endif
+	AS=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-as
+	ifeq ($(findstring $(CROSS_COMPILE),$(CC)),)
+		CC:=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-$(CC)
+		CXX:=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-$(CXX)
+		LD:=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-$(LD)
+	endif
+	AR=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-ar
+	RANLIB=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-ranlib
 else ifeq ($(CC),cc)
 # if cc is a link on gcc, prefer to use directly gcc for ld
 CCVERSION=$(shell $(CC) -v 2>&1)
@@ -152,24 +162,28 @@ datadir:=$(datadir:"%"=%)
 pkglibdir?=$(libdir)/$(package:"%"=%)
 pkglibdir:=$(pkglibdir:"%"=%)
 
-ifneq ($(sysroot),)
-SYSROOT+=--sysroot=$(sysroot)
+ifneq ($(sysroot:"%"=%),)
+SYSROOT:=--sysroot=$(sysroot:"%"=%)
+CFLAGS+=-isysroot $(sysroot:"%"=%) -I$(sysroot:"%"=%)$(includedir)
+LDFLAGS+=-L$(sysroot:"%"=%)$(libdir)
+LDFLAGS+=-L$(sysroot:"%"=%)$(pkglibdir)
 endif
 
 #CFLAGS+=$(foreach macro,$(DIRECTORIES_LIST),-D$(macro)=\"$($(macro))\")
-CFLAGS+=-I$(src) -I$(CURDIR) -I. -I$(sysroot)$(includedir)
+ifneq ($(src),)
+CFLAGS+=-I$(src)
+endif
+CFLAGS+=-I$(CURDIR) -I.
 LIBRARY+=
-ifneq ($(builddir),)
-LDFLAGS+=-L$(builddir)
+ifneq ($(obj),)
+LDFLAGS+=-L$(obj:%/=%)
 else
 LDFLAGS+=-L.
 endif
-LDFLAGS+=-L$(sysroot)$(libdir)
 LDFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
-LDFLAGS+=-L$(sysroot)$(pkglibdir)
 LDFLAGS+=$(if $(strip $(pkglibdir)),$(call ldgcc,-rpath,$(strip $(pkglibdir))))
 
-export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir
+#export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir
 
 ##
 # objects recipes generation
@@ -195,12 +209,6 @@ $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(ev
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LIBS+=$($(t)_LIBS-y)))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LIBRARY+=$($(t)_LIBRARY-y)))
 
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(s:%.c=%)_CFLAGS+=$($(t)_CFLAGS)) ))
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(s:%.cpp=%)_CFLAGS+=$($(t)_CFLAGS)) ))
-
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LDFLAGS+=$($(s:%.c=%)_LDFLAGS)) ))
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LDFLAGS+=$($(s:%.cpp=%)_LDFLAGS)) ))
-
 # LIBRARY contains libraries name to check
 # The name may terminate with {<version>} informations like LIBRARY+=usb{1.0}
 # Here the commands remove the informations and store the name into LIBS
@@ -213,6 +221,12 @@ $(foreach l, $(LIBS),$(eval LDFLAGS+=$(shell $(PKGCONFIG) --libs-only-L lib$(l) 
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach l, $($(t)_LIBS),$(eval $(t)_CFLAGS+=$(shell $(PKGCONFIG) --cflags lib$(l) 2> /dev/null))))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach l, $($(t)_LIBS),$(eval $(t)_LDFLAGS+=$(shell $(PKGCONFIG) --libs-only-L lib$(l) 2> /dev/null) ) ))
 
+# set the CFLAGS of each source file
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(s:%.c=%)_CFLAGS+=$($(t)_CFLAGS)) ))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(s:%.cpp=%)_CFLAGS+=$($(t)_CFLAGS)) ))
+
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LDFLAGS+=$($(s:%.c=%)_LDFLAGS)) ))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LDFLAGS+=$($(s:%.cpp=%)_LDFLAGS)) ))
 
 # The Dynamic_Loader library (libdl) allows to load external libraries.
 # If this libraries has to link to the binary functions, 
@@ -232,10 +246,17 @@ modules-target:=$(addprefix $(obj),$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
 bin-target:=$(addprefix $(obj),$(addsuffix $(bin-ext:%=.%),$(bin-y) $(sbin-y)))
 hostslib-target:=$(addprefix $(hostobj),$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(hostslib-y))))
 hostbin-target:=$(addprefix $(hostobj),$(addsuffix $(bin-ext:%=.%),$(hostbin-y)))
+
+#create subproject
+$(foreach t,$(subdir-y),$(eval $(t)_CONFIGURE+=$($(t)_CONFIGURE-y)))
+$(foreach t,$(subdir-y),$(if $($(t)_CONFIGURE), $(eval subdir-project+=$(t))))
+subdir-y:=$(filter-out $(subdir-project),$(subdir-y))
+
 #subdir-y may contain directory's names or file's names.
 #for each directory, the script may check Makefile and *.mk files
 #list of directories
 subdir-dir:=$(wildcard $(foreach dir,$(subdir-y),$(join $(dir)/,$(notdir $(join $(dir),/.)))))
+
 #target each Makefile in directories
 subdir-target:=$(wildcard $(addsuffix /Makefile,$(subdir-dir:%/.=%)))
 #target all *.mk file in directories
@@ -245,8 +266,7 @@ subdir-files:=$(subdir-y)
 $(foreach dir, $(subdir-dir:%/.=%),$(eval subdir-files:=$(filter-out $(dir),$(subdir-files))))
 #target the files from the list
 subdir-target+=$(wildcard $(subdir-files))
-#subdir-project:=$(wildcard $(addsuffix /configure,$(subdir-y)))
-#subdir-target:=$(filter-out $(subdir-project),$(subdir-target))
+
 
 objdir:=$(sort $(dir $(target-objs)))
 
@@ -256,6 +276,9 @@ targets+=$(modules-target)
 targets+=$(lib-static-target)
 targets+=$(bin-target)
 
+ifneq ($(CROSS_COMPILE),)
+DESTDIR:=$(sysroot:"%"=%)
+endif
 ##
 # install recipes generation
 ##
@@ -392,11 +415,11 @@ RPATH=$(wildcard $(addsuffix /.,$(wildcard $(CURDIR:%/=%)/* $(obj)*)))
 quiet_cmd_yacc_y=YACC $*
  cmd_yacc_y=$(YACC) -o $@ $<
 quiet_cmd_as_o_s=AS $*
- cmd_as_o_s=$(AS) $(SYSROOT) $(ASFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
+ cmd_as_o_s=$(AS) $(SYSROOT) $(ASFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_c=CC $*
- cmd_cc_o_c=$(CC) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
+ cmd_cc_o_c=$(CC) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_cpp=CXX $*
- cmd_cc_o_cpp=$(CXX) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
+ cmd_cc_o_cpp=$(CXX) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_moc_hpp=QTMOC $*
  cmd_moc_hpp=$(MOC) $(INCLUDES) $($*_MOCFLAGS) $($*_MOCFLAGS-y) -o $@ $<
 quiet_cmd_uic_hpp=QTUIC $*
@@ -404,9 +427,9 @@ quiet_cmd_uic_hpp=QTUIC $*
 quiet_cmd_ld_bin=LD $*
  cmd_ld_bin=$(LD) $(SYSROOT) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 quiet_cmd_hostcc_o_c=HOSTCC $*
- cmd_hostcc_o_c=$(HOSTCC) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
+ cmd_hostcc_o_c=$(HOSTCC) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_hostcmd_cc_o_cpp=HOSTCXX $*
- cmd_hostcc_o_cpp=$(HOSTCXX) $(CFLAGS) $($*_CFLAGS) $($*_CFLAGS-y) -c -o $@ $<
+ cmd_hostcc_o_cpp=$(HOSTCXX) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_hostld_bin=HOSTLD $*
  cmd_hostld_bin=$(HOSTLD) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 quiet_cmd_hostld_slib=HOSTLD $*
@@ -486,11 +509,11 @@ $(hostbin-target): $(hostobj)%$(bin-ext:%=.%): $$(if $$(%-objs), $$(addprefix $(
 $(hostslib-target): $(hostobj)lib%$(slib-ext:%=.%): $$(if $$(%-objs), $$(addprefix $(hostobj),$$(%-objs)), $(hostobj)%.o)
 	@$(call cmd,hostld_slib)
 
-.PHONY:$(subdir-target) $(subdir-project) FORCE
-#$(subdir-project): %:
-#	$(Q)cd $(dir $*) && autoreconf -i
-#	$(Q)cd $(dir $*) && ./configure
-#	$(Q)cd $(dir $*) && $(MAKE)
+.PHONY: $(subdir-project) $(subdir-target) FORCE
+$(subdir-project): %: FORCE
+	$(Q)cd $* && $($*_CONFIGURE)
+	$(Q)$(MAKE) -C $* 
+	$(Q)$(MAKE) -C $* install
 
 $(subdir-target): %: FORCE
 	$(Q)$(MAKE) -C $(dir $*) cwdir=$(cwdir)$(dir $*) builddir=$(builddir) $(build)=$(notdir $*)

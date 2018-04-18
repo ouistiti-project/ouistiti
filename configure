@@ -29,6 +29,7 @@ function help {
 	printf "\t--build=BUILD\t\tconfigure for building on BUILD [guessed]\n"
 	printf "\t--host=HOST\t\tcross-compile to build programs to run on HOST [BUILD]\n"
 	printf "\t--sysroot=DIR\t\tcross-compiler root directory [none]\n"
+	printf "\t--toolchain=DIR\t\tcross-compiler tools path [none]\n"
 	printf "\nFeatures enabling:\n"
 	for option in $OPTIONS
 	do
@@ -85,10 +86,13 @@ while [ "${1}" != "" ]; do
 			sysconfdir=$(argument ${1})
 			;;
 		--host*)
-			CROSS_COMPILER=$(argument ${1})
+			CROSS_COMPILE=$(argument ${1})
 			;;
 		--sysroot*)
 			sysroot=$(argument ${1})
+			;;
+		--toolchain*)
+			TOOLCHAIN=$(argument ${1})
 			;;
 		--disable-error)
 			error=disable
@@ -140,36 +144,40 @@ fi
 echo "#Makemore 1.0" > $out
 printf "\nInstallation:\n"
 if [ $prefix ]; then
-	echo "prefix=\""$prefix"\"" >> $out
+	echo "prefix="$prefix"" >> $out
 	printf " prefix:\t$prefix\n"
 fi
 if [ $bindir ]; then
-	echo "bindir=\""$bindir"\"" >> $out
+	echo "bindir="$bindir"" >> $out
 	printf " bindir:\t$bindir\n"
 fi
 if [ $sbindir ]; then
-	echo "sbindir=\""$sbindir"\"" >> $out
+	echo "sbindir="$sbindir"" >> $out
 	printf " sbindir:\t$sbindir\n"
 fi
 if [ $includedir ]; then
-	echo "includedir=\""$includedir"\"" >> $out
+	echo "includedir="$includedir"" >> $out
 	printf " includedir:\t$includedir\n"
 fi
 if [ $libdir ]; then
-	echo "libdir=\""$libdir"\"" >> $out
+	echo "libdir="$libdir"" >> $out
 	printf " libdir:\t$libdir\n"
 fi
 if [ $sysconfdir ]; then
-	echo "sysconfdir=\""$sysconfdir"\"" >> $out
+	echo "sysconfdir="$sysconfdir"" >> $out
 	printf " sysconfdir:\t$sysconfdir\n"
 fi
 if [ $sysroot ]; then
-	echo "sysroot=\""$sysroot"\"" >> $out
+	echo "sysroot="$sysroot"" >> $out
 	printf " sysroot:\t$sysroot\n"
 fi
-if [ $CROSS_COMPILER ]; then
-	echo "CROSS_COMPILER="$CROSS_COMPILER >> $out
-	printf " host:\t$CROSS_COMPILER\n"
+if [ $CROSS_COMPILE ]; then
+	echo "CROSS_COMPILE="$CROSS_COMPILE >> $out
+	printf " host:\t$CROSS_COMPILE\n"
+fi
+if [ $TOOLCHAIN ]; then
+	echo "TOOLCHAIN="$TOOLCHAIN >> $out
+	printf " toolchain:\t$TOOLCHAIN\n"
 fi
 
 echo "# Configuration file set with ./configure" > ${CONFIG}
