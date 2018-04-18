@@ -22,10 +22,10 @@ mod_auth_CFLAGS-$(AUTHZ_FILE)+=-DAUTHZ_FILE
 
 mod_auth_SOURCES-$(AUTHZ_UNIX)+=authz_unix.c
 mod_auth_CFLAGS-$(AUTHZ_UNIX)+=-DAUTHZ_UNIX
-mod_auth_LIBS-$(AUTHZ_UNIX)+=crypt
+mod_auth_LIBRARY-$(AUTHZ_UNIX)+=crypt
 
 mod_auth_SOURCES-$(AUTHZ_SQLITE)+=authz_sqlite.c
 mod_auth_CFLAGS-$(AUTHZ_SQLITE)+=-DAUTHZ_SQLITE
-mod_auth_LIBS-$(AUTHZ_SQLITE)+=sqlite3
+mod_auth_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
 
 mod_auth_CFLAGS-$(DEBUG)+=-g -DDEBUG
