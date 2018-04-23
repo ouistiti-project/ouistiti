@@ -1,6 +1,6 @@
 
-modules-$(DYNAMIC)+=mod_static_file
-slib-$(STATIC)+=mod_static_file
+modules-$(MODULES)+=mod_static_file
+slib-y+=mod_static_file
 mod_static_file_SOURCES+=mod_static_file.c
 mod_static_file_CFLAGS+=-DSTATIC_FILE -I../libhttpserver/include
 
