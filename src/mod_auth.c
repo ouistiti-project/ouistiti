@@ -45,6 +45,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authn_none.h"
 #include "authn_basic.h"
@@ -76,11 +77,20 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 static const char str_auth[] = "auth";
 
+typedef struct authsession_s
+{
+	char *type;
+	char *user;
+	char *group;
+	char *home;
+} authsession_t;
+
 struct _mod_auth_ctx_s
 {
 	_mod_auth_t *mod;
 	http_client_t *ctl;
 	char *authenticate;
+	authsession_t *info;
 };
 
 struct _mod_auth_s
@@ -171,10 +181,35 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->type = config->authn_type;
+	if (config->algo)
+	{
+		if (hash_sha1 && !strcmp(config->algo, hash_sha1->name))
+		{
+			mod->authn->hash = hash_sha1;
+		}
+		if (hash_sha224 && !strcmp(config->algo, hash_sha224->name))
+		{
+			mod->authn->hash = hash_sha224;
+		}
+		if (hash_sha256 && !strcmp(config->algo, hash_sha256->name))
+		{
+			mod->authn->hash = hash_sha256;
+		}
+		if (hash_sha512 && !strcmp(config->algo, hash_sha512->name))
+		{
+			mod->authn->hash = hash_sha512;
+		}
+		dbg("auth : use %d as hash method", config->algo);
+	}
+	if (mod->authn->hash == NULL && hash_md5)
+	{
+		dbg("auth : use default md5 as hash method");
+		mod->authn->hash = hash_md5;
+	}
 	mod->authn->rules = authn_rules[config->authn_type];
 	if (mod->authn->rules && mod->authz->rules)
 	{
-		mod->authn->ctx = mod->authn->rules->create(mod->authz, config->authn_config);
+		mod->authn->ctx = mod->authn->rules->create(mod->authn, mod->authz, config->authn_config);
 	}
 	if (mod->authn->ctx)
 	{
@@ -236,6 +271,18 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx)
 {
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
+	if (ctx->info)
+	{
+		if (ctx->info->user)
+			free(ctx->info->user);
+		if (ctx->info->type)
+			free(ctx->info->type);
+		if (ctx->info->group)
+			free(ctx->info->group);
+		if (ctx->info->home)
+			free(ctx->info->home);
+		free(ctx->info);
+	}
 	free(ctx->authenticate);
 	free(ctx);
 }
@@ -243,10 +290,11 @@ static void _mod_auth_freectx(void *vctx)
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	char *home = httpmessage_SESSION(request, "%authhome", NULL);
-	if (home)
+	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL);
+	if (info)
 	{
-		char *websocket = httpmessage_REQUEST(request, "Sec-WebSocket-Version");
+		const char *home = info->home;
+		const char *websocket = httpmessage_REQUEST(request, "Sec-WebSocket-Version");
 		if (websocket && websocket[0] != '\0')
 			return ret;
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
@@ -268,15 +316,14 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
-#define CONTENTCHUNK 63
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
-	char *authorization = NULL;
-	char *uriencoded = httpmessage_REQUEST(request, "uri");
+	const char *authorization = NULL;
+	const char *uriencoded = httpmessage_REQUEST(request, "uri");
 	char *uri = utils_urldecode(uriencoded);
 	int protect = 1;
 	protect = utils_searchexp(uri, config->protect);
@@ -312,57 +359,75 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret == ECONTINUE)
 	{
+		int cookie = 0;
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = httpmessage_REQUEST(request, (char *)str_authorization);
 		}
 		if (authorization == NULL || authorization[0] == '\0')
 		{
-			authorization = httpmessage_COOKIE(request, (char *)str_authorization);
+			authorization = cookie_get(request, (char *)str_authorization);
+			if (authorization)
+			{
+				authorization = strchr(authorization, '=') + 1;
+				cookie = 1;
+			}
 		}
 		if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
 		{
 			char *authentication = strchr(authorization, ' ');
 			if (authentication)
 				authentication++;
-			char *method = httpmessage_REQUEST(request, "method");
-			char *user = mod->authn->rules->check(mod->authn->ctx, method, authentication);
+			const char *method = httpmessage_REQUEST(request, "method");
+			const char *uri = httpmessage_REQUEST(request, "uri");
+			char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
 			if (user != NULL)
 			{
-				warn("user \"%s\" accepted from %p", user, ctx->ctl);
-				httpmessage_SESSION(request, "%user", user);
-				httpmessage_addheader(response, (char *)str_xuser, user);
-				httpmessage_SESSION(request, "%authtype", (char *)mod->type);
-				ret = EREJECT;
-
-				if (mod->authz->rules->group)
+				authsession_t *info = NULL;
+				info = ctx->info;
+				if (info == NULL)
 				{
-					char *group = mod->authz->rules->group(mod->authz->ctx, user);
+					char *group = NULL;
+					char *home = NULL;
+					if (mod->authz->rules->group)
+						group = mod->authz->rules->group(mod->authz->ctx, user);
+					if (mod->authz->rules->home)
+						home = mod->authz->rules->home(mod->authz->ctx, user);
+
+					info = calloc(1, sizeof(*info));
+					info->user = calloc(strlen(user) + 1, sizeof(char));
+					strcpy(info->user, user);
+					info->type = calloc(strlen(mod->type) + 1, sizeof(char));
+					strcpy(info->type, mod->type);
 					if (group)
 					{
-						httpmessage_SESSION(request, "%authgroup", group);
-						httpmessage_addheader(response, (char *)str_xgroup, group);
+						info->group = calloc(strlen(group) + 1, sizeof(char));
+						strcpy(info->group, group);
 					}
-				}
-				if (mod->authz->rules->home)
-				{
-					char *home = mod->authz->rules->home(mod->authz->ctx, user);
 					if (home)
 					{
-						httpmessage_SESSION(request, "%authhome", home);
+						info->home = calloc(strlen(home) + 1, sizeof(char));
+						strcpy(info->home, home);
 					}
+					ctx->info = info;
+					httpmessage_SESSION(request, str_auth, info);
+					httpmessage_addheader(response, str_xuser, user);
+					if (group)
+						httpmessage_addheader(response, str_xgroup, group);
+					cookie_set(request, str_authorization, (char *)authorization);
 				}
+				warn("user \"%s\" accepted from %p", user, ctx->ctl);
+				ret = EREJECT;
 			}
 		}
 	}
 	if (ret != EREJECT)
 	{
-		int length = CONTENTCHUNK;
 		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 		if (ret == ESUCCESS)
 		{
 			dbg("auth challenge failed");
-			char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+			const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
 			{
 #if defined(RESULT_403)
@@ -391,3 +456,27 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	free(uri);
 	return ret;
 }
+
+const char *auth_info(http_message_t *request, const char *key)
+{
+	const authsession_t *info = NULL;
+	info = httpmessage_SESSION(request, str_auth, NULL);
+	const char *value = NULL;
+
+	if (info && !strcmp(key, "user"))
+		value = (const char *)info->user;
+	if (info && !strcmp(key, "group"))
+		value = (const char *)info->group;
+	if (info && !strcmp(key, "type"))
+		value = (const char *)info->type;
+	if (info && !strcmp(key, "home"))
+		value = (const char *)info->home;
+	return value;
+}
+
+const module_t mod_auth =
+{
+	.name = str_auth,
+	.create = (module_create_t)mod_auth_create,
+	.destroy = mod_auth_destroy
+};

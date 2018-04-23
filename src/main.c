@@ -50,8 +50,9 @@
 
 #include "httpserver/httpserver.h"
 
-#include "httpserver/mod_mbedtls.h"
+#include "httpserver/mod_tls.h"
 #include "httpserver/mod_websocket.h"
+#include "httpserver/mod_cookie.h"
 #include "mod_static_file.h"
 #include "mod_filestorage.h"
 #include "mod_cgi.h"
@@ -80,25 +81,81 @@ extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_me
 
 #define DEFAULT_CONFIGPATH sysconfdir"/ouistiti.conf"
 
+static const char str_tls[] = "tls";
+static const char str_vhost[] = "vhost";
+static const char str_clientfilter[] = "clientfilter";
+static const char str_cookie[] = "cookie";
+static const char str_auth[] = "auth";
+static const char str_methodlock[] = "methodlock";
+static const char str_serverheader[] = "serverheader";
+static const char str_cgi[] = "cgi";
+static const char str_filestorage[] = "filestorage";
+static const char str_static_file[] = "static_file";
+static const char str_webstream[] = "webstream";
+static const char str_websocket[] = "websocket";
+static const char str_redirect404[] = "redirect404";
+
+#ifndef MODULES
+static const module_t *modules[] =
+{
+#if defined TLS
+	&mod_tls,
+#endif
+#if defined VHOSTS
+	&mod_vhost,
+#endif
+#if defined CLIENTFILTER
+	&mod_clientfilter,
+#endif
+#if defined COOKIE
+	&mod_cookie,
+#endif
+#if defined AUTH
+	&mod_auth,
+#endif
+#if defined METHODLOCK
+	&mod_methodlock,
+#endif
+#if defined SERVERHEADER
+	&mod_server,
+#endif
+#if defined CGI
+	&mod_cgi,
+#endif
+#if defined FILESTORAGE
+	&mod_filestorage,
+#endif
+#if defined STATIC_FILE
+	&mod_static_file,
+#endif
+#if defined WEBSTREAM
+	&mod_webstream,
+#endif
+#if defined WEBSOCKET
+	&mod_websocket,
+#endif
+#if defined REDIRECT404
+	&mod_redirect404,
+#endif
+	NULL
+};
+#endif
+
+typedef struct mod_s
+{
+	void *config;
+	void (*destroy)(void*);
+} mod_t;
+
+#define MAX_MODULES 12
 typedef struct server_s
 {
 	serverconfig_t *config;
 	http_server_t *server;
-	void *mod_mbedtls;
-	void *mod_static_file;
-	void *mod_filestorage;
-	void *mod_cgi;
-	void *mod_auth;
-	void *mod_clientfilter;
-	void *mod_methodlock;
-	void *mod_server;
-	void *mod_websocket;
-	void *mod_redirect404;
-	void *mod_webstream;
-	void *mod_vhosts[MAX_SERVERS - 1];
+	mod_t modules[MAX_MODULES + MAX_SERVERS];
 
 	struct server_s *next;
-} servert_t;
+} server_t;
 
 void display_help(char * const *argv)
 {
@@ -109,12 +166,12 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
 }
 
-static servert_t *first = NULL;
+static server_t *first = NULL;
 static char run = 0;
 static void handler(int sig, siginfo_t *si, void *arg)
 {
 	run = 'q';
-	servert_t *server;
+	server_t *server;
 	server = first;
 
 	while (server != NULL)
@@ -157,12 +214,28 @@ static void _setpidfile(char *pidfile)
 	}
 }
 
+void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
+{
+	void *mod;
+	int i = 0;
+	while (modules[i] != NULL)
+	{
+		if (!strcmp(modules[i]->name, name))
+		{
+			mod = modules[i]->create(server, NULL, config);
+			*destroy = modules[i]->destroy;
+		}
+		i++;
+	}
+	return mod;
+}
+
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
 	struct passwd *user = NULL;
 	struct group *grp = NULL;
-	servert_t *server;
+	server_t *server;
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
 	char *pidfile = NULL;
@@ -172,6 +245,7 @@ int main(int argc, char * const *argv)
 	int serverid = -1;
 
 	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	httpserver_software = servername;
 
@@ -276,81 +350,46 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
-#if defined MBEDTLS
+			int j = 0;
 			/**
 			 * TLS must be first to free the connection after all others modules
 			 */
 			if (server->config->tls)
-				server->mod_mbedtls = mod_mbedtls_create(server->server, server->config->tls);
-#endif
-#if defined VHOSTS
+				server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j++].destroy);
 			for (i = 0; i < (MAX_SERVERS - 1); i++)
 			{
 				if (server->config->vhosts[i])
-					server->mod_vhosts[i] = mod_vhost_create(server->server,server->config->vhosts[i]);
+					server->modules[j].config = loadmodule(str_vhost, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
 			}
-#endif
-#if defined CLIENTFILTER
 			/**
 			 * clientfilter must be at the beginning to stop the connection if necessary
 			 */
 			if (server->config->modules.clientfilter)
-			{
-				server->mod_clientfilter = mod_clientfilter_create(server->server, NULL, server->config->modules.clientfilter);
-			}
-#endif
-#if defined AUTH
+				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.auth)
-			{
-				server->mod_auth = mod_auth_create(server->server, NULL, server->config->modules.auth);
-			}
-#endif
-#if defined METHODLOCK
-			server->mod_methodlock = mod_methodlock_create(server->server, NULL, server->config->unlock_groups);
-#endif
-#if defined SERVERHEADER
-			server->mod_server = mod_server_create(server->server, NULL, NULL);
-#endif
-#if defined CGI
+				server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)
-				server->mod_cgi = mod_cgi_create(server->server, NULL, server->config->modules.cgi);
-#endif
-#if defined FILESTORAGE
+				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
 			if (server->config->modules.filestorage)
-				server->mod_filestorage = mod_filestorage_create(server->server, NULL, server->config->modules.filestorage);
-#endif
-#if defined STATIC_FILE
+				server->modules[j].config = loadmodule(str_filestorage, server->server, server->config->modules.filestorage, &server->modules[j++].destroy);
 			if (server->config->modules.static_file)
-				server->mod_static_file = mod_static_file_create(server->server, NULL, server->config->modules.static_file);
-#endif
-#if defined WEBSTREAM
+				server->modules[j].config = loadmodule(str_static_file, server->server, server->config->modules.static_file, &server->modules[j++].destroy);
 			if (server->config->modules.webstream)
-				server->mod_webstream = mod_webstream_create(server->server, NULL, 
-							server->config->modules.webstream);
-#endif
-#if defined WEBSOCKET
+				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
 			if (server->config->modules.websocket)
 			{
-				mod_websocket_run_t run = default_websocket_run;
-#if defined WEBSOCKET_RT
-				/**
-				 * ouistiti_websocket_run is more efficient than
-				 * default_websocket_run. But it doesn't run with TLS
-				 **/
-				if (server->config->modules.websocket->options & WEBSOCKET_REALTIME)
+				if (((mod_websocket_t*)server->config->modules.websocket)->options & WEBSOCKET_REALTIME)
 				{
-					run = ouistiti_websocket_run;
+					((mod_websocket_t*)server->config->modules.websocket)->run = ouistiti_websocket_run;
 					warn("server %p runs realtime websocket!", server->server);
 				}
-#endif
-				server->mod_websocket = mod_websocket_create(server->server,
-					NULL, server->config->modules.websocket,
-					run, server->config->modules.websocket);
+				server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j++].destroy);
 			}
-#endif
-#if defined REDIRECT404
-			server->mod_redirect404 = mod_redirect404_create(server->server, NULL, server->config->modules.redirect404);
-#endif
+			server->modules[j].config = loadmodule(str_redirect404, server->server, server->config->modules.redirect404, &server->modules[j++].destroy);
+			server->modules[j].config = NULL;
 		}
 		server = server->next;
 	}
@@ -382,50 +421,14 @@ int main(int argc, char * const *argv)
 	server = first;
 	while (server != NULL)
 	{
-		servert_t *next = server->next;
-#if defined MBEDTLS
-		if (server->mod_mbedtls)
-			mod_mbedtls_destroy(server->mod_mbedtls);
-#endif
-#if defined STATIC_FILE
-		if (server->mod_static_file)
-			mod_static_file_destroy(server->mod_static_file);
-#endif
-#if defined FILESTORAGE
-		if (server->mod_filestorage)
-			mod_filestorage_destroy(server->mod_filestorage);
-#endif
-#if defined METHODLOCK
-		if (server->mod_methodlock)
-			mod_methodlock_destroy(server->mod_methodlock);
-#endif
-#if defined SERVERHEADER
-		if (server->mod_server)
-			mod_server_destroy(server->mod_server);
-#endif
-#if defined WEBSOCKET
-		if (server->mod_websocket)
-			mod_websocket_destroy(server->mod_websocket);
-#endif
-#if defined CGI
-		if (server->mod_cgi)
-			mod_cgi_destroy(server->mod_cgi);
-#endif
-#if defined WEBSTREAM
-		if (server->mod_webstream)
-			mod_webstream_destroy(server->mod_webstream);
-#endif
-#if defined AUTH
-		if (server->mod_auth)
-			mod_auth_destroy(server->mod_auth);
-#endif
-#if defined VHOSTS
-		for (i = 0; i < (MAX_SERVERS - 1); i++)
+		server_t *next = server->next;
+		int j = 0;
+		while (server->modules[j].config)
 		{
-			if (server->mod_vhosts[i])
-				mod_vhost_destroy(server->mod_vhosts[i]);
+			if (server->modules[j].destroy)
+				server->modules[j].destroy(server->modules[j].config);
+			j++;
 		}
-#endif
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
 		free(server);

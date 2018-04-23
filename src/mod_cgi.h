@@ -45,6 +45,7 @@ typedef struct mod_cgi_config_s
 	int timeout;
 } mod_cgi_config_t;
 
+extern const module_t mod_cgi;
 void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);
 void mod_cgi_destroy(void *mod);
 

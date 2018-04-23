@@ -86,3 +86,10 @@ void mod_server_destroy(void *data)
 {
 	free(data);
 }
+
+const module_t mod_server =
+{
+	.name = str_server,
+	.create = (module_create_t)mod_server_create,
+	.destroy = mod_server_destroy
+};

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<!--script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script type="text/javascript" language="javascript" src="js/jquery.min.js"></script>
+		<script language="javascript" type="text/javascript">
+function writeMessage(text)
+{
+	var message = JSON.parse(text);
+	$("#satellites").find("input[name=inuse]").val(message.gps.satellites.use);
+	$("#satellites").find("input[name=inview]").val(message.gps.satellites.view);
+	if (message.gps.utc != undefined)
+	{
+		$("#utc").find("input[name=year]").val(message.gps.utc.year);
+		$("#utc").find("input[name=month]").val(message.gps.utc.month);
+		$("#utc").find("input[name=day]").val(message.gps.utc.day);
+		$("#utc").find("input[name=hour]").val(message.gps.utc.hour);
+		$("#utc").find("input[name=minute]").val(message.gps.utc.minute);
+		$("#utc").find("input[name=second]").val(message.gps.utc.second);
+	}
+}
+
+function connect()
+{
+	$("#wsUri").prop("readonly", true);
+	websocket = new WebSocket($("#wsUri").val());
+	websocket.onopen = function(evt) { onOpen(evt) };
+	websocket.onclose = function(evt) { onClose(evt) };
+	websocket.onmessage = function(evt) { onMessage(evt) };
+	websocket.onerror = function(evt) { onError(evt) };
+}
+
+function disconnect()
+{
+	websocket.close();
+}
+
+function onOpen(evt)
+{
+	$("input[name=state]").val("CONNECTED");
+}
+function onClose(evt)
+{
+	$("#wsUri").prop("readonly", false);
+	$("input[name=state]").val("DISCONNECTED");
+}
+
+function onMessage(evt)
+{
+	writeMessage(evt.data);
+}
+
+function onError(evt)
+{
+	websocket.close();
+}
+
+$(document).ready(function() {
+	$("#connect").on("click", connect);
+	$("#disconnect").on("click", disconnect);
+});
+
+		</script>
+		<title>GPS Info</title>
+	</head>
+	<body>
+		<form>
+			<input type="text" id="wsUri" value="ws://127.0.0.1/gps" />
+			<input type="button" id="connect" value="Connect" />
+			<input type="button" id="disconnect" value="Disconnect" />
+			<input type="text" id="input" name="state" readonly/>
+		</form>
+		<h2>GPS Info</h2>
+		<form id="satellites">
+			satellites: 
+			<input type="text" id="input" name="inuse" style="width:15%" readonly/>
+			<input type="text" id="input" name="inview" style="width:15%" readonly/>
+		</form>
+		<form id="utc">
+			<table>
+			<tr><th>year</th><th>month</th><th>day</th></tr>
+			<tr>
+				<td><input type="text" id="input" name="year" readonly/></td>
+				<td><input type="text" id="input" name="month" readonly/></td>
+				<td><input type="text" id="input" name="day" readonly/></td>
+			</tr>
+			<tr><th>hour</th><th>minute</th><th>second</th></tr>
+			<tr>
+				<td><input type="text" id="input" name="hour" readonly/></td>
+				<td><input type="text" id="input" name="minute" readonly/></td>
+				<td><input type="text" id="input" name="second" readonly/></td>
+			</tr>
+			</table>
+		</form>
+	</body>
+</html>

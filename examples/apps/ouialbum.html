@@ -11,23 +11,25 @@
 		<script src="js/bootstrap.min.js"></script>
 		<script src="js/ouishell.js"></script>
 		<script type="text/javascript">
+var startfile = undefined
 var shell = new Shell("");
 shell.onchange = function(content)
 {
 	var imageExt = ["jpg","png","gif"];
 	var carousel = $("#Album");
-	var active = "active";
 	$("#Message").html("<strong>Empty directory</strong>");
 	$("#Message").removeClass("hidden");
 	var indicators = carousel.find("ol.carousel-indicators").html("");
 	var inner = carousel.find("div.carousel-inner").html("");
 	var albumslist = $("#AlbumsList").html("");
-	var elm = "<li><a href='#' data-href='"+this.cwd+"/..' onclick='shell.cd(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-arrow-left'>back</span></a></li>";
+	var elm = "<li><a href='#' data-href='"+encodeURIComponent(this.cwd)+"/..' onclick='shell.cd(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-arrow-left'>back</span></a></li>";
 	albumslist.append(elm);	
+	var startid = 0;
 	for (i = 0; i < content.length; i++) {
+		var escapingname = encodeURIComponent(content[i].name);
 		if (content[i].type == 4)
 		{
-			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
+			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+escapingname+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
 			albumslist.append(elm);
 		}
 		else if (content[i].type == 8)
@@ -36,18 +38,23 @@ shell.onchange = function(content)
 			ext = ext[ext.length - 1].toLowerCase();
 			if (imageExt.indexOf(ext) != -1)
 			{
-				var elm = "<li data-target='#Album' data-slide-to='"+i+"' class='"+active+"'></li>";
+				var elm = "<li data-target='#Album' data-slide-to='"+i+"' class=''></li>";
 				indicators.append(elm);
-				var img = "<div class='item "+active+"'>";
-				img += "<img src='"+shell.root+"/"+shell.cwd+"/"+content[i].name+"' class='img-rounded' alt='"+content[i].name+"' style='float: none; margin: 0 auto;max-height: 800px'>";
+				var img = "<div data-slide-to='"+i+"' class='item '>";
+				img += "<img src='"+shell.root+"/"+shell.cwd+"/"+escapingname+"' class='img-rounded' alt='"+escapingname+"' style='float: none; margin: 0 auto;max-height: 800px'>";
 				img += "</div>";
 				inner.append(img);
-				active="";
 				$("#Message").html("");
 				$("#Message").addClass("hidden");
 			}
 		}
+		if (startfile == content[i].name)
+		{
+			startid = i;
+		}
 	}
+	indicators.find("li[data-slide-to='"+startid+"']").addClass("active");
+	inner.find("div[data-slide-to='"+startid+"']").addClass("active");
 }
 shell.onbegin = function(id)
 {
@@ -100,23 +107,43 @@ shell.onauthorization = function(user)
 		$("#LogoutButton").removeClass("hidden");
 		$(".ProtectedButton").removeClass("hidden");
 	}
+	if (location.search.indexOf("cwd=") < 0)
+		shell.cd(shell.user.directories.image);
+	var pos = location.search.indexOf("file=");
+	if (pos > 0)
+	{
+		pos += 5;
+		var filepath = location.search.substring(pos);		
+		var end = filepath.indexOf("&");
+		if (end == -1)
+			end = undefined;
+		filepath = location.search.substring(pos,end);
+		pos = filepath.indexOf(shell.root);
+		if (pos == 0)
+			filepath = filepath.substring(shell.root.length);
+		startfile = filepath.replace( /.*\//, '');
+	}
 	$("#LoginBox").modal('hide');
+	var pos = location.search.indexOf("autoplay=");
+	if (pos > 0)
+	{
+		if (location.search[pos + 9] = '0')
+			$("#Album").data("ride", "");
+	}
 	shell.ls();
 }
 $(document).ready(function()
 {
 	shell.login();
-	if ((shell.user != undefined) && (location.search.indexOf("cwd=") < 0))
-		shell.cd(shell.user.directories.image);
-	$("ReloadButton").on("click", function(event)
+	$("#ReloadButton").on("click", function(event)
 	{
 		shell.ls();
 	});
-	$("LoginExec").on("click", function(event)
+	$("#LoginExec").on("click", function(event)
 	{
 		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
 	});
-	$("LogoutButton").on("click", function(event)
+	$("#LogoutButton").on("click", function(event)
 	{
 		shell.logout();
 	});
@@ -145,7 +172,7 @@ $(document).ready(function()
 							</ul>
 						</li>
 						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Albums<span class="caret"></span></a>
-							<ul class="dropdown-menu" id="AlbumsList">
+							<ul class="dropdown-menu pre-scrollable" id="AlbumsList">
 							</ul>
 						</li>
 					</ul>
@@ -300,7 +327,7 @@ $('#ShareBox').on('show.bs.modal', function (event)
 							<div class="form-group">
 								<div class="input-group">
 									<span class="input-group-addon" id="UserField">User</span>
-									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" >
+									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" autofocus>
 								</div>
 							</div>
 							<div class="form-group">
@@ -313,7 +340,7 @@ $('#ShareBox').on('show.bs.modal', function (event)
 					</div>
 					<div class="modal-footer">
 						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-						<button type="button" class="btn btn-primary" id="LoginExec">Login</button>
+						<button type="submit" class="btn btn-primary" id="LoginExec">Login</button>
 					</div>
 				</div>
 			</div>

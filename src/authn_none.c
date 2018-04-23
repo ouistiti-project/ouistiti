@@ -39,6 +39,7 @@
 #include <errno.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authn_none.h"
 
@@ -58,7 +59,7 @@ struct authn_none_s
 	char *challenge;
 };
 
-void *authn_none_create(authz_t *authz, void *arg)
+static void *authn_none_create(authn_t *authn, authz_t *authz, void *arg)
 {
 	authn_none_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_none_config_t *)arg;
@@ -66,7 +67,7 @@ void *authn_none_create(authz_t *authz, void *arg)
 	return mod;
 }
 
-int authn_none_challenge(void *arg, http_message_t *request, http_message_t *response)
+static int authn_none_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
 	authn_none_t *mod = (authn_none_t *)arg;
 	authn_none_config_t *config = mod->config;
@@ -93,12 +94,12 @@ int authn_none_challenge(void *arg, http_message_t *request, http_message_t *res
 	return EREJECT;
 }
 
-char *authn_none_check(void *arg, char *method, char *string)
+static char *authn_none_check(void *arg, const char *method, const char *uri, char *string)
 {
 	return NULL;
 }
 
-void authn_none_destroy(void *arg)
+static void authn_none_destroy(void *arg)
 {
 	authn_none_t *mod = (authn_none_t *)arg;
 	free(mod);

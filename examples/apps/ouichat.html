@@ -160,11 +160,11 @@ $(document).ready(function()
 {
 	shell.login();
 
-	$("LoginExec").on("click", function(event)
+	$("#LoginExec").on("click", function(event)
 	{
 		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
 	});
-	$("LogoutButton").on("click", function(event)
+	$("#LogoutButton").on("click", function(event)
 	{
 		chat.disconnect();
 		shell.logout();
@@ -204,7 +204,7 @@ $(document).ready(function()
 							</ul>
 						</li>
 						<li class="dropdown ProtectedButton hidden"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Users<span class="caret"></span></a>
-							<ul class="dropdown-menu" id="UsersList2">
+							<ul class="dropdown-menu pre-scrollable" id="UsersList2">
 							</ul>
 						</li>
 					</ul>
@@ -272,7 +272,7 @@ $(document).ready(function()
 							<div class="form-group">
 								<div class="input-group">
 									<span class="input-group-addon" id="UserField">User</span>
-									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" >
+									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" autofocus>
 								</div>
 							</div>
 							<div class="form-group">

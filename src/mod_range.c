@@ -54,31 +54,40 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 	static_file_connector_t *private = (static_file_connector_t *)arg;
 	if (private->type & STATIC_FILE_DIRLISTING || private->filepath == NULL)
 		return EREJECT;
+
 	int filesize = private->size;
 
-	char *range = strstr(httpmessage_REQUEST(request,"Range"), "bytes=");
-	if (range)
+	char *rangesize = NULL;
+	const char *range = httpmessage_REQUEST(request,"Range");
+	if (range != NULL && range[0] != '\0')
+		rangesize = strstr(range, "bytes=");
+	if (rangesize)
 	{
-		range += 6;
-		private->offset = atoi(range);
-		if (private->offset > filesize)
+		int offset;
+		rangesize += 6;
+		offset = atoi(rangesize);
+		if (offset > filesize)
 		{
 			goto notsatisfiable;
 		}
-		char *end = strchr(range, '-');
+		private->offset = offset;
+		char *end = strchr(rangesize, '-');
 		if (end != NULL)
 		{
-			int offset = filesize;
+			offset = filesize;
 			if (*(end+1) >= '0' && *(end+1) <= '9')
 				offset = atoi(end+1);
-			if (offset > filesize || offset < private->offset)
+			if (*(end+1) == '*')
+				offset = private->size - 1;
+			if (offset > (filesize - 1) || offset < private->offset)
 			{
 				goto notsatisfiable;
 			}
-			private->size = offset - private->offset - 1;
+			private->size = offset - private->offset + 1;
 		}
+
 		char buffer[256];
-		snprintf(buffer, 256, "bytes %d-%d/%d", private->offset, private->offset + private->size, filesize);
+		snprintf(buffer, 256, "bytes %d-%d/%d", private->offset, offset, filesize);
 		httpmessage_addheader(response, "Content-Range", buffer);
 		httpmessage_result(response, RESULT_206);
 	}

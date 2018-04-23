@@ -33,6 +33,7 @@ extern "C"
 {
 #endif
 
+extern const module_t mod_server;
 void *mod_server_create(http_server_t *server, char *vhost, void *config);
 void mod_server_destroy(void *data);
 

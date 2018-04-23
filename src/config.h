@@ -41,7 +41,7 @@
 #include "mod_redirect404.h"
 #include "mod_webstream.h"
 #include "httpserver/mod_websocket.h"
-#include "httpserver/mod_mbedtls.h"
+#include "httpserver/mod_tls.h"
 #define WEBSOCKET_REALTIME 0x01
 
 typedef struct modulesconfig_s

@@ -35,6 +35,7 @@ extern "C"
 {
 #endif
 
+extern const module_t mod_filestorage;
 void *mod_filestorage_create(http_server_t *server, char *vhost, mod_static_file_t *config);
 void mod_filestorage_destroy(void *data);
 

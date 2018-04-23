@@ -2,5 +2,5 @@ DESC="test a request on the root directory"
 CONFIG=test1.conf
 TESTREQUEST=test4_rq.txt
 TESTCODE=200
-TESTHEADERLEN=61
+TESTHEADERLEN=108
 TESTCONTENTLEN=40

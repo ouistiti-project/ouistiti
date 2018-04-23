@@ -60,7 +60,8 @@ enum
 	CONNECTION_START,
 	REQUEST_START=0x01,
 	REQUEST_HEADER=0x02,
-	REQUEST_END=0x04,
+	REQUEST_CONTENT=0x04,
+	REQUEST_END=0x08,
 	RESPONSE_START=0x10,
 	RESPONSE_END=0x20,
 	CONNECTION_END=0x40,
@@ -82,6 +83,7 @@ int main(int argc, char **argv)
 	int options = 0;
 
 	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_INET;    /* Allow IPv4 or IPv6 */
@@ -154,39 +156,45 @@ int main(int argc, char **argv)
 			length = read(0, buffer, length);
 			if (length > 0)
 			{
+				int ret;
+//				ret = send(sock, buffer, length, MSG_NOSIGNAL);
+
 				buffer[length] = 0;
 				//first read is blocking
 				flags = fcntl(0, F_GETFL, 0);
 				fcntl(0, F_SETFL, flags | O_NONBLOCK);
 
 				state |= REQUEST_START;
-				int i, emptyline = 0, headerlength = length;
-				for (i = 0; i < length; i++)
+				int headerlength = length;
+				if (!(state & REQUEST_HEADER))
 				{
-
-					if (buffer[i] == '\n')
+					int i, emptyline = 0;
+					for (i = 0; i < length; i++)
 					{
-						if (emptyline > 0 && emptyline < 3)
+
+						if (buffer[i] == '\n')
 						{
-							headerlength = i + 1;
-							state |= REQUEST_HEADER;
-							break;
+							if (emptyline > 0 && emptyline < 3)
+							{
+								headerlength = i + 1;
+								state |= REQUEST_HEADER;
+								break;
+							}
+							emptyline = 0;
 						}
-						emptyline = 0;
+						emptyline++;
 					}
-					emptyline++;
 				}
-				int ret;
 				ret = send(sock, buffer, headerlength, MSG_NOSIGNAL);
-				dbg("testclient: send header (%d)", headerlength);
 				if (ret != headerlength)
 				{
 					err("testclient: send error");
 					state |= CONNECTION_END;
 					ret = -1;
 				}
-				if (state & REQUEST_HEADER)
+				if ((state & REQUEST_HEADER) && !(state & REQUEST_CONTENT))
 				{
+					dbg("testclient: send header (%d)", headerlength);
 					contentlength = length - headerlength;
 					if (options & OPT_WEBSOCKET)
 					{
@@ -195,14 +203,15 @@ int main(int argc, char **argv)
 					}
 					else if (contentlength)
 					{
-						/**
-						 * send content
-						 **/
+						
+						/// send content
 						usleep(50);
 						ret = send(sock, buffer + headerlength, contentlength, MSG_NOSIGNAL);
 						dbg("testclient: send content (%d)", contentlength);
+						state |= REQUEST_CONTENT;
 					}
 				}
+
 			}
 			else if (length == 0)
 				state |= REQUEST_END;
@@ -292,6 +301,7 @@ int main(int argc, char **argv)
 			else
 				state |= CONNECTION_END;
 		}
+
 	} while (!(state & CONNECTION_END));
 	dbg("testclient: quit");
 	close(sock);

@@ -97,6 +97,7 @@ loadApps = function(url, root)
 						inner.append(img);
 						active="";
 					}
+					carousel.carousel();
 				}
 			}
 			else if (xhr.status === 403)
@@ -115,11 +116,11 @@ $(document).ready(function()
 {
 	shell.login();
 
-	$("LoginExec").on("click", function(event)
+	$("#LoginExec").on("click", function(event)
 	{
 		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
 	});
-	$("LogoutButton").on("click", function(event)
+	$("#LogoutButton").on("click", function(event)
 	{
 		shell.logout();
 	});
@@ -204,7 +205,7 @@ $(document).ready(function()
 							<div class="form-group">
 								<div class="input-group">
 									<span class="input-group-addon" id="UserField">User</span>
-									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" >
+									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" autofocus>
 								</div>
 							</div>
 							<div class="form-group">

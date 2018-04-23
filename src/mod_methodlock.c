@@ -37,6 +37,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
+#include "mod_auth.h"
 #include "mod_methodlock.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -62,7 +63,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
 	int ret = ESUCCESS;
 
-	char *method = httpmessage_REQUEST(request, "method");
+	const char *method = httpmessage_REQUEST(request, "method");
 	switch (httpmessage_isprotected(request))
 	{
 	case -1:
@@ -82,7 +83,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 	break;
 	default:
 	{
-		char *group = httpmessage_SESSION(request, "%authgroup",NULL);
+		const char *group = auth_info(request, "group");
 		if (group && group[0] != '\0')
 		{
 			int length = strlen(group);
@@ -140,3 +141,10 @@ void mod_methodlock_destroy(void *data)
 {
 	free(data);
 }
+
+const module_t mod_methodlock =
+{
+	.name = str_methodlock,
+	.create = (module_create_t)mod_methodlock_create,
+	.destroy = mod_methodlock_destroy
+};

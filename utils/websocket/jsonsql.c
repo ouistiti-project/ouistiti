@@ -123,15 +123,19 @@ static int method_exec(json_t *json_params, json_t **result, void *userdata)
 	return ret;
 }
 
-static int method_X(json_t *json_params, json_t **result, void *userdata, char *sql)
+static int method_X(json_t *json_params, json_t **result, void *userdata, char *query)
 {
 	jsonsql_ctx_t *ctx = (jsonsql_ctx_t *)userdata;
 	sqlite3 *db = ctx->db;
 	int ret = 0;
 	if (json_is_object(json_params))
 	{
+		int size = 256;
+		char *sql = sqlite3_malloc(size);
+		strcpy(sql, query);
+
 		sqlite3_stmt *statement;
-		sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
+		sqlite3_prepare_v2(db, sql, size, &statement, NULL);
 
 		const char *key;
 		json_t *value;
@@ -147,19 +151,44 @@ static int method_X(json_t *json_params, json_t **result, void *userdata, char *
 			}
 			else if (json_is_string(value) && !strcmp(key, "table"))
 			{
-				const char *table = NULL;
-				table = json_string_value(value);
 				int index = sqlite3_bind_parameter_index(statement, "@TABLE");
 				if (index > 0)
+				{
+					const char *table = NULL;
+					table = json_string_value(value);
 					sqlite3_bind_text(statement, index, table, -1, SQLITE_STATIC);
+				}
 			}
-			else if (json_is_string(value) && !strcmp(key, "id"))
+			else if (json_is_integer(value) && !strcmp(key, "id"))
 			{
-				const char *table = NULL;
-				table = json_string_value(value);
+				const int id = json_integer_value(value);
 				int index = sqlite3_bind_parameter_index(statement, "@ROWID");
+				if (index > 0 && id > -1)
+					sqlite3_bind_int(statement, index, id);
+			}
+			else if (json_is_string(value))
+			{
+				char parameter[32];
+				snprintf(parameter, 31, "@%s", key);
+				int index = sqlite3_bind_parameter_index(statement, parameter);
 				if (index > 0)
-					sqlite3_bind_text(statement, index, table, -1, SQLITE_STATIC);
+				{
+					const char *data = NULL;
+					data = json_string_value(value);
+					if (data)
+						sqlite3_bind_text(statement, index, data, -1, SQLITE_STATIC);
+				}
+			}
+			else if (json_is_integer(value))
+			{
+				char parameter[32];
+				snprintf(parameter, 31, "@%s", key);
+				int index = sqlite3_bind_parameter_index(statement, parameter);
+				if (index > 0)
+				{
+					const int data = json_integer_value(value);
+					sqlite3_bind_int(statement, index, data);
+				}
 			}
 		}
 		int ret;
@@ -216,6 +245,7 @@ static int method_X(json_t *json_params, json_t **result, void *userdata, char *
 			ret = sqlite3_step(statement);
 		} while (ret == SQLITE_ROW);
 		sqlite3_finalize(statement);
+		sqlite3_free(sql);
 		if (db != ctx->db)
 			sqlite3_close(db);
 	}
@@ -239,6 +269,12 @@ static int method_view(json_t *json_params, json_t **result, void *userdata)
 static int method_list(json_t *json_params, json_t **result, void *userdata)
 {
 	char sql[] = "select * from @TABLE";
+	return method_X(json_params, result, userdata, sql);
+}
+
+static int method_insert(json_t *json_params, json_t **result, void *userdata)
+{
+	char sql[] = "insert into @TABLE (@COLUMNS) values (@VALUES)";
 	return method_X(json_params, result, userdata, sql);
 }
 

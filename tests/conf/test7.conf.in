@@ -8,7 +8,7 @@ servers= ({
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
-			transfer_type = "dirlisting,sendfile";
+			transfer_type = "dirlisting,sendfile,range";
 		};
 	});
 

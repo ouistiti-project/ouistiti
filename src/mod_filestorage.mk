@@ -1,6 +1,5 @@
-
-modules-$(DYNAMIC)+=mod_filestorage
-slib-$(STATIC)+=mod_filestorage
+modules-$(MODULES)+=mod_filestorage
+slib-y+=mod_filestorage
 mod_filestorage_SOURCES+=mod_filestorage.c
 mod_filestorage_CFLAGS+=-DFILESTORAGE -I../libhttpserver/include
 

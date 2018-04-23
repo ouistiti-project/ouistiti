@@ -80,10 +80,18 @@ int main(int argc, char ** argv)
 				ret = httpmessage_parsecgi(message, buffer, &rest);
 				if (ret != EINCOMPLETE)
 				{
-					contentlength += length;
+					//fprintf(stderr, "2 parsecgi %d %d %d\n", ret, length, rest);
+					if (state & CONTENT)
+						contentlength += length;
+					else
+					{
+						headerlength += length - rest;
+					}
+					state |= CONTENT;
 				}
 				else
 				{
+					//fprintf(stderr, "1 parsecgi %d %d %d\n", ret, length, rest);
 					length -= rest;
 					headerlength += length;
 				}
@@ -91,7 +99,7 @@ int main(int argc, char ** argv)
 		}
 		else
 		{
-			fprintf(stderr, "no more data\n");
+			//fprintf(stderr, "no more data\n");
 			state |= END;
 		}
 	} while (!(state & END));

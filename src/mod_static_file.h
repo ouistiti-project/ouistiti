@@ -48,13 +48,14 @@ typedef struct mod_static_file_s
 	int options;
 } mod_static_file_t;
 
+extern const module_t mod_static_file;
 void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config);
 void mod_static_file_destroy(void *data);
 
 /**
  * interface to change the data transfer function
  */
-#define CONTENTCHUNK 63
+#define CONTENTCHUNK 64
 
 typedef struct _mod_static_file_mod_s _mod_static_file_mod_t;
 typedef struct _static_file_connector_s static_file_connector_t;
@@ -78,8 +79,12 @@ struct _static_file_connector_s
 	int fd;
 	DIR *dir;
 	http_connector_t func;
-	unsigned int size;
-	unsigned int offset;
+	unsigned long long size;
+	unsigned long long offset;
+#ifdef DEBUG
+	struct timeval start;
+	unsigned long long datasize;
+#endif
 };
 
 /**

@@ -44,7 +44,8 @@ struct mod_vhost_s
 	modulesconfig_t modules;
 };
 
-void *mod_vhost_create(http_server_t *server, mod_vhost_t *modconfig);
+extern const module_t mod_vhost;
+void *mod_vhost_create(http_server_t *server, char *unused, mod_vhost_t *modconfig);
 void mod_vhost_destroy(void *mod);
 
 #ifdef __cplusplus
