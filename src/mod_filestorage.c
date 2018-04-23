@@ -163,9 +163,18 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	{
 		char *input;
 		int inputlen;
-		unsigned long long rest;
+		/**
+		 * rest = 1 to close the connection on end of file or
+		 * on connection error
+		 */
+		unsigned long long rest = 1;
 		inputlen = httpmessage_content(request, &input, &rest);
 
+		/**
+		 * the function returns EINCOMPLETE to wait before to send
+		 * the response.
+		 */
+		ret = EINCOMPLETE;
 		while (inputlen > 0)
 		{
 			int wret = write(private->fd, input, inputlen);
@@ -174,13 +183,12 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				err("filestorage: access file error %s", strerror(errno));
 				if (errno != EAGAIN)
 				{
-#ifdef DEBUG
-					err("filestorage: store %llu bytes", private->datasize);
+#ifdef RESULT_500
+					httpmessage_result(response, RESULT_500);
+#else
+					httpmessage_result(response, RESULT_404);
 #endif
-					close(private->fd);
-					private->fd = 0;
-					ret = EREJECT;
-					static_file_close(private);
+					rest = 0;
 					break;
 				}
 			}
@@ -192,7 +200,10 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				inputlen -= wret;
 				input += wret;
 			}
-			ret = EINCOMPLETE;
+		}
+		if (inputlen == EREJECT)
+		{
+			rest = 0;
 		}
 		if (rest < 1)
 		{
@@ -211,11 +222,6 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			private->fd = 0;
 			ret = ESUCCESS;
 			static_file_close(private);
-		}
-		if (ret == EREJECT)
-		{
-			httpmessage_result(response, RESULT_505);
-			ret = ESUCCESS;
 		}
 	}
 	return ret;
