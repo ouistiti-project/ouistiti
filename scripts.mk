@@ -101,44 +101,32 @@ CXX?=g++
 LD?=gcc
 AR?=ar
 RANLIB?=ranlib
-HOSTCC=$(CC)
-HOSTCXX=$(CXX)
-HOSTLD=$(LD)
-HOSTAR=$(AR)
-HOSTRANLIB=$(RANLIB)
-
-ldgcc=$(1) $(2)
+HOSTCC?=$(CC)
+HOSTCXX?=$(CXX)
+HOSTLD?=$(LD)
+HOSTAR?=$(AR)
+HOSTRANLIB?=$(RANLIB)
+HOSTCFLAGS?=$(CFLAGS)
+HOSTLDFLAGS?=$(LDFLAGS)
 
 ifneq ($(CROSS_COMPILE),)
-	ifeq ($(CC),cc)
-		CC:=gcc
-		CXX:=g++
-	endif
-	ifneq ($(findstring gcc,$(CC)),)
-		LD:=gcc
-		ldgcc=-Wl,$(1),$(2)
-	else
-		LD:=ld
-	endif
-	AS=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-as
-	ifeq ($(findstring $(CROSS_COMPILE),$(CC)),)
-		CC:=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-$(CC)
-		CXX:=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-$(CXX)
-		LD:=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-$(LD)
-	endif
-	AR=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-ar
-	RANLIB=$(TOOLCHAIN:"%"=%)$(CROSS_COMPILE:%-=%)-ranlib
-else ifeq ($(CC),cc)
+CROSS_COMPILE:=$(CROSS_COMPILE:%-=%)-
+ifeq ($(CC),cc)
+CC=gcc
+endif
+endif
+
 # if cc is a link on gcc, prefer to use directly gcc for ld
-CCVERSION=$(shell $(CC) -v 2>&1)
+CCVERSION=$(shell $(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CC) -v 2>&1)
 ifneq ($(findstring GCC,$(CCVERSION)), )
-	LD=cc
+	LD=gcc
 	HOSTLD=$(LD)
 	ldgcc=-Wl,$(1),$(2)
-endif
 else ifneq ($(findstring gcc,$(CC)),)
-	LD=$(CC)
+	LD=gcc
 	ldgcc=-Wl,$(1),$(2)
+else
+	ldgcc=$(1) $(2)
 endif
 
 ARCH?=$(shell LANG=C $(CC) -v 2>&1 | grep Target | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
@@ -163,10 +151,12 @@ pkglibdir?=$(libdir)/$(package:"%"=%)
 pkglibdir:=$(pkglibdir:"%"=%)
 
 ifneq ($(sysroot:"%"=%),)
-SYSROOT:=--sysroot=$(sysroot:"%"=%)
-CFLAGS+=-isysroot $(sysroot:"%"=%) -I$(sysroot:"%"=%)$(includedir)
-LDFLAGS+=-L$(sysroot:"%"=%)$(libdir)
-LDFLAGS+=-L$(sysroot:"%"=%)$(pkglibdir)
+SYSROOT_CFLAGS+=--sysroot=$(sysroot:"%"=%)
+SYSROOT_CFLAGS+=-isysroot $(sysroot:"%"=%)
+SYSROOT_CFLAGS+=-I$(sysroot:"%"=%)$(includedir)
+SYSROOT_LDFLAGS+=--sysroot=$(sysroot:"%"=%)
+SYSROOT_LDFLAGS+=-L$(sysroot:"%"=%)$(libdir)
+SYSROOT_LDFLAGS+=-L$(sysroot:"%"=%)$(pkglibdir)
 endif
 
 #CFLAGS+=$(foreach macro,$(DIRECTORIES_LIST),-D$(macro)=\"$($(macro))\")
@@ -415,33 +405,34 @@ RPATH=$(wildcard $(addsuffix /.,$(wildcard $(CURDIR:%/=%)/* $(obj)*)))
 quiet_cmd_yacc_y=YACC $*
  cmd_yacc_y=$(YACC) -o $@ $<
 quiet_cmd_as_o_s=AS $*
- cmd_as_o_s=$(AS) $(SYSROOT) $(ASFLAGS) $($*_CFLAGS) -c -o $@ $<
+ cmd_as_o_s=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(AS) $(SYSROOT_CFLAGS) $(ASFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_c=CC $*
- cmd_cc_o_c=$(CC) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
+ cmd_cc_o_c=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CC) $(SYSROOT_CFLAGS) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_cpp=CXX $*
- cmd_cc_o_cpp=$(CXX) $(SYSROOT) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
+ cmd_cc_o_cpp=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CXX) $(SYSROOT_CFLAGS) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_moc_hpp=QTMOC $*
  cmd_moc_hpp=$(MOC) $(INCLUDES) $($*_MOCFLAGS) $($*_MOCFLAGS-y) -o $@ $<
 quiet_cmd_uic_hpp=QTUIC $*
  cmd_uic_hpp=$(UIC) $< > $@
 quiet_cmd_ld_bin=LD $*
- cmd_ld_bin=$(LD) $(SYSROOT) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+ cmd_ld_bin=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(LD) $(SYSROOT_LDFLAGS) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+quiet_cmd_ld_slib=LD $*
+ cmd_ld_slib=$(RM) $@ && \
+	$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(AR) -cvq $@ $^ > /dev/null && \
+	$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(RANLIB) $@
+quiet_cmd_ld_dlib=LD $*
+ cmd_ld_dlib=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(LD) $(SYSROOT_LDFLAGS) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(strip $(notdir $@))) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+
 quiet_cmd_hostcc_o_c=HOSTCC $*
- cmd_hostcc_o_c=$(HOSTCC) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
+ cmd_hostcc_o_c=$(HOSTCC) $(HOSTCFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_hostcmd_cc_o_cpp=HOSTCXX $*
- cmd_hostcc_o_cpp=$(HOSTCXX) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
+ cmd_hostcc_o_cpp=$(HOSTCXX) $(HOSTCFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_hostld_bin=HOSTLD $*
- cmd_hostld_bin=$(HOSTLD) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+ cmd_hostld_bin=$(HOSTLD) -o $@ $^ $(HOSTLDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 quiet_cmd_hostld_slib=HOSTLD $*
  cmd_hostld_slib=$(RM) $@ && \
 	$(HOSTAR) -cvq $@ $^ > /dev/null && \
 	$(HOSTRANLIB) $@
-quiet_cmd_ld_slib=LD $*
- cmd_ld_slib=$(RM) $@ && \
-	$(AR) -cvq $@ $^ > /dev/null && \
-	$(RANLIB) $@
-quiet_cmd_ld_dlib=LD $*
- cmd_ld_dlib=$(LD) $(SYSROOT) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(strip $(notdir $@))) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
 
 quiet_cmd_check_lib=CHECK $*
 define cmd_check_lib
