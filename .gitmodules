@@ -1,4 +1,0 @@
-[submodule "libhttpserver"]
-	path = libhttpserver
-	url = https://github.com/mchalain/libhttpserver
-	branch = master
