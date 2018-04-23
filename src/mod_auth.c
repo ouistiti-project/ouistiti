@@ -199,10 +199,12 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 		{
 			mod->authn->hash = hash_sha512;
 		}
-		if (hash_md5)
-		{
-			mod->authn->hash = hash_md5;
-		}
+		dbg("auth : use %d as hash method", config->algo);
+	}
+	if (mod->authn->hash == NULL && hash_md5)
+	{
+		dbg("auth : use default md5 as hash method");
+		mod->authn->hash = hash_md5;
 	}
 	mod->authn->rules = authn_rules[config->authn_type];
 	if (mod->authn->rules && mod->authz->rules)
