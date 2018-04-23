@@ -104,7 +104,7 @@ int jsonrpc_runner(int sock,
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
+	fprintf(stderr, "%s <-L jsonlibrary> [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
 }
 
 static char *g_library_config = NULL;
