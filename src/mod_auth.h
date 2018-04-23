@@ -153,6 +153,7 @@ typedef struct mod_auth_s
 	const char *unprotect;
 } mod_auth_t;
 
+extern const module_t mod_auth;
 void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *modconfig);
 void mod_auth_destroy(void *mod);
 

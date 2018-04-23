@@ -125,3 +125,9 @@ static void _mod_clientfilter_freectx(void *vctx)
 {
 }
 
+const module_t mod_clientfilter =
+{
+	.name = str_clientfilter,
+	.create = (module_create_t)mod_clientfilter_create,
+	.destroy = mod_clientfilter_destroy
+};

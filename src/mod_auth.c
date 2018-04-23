@@ -473,3 +473,10 @@ const char *auth_info(http_message_t *request, const char *key)
 		value = (const char *)info->home;
 	return value;
 }
+
+const module_t mod_auth =
+{
+	.name = str_auth,
+	.create = (module_create_t)mod_auth_create,
+	.destroy = mod_auth_destroy
+};

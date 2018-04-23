@@ -61,6 +61,7 @@ extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_me
 #define dbg(...)
 #endif
 
+static const char str_vhost[] = "vhost";
 
 typedef struct _mod_vhost_s _mod_vhost_t;
 
@@ -168,3 +169,10 @@ void mod_vhost_destroy(void *arg)
 #endif
 	free(mod);
 }
+
+const module_t mod_vhost =
+{
+	.name = str_vhost,
+	.create = (module_create_t)mod_vhost_create,
+	.destroy = mod_vhost_destroy
+};

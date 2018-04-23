@@ -644,3 +644,10 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	 * to know the length of the content */
 	return ret;
 }
+
+const module_t mod_cgi =
+{
+	.name = str_cgi,
+	.create = (module_create_t)mod_cgi_create,
+	.destroy = mod_cgi_destroy
+};

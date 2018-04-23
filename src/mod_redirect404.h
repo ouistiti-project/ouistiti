@@ -39,6 +39,7 @@ typedef struct mod_redirect404_s
 	char *redirect;
 } mod_redirect404_t;
 
+extern const module_t mod_redirect404;
 void *mod_redirect404_create(http_server_t *server, char *vhost, mod_redirect404_t *modconfig);
 void mod_redirect404_destroy(void *mod);
 

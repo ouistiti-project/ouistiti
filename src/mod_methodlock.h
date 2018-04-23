@@ -33,6 +33,7 @@ extern "C"
 {
 #endif
 
+extern const module_t mod_methodlock;
 void *mod_methodlock_create(http_server_t *server, char *vhost, void *config);
 void mod_methodlock_destroy(void *data);
 

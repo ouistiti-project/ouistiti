@@ -96,107 +96,48 @@ static const char str_websocket[] = "websocket";
 static const char str_redirect404[] = "redirect404";
 
 #ifndef MODULES
-typedef void *(*module_create_t)(http_server_t *server, char *vhost, void *config);
-typedef struct module_s
-{
-	const char *name;
-	void *(*create)(http_server_t *server, char *vhost, void *config);
-	void (*destroy)(void*);
-} module_t;
-static module_t modules[] =
+static const module_t *modules[] =
 {
 #if defined TLS
-	{
-		.name = str_tls,
-		.create = (module_create_t)mod_tls_create,
-		.destroy = mod_tls_destroy,
-	},
+	&mod_tls,
 #endif
 #if defined VHOSTS
-	{
-		.name = str_vhost,
-		.create = (module_create_t)mod_vhost_create,
-		.destroy = mod_vhost_destroy
-	},
+	&mod_vhost,
 #endif
 #if defined CLIENTFILTER
-	{
-		.name = str_clientfilter,
-		.create = (module_create_t)mod_clientfilter_create,
-		.destroy = mod_clientfilter_destroy
-	},
+	&mod_clientfilter,
 #endif
 #if defined COOKIE
-	{
-		.name = str_cookie,
-		.create = (module_create_t)mod_cookie_create,
-		.destroy = mod_cookie_destroy
-	},
+	&mod_cookie,
 #endif
 #if defined AUTH
-	{
-		.name = str_auth,
-		.create = (module_create_t)mod_auth_create,
-		.destroy = mod_auth_destroy
-	},
+	&mod_auth,
 #endif
 #if defined METHODLOCK
-	{
-		.name = str_methodlock,
-		.create = (module_create_t)mod_methodlock_create,
-		.destroy = mod_methodlock_destroy
-	},
+	&mod_methodlock,
 #endif
 #if defined SERVERHEADER
-	{
-		.name = str_serverheader,
-		.create = (module_create_t)mod_server_create,
-		.destroy = mod_server_destroy
-	},
+	&mod_server,
 #endif
 #if defined CGI
-	{
-		.name = str_cgi,
-		.create = (module_create_t)mod_cgi_create,
-		.destroy = mod_cgi_destroy
-	},
+	&mod_cgi,
 #endif
 #if defined FILESTORAGE
-	{
-		.name = str_filestorage,
-		.create = (module_create_t)mod_filestorage_create,
-		.destroy = mod_filestorage_destroy
-	},
+	&mod_filestorage,
 #endif
 #if defined STATIC_FILE
-	{
-		.name = str_static_file,
-		.create = (module_create_t)mod_static_file_create,
-		.destroy = mod_static_file_destroy
-	},
+	&mod_static_file,
 #endif
 #if defined WEBSTREAM
-	{
-		.name = str_webstream,
-		.create = (module_create_t)mod_webstream_create,
-		.destroy = mod_webstream_destroy
-	},
+	&mod_webstream,
 #endif
 #if defined WEBSOCKET
-	{
-		.name = str_websocket,
-		.create = (module_create_t)mod_websocket_create,
-		.destroy = mod_websocket_destroy
-	},
+	&mod_websocket,
 #endif
 #if defined REDIRECT404
-	{
-		.name = str_redirect404,
-		.create = (module_create_t)mod_redirect404_create,
-		.destroy = mod_redirect404_destroy
-	},
+	&mod_redirect404,
 #endif
-	{ NULL, NULL, NULL}
+	NULL
 };
 #endif
 
@@ -206,23 +147,12 @@ typedef struct mod_s
 	void (*destroy)(void*);
 } mod_t;
 
+#define MAX_MODULES 12
 typedef struct server_s
 {
 	serverconfig_t *config;
 	http_server_t *server;
-	mod_t mod_tls;
-	mod_t mod_cookie;
-	mod_t mod_static_file;
-	mod_t mod_filestorage;
-	mod_t mod_cgi;
-	mod_t mod_auth;
-	mod_t mod_clientfilter;
-	mod_t mod_methodlock;
-	mod_t mod_server;
-	mod_t mod_websocket;
-	mod_t mod_redirect404;
-	mod_t mod_webstream;
-	mod_t mod_vhosts[MAX_SERVERS - 1];
+	mod_t modules[MAX_MODULES + MAX_SERVERS];
 
 	struct server_s *next;
 } server_t;
@@ -288,12 +218,12 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 {
 	void *mod;
 	int i = 0;
-	while (modules[i].name != NULL)
+	while (modules[i] != NULL)
 	{
-		if (!strcmp(modules[i].name, name))
+		if (!strcmp(modules[i]->name, name))
 		{
-			mod = modules[i].create(server, NULL, config);
-			*destroy = modules[i].destroy;
+			mod = modules[i]->create(server, NULL, config);
+			*destroy = modules[i]->destroy;
 		}
 		i++;
 	}
@@ -420,34 +350,35 @@ int main(int argc, char * const *argv)
 	{
 		if (server->server)
 		{
+			int j = 0;
 			/**
 			 * TLS must be first to free the connection after all others modules
 			 */
 			if (server->config->tls)
-				server->mod_tls.config = loadmodule(str_tls, server->server, server->config->tls, &server->mod_tls.destroy);
+				server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j++].destroy);
 			for (i = 0; i < (MAX_SERVERS - 1); i++)
 			{
 				if (server->config->vhosts[i])
-					server->mod_vhosts[i].config = loadmodule(str_vhost, server->server, server->config->vhosts[i], &server->mod_vhosts[i].destroy);
+					server->modules[j].config = loadmodule(str_vhost, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
 			}
 			/**
 			 * clientfilter must be at the beginning to stop the connection if necessary
 			 */
 			if (server->config->modules.clientfilter)
-				server->mod_clientfilter.config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->mod_clientfilter.destroy);
-			server->mod_cookie.config = loadmodule(str_cookie, server->server, NULL, &server->mod_cookie.destroy);
+				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.auth)
-				server->mod_auth.config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->mod_auth.destroy);
-			server->mod_methodlock.config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->mod_methodlock.destroy);
-			server->mod_server.config = loadmodule(str_serverheader, server->server, NULL, &server->mod_server.destroy);
+				server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)
-				server->mod_cgi.config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->mod_cgi.destroy);
+				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
 			if (server->config->modules.filestorage)
-				server->mod_filestorage.config = loadmodule(str_filestorage, server->server, server->config->modules.filestorage, &server->mod_filestorage.destroy);
+				server->modules[j].config = loadmodule(str_filestorage, server->server, server->config->modules.filestorage, &server->modules[j++].destroy);
 			if (server->config->modules.static_file)
-				server->mod_static_file.config = loadmodule(str_static_file, server->server, server->config->modules.static_file, &server->mod_static_file.destroy);
+				server->modules[j].config = loadmodule(str_static_file, server->server, server->config->modules.static_file, &server->modules[j++].destroy);
 			if (server->config->modules.webstream)
-				server->mod_webstream.config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->mod_webstream.destroy);
+				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
 			if (server->config->modules.websocket)
 			{
 				if (((mod_websocket_t*)server->config->modules.websocket)->options & WEBSOCKET_REALTIME)
@@ -455,9 +386,10 @@ int main(int argc, char * const *argv)
 					((mod_websocket_t*)server->config->modules.websocket)->run = ouistiti_websocket_run;
 					warn("server %p runs realtime websocket!", server->server);
 				}
-				server->mod_websocket.config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->mod_websocket.destroy);
+				server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j++].destroy);
 			}
-			server->mod_redirect404.config = loadmodule(str_redirect404, server->server, server->config->modules.redirect404, &server->mod_redirect404.destroy);
+			server->modules[j].config = loadmodule(str_redirect404, server->server, server->config->modules.redirect404, &server->modules[j++].destroy);
+			server->modules[j].config = NULL;
 		}
 		server = server->next;
 	}
@@ -490,30 +422,12 @@ int main(int argc, char * const *argv)
 	while (server != NULL)
 	{
 		server_t *next = server->next;
-		if (server->mod_tls.destroy && server->mod_tls.config)
-			server->mod_tls.destroy(server->mod_tls.config);
-		if (server->mod_static_file.destroy && server->mod_static_file.config)
-			server->mod_static_file.destroy(server->mod_static_file.config);
-		if (server->mod_filestorage.destroy && server->mod_filestorage.config)
-			server->mod_filestorage.destroy(server->mod_filestorage.config);
-		if (server->mod_methodlock.destroy && server->mod_methodlock.config)
-			server->mod_methodlock.destroy(server->mod_methodlock.config);
-		if (server->mod_server.destroy && server->mod_server.config)
-			server->mod_server.destroy(server->mod_server.config);
-		if (server->mod_websocket.destroy && server->mod_websocket.config)
-			server->mod_websocket.destroy(server->mod_websocket.config);
-		if (server->mod_cgi.destroy && server->mod_cgi.config)
-			server->mod_cgi.destroy(server->mod_cgi.config);
-		if (server->mod_webstream.destroy && server->mod_webstream.config)
-			server->mod_webstream.destroy(server->mod_webstream.config);
-		if (server->mod_auth.destroy && server->mod_auth.config)
-			server->mod_auth.destroy(server->mod_auth.config);
-		if (server->mod_cookie.destroy && server->mod_cookie.config)
-			server->mod_cookie.destroy(server->mod_cookie.config);
-		for (i = 0; i < (MAX_SERVERS - 1); i++)
+		int j = 0;
+		while (server->modules[j].config)
 		{
-			if (server->mod_vhosts[i].destroy && server->mod_vhosts[i].config)
-				server->mod_vhosts[i].destroy(server->mod_vhosts[i].config);
+			if (server->modules[j].destroy)
+				server->modules[j].destroy(server->modules[j].config);
+			j++;
 		}
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);

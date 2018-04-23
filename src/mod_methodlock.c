@@ -141,3 +141,10 @@ void mod_methodlock_destroy(void *data)
 {
 	free(data);
 }
+
+const module_t mod_methodlock =
+{
+	.name = str_methodlock,
+	.create = (module_create_t)mod_methodlock_create,
+	.destroy = mod_methodlock_destroy
+};

@@ -355,3 +355,10 @@ void mod_static_file_destroy(void *data)
 {
 	free(data);
 }
+
+const module_t mod_static_file =
+{
+	.name = str_static_file,
+	.create = (module_create_t)mod_static_file_create,
+	.destroy = mod_static_file_destroy
+};

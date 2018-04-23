@@ -48,6 +48,7 @@ typedef struct mod_static_file_s
 	int options;
 } mod_static_file_t;
 
+extern const module_t mod_static_file;
 void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config);
 void mod_static_file_destroy(void *data);
 

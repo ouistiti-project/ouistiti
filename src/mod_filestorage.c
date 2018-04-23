@@ -471,3 +471,10 @@ void mod_filestorage_destroy(void *data)
 {
 	free(data);
 }
+
+const module_t mod_filestorage =
+{
+	.name = str_filestorage,
+	.create = (module_create_t)mod_filestorage_create,
+	.destroy = mod_filestorage_destroy
+};
