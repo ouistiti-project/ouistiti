@@ -95,6 +95,111 @@ static const char str_webstream[] = "webstream";
 static const char str_websocket[] = "websocket";
 static const char str_redirect404[] = "redirect404";
 
+#ifndef MODULES
+typedef void *(*module_create_t)(http_server_t *server, char *vhost, void *config);
+typedef struct module_s
+{
+	const char *name;
+	void *(*create)(http_server_t *server, char *vhost, void *config);
+	void (*destroy)(void*);
+} module_t;
+static module_t modules[] =
+{
+#if defined TLS
+	{
+		.name = str_tls,
+		.create = (module_create_t)mod_tls_create,
+		.destroy = mod_tls_destroy,
+	},
+#endif
+#if defined VHOSTS
+	{
+		.name = str_vhost,
+		.create = (module_create_t)mod_vhost_create,
+		.destroy = mod_vhost_destroy
+	},
+#endif
+#if defined CLIENTFILTER
+	{
+		.name = str_clientfilter,
+		.create = (module_create_t)mod_clientfilter_create,
+		.destroy = mod_clientfilter_destroy
+	},
+#endif
+#if defined COOKIE
+	{
+		.name = str_cookie,
+		.create = (module_create_t)mod_cookie_create,
+		.destroy = mod_cookie_destroy
+	},
+#endif
+#if defined AUTH
+	{
+		.name = str_auth,
+		.create = (module_create_t)mod_auth_create,
+		.destroy = mod_auth_destroy
+	},
+#endif
+#if defined METHODLOCK
+	{
+		.name = str_methodlock,
+		.create = (module_create_t)mod_methodlock_create,
+		.destroy = mod_methodlock_destroy
+	},
+#endif
+#if defined SERVERHEADER
+	{
+		.name = str_serverheader,
+		.create = (module_create_t)mod_server_create,
+		.destroy = mod_server_destroy
+	},
+#endif
+#if defined CGI
+	{
+		.name = str_cgi,
+		.create = (module_create_t)mod_cgi_create,
+		.destroy = mod_cgi_destroy
+	},
+#endif
+#if defined FILESTORAGE
+	{
+		.name = str_filestorage,
+		.create = (module_create_t)mod_filestorage_create,
+		.destroy = mod_filestorage_destroy
+	},
+#endif
+#if defined STATIC_FILE
+	{
+		.name = str_static_file,
+		.create = (module_create_t)mod_static_file_create,
+		.destroy = mod_static_file_destroy
+	},
+#endif
+#if defined WEBSTREAM
+	{
+		.name = str_webstream,
+		.create = (module_create_t)mod_webstream_create,
+		.destroy = mod_webstream_destroy
+	},
+#endif
+#if defined WEBSOCKET
+	{
+		.name = str_websocket,
+		.create = (module_create_t)mod_websocket_create,
+		.destroy = mod_websocket_destroy
+	},
+#endif
+#if defined REDIRECT404
+	{
+		.name = str_redirect404,
+		.create = (module_create_t)mod_redirect404_create,
+		.destroy = mod_redirect404_destroy
+	},
+#endif
+	{ NULL, NULL, NULL}
+};
+#endif
+
 typedef struct mod_s
 {
 	void *config;
@@ -179,113 +284,19 @@ static void _setpidfile(char *pidfile)
 	}
 }
 
-void *loadmodule(const char *name, http_server_t * server, void *config, void (**destroy)(void*))
+void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
 {
 	void *mod;
-#if defined TLS
-	if (name == str_tls)
+	int i = 0;
+	while (modules[i].name != NULL)
 	{
-		mod = mod_tls_create(server, config);
-		*destroy = mod_tls_destroy;
-	}
-#endif
-#if defined VHOSTS
-	if (name == str_vhost)
-	{
-		mod = mod_vhost_create(server, config);
-		*destroy = mod_vhost_destroy;
-	}
-#endif
-#if defined CLIENTFILTER
-	if (name == str_clientfilter)
-	{
-		mod = mod_clientfilter_create(server, NULL, config);
-		*destroy = mod_clientfilter_destroy;
-	}
-#endif
-#if defined COOKIE
-	if (name == str_cookie)
-	{
-		mod = mod_cookie_create(server, NULL, config);
-		*destroy = mod_cookie_destroy;
-	}
-#endif
-#if defined AUTH
-	if (name == str_auth)
-	{
-		mod = mod_auth_create(server, NULL, config);
-		*destroy = mod_auth_destroy;
-	}
-#endif
-#if defined METHODLOCK
-	if (name == str_methodlock)
-	{
-		mod = mod_methodlock_create(server, NULL, config);
-		*destroy = mod_methodlock_destroy;
-	}
-#endif
-#if defined SERVERHEADER
-	if (name == str_serverheader)
-	{
-		mod = mod_server_create(server, NULL, config);
-		*destroy = mod_server_destroy;
-	}
-#endif
-#if defined CGI
-	if (name == str_serverheader)
-	{
-		mod = mod_cgi_create(server, NULL, config);
-		*destroy = mod_server_destroy;
-	}
-#endif
-#if defined FILESTORAGE
-	if (name == str_filestorage)
-	{
-		mod = mod_filestorage_create(server, NULL, config);
-		*destroy = mod_filestorage_destroy;
-	}
-#endif
-#if defined STATIC_FILE
-	if (name == str_static_file)
-	{
-		mod = mod_static_file_create(server, NULL, config);
-		*destroy = mod_static_file_destroy;
-	}
-#endif
-#if defined WEBSTREAM
-	if (name == str_webstream)
-	{
-		mod = mod_webstream_create(server, NULL, config);
-		*destroy = mod_webstream_destroy;
-	}
-#endif
-#if defined WEBSOCKET
-	if (name == str_websocket)
-	{
-		mod_websocket_run_t run = default_websocket_run;
-#if defined WEBSOCKET_RT
-		/**
-		 * ouistiti_websocket_run is more efficient than
-		 * default_websocket_run. But it doesn't run with TLS
-		 **/
-		if (((websocket_t*)config)->options & WEBSOCKET_REALTIME)
+		if (!strcmp(modules[i].name, name))
 		{
-			run = ouistiti_websocket_run;
-			warn("server %p runs realtime websocket!", server->server);
+			mod = modules[i].create(server, NULL, config);
+			*destroy = modules[i].destroy;
 		}
-#endif
-		mod = mod_websocket_create(server, NULL, config, run , config);
-		*destroy = mod_websocket_destroy;
+		i++;
 	}
-#endif
-#if defined REDIRECT404
-	if (name == str_redirect404)
-	{
-		mod = mod_redirect404_create(server, NULL, config);
-		*destroy = mod_redirect404_destroy;
-	}
-#endif
-
 	return mod;
 }
 
@@ -438,7 +449,14 @@ int main(int argc, char * const *argv)
 			if (server->config->modules.webstream)
 				server->mod_webstream.config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->mod_webstream.destroy);
 			if (server->config->modules.websocket)
+			{
+				if (((mod_websocket_t*)server->config->modules.websocket)->options & WEBSOCKET_REALTIME)
+				{
+					((mod_websocket_t*)server->config->modules.websocket)->run = ouistiti_websocket_run;
+					warn("server %p runs realtime websocket!", server->server);
+				}
 				server->mod_websocket.config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->mod_websocket.destroy);
+			}
 			server->mod_redirect404.config = loadmodule(str_redirect404, server->server, server->config->modules.redirect404, &server->mod_redirect404.destroy);
 		}
 		server = server->next;
