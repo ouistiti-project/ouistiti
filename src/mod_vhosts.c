@@ -77,7 +77,7 @@ struct _mod_vhost_s
 	void *mod_server;
 };
 
-void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
+void *mod_vhost_create(http_server_t *server, char *unused, mod_vhost_t *config)
 {
 	_mod_vhost_t *mod;
 
@@ -91,7 +91,7 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 #if defined CLIENTFILTER
 	if (config->modules.clientfilter)
 	{
-		mod->mod_clientfilter = mod_clientfilter_create(server->server, NULL, config->modules.clientfilter);
+		mod->mod_clientfilter = mod_clientfilter_create(server->server, config->hostname, config->modules.clientfilter);
 	}
 #endif
 #if defined AUTH
@@ -107,21 +107,16 @@ void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod->mod_server = mod_server_create(server, config->hostname, NULL);
 #endif
 #if defined WEBSTREAM
-	mod->mod_webstream = mod_webstream_create(server, config->hostname,
-							config->modules.webstream, default_webstream_run,
-							config->modules.webstream);
+	mod->mod_webstream = mod_webstream_create(server, config->hostname, config->modules.webstream);
 #endif
 #if defined WEBSOCKET
 	if (config->modules.websocket)
 	{
-		mod_websocket_run_t run = default_websocket_run;
 #if defined WEBSOCKET_RT
 		if (config->websocket->mode && strstr(config->websocket->mode, "realtime"))
-			run = ouistiti_websocket_run;
+			config->websocket->run = ouistiti_websocket_run;
 #endif
-		mod->mod_websocket = mod_websocket_create(server,
-			config->hostname, config->modules.websocket,
-			run, config->modules.websocket);
+		mod->mod_websocket = mod_websocket_create(server, config->hostname, config->modules.websocket);
 	}
 #endif
 #if defined CGI
