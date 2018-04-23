@@ -1,5 +1,5 @@
-modules-$(DYNAMIC)+=mod_vhosts
-slib-$(STATIC)+=mod_vhosts
+modules-$(MODULES)+=mod_vhosts
+slib-y+=mod_vhosts
 mod_vhosts_SOURCES+=mod_vhosts.c
 mod_vhosts_CFLAGS+=-I../libhttpserver/include
 mod_vhosts_CFLAGS-$(AUTH)+=-DAUTH

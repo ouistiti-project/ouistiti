@@ -104,7 +104,7 @@ int jsonrpc_runner(int sock,
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
+	fprintf(stderr, "%s <-L jsonlibrary> [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
 }
 
 static char *g_library_config = NULL;
@@ -164,7 +164,11 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
+#ifdef WEBSOCKET_RT
 		opt = getopt(argc, argv, "u:n:R:m:hrL:C:");
+#else
+		opt = getopt(argc, argv, "u:n:R:m:hL:C:");
+#endif
 		switch (opt)
 		{
 			case 'R':

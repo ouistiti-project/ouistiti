@@ -1,5 +1,5 @@
 GET /index.html HTTP/1.1
 HOST: 127.0.0.1
 Connection: Keep-Alive
-Range: bytes=0-15
+Range: bytes=0-14
 

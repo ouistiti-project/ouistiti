@@ -15,6 +15,11 @@ class User
 			documents:"/Documents",
 			private:"/Private"
 		};
+		this.mimes = 
+		[
+			{ type:"image/*",appli:"ouialbum.html"},
+			{ type:"audio/*",appli:"ouiplaymusic.html"}
+		];
 	}
 };
 
@@ -132,7 +137,11 @@ class Authenticate
 					if (this.onauthorization != undefined)
 						this.onauthorization.call(this, this.user);
 				}
-				else if (xhr.status === 403)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+				if (xhr.status === 403)
 				{
 					var challenge = xhr.getResponseHeader("WWW-Authenticate");
 					this.authorization = undefined;
@@ -151,6 +160,8 @@ class Authenticate
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -210,7 +221,12 @@ class Open
 						this.onload.call(this, xhr.response);
 					}
 				}
-				else if (xhr.status === 403)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+			
+				if (xhr.status === 403)
 				{
 					if (this.onauthenticate != undefined)
 						this.onauthenticate.call(this, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -220,7 +236,7 @@ class Open
 					if (this.onnotfound != undefined)
 					{
 						var url = document.createElement('a');
-						url .href = xhr.responseURL;
+						url.href = xhr.responseURL;
 						this.onnotfound.call(this, url);
 					}
 				}
@@ -228,6 +244,8 @@ class Open
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -246,7 +264,7 @@ class Open
 		xhr.send();
 	}
 
-	go(target)
+	go(target, search)
 	{
 		var targetlocation = target.split("://");
 		var scheme;
@@ -271,7 +289,7 @@ class Open
 		{
 			case "http":
 			case "https":
-				window.open(scheme+"://"+hostname+pathname);
+				window.open(scheme+"://"+hostname+pathname+search);
 			break;
 		}
 	}
@@ -322,7 +340,11 @@ class Remove
 						this.onload.call(this, this.file);
 					}
 				}
-				else if (xhr.status === 403)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+				if (xhr.status === 403)
 				{
 					if (this.onauthenticate != undefined)
 						this.onauthenticate.call(this, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -336,6 +358,8 @@ class Remove
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -414,7 +438,11 @@ class Change
 						this.onload.call(this, file);
 					}
 				}
-				else if (xhr.status === 403)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+				if (xhr.status === 403)
 				{
 					if (this.onauthenticate != undefined)
 						this.onauthenticate.call(this, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -428,6 +456,8 @@ class Change
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -483,8 +513,10 @@ class UpLoader
 	{
 		this.file = file;
 	}
-	get(file)
+	get(file, offset)
 	{
+		if (offset != undefined)
+			return;
 		this.file = file;
 		this.reader.onloadend = function(evt)
 			{
@@ -507,9 +539,11 @@ class UpLoader
 	{
 		const xhr = this.uploadXHR;
 
-		xhr.onprogess = function(event)
+		xhr.upload.onprogress = function(event)
 		{
-		}
+			if (this.onprogress != undefined)
+				this.onprogress(event.loaded, event.total);
+		}.bind(this);
 		xhr.onreadystatechange = function()
 		{
 			if (xhr.readyState === XMLHttpRequest.DONE)
@@ -521,7 +555,11 @@ class UpLoader
 						this.onupload.call(this, JSON.parse(xhr.responseText));
 					this.file = undefined;
 				}
-				else if (xhr.status === 403 || xhr.status === 401)
+			}
+			else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+					xhr.status > 399)
+			{
+				if (xhr.status === 403 || xhr.status === 401)
 				{
 					if (this.onauthenticate != undefined)
 						this.onauthenticate.call(this, xhr.getResponseHeader("WWW-Authenticate"), "logout");
@@ -535,10 +573,24 @@ class UpLoader
 						this.onnotfound.call(this, url);
 					}
 				}
+				else if (xhr.status === 416)
+				{
+					var crange = xhr.getResponseHeader("Content-Range");
+					if (crange != undefined)
+					{
+						var offset = crange.substring(0,crange.indexOf("/"));
+						if (this.file.size > offset)
+							this.get(this.file,offset);
+						else if (this.onerror != undefined)
+							this.onerror.call(this, xhr.status);
+					}
+				}
 				else if (this.onerror != undefined)
 				{
 					this.onerror.call(this, xhr.status);
 				}
+				if (xhr.readyState === XMLHttpRequest.LOADING)
+					xhr.abort();
 			}
 			return true;
 		}.bind(this);
@@ -571,6 +623,7 @@ class Shell
 		this.directories =
 		{
 			image:"/public/images",
+			music:"/public/musics",
 			share:"/public",
 			documents:"/",
 			private:"/private"
@@ -583,17 +636,17 @@ class Shell
 		if (root)
 		{
 			root = root.split("=")[1];
-			if (root.lastIndexOf('/') != root.length - 1)
-				root += '/';
-			this.root += root.replace(/\\/g,'/').replace(/^\/?|\/?$/, '');
-			if (this.root == "/")
-				this.root = "";
 		}
 		else
 		{
 			//remove the last part of the pathname, the name of the file and the rest...
-			this.root += location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
+			root = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
 		}
+		if (root.lastIndexOf('/') != root.length - 1)
+			root += '/';
+		this.root += root.replace(/\\/g,'/').replace(/^\/?|\/?$/, '');
+		if (this.root == "/")
+			this.root = "";
 		var cwd = search.find(function(elem){
 				return elem.startsWith("cwd=");
 			});
@@ -618,6 +671,8 @@ class Shell
 		{
 			if (this.onnotfound != undefined)
 				this.onnotfound.call(this, file);
+			else if (this.onerror != undefined)
+				this.onerror.call(this, "File not found");
 		}.bind(this);
 		this.open.onerror = function(status)
 		{
@@ -638,6 +693,7 @@ class Shell
 		}.bind(this);
 		this.uploader = new UpLoader(this.root);
 		this.onput = undefined;
+		this.onprogress = undefined;
 		this.uploader.onload = function(file)
 		{
 			var ret = true;
@@ -651,11 +707,6 @@ class Shell
 			this.authenticate.challenge = challenge;
 			if (this.onauthenticate != undefined)
 				this.onauthenticate.call(this, challenge, result);
-		}.bind(this);
-		this.uploader.onerror = function(status)
-		{
-			if (this.onerror != undefined)
-				this.onerror(status);
 		}.bind(this);
 		this.change = new Change(this.root);
 		this.authenticate = new Authenticate("Basic");
@@ -790,10 +841,34 @@ class Shell
 		this.open.exec(this.authorization);
 		return id;
 	}
-	launch(file)
+	launch(file, mime)
 	{
+		var application = undefined;
 		this.open.open(this.cwd);
-		this.open.go(file);
+		if (this.user != undefined)
+		{
+			var i;
+			for (i = 0; i < this.user.mimes.length; i++)
+			{
+				var regexp = new RegExp(this.user.mimes[i].type);
+				if (regexp.test(mime))
+				{
+					var path = location.pathname.replace(/\\/g,'/').replace(/\/[^\/]*$/, '').replace(/^\/?|\/?$/, '');
+					application = "/"+path+"/"+this.user.mimes[i].appli;
+					break;
+				}
+			}
+		}
+		if (application != undefined)
+		{
+			if (application.indexOf('?') == -1)
+				application = application+"?";
+			else
+				application = application+"&";
+			this.open.go(application,"root="+this.root+"&cwd="+this.cwd+"&file="+file);
+		}
+		else
+			this.open.go(file,"");
 	}
 	rm(filename)
 	{
@@ -1015,6 +1090,23 @@ class Shell
 			if (this.oncompleted != undefined)
 			{
 				this.oncompleted(id);
+			}
+			this.uploader.onprogress = undefined;
+		}.bind(this);
+		this.uploader.onerror = function(status)
+		{
+			if (this.onerror != undefined)
+				this.onerror(status);
+			if (this.oncompleted != undefined)
+			{
+				this.oncompleted(id);
+			}
+		}.bind(this);
+		this.uploader.onprogress = function(loaded, total)
+		{
+			if (this.onprogress != undefined)
+			{
+				this.onprogress(id, (loaded / total) * 100, loaded, total);
 			}
 		}.bind(this);
 		this.uploader.open(this.cwd);

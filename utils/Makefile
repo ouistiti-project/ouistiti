@@ -1,7 +1,3 @@
-ifneq ($(MBEDTLS),y)
-subdir-$(AUTH)+=libb64.mk md5/md5.mk
-subdir-$(MD5_RONRIVEST)+=md5-c/md5.mk
-endif
 subdir-$(WEBSOCKET)+=websocket.mk
 subdir-$(WEBSTREAM)+=webstream.mk
 

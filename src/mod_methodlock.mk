@@ -1,6 +1,5 @@
-
-modules-$(DYNAMIC)+=mod_methodlock
-slib-$(STATIC)+=mod_methodlock
+modules-$(MODULES)+=mod_methodlock
+slib-y+=mod_methodlock
 mod_methodlock_SOURCES-$(METHODLOCK)+=mod_methodlock.c
 mod_methodlock_CFLAGS+=-I../libhttpserver/include
 mod_methodlock_CFLAGS+=-DMETHODLOCK

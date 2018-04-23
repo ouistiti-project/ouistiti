@@ -36,6 +36,7 @@
 #include <sys/sendfile.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/time.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -108,21 +109,45 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		}
 		else
 		{
-			private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
+			if (private->size > private->offset)
+			{
+				char range[20];
+				sprintf(range, "bytes %d/*", private->size);
+				httpmessage_addheader(response, "Content-Range", range);
+			}
+			else
+				private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
 			if (private->fd > 0)
 			{
+				if (private->offset > 0)
+				{
+					lseek(private->fd, private->offset, SEEK_SET);
+				}
 				ret = EINCOMPLETE;
-			}
+				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
+				httpmessage_appendcontent(response, private->path_info, -1);
+				httpmessage_appendcontent(response, "\"}", -1);
+#ifdef DEBUG
+				gettimeofday(&private->start, NULL);
+#endif
+		}
 			else
 			{
 				err("file creation not allowed %s", private->path_info);
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
 				httpmessage_appendcontent(response, private->path_info, -1);
 				httpmessage_appendcontent(response, "\"}", -1);
-#if defined RESULT_403
-				httpmessage_result(response, RESULT_403);
+				if (private->size > 0)
+#if defined RESULT_416
+					httpmessage_result(response, RESULT_416);
 #else
-				httpmessage_result(response, RESULT_400);
+					httpmessage_result(response, RESULT_400);
+#endif
+				else
+#if defined RESULT_403
+					httpmessage_result(response, RESULT_403);
+#else
+					httpmessage_result(response, RESULT_400);
 #endif
 				ret = ESUCCESS;
 				private->fd = 0;
@@ -138,19 +163,62 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	{
 		char *input;
 		int inputlen;
-		int rest;
-		rest = httpmessage_content(request, &input, &inputlen);
-		if (inputlen > 0 && rest > 0)
+		/**
+		 * rest = 1 to close the connection on end of file or
+		 * on connection error
+		 */
+		unsigned long long rest = 1;
+		inputlen = httpmessage_content(request, &input, &rest);
+
+		/**
+		 * the function returns EINCOMPLETE to wait before to send
+		 * the response.
+		 */
+		ret = EINCOMPLETE;
+		while (inputlen > 0)
 		{
-			write(private->fd, input, inputlen);
-			ret = EINCOMPLETE;
+			int wret = write(private->fd, input, inputlen);
+			if (wret < 0)
+			{
+				err("filestorage: access file error %s", strerror(errno));
+				if (errno != EAGAIN)
+				{
+#ifdef RESULT_500
+					httpmessage_result(response, RESULT_500);
+#else
+					httpmessage_result(response, RESULT_404);
+#endif
+					rest = 0;
+					break;
+				}
+			}
+			else if (wret > 0)
+			{
+#ifdef DEBUG
+				private->datasize += wret;
+#endif
+				inputlen -= wret;
+				input += wret;
+			}
 		}
-		else
+		if (inputlen == EREJECT)
 		{
-			httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
-			httpmessage_appendcontent(response, private->path_info, -1);
-			httpmessage_appendcontent(response, "\"}", -1);
-			close(private->fd);
+			rest = 0;
+		}
+		if (rest < 1)
+		{
+#ifdef DEBUG
+			err("filestorage: store %llu bytes", private->datasize);
+			struct timeval stop;
+			struct timeval value;
+			gettimeofday(&stop, NULL);
+			timersub(&stop, &private->start, &value);
+			dbg("filestorage: %d:%3d", value.tv_sec, value.tv_usec/1000);
+			private->datasize *= 1000 / (value.tv_sec * 1000000 + value.tv_usec);
+			dbg("filestorage: bps %llu", private->datasize);
+#endif
+			if (private->fd)
+				close(private->fd);
 			private->fd = 0;
 			ret = ESUCCESS;
 			static_file_close(private);
@@ -160,7 +228,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 }
 
 typedef int (*changefunc)(const char *oldpath, const char *newpath);
-static int changename(mod_static_file_t *config, char *oldpath, char *newname, changefunc func)
+static int changename(mod_static_file_t *config, char *oldpath, const char *newname, changefunc func)
 {
 	int ret = -1;
 	if (newname && newname[0] != '\0')
@@ -185,23 +253,23 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 
 	warn("change %s", private->filepath);
 	char *result = (char *)str_KO;
-	char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
+	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
 	if (cmd && !strcmp("mv", cmd))
 	{
-		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (!changename(config, private->filepath, arg, rename))
 			result = (char *)str_OK;
 	}
 	else if (cmd && !strcmp("chmod", cmd))
 	{
-		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		int mod = atoi(arg);
 		if (!chmod(private->filepath, mod))
 			result = (char *)str_OK;
 	}
 	else if (cmd && !strcmp("ln", cmd))
 	{
-		char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
+		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (!changename(config, private->filepath, arg, symlink))
 			result = (char *)str_OK;
 	}
@@ -258,19 +326,25 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 
 	if (private->func == NULL)
 	{
+		private->size = 0;
+		private->offset = 0;
+
 		struct stat filestat;
 		if (private->path_info)
 			free(private->path_info);
-		char *uri = httpmessage_REQUEST(request,"uri");
+		const char *uri = httpmessage_REQUEST(request,"uri");
 		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;
-		char *method = httpmessage_REQUEST(request, "method");
+
+		const char *method = httpmessage_REQUEST(request, "method");
 		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
 		if ((private->filepath == NULL) && (!strcmp(method, "PUT")))
 		{
 			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
 			private->func = putfile_connector;
+			private->size = 0;
+			private->offset = 0;
 		}
 		else if (private->filepath && filestorage_checkname(private, response) == ESUCCESS)
 		{
@@ -279,7 +353,7 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 				if (S_ISDIR(filestat.st_mode))
 				{
 					int length = strlen(private->path_info);
-					char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+					const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 					if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) ||
 						(private->path_info[length - 1] != '/'))
 					{
@@ -321,6 +395,8 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 			}
 			else if (!strcmp(method, "PUT"))
 			{
+				private->size = filestat.st_size;
+				private->offset = 0;
 				private->func = putfile_connector;
 			}
 			else if (!strcmp(method, "POST"))
@@ -395,3 +471,10 @@ void mod_filestorage_destroy(void *data)
 {
 	free(data);
 }
+
+const module_t mod_filestorage =
+{
+	.name = str_filestorage,
+	.create = (module_create_t)mod_filestorage_create,
+	.destroy = mod_filestorage_destroy
+};

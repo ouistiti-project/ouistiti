@@ -111,3 +111,10 @@ static int _mod_redirect404_connector(void *arg, http_message_t *request, http_m
 #error "redirect404 needs to define 301"
 #endif
 }
+
+const module_t mod_redirect404 =
+{
+	.name = str_redirect404,
+	.create = (module_create_t)mod_redirect404_create,
+	.destroy = mod_redirect404_destroy
+};

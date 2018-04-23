@@ -13,37 +13,50 @@
 		<script src="js/bootstrap.min.js"></script>
 		<script src="js/ouishell.js"></script>
 		<script type="text/javascript">
+var startfile = undefined;
 var shell = new Shell("");
 shell.onchange = function(content)
 {
 	$("#Message").html("<strong>Empty directory</strong>");
 	$("#Message").removeClass("hidden");
 
-	var imageExt = ["mp3","ac3","ogg"];
 	var playlist = $("#PlayList").html("");
 	var albumslist = $("#AlbumsList").html("");
 	var elm = "<li><a href='#' data-href='"+this.cwd+"/..' onclick='shell.cd(this.getAttribute(\"data-href\"));'><span class='glyphicon glyphicon-arrow-left'>back</span></a></li>";
 	albumslist.append(elm);	
 	var itemcount = 0;
-	for (i = 0; i < content.length; i++) {
+	content.sort(function (a,b)
+		{
+			if (a.type == b.type)
+			{
+				return a.name.localeCompare(b.name);
+			}
+			else
+			{
+				return a.type - b.type;
+			}
+		});
+	for (i = 0; i < content.length; i++)
+	{
+		var escapingname = encodeURIComponent(content[i].name);
 		if (content[i].type == 4)
 		{
-			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+content[i].name+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
+			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+escapingname+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
 			albumslist.append(elm);
 		}
 		else if (content[i].type == 8)
 		{
 			var name = content[i].name.split('.');
-			var ext = name[name.length - 1].toLowerCase();
-			if (imageExt.indexOf(ext) != -1)
+			if (content[i].mime.startsWith("audio/"))
 			{
-				var type = "audio/mpeg";
-				var elm = "<a class='list-group-item' href='#' data-type='"+type+"' data-href='"+this.root+"/"+this.cwd+"/"+content[i].name+"' onclick='musicplay("+itemcount+");'>"+name[0]+"</a>";
+				var elm = "<a class='list-group-item' href='#' data-type='"+content[i].mime+"' data-href='"+this.root+"/"+this.cwd+"/"+escapingname+"' onclick='musicplay("+itemcount+");'>"+name[0]+"</a>";
 				itemcount += 1;
 				playlist.append(elm);
 				$("#Message").html("");
 				$("#Message").addClass("hidden");
 			}
+			if (content[i].name == startfile)
+				musicplay(i);
 		}
 	}
 }
@@ -98,6 +111,22 @@ shell.onauthorization = function(user)
 		$("#LogoutButton").removeClass("hidden");
 		$(".ProtectedButton").removeClass("hidden");
 	}
+	if (location.search.indexOf("cwd=") < 0)
+		shell.cd(shell.user.directories.music);
+	var pos = location.search.indexOf("file=")
+	if (pos > 0)
+	{
+		pos += 5;
+		var filepath = location.search.substring(pos);		
+		var end = filepath.indexOf("&");
+		if (end == -1)
+			end = undefined;
+		filepath = location.search.substring(pos,end);
+		pos = filepath.indexOf(shell.root);
+		if (pos == 0)
+			filepath = filepath.substring(shell.root.length);
+		startfile = filepath.replace( /.*\//, '');
+	}
 	$("#LoginBox").modal('hide');
 	shell.ls();
 }
@@ -118,38 +147,41 @@ musicplay = function(index)
 	$("#Player source").attr("src", href).attr("type", type);
 	player.load();
 	player.oncanplaythrough = player.play();
-	player.onerror = function (evt) {
-		$("#MusicTitle").html("");
-	};
-	player.onabort = function (evt) {
-		$("#MusicTitle").html("");
-	};
-	$("#Player").on("ended", function (evt) {
-		$("#MusicTitle").html("");
-		var list = $("#PlayList").children("a");
-		var current = $("#PlayList").children("a.active")[0];
-		var index = $.inArray(current, list);
-		index += 1;
-		musicplay(index);
-	});
+}
+
+musicnext = function()
+{
+	$("#MusicTitle").html("");
+	var list = $("#PlayList").children("a");
+	var current = $("#PlayList").children("a.active")[0];
+	var index = $.inArray(current, list);
+	index += 1;
+	musicplay(index);
 }
 
 $(document).ready(function()
 {
 	shell.login();
-	if ((shell.user != undefined) && (location.search.indexOf("cwd=") < 0))
-		shell.cd(shell.user.directories.music);
-	$("ReloadButton").on("click", function(event)
+	$("#ReloadButton").on("click", function(event)
 	{
 		shell.ls();
 	});
-	$("LoginExec").on("click", function(event)
+	$("#LoginExec").on("click", function(event)
 	{
 		shell.login($('#LoginUsername').val(),$('#LoginPassword').val());
 	});
-	$("LogoutButton").on("click", function(event)
+	$("#LogoutButton").on("click", function(event)
 	{
 		shell.logout();
+	});
+	$("#Player").on("ended", function (evt) {
+		musicnext();
+	});
+	$("#Player").on("error", function (evt) {
+		musicnext();
+	});
+	$("#Player").on("abort", function (evt) {
+		$("#MusicTitle").html("");
 	});
 });
 		</script>
@@ -176,7 +208,7 @@ $(document).ready(function()
 							</ul>
 						</li>
 						<li class="dropdown"> <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Albums<span class="caret"></span></a>
-							<ul class="dropdown-menu" id="AlbumsList">
+							<ul class="dropdown-menu pre-scrollable" id="AlbumsList">
 							</ul>
 						</li>
 					</ul>
@@ -336,7 +368,7 @@ $('#ShareBox').on('show.bs.modal', function (event)
 							<div class="form-group">
 								<div class="input-group">
 									<span class="input-group-addon" id="UserField">User</span>
-									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" >
+									<input type="text" class="form-control" placeholder="name" aria-describedby="UserField" id="LoginUsername" autofocus>
 								</div>
 							</div>
 							<div class="form-group">

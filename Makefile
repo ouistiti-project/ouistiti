@@ -8,23 +8,16 @@ export SLIB_HTTPSERVER=y
 export MAXCHUNKS_HEADER=20
 export MAXCHUNKS_URI=4
 
-LIBHTTPSERVER_DIR:=libhttpserver
-LIBB64_DIR:=libb64
-
-ifneq ($(wildcard $(LIBB64_DIR)/Makefile),)
-subdir-y:=$(LIBB64_DIR)
-
-libb64_dir:=$(realpath $(LIBB64_DIR))
-export CFLAGS+=-I$(libb64_dir)/include/
-export LDFLAGS+=-L$(libb64_dir)/src -L$(libb64_dir)/src
-endif
-
+LIBHTTPSERVER_DIR?=libhttpserver
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
 subdir-y:=$(LIBHTTPSERVER_DIR)
-
 libhttpserver_dir:=$(realpath $(LIBHTTPSERVER_DIR))
 export CFLAGS+=-I$(libhttpserver_dir)/include/
+ifneq ($(buildpath),)
+export LDFLAGS+=-L$(buildpath)$(LIBHTTPSERVER_DIR)/src -L$(buildpath)$(LIBHTTPSERVER_DIR)/src/httpserver
+else
 export LDFLAGS+=-L$(libhttpserver_dir)/src -L$(libhttpserver_dir)/src/httpserver
+endif
 endif
 
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/libhttpserver.so $(LIBHTTPSERVER_DIR)/libhttpserver.a),)
