@@ -58,7 +58,7 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response);
 extern int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
 #endif
 
-static const char str_static_file[] = "static file";
+static const char str_static_file[] = "static_file";
 
 /**
  * USE_PRIVATE is used to keep a sample of cade which uses
@@ -362,3 +362,6 @@ const module_t mod_static_file =
 	.create = (module_create_t)mod_static_file_create,
 	.destroy = mod_static_file_destroy
 };
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_static_file")));
+#endif

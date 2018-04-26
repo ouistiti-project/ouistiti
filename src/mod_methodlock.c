@@ -148,3 +148,6 @@ const module_t mod_methodlock =
 	.create = (module_create_t)mod_methodlock_create,
 	.destroy = mod_methodlock_destroy
 };
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_methodlock")));
+#endif

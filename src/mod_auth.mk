@@ -2,6 +2,7 @@ modules-$(MODULES)+=mod_auth
 slib-y+=mod_auth
 mod_auth_SOURCES+=mod_auth.c
 mod_auth_CFLAGS+=-I../libhttpserver/include
+mod_auth_CFLAGS-$(MODULES)+=-DMODULES
 
 mod_auth_SOURCES-$(AUTHN_NONE)+=authn_none.c
 mod_auth_CFLAGS-$(AUTHN_NONE)+=-DAUTHN_NONE

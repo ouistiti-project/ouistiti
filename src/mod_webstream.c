@@ -291,3 +291,6 @@ const module_t mod_webstream =
 	.create = (module_create_t)mod_webstream_create,
 	.destroy = mod_webstream_destroy
 };
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_webstream")));
+#endif

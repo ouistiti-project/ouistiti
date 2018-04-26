@@ -480,3 +480,6 @@ const module_t mod_auth =
 	.create = (module_create_t)mod_auth_create,
 	.destroy = mod_auth_destroy
 };
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_auth")));
+#endif

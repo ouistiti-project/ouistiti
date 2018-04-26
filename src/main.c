@@ -47,6 +47,9 @@
 #else
 # include <winsock2.h>
 #endif
+#ifdef MODULES
+#include <dlfcn.h>
+#endif
 
 #include "httpserver/httpserver.h"
 
@@ -87,7 +90,7 @@ static const char str_clientfilter[] = "clientfilter";
 static const char str_cookie[] = "cookie";
 static const char str_auth[] = "auth";
 static const char str_methodlock[] = "methodlock";
-static const char str_serverheader[] = "serverheader";
+static const char str_serverheader[] = "server";
 static const char str_cgi[] = "cgi";
 static const char str_filestorage[] = "filestorage";
 static const char str_static_file[] = "static_file";
@@ -216,7 +219,8 @@ static void _setpidfile(char *pidfile)
 
 void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
 {
-	void *mod;
+	void *mod = NULL;
+#ifndef MODULES
 	int i = 0;
 	while (modules[i] != NULL)
 	{
@@ -227,6 +231,29 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 		}
 		i++;
 	}
+#else
+	char file[512];
+	snprintf(file, 511, moduledir"/mod_%s.so", name);
+	void *dh = dlopen(file, RTLD_LAZY);
+	if (dh != NULL)
+	{
+		module_t *module = dlsym(dh, "mod_info");
+		if (module && !strcmp(module->name, name))
+		{
+			mod = module->create(server, NULL, config);
+			*destroy = module->destroy;
+			dbg("module %s loaded", name);
+		}
+		else if (module)
+			warn("module %s error : named %s", name, module->name);
+		else
+			err("module symbol error: %s", dlerror());
+	}
+	else
+	{
+		err("module %s loading error: %s", file, dlerror());
+	}
+#endif
 	return mod;
 }
 
@@ -373,10 +400,10 @@ int main(int argc, char * const *argv)
 			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)
 				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
-			if (server->config->modules.filestorage)
-				server->modules[j].config = loadmodule(str_filestorage, server->server, server->config->modules.filestorage, &server->modules[j++].destroy);
 			if (server->config->modules.static_file)
 				server->modules[j].config = loadmodule(str_static_file, server->server, server->config->modules.static_file, &server->modules[j++].destroy);
+			if (server->config->modules.filestorage)
+				server->modules[j].config = loadmodule(str_filestorage, server->server, server->config->modules.filestorage, &server->modules[j++].destroy);
 			if (server->config->modules.webstream)
 				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
 			if (server->config->modules.websocket)

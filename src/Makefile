@@ -8,12 +8,14 @@ $(TARGET)_LIBS+=httpserver
 $(TARGET)_LDFLAGS+=-L ../httpserver/src/httpserver
 $(TARGET)_LDFLAGS+=-L ../httpserver/src
 main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
+main_CFLAGS+= -Dmoduledir="\"$(pkglibdir)\""
 $(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 
 $(TARGET)_CFLAGS-$(MODULES)+=-DMODULES
+$(TARGET)_LIBS-$(MODULES)+=dl
 
 $(TARGET)_CFLAGS-$(WEBSOCKET_RT)+=-DWEBSOCKET_RT
 $(TARGET)_SOURCES-$(WEBSOCKET_RT)+=websocket.c

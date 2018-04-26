@@ -118,3 +118,6 @@ const module_t mod_redirect404 =
 	.create = (module_create_t)mod_redirect404_create,
 	.destroy = mod_redirect404_destroy
 };
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_redirect404")));
+#endif
