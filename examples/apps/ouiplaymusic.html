@@ -39,9 +39,10 @@ shell.onchange = function(content)
 	for (i = 0; i < content.length; i++)
 	{
 		var escapingname = encodeURIComponent(content[i].name);
+		escapingname.replace(/"/g,"\\'");
 		if (content[i].type == 4)
 		{
-			var elm = "<li><a href='#' data-href='"+this.cwd+"/"+escapingname+"' onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
+			var elm = "<li><a href='#' data-href=\""+this.cwd+"/"+escapingname+"\" onclick='shell.cd(this.getAttribute(\"data-href\"));'>"+content[i].name+"</a></li>";
 			albumslist.append(elm);
 		}
 		else if (content[i].type == 8)
@@ -49,7 +50,7 @@ shell.onchange = function(content)
 			var name = content[i].name.split('.');
 			if (content[i].mime.startsWith("audio/"))
 			{
-				var elm = "<a class='list-group-item' href='#' data-type='"+content[i].mime+"' data-href='"+this.root+"/"+this.cwd+"/"+escapingname+"' onclick='musicplay("+itemcount+");'>"+name[0]+"</a>";
+				var elm = "<a class='list-group-item' href='#' data-type='"+content[i].mime+"' data-href=\""+this.root+"/"+this.cwd+"/"+escapingname+"\" onclick='musicplay("+itemcount+");'>"+name[0]+"</a>";
 				itemcount += 1;
 				playlist.append(elm);
 				$("#Message").html("");
