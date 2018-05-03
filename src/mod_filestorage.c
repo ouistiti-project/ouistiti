@@ -65,7 +65,7 @@ static int filestorage_checkname(static_file_connector_t *private, http_message_
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(private->path_info, config->deny) == ESUCCESS &&
+	if (utils_searchexp(private->path_info, config->deny) == ESUCCESS ||
 		utils_searchexp(private->path_info, config->allow) != ESUCCESS)
 	{
 		return  EREJECT;
@@ -408,8 +408,11 @@ static int filestorage_connector(void *arg, http_message_t *request, http_messag
 				private->func = deletefile_connector;
 			}
 		}
-		else
-			warn("filestorage: forbidden file %s", private->path_info);
+		else if (private->filepath)
+		{
+			warn("filestorage: forbidden %s file %s", private->path_info, (ret == 0)?"deny":"not allow");
+			httpmessage_result(response, RESULT_403);
+		}
 	}
 	return  EREJECT;
 }

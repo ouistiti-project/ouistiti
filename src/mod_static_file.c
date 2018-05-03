@@ -100,10 +100,11 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;
-		if (utils_searchexp(private->path_info, config->deny) == ESUCCESS &&
-			utils_searchexp(private->path_info, config->allow) != ESUCCESS)
+		if ((ret = utils_searchexp(private->path_info, config->deny)) == ESUCCESS ||
+			(ret = utils_searchexp(private->path_info, config->allow)) != ESUCCESS)
 		{
-			warn("static file: %s forbidden extension", private->path_info);
+			warn("static file: forbidden %s file %s", private->path_info, (ret == 0)?"deny":"not allow");
+			httpmessage_result(response, RESULT_403);
 			static_file_close(private);
 			return  EREJECT;
 		}
