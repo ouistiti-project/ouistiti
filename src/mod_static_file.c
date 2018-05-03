@@ -119,17 +119,26 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			int length = strlen(private->path_info);
 			if (length > 0 && private->path_info[length - 1] != '/')
 			{
-#if defined(RESULT_301)
-				char *location = calloc(1, length + 3);
-				sprintf(location, "/%s/", private->path_info);
-				httpmessage_addheader(response, str_location, location);
-				httpmessage_result(response, RESULT_301);
-				free(location);
-				static_file_close(private);
-				return ESUCCESS;
-#else
-				dbg("static file: reject directory path bad formatting");
+#ifdef DIRLISTING
+				if (config->options & STATIC_FILE_DIRLISTING)
+				{
+					private->func = dirlisting_connector;
+				}
+				else
 #endif
+				{
+#if defined(RESULT_301)
+					char *location = calloc(1, length + 3);
+					sprintf(location, "/%s/", private->path_info);
+					httpmessage_addheader(response, str_location, location);
+					httpmessage_result(response, RESULT_301);
+					free(location);
+					static_file_close(private);
+					return ESUCCESS;
+#else
+					dbg("static file: reject directory path bad formatting");
+#endif
+				}
 			}
 			else
 			{
