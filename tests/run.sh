@@ -54,7 +54,7 @@ fi
 if [ -n "$DEBUG" ]; then
 	echo ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG}
 fi
-${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG} &
+${SRCDIR}${TARGET} -s 1 -f ${TESTDIR}conf/${CONFIG} &
 PID=$!
 
 echo "${TARGET} started with pid ${PID}"
