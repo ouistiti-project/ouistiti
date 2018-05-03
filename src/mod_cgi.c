@@ -538,6 +538,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		if (location != NULL && location[0] != '\0')
 			httpmessage_result(response, RESULT_302);
 #endif
+		httpmessage_parsecgi(response, NULL, 0);
 		ret = waitpid(ctx->pid, &status, WNOHANG);
 		if (ret != 0 && WIFEXITED(status))
 		{
