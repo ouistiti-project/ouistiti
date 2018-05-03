@@ -167,6 +167,8 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-V \treturn the version and exit\n");
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
 	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
+	fprintf(stderr, "\t-D\tto daemonize the server\n");
+	fprintf(stderr, "\t-s <number server>\tselect a server into the configuration file\n");
 }
 
 static server_t *first = NULL;
@@ -260,8 +262,6 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
-	struct passwd *user = NULL;
-	struct group *grp = NULL;
 	server_t *server;
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
@@ -334,20 +334,20 @@ int main(int argc, char * const *argv)
 	sigaction(SIGINT, &action, NULL);
 
 #ifdef HAVE_PWD_H
+	uid_t   pw_uid = -1;
+	gid_t   pw_gid;
 	if (ouistiticonfig->user)
 	{
-		user = getpwnam(ouistiticonfig->user);
-		if (user == NULL)
+		struct passwd *result;
+
+		result = getpwnam(ouistiticonfig->user);
+		if (result == NULL)
 		{
 			fprintf(stderr, "Error: start as root\n");
 			return -1;
 		}
-		grp = getgrgid(user->pw_gid);
-		if (grp == NULL)
-		{
-			fprintf(stderr, "Error: start as root\n");
-			return -1;
-		}
+		pw_uid = result->pw_uid;
+		pw_gid = result->pw_gid;
 	}
 #endif
 	if (serverid < 0)
@@ -422,8 +422,11 @@ int main(int argc, char * const *argv)
 	}
 
 #ifdef HAVE_PWD_H
-	setgid(user->pw_gid);
-	setuid(user->pw_uid);
+	if (pw_uid > -1)
+	{
+		setgid(pw_gid);
+		setuid(pw_uid);
+	}
 #endif
 	server = first;
 
