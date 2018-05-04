@@ -162,13 +162,15 @@ typedef struct server_s
 
 void display_help(char * const *argv)
 {
+	fprintf(stderr, PACKAGE" "VERSION" build: "__DATE__" "__TIME__"\n");
+	fprintf(stderr, "\n");
 	fprintf(stderr, "%s [-h][-V][-f <configfile>]\n", argv[0]);
-	fprintf(stderr, "\t-h \tshow this help and exit\n");
-	fprintf(stderr, "\t-V \treturn the version and exit\n");
+	fprintf(stderr, "\t-h \t\tshow this help and exit\n");
+	fprintf(stderr, "\t-V \t\treturn the version and exit\n");
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
 	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
-	fprintf(stderr, "\t-D\tto daemonize the server\n");
-	fprintf(stderr, "\t-s <number server>\tselect a server into the configuration file\n");
+	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
+	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
 }
 
 static server_t *first = NULL;
