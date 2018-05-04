@@ -470,6 +470,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	int ret = EINCOMPLETE;
 	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)arg;
 	mod_cgi_config_t *config = ctx->mod->config;
+
 	if (ctx->pid == -1)
 	{
 		warn("cgi: pid -1");
@@ -537,13 +538,19 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		if (location != NULL && location[0] != '\0')
 			httpmessage_result(response, RESULT_302);
 #endif
+		httpmessage_parsecgi(response, NULL, 0);
 		ret = waitpid(ctx->pid, &status, WNOHANG);
-		if (ctx->state & STATE_SHUTDOWN);
-			httpclient_shutdown(ctx->ctl);
+		if (ret != 0 && WIFEXITED(status))
+		{
+			if (ctx->state & STATE_SHUTDOWN);
+				httpclient_shutdown(ctx->ctl);
 
-		ctx->state = STATE_END;
-		ctx->pid = 0;
-		ret = ESUCCESS;
+			ctx->state = STATE_END;
+			ctx->pid = 0;
+			ret = ESUCCESS;
+		}
+		else
+			ret = ECONTINUE;
 	}
 	else if (ctx->state >= STATE_CONTENTCOMPLETE)
 	{
@@ -651,3 +658,6 @@ const module_t mod_cgi =
 	.create = (module_create_t)mod_cgi_create,
 	.destroy = mod_cgi_destroy
 };
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_cgi")));
+#endif

@@ -58,7 +58,7 @@ int mod_send_read(static_file_connector_t *private, http_message_t *response);
 extern int mod_send_sendfile(static_file_connector_t *private, http_message_t *response);
 #endif
 
-static const char str_static_file[] = "static file";
+static const char str_static_file[] = "static_file";
 
 /**
  * USE_PRIVATE is used to keep a sample of cade which uses
@@ -100,10 +100,11 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 		private->path_info = utils_urldecode(uri);
 		if (private->path_info == NULL)
 			return EREJECT;
-		if (utils_searchexp(private->path_info, config->deny) == ESUCCESS &&
-			utils_searchexp(private->path_info, config->allow) != ESUCCESS)
+		if ((ret = utils_searchexp(private->path_info, config->deny)) == ESUCCESS ||
+			(ret = utils_searchexp(private->path_info, config->allow)) != ESUCCESS)
 		{
-			warn("static file: %s forbidden extension", private->path_info);
+			warn("static file: forbidden %s file %s", private->path_info, (ret == 0)?"deny":"not allow");
+			httpmessage_result(response, RESULT_403);
 			static_file_close(private);
 			return  EREJECT;
 		}
@@ -118,17 +119,26 @@ static int static_file_connector(void *arg, http_message_t *request, http_messag
 			int length = strlen(private->path_info);
 			if (length > 0 && private->path_info[length - 1] != '/')
 			{
-#if defined(RESULT_301)
-				char *location = calloc(1, length + 3);
-				sprintf(location, "/%s/", private->path_info);
-				httpmessage_addheader(response, str_location, location);
-				httpmessage_result(response, RESULT_301);
-				free(location);
-				static_file_close(private);
-				return ESUCCESS;
-#else
-				dbg("static file: reject directory path bad formatting");
+#ifdef DIRLISTING
+				if (config->options & STATIC_FILE_DIRLISTING)
+				{
+					private->func = dirlisting_connector;
+				}
+				else
 #endif
+				{
+#if defined(RESULT_301)
+					char *location = calloc(1, length + 3);
+					sprintf(location, "/%s/", private->path_info);
+					httpmessage_addheader(response, str_location, location);
+					httpmessage_result(response, RESULT_301);
+					free(location);
+					static_file_close(private);
+					return ESUCCESS;
+#else
+					dbg("static file: reject directory path bad formatting");
+#endif
+				}
 			}
 			else
 			{
@@ -362,3 +372,6 @@ const module_t mod_static_file =
 	.create = (module_create_t)mod_static_file_create,
 	.destroy = mod_static_file_destroy
 };
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_static_file")));
+#endif
