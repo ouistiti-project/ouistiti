@@ -138,7 +138,7 @@ struct authn_s
 	void *ctx;
 	authn_rules_t *rules;
 	authn_type_t type;
-	hash_t *hash;
+	const hash_t *hash;
 };
 
 typedef struct mod_auth_s

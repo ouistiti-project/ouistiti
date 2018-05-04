@@ -209,7 +209,7 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	{
 		if (chekpasswd[0] == '$')
 		{
-			hash_t *hash = NULL;
+			const hash_t *hash = NULL;
 			if (!strncmp(chekpasswd, "$a1", 3))
 			{
 				hash = hash_md5;

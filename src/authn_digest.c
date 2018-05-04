@@ -49,7 +49,7 @@ struct authn_digest_s
 {
 	authn_digest_config_t *config;
 	authz_t *authz;
-	hash_t *hash;
+	const hash_t *hash;
 	char *challenge;
 	char opaque[33];
 	char nonce[35];
@@ -173,12 +173,12 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 
 struct authn_digest_computing_s
 {
-	char *(*digest)(hash_t * hash, char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2);
-	char *(*a1)(hash_t * hash, const char *username, const char *realm, const char *passwd);
-	char *(*a2)(hash_t * hash, const char *method, const char *uri, const char *entity);
+	char *(*digest)(const hash_t * hash, char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2);
+	char *(*a1)(const hash_t * hash, const char *username, const char *realm, const char *passwd);
+	char *(*a2)(const hash_t * hash, const char *method, const char *uri, const char *entity);
 };
 
-static char *authn_digest_digest(hash_t * hash, char *a1, const const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2)
+static char *authn_digest_digest(const hash_t * hash, char *a1, const const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2)
 {
 	if (a1 && a2)
 	{
@@ -212,7 +212,7 @@ static char *authn_digest_digest(hash_t * hash, char *a1, const const char *nonc
 	return NULL;
 }
 
-static char *authn_digest_a1(hash_t * hash, const char *username, const char *realm, const char *passwd)
+static char *authn_digest_a1(const hash_t * hash, const char *username, const char *realm, const char *passwd)
 {
 	if (passwd[0] != '$')
 	{
@@ -252,7 +252,7 @@ static char *authn_digest_a1(hash_t * hash, const char *username, const char *re
 	return NULL;
 }
 
-static char *authn_digest_a2(hash_t * hash, const char *method, const char *uri, const char *entity)
+static char *authn_digest_a2(const hash_t * hash, const char *method, const char *uri, const char *entity)
 {
 	char A2[32];
 	void *ctx;
