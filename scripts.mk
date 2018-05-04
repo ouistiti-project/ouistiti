@@ -529,20 +529,28 @@ quiet_cmd_install_bin=INSTALL $*
 ##
 $(include-install): $(DESTDIR:%=%/)$(includedir)/%: %
 	@$(call cmd,install_data)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(includedir) && rm -f $(a) && ln -s $(includedir)$* $(a)))
 $(sysconf-install): $(DESTDIR:%=%/)$(sysconfdir)/%: %
 	@$(call cmd,install_data)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(sysconfdir) && rm -f $(a) && ln -s $(sysconfdir)$* $(a)))
 $(data-install): $(DESTDIR:%=%/)$(datadir)/%: %
 	@$(call cmd,install_data)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(datadir) && rm -f $(a) && ln -s $(datadir)$* $(a)))
 $(lib-static-install): $(DESTDIR:%=%/)$(libdir)/lib%$(slib-ext:%=.%): $(obj)lib%$(slib-ext:%=.%)
 	@$(call cmd,install_bin)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(libdir) && rm -f $(a) && ln -s $(libdir)$*$(slib-ext:%=.%) $(a)))
 $(lib-dynamic-install): $(DESTDIR:%=%/)$(libdir)/lib%$(dlib-ext:%=.%): $(obj)lib%$(dlib-ext:%=.%)
 	@$(call cmd,install_bin)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(libdir) && rm -f $(a) && ln -s $(libdir)$*$(dlib-ext:%=.%) $(a)))
 $(modules-install): $(DESTDIR:%=%/)$(pkglibdir)/%$(dlib-ext:%=.%): $(obj)%$(dlib-ext:%=.%)
 	@$(call cmd,install_bin)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(pkglibdir) && rm -f $(a) && ln -s $(pkglibdir)$*$(dlib-ext:%=.%) $(a)))
 $(bin-install): $(DESTDIR:%=%/)$(bindir)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(bindir) && rm -f $(a) && ln -s $(bindir)$*$(bin-ext:%=.%) $(a)))
 $(sbin-install): $(DESTDIR:%=%/)$(sbindir)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(sbindir) && rm -f $(a) && ln -s $(sbindir)$*$(bin-ext:%=.%) $(a)))
 
 ##
 # commands for configuration

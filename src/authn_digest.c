@@ -58,7 +58,7 @@ struct authn_digest_s
 
 static void authn_digest_opaque(void *arg, char *opaque, int opaquelen);
 
-static void utils_searchstring(char **result, char *haystack, char *needle, int length)
+static void utils_searchstring(const char **result, char *haystack, char *needle, int length)
 {
 	if ((*result == NULL || *result[0] == '\0') &&
 		!strncmp(haystack, needle, length) && haystack[length] == '=')
@@ -72,7 +72,7 @@ static void utils_searchstring(char **result, char *haystack, char *needle, int 
 		}
 		else
 		{
-			end = *result;
+			end = (char *)*result;
 			while(*end != 0 && *end != ' ' && *end != ',')
 			{
 				end++;
@@ -96,10 +96,13 @@ static char *utils_stringify(unsigned char *data, int len)
 
 static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 {
+	if (authn->hash == NULL)
+		return NULL;
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
 	mod->authz = authz;
 	mod->challenge = calloc(1, 256);
+	mod->hash = authn->hash;
 
 	return mod;
 }
@@ -280,16 +283,17 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 	char *passwd = NULL;
-	char *user = str_empty;
-	char *uri = NULL;
-	char *realm = str_empty;
-	char *qop = NULL;
-	char *nonce = NULL;
-	char *cnonce = str_empty;
-	char *nc = NULL;
-	char *opaque = str_empty;
-	char *algorithm = str_empty;
-	char *response = NULL;
+	const char *user = str_empty;
+	char *user_ret = NULL;
+	const char *uri = NULL;
+	const char *realm = str_empty;
+	const char *qop = NULL;
+	const char *nonce = NULL;
+	const char *cnonce = str_empty;
+	const char *nc = NULL;
+	const char *opaque = str_empty;
+	const char *algorithm = hash_md5->name;
+	const char *response = NULL;
 	int length, i;
 
 	length = strlen(string);
@@ -332,6 +336,7 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 		mod->stale %= 5;
 		return NULL;
 	}
+
 	if (strcmp(algorithm, mod->hash->name))
 	{
 #ifdef AUTH_DOWNGRADE
@@ -352,7 +357,7 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 		warn("try connection on %s with authorization on %s", url, uri);
 		return NULL;
 	}
-	passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
+	passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
 	if (passwd && authn_digest_computing)
 	{
 		char *a1 = authn_digest_computing->a1(mod->hash, user, realm, passwd);
@@ -362,10 +367,7 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 		//warn("Digest %s", digest);
 		if (digest && !strcmp(digest, response))
 		{
-			free (a1);
-			free (a2);
-			free (digest);
-			return user;
+			user_ret = (char *)user;
 		}
 		free (a1);
 		free (a2);
@@ -375,7 +377,7 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 	{
 		warn("unknown user");
 	}
-	return NULL;
+	return user_ret;
 }
 
 static void authn_digest_destroy(void *arg)

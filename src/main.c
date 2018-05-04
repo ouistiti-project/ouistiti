@@ -47,6 +47,9 @@
 #else
 # include <winsock2.h>
 #endif
+#ifdef MODULES
+#include <dlfcn.h>
+#endif
 
 #include "httpserver/httpserver.h"
 
@@ -87,7 +90,7 @@ static const char str_clientfilter[] = "clientfilter";
 static const char str_cookie[] = "cookie";
 static const char str_auth[] = "auth";
 static const char str_methodlock[] = "methodlock";
-static const char str_serverheader[] = "serverheader";
+static const char str_serverheader[] = "server";
 static const char str_cgi[] = "cgi";
 static const char str_filestorage[] = "filestorage";
 static const char str_static_file[] = "static_file";
@@ -159,11 +162,15 @@ typedef struct server_s
 
 void display_help(char * const *argv)
 {
+	fprintf(stderr, PACKAGE" "VERSION" build: "__DATE__" "__TIME__"\n");
+	fprintf(stderr, "\n");
 	fprintf(stderr, "%s [-h][-V][-f <configfile>]\n", argv[0]);
-	fprintf(stderr, "\t-h \tshow this help and exit\n");
-	fprintf(stderr, "\t-V \treturn the version and exit\n");
+	fprintf(stderr, "\t-h \t\tshow this help and exit\n");
+	fprintf(stderr, "\t-V \t\treturn the version and exit\n");
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
 	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
+	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
+	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
 }
 
 static server_t *first = NULL;
@@ -216,7 +223,8 @@ static void _setpidfile(char *pidfile)
 
 void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
 {
-	void *mod;
+	void *mod = NULL;
+#ifndef MODULES
 	int i = 0;
 	while (modules[i] != NULL)
 	{
@@ -227,14 +235,35 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 		}
 		i++;
 	}
+#else
+	char file[512];
+	snprintf(file, 511, moduledir"/mod_%s.so", name);
+	void *dh = dlopen(file, RTLD_LAZY);
+	if (dh != NULL)
+	{
+		module_t *module = dlsym(dh, "mod_info");
+		if (module && !strcmp(module->name, name))
+		{
+			mod = module->create(server, NULL, config);
+			*destroy = module->destroy;
+			dbg("module %s loaded", name);
+		}
+		else if (module)
+			warn("module %s error : named %s", name, module->name);
+		else
+			err("module symbol error: %s", dlerror());
+	}
+	else
+	{
+		err("module %s loading error: %s", file, dlerror());
+	}
+#endif
 	return mod;
 }
 
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
-	struct passwd *user = NULL;
-	struct group *grp = NULL;
 	server_t *server;
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
@@ -307,20 +336,20 @@ int main(int argc, char * const *argv)
 	sigaction(SIGINT, &action, NULL);
 
 #ifdef HAVE_PWD_H
+	uid_t   pw_uid = -1;
+	gid_t   pw_gid;
 	if (ouistiticonfig->user)
 	{
-		user = getpwnam(ouistiticonfig->user);
-		if (user == NULL)
+		struct passwd *result;
+
+		result = getpwnam(ouistiticonfig->user);
+		if (result == NULL)
 		{
 			fprintf(stderr, "Error: start as root\n");
 			return -1;
 		}
-		grp = getgrgid(user->pw_gid);
-		if (grp == NULL)
-		{
-			fprintf(stderr, "Error: start as root\n");
-			return -1;
-		}
+		pw_uid = result->pw_uid;
+		pw_gid = result->pw_gid;
 	}
 #endif
 	if (serverid < 0)
@@ -373,10 +402,10 @@ int main(int argc, char * const *argv)
 			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)
 				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
-			if (server->config->modules.filestorage)
-				server->modules[j].config = loadmodule(str_filestorage, server->server, server->config->modules.filestorage, &server->modules[j++].destroy);
 			if (server->config->modules.static_file)
 				server->modules[j].config = loadmodule(str_static_file, server->server, server->config->modules.static_file, &server->modules[j++].destroy);
+			if (server->config->modules.filestorage)
+				server->modules[j].config = loadmodule(str_filestorage, server->server, server->config->modules.filestorage, &server->modules[j++].destroy);
 			if (server->config->modules.webstream)
 				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
 			if (server->config->modules.websocket)
@@ -395,8 +424,11 @@ int main(int argc, char * const *argv)
 	}
 
 #ifdef HAVE_PWD_H
-	setgid(user->pw_gid);
-	setuid(user->pw_uid);
+	if (pw_uid > -1)
+	{
+		setgid(pw_gid);
+		setuid(pw_uid);
+	}
 #endif
 	server = first;
 

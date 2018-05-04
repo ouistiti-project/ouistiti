@@ -3,6 +3,7 @@ modules-$(MODULES)+=mod_static_file
 slib-y+=mod_static_file
 mod_static_file_SOURCES+=mod_static_file.c
 mod_static_file_CFLAGS+=-DSTATIC_FILE -I../libhttpserver/include
+mod_static_file_CFLAGS-$(MODULES)+=-DMODULES
 
 mod_static_file_SOURCES-$(SENDFILE)+=mod_sendfile.c
 mod_static_file_CFLAGS-$(SENDFILE)+=-DSENDFILE

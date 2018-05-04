@@ -181,6 +181,7 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->type = config->authn_type;
+	mod->authn->rules = authn_rules[config->authn_type];
 	if (config->algo)
 	{
 		if (hash_sha1 && !strcmp(config->algo, hash_sha1->name))
@@ -206,7 +207,6 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 		dbg("auth : use default md5 as hash method");
 		mod->authn->hash = hash_md5;
 	}
-	mod->authn->rules = authn_rules[config->authn_type];
 	if (mod->authn->rules && mod->authz->rules)
 	{
 		mod->authn->ctx = mod->authn->rules->create(mod->authn, mod->authz, config->authn_config);
@@ -323,9 +323,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
 	const char *authorization = NULL;
-	const char *uriencoded = httpmessage_REQUEST(request, "uri");
-	char *uri = utils_urldecode(uriencoded);
+	const char *uriencoded;
+	char *uri;
 	int protect = 1;
+
+	uriencoded = httpmessage_REQUEST(request, "uri");
+	uri = utils_urldecode(uriencoded);
 	protect = utils_searchexp(uri, config->protect);
 	if (protect != ESUCCESS)
 	{
@@ -480,3 +483,6 @@ const module_t mod_auth =
 	.create = (module_create_t)mod_auth_create,
 	.destroy = mod_auth_destroy
 };
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_auth")));
+#endif
