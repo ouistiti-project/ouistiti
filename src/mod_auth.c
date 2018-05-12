@@ -107,6 +107,10 @@ const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
 static const char *str_xuser = "X-Remote-User";
 static const char *str_xgroup = "X-Remote-Group";
+static const char *str_xhome = "X-Remote-Home";
+static const char *str_user = "USER";
+static const char *str_group = "GROUP";
+static const char *str_home = "HOME";
 static const char *str_wilcard = "*";
 const char *str_authenticate_types[] =
 {
@@ -289,17 +293,23 @@ static void _mod_auth_freectx(void *vctx)
 
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
 {
+	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
+	_mod_auth_t *mod = ctx->mod;
 	int ret = EREJECT;
 	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL);
 	if (info)
 	{
 		const char *home = info->home;
+		/**
+		 * disable home redirection for websocket
+		 */
 		const char *websocket = httpmessage_REQUEST(request, "Sec-WebSocket-Version");
 		if (websocket && websocket[0] != '\0')
 			return ret;
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
 		int homelength = strlen(home);
-		if (homelength > 0 && strncmp(home + 1, uri, homelength - 1) != 0)
+		if ((homelength > 0) &&
+			(strncmp(home + 1, uri, homelength - 1) != 0))
 		{
 			dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)
@@ -414,10 +424,25 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
-					httpmessage_addheader(response, str_xuser, user);
-					if (group)
-						httpmessage_addheader(response, str_xgroup, group);
 					cookie_set(request, str_authorization, (char *)authorization);
+					if (mod->authz->type & AUTHZ_HEADER_E)
+						httpmessage_addheader(response, str_xuser, user);
+					if (mod->authz->type & AUTHZ_COOKIE_E)
+						cookie_set(request, str_user, (char *)user);
+					if (group)
+					{
+						if (mod->authz->type & AUTHZ_HEADER_E)
+							httpmessage_addheader(response, str_xgroup, group);
+						if (mod->authz->type & AUTHZ_COOKIE_E)
+							cookie_set(request, str_group, (char *)group);
+					}
+					if (home)
+					{
+						if (mod->authz->type & AUTHZ_HEADER_E)
+							httpmessage_addheader(response, str_xhome, home);
+						if (mod->authz->type & AUTHZ_COOKIE_E)
+							cookie_set(request, str_home, (char *)home);
+					}
 				}
 				warn("user \"%s\" accepted from %p", user, ctx->ctl);
 				ret = EREJECT;

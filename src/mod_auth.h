@@ -81,6 +81,8 @@ typedef enum
 	AUTHZ_SQLITE_E,
 	AUTHZ_TYPE_MASK = 0x0F,
 	AUTHZ_HOME_E = 0x10,
+	AUTHZ_COOKIE_E = 0x20,
+	AUTHZ_HEADER_E = 0x40,
 } authz_type_t;
 struct authz_s
 {
