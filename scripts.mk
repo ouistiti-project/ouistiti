@@ -89,8 +89,8 @@ TESTFILE:=makemore_test
 AWK?=awk
 RM?=rm -f
 INSTALL?=install
-INSTALL_PROGRAM?=$(INSTALL)
-INSTALL_DATA?=$(INSTALL) -m 644
+INSTALL_PROGRAM?=$(INSTALL) -D
+INSTALL_DATA?=$(INSTALL) -m 644 -D
 PKGCONFIG?=pkg-config
 YACC?=bison
 MOC?=moc$(QT:%=-%)
@@ -281,27 +281,29 @@ modules-install:=$(addprefix $(DESTDIR:%=%/)$(pkglibdir)/,$(addsuffix $(dlib-ext
 bin-install:=$(addprefix $(DESTDIR:%=%/)$(bindir)/,$(addsuffix $(bin-ext:%=.%),$(bin-y)))
 sbin-install:=$(addprefix $(DESTDIR:%=%/)$(sbindir)/,$(addsuffix $(bin-ext:%=.%),$(sbin-y)))
 
+DEVINSTALL?=y
 install:=
+dev-install-y:=
 ifneq ($(CROSS_COMPILE),)
 ifneq ($(DESTDIR),)
 install+=$(bin-install)
 install+=$(sbin-install)
-install+=$(lib-static-install)
+dev-install-$(DEVINSTALL)+=$(lib-static-install)
 install+=$(lib-dynamic-install)
 install+=$(modules-install)
 install+=$(data-install)
 install+=$(sysconf-install)
-install+=$(include-install)
+dev-install-$(DEVINSTALL)+=$(include-install)
 endif
 else
 install+=$(bin-install)
 install+=$(sbin-install)
-install+=$(lib-static-install)
+dev-install-$(DEVINSTALL)+=$(lib-static-install)
 install+=$(lib-dynamic-install)
 install+=$(modules-install)
 install+=$(data-install)
 install+=$(sysconf-install)
-install+=$(include-install)
+dev-install-$(DEVINSTALL)+=$(include-install)
 endif
 
 ##
@@ -325,7 +327,7 @@ _build: _info $(objdir) $(subdir-project) $(subdir-target) _hostbuild $(targets)
 
 _install: action:=_install
 _install: build:=$(action) -f $(srcdir)$(makemore) file
-_install: _info $(install) $(subdir-target)
+_install: _info $(install) $(dev-install-y) $(subdir-target)
 	@:
 
 _clean: action:=_clean
@@ -520,9 +522,13 @@ $(LIBRARY) $(sort $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y)
 # Commands for install
 ##
 quiet_cmd_install_data=INSTALL $*
- cmd_install_data=$(INSTALL_DATA) -D $< $@
+define cmd_install_data
+	$(INSTALL_DATA) $< $@
+endef
 quiet_cmd_install_bin=INSTALL $*
- cmd_install_bin=$(INSTALL_PROGRAM) -D $< $@
+define cmd_install_bin
+	$(INSTALL_PROGRAM) $< $@
+endef
 
 ##
 # install rules
