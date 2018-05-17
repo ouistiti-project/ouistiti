@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<script language="javascript" type="text/javascript">
+class JsonRPC
+{
+	constructor(method)
+	{
+		this.jsonrpc = "2.0";
+		this.method = method;
+		this.params = new Object();
+	}
+	generateid()
+	{
+		var array = new Uint32Array(1);
+		window.crypto.getRandomValues(array);
+		return array[0];
+	}
+	append(key, value)
+	{
+		this.params[key] = value;
+	}
+	stringify()
+	{
+		this.id = this.generateid();
+		return JSON.stringify(this);
+	}
+	parse(text)
+	{
+		var result = JSON.parse(text);
+		if (this.id && this.id != result.id)
+			return "Bad response ID";
+		if (result.result)
+			this.result = result.result;
+		else
+			return "Error: " + result.error.code + " " + result.error.message;
+		return this;
+	}
+};
+
+var websocket;
+var rpc;
+function writeToScreen(message)
+{
+	var _newLine = document.createElement("p");
+	_newLine.innerHTML = message;
+
+	var _output = document.getElementById("output");
+	_output.insertBefore(_newLine, _output.childNodes[0]);
+}
+
+function connect()
+{
+	var _output = document.getElementById("output");
+	_output.innerHTML = "";
+
+	var _wsUri = document.getElementById("wsUri");
+	_wsUri.setAttribute("readonly", true);
+
+	var _input;
+	_input = document.getElementById("user");
+	_input.removeAttribute("readonly");
+	_input = document.getElementById("passwd");
+	_input.removeAttribute("readonly");
+	_input = document.getElementById("new");
+	_input.removeAttribute("readonly");
+	_input = document.getElementById("confirm");
+	_input.removeAttribute("readonly");
+	_input = document.getElementById("user");
+	_input.removeAttribute("readonly");
+
+	var _connect = document.getElementById("connect");
+	var _disconnect = document.getElementById("disconnect");
+
+	websocket = new WebSocket(_wsUri.value);
+	websocket.onopen = function(evt) { onOpen(evt) };
+	websocket.onclose = function(evt) { onClose(evt) };
+	websocket.onmessage = function(evt) { onMessage(evt) };
+	websocket.onerror = function(evt) { onError(evt) };
+}
+
+function disconnect()
+{
+	websocket.close();
+}
+
+function onOpen(evt)
+{
+	writeToScreen("CONNECTED");
+}
+function onClose(evt)
+{
+	var _wsUri = document.getElementById("wsUri");
+	_wsUri.removeAttribute("readonly");
+
+	var _input;
+	_input = document.getElementById("user");
+	_input.setAttribute("readonly", true);
+	_input = document.getElementById("passwd");
+	_input.setAttribute("readonly", true);
+	_input = document.getElementById("new");
+	_input.setAttribute("readonly", true);
+	_input = document.getElementById("confirm");
+	_input.setAttribute("readonly", true);
+
+	var _connect = document.getElementById("connect");
+	_connect.removeAttribute("disable");
+	var _disconnect = document.getElementById("disconnect");
+	_disconnect.setAttribute("disable", true);
+
+	writeToScreen("DISCONNECTED");
+}
+
+function onMessage(evt)
+{
+	rpc.parse(evt.data);
+	writeToScreen(rpc.params.query);
+	var result = rpc.result;
+	if (rpc.error != undefined)
+	{
+		if (rpc.error.message != undefined)
+			writeToScreen(rpc.error.message);
+		else
+			writeToScreen(rpc.error);
+	}
+	else if (result.message)
+	{
+		var resultstring = 'Result: ';
+		resultstring += result.message;
+		writeToScreen(resultstring);
+	}
+	else if (typeof(result) == "object")
+	{
+		var first = 1;
+		var i;
+		var resultstring = '<table style="border: 1px solid black;">';
+		resultstring += '<tr style="padding:2px;border-spacing: 5px;">';
+		for (var property in result)
+		{
+			 resultstring += '<th style="padding:2px;border-spacing: 5px;">' + property + '</th>';
+		}
+		resultstring += '</tr>';
+		resultstring += '<tr style="padding:2px;border-spacing: 5px;">';
+		for (var property in result)
+		{
+			resultstring += '<td style="padding:2px;border-spacing: 5px;">' + result[property] + '</td>';
+		}
+		resultstring += '</tr>';
+		resultstring += '</table>';
+		writeToScreen(resultstring);
+	}
+}
+
+function onError(evt)
+{
+	if (evt.data != undefined)
+		writeToScreen(evt.data);
+	else
+		writeToScreen("error on: "+evt.target.url+" ready state: "+evt.target.readyState);
+	websocket.close();
+}
+
+onLoad = function()
+{
+	var _input;
+	_input = document.getElementById("user");
+	_input.setAttribute("readonly", true);
+	_input = document.getElementById("passwd");
+	_input.setAttribute("readonly", true);
+	_input = document.getElementById("new");
+	_input.setAttribute("readonly", true);
+	_input = document.getElementById("confirm");
+	_input.setAttribute("readonly", true);
+
+	var uri = "";
+	if (location.protocol === "http:")
+		uri += "ws://";
+	else if (location.protocol === "https:")
+		uri += "wss://";
+	uri += location.hostname;
+	uri += "/auth";
+	var _wsUri = document.getElementById("wsUri");
+	_wsUri.value = uri;
+
+	var _connect = document.getElementById("connect");
+	_connect.onclick = connect;
+	var _disconnect = document.getElementById("disconnect");
+	_disconnect.onclick = disconnect;
+	var _input = document.getElementById("change");
+	_input.onclick = function (e)
+	{
+		rpc = new JsonRPC("passwd");
+		var _field; 
+		_field = document.getElementById("user");
+		if (_field.value.length > 0)
+			rpc.append("user", _field.value);
+		_field = document.getElementById("passwd");
+		if (_field.value.length > 0)
+			rpc.append("old", _field.value);
+		_field = document.getElementById("new");
+		if (_field.value.length > 0)
+			rpc.append("new", _field.value);
+		_field = document.getElementById("confirm");
+		if (_field.value.length > 0)
+			rpc.append("confirm", _field.value);
+		var rpcstring = rpc.stringify();
+		websocket.send(rpcstring);
+	}.bind(_input);
+	_input = document.getElementById("auth");
+	_input.onclick = function (e)
+	{
+		rpc = new JsonRPC("auth");
+		var _field; 
+		_field = document.getElementById("user");
+		rpc.append("user", _field.value);
+		_field = document.getElementById("passwd");
+		rpc.append("passwd", _field.value);
+		var rpcstring = rpc.stringify();
+		websocket.send(rpcstring);
+	}.bind(_input);
+	_input = document.getElementById("adduser");
+	_input.onclick = function (e)
+	{
+		rpc = new JsonRPC("adduser");
+		var _field; 
+		_field = document.getElementById("user");
+		rpc.append("user", _field.value);
+		_field = document.getElementById("passwd");
+		rpc.append("passwd", _field.value);
+		var rpcstring = rpc.stringify();
+		websocket.send(rpcstring);
+	}.bind(_input);
+	_input = document.getElementById("rmuser");
+	_input.onclick = function (e)
+	{
+		rpc = new JsonRPC("rmuser");
+		var _field; 
+		_field = document.getElementById("user");
+		rpc.append("user", _field.value);
+		_field = document.getElementById("passwd");
+		rpc.append("passwd", _field.value);
+		var rpcstring = rpc.stringify();
+		websocket.send(rpcstring);
+	}.bind(_input);
+}
+
+		</script>
+	</head>
+	<body onload="onLoad();">
+		<form>
+			<input type="text" id="wsUri" value="ws://127.0.0.1/jsonrpc" />
+			<input type="button" id="connect" value="Connect" />
+			<input type="button" id="disconnect" value="Disconnect" />
+		</form>
+		<h2>SQL shell</h2>
+		<form>
+			<div>
+				user: <input type="text" id="user" />
+			</div>
+			<div>
+				password: <input type="text" id="passwd" />
+				<input type="button" id="auth" value="login" />
+				<input type="button" id="adduser" value="add" />
+			</div>
+			<div>
+				new password: <input type="text" id="new" />
+				confirm new password: <input type="text" id="confirm" />
+				<input type="button" id="change" value="change" />
+				<input type="button" id="rmuser" value="remove" />
+			</div>
+		</form>
+		<div id="output"></div>
+	</body>
+</html>

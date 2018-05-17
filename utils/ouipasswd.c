@@ -112,7 +112,7 @@ int crypt_ouimd5(const char *user, const char *passwd, const char *realm, char *
 	char b64passwd[25];
 	BASE64_encode(md5passwd, 16, b64passwd, 25);
 
-	snprintf(out, outlen, "%s:$a1$realm=%s$%s", user, realm, b64passwd);
+	snprintf(out, outlen, "$a1$realm=%s$%s", realm, b64passwd);
 	return 0;
 }
 
@@ -221,6 +221,7 @@ int main(int argc, char * const *argv)
 					ret = crypt_ouimd5(user, passwd, realm, output, 256);
 			break;
 		}
+		printf("%s:", user);
 		printf(output);
 		if (group)
 			printf(":%s",group);

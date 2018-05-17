@@ -46,7 +46,13 @@ websocket_jsonrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 modules-$(WS_JSONRPC)+=jsonsql
 jsonsql_SOURCES+=$(WS_SRC)jsonsql.c
-jsonsql_LIBS+=sqlite3
+jsonsql_LIBRARY+=sqlite3
+jsonsql_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
+modules-$(WS_JSONRPC)+=authrpc
+authrpc_SOURCES+=$(WS_SRC)authrpc.c
+authrpc_LIBRARY+=sqlite3
+authrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 bin-$(WS_SYSLOGD)+=websocket_syslogd
 websocket_syslogd_SOURCES+=$(WS_SRC)syslogd.c
