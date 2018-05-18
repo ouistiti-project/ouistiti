@@ -65,9 +65,7 @@ int jsonrpc_runner(int sock,
 		FD_ZERO(&rfds);
 		FD_SET(sock, &rfds);
 
-		warn("select start");
 		ret = select(sock + 1, &rfds, NULL, NULL, NULL);
-		warn("select end");
 		if (ret > 0 && FD_ISSET(sock, &rfds))
 		{
 			char buffer[1500];
@@ -115,8 +113,10 @@ jsonrpc_release_t jsonrpc_release = NULL;
 int jsonrpc_server(int sock)
 {
 	struct jsonrpc_method_entry_t *table;
+	dbg("jsonrpc: init");
 	void *ctx = jsonrpc_init(&table, g_library_config);
 	int ret = jsonrpc_runner(sock, table, ctx);
+	dbg("jsonrpc: release");
 	jsonrpc_release(ctx);
 	return ret;
 }

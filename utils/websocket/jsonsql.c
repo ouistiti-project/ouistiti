@@ -130,12 +130,8 @@ static int method_X(json_t *json_params, json_t **result, void *userdata, char *
 	int ret = 0;
 	if (json_is_object(json_params))
 	{
-		int size = 256;
-		char *sql = sqlite3_malloc(size);
-		strcpy(sql, query);
-
 		sqlite3_stmt *statement;
-		sqlite3_prepare_v2(db, sql, size, &statement, NULL);
+		sqlite3_prepare_v2(db, query, -1, &statement, NULL);
 
 		const char *key;
 		json_t *value;
@@ -147,7 +143,7 @@ static int method_X(json_t *json_params, json_t **result, void *userdata, char *
 				dbname = json_string_value(value);
 				sqlite3_open(dbname, &db);
 				sqlite3_finalize(statement);
-				sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
+				sqlite3_prepare_v2(db, query, -1, &statement, NULL);
 			}
 			else if (json_is_string(value) && !strcmp(key, "table"))
 			{
@@ -245,7 +241,6 @@ static int method_X(json_t *json_params, json_t **result, void *userdata, char *
 			ret = sqlite3_step(statement);
 		} while (ret == SQLITE_ROW);
 		sqlite3_finalize(statement);
-		sqlite3_free(sql);
 		if (db != ctx->db)
 			sqlite3_close(db);
 	}
@@ -289,9 +284,8 @@ static int method_list(json_t *json_params, json_t **result, void *userdata)
 		*result = json_array();
 
 		sqlite3_stmt *statement;
-		int size = 256;
 		char sql[] = "select * from @TABLE";
-		sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
+		sqlite3_prepare_v2(db, sql, -1, &statement, NULL);
 
 		const char *key;
 		json_t *value;
@@ -303,7 +297,7 @@ static int method_list(json_t *json_params, json_t **result, void *userdata)
 				dbname = json_string_value(value);
 				sqlite3_open(dbname, &db);
 				sqlite3_finalize(statement);
-				sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
+				sqlite3_prepare_v2(db, sql, -1, &statement, NULL);
 			}
 			else if (json_is_string(value) && !strcmp(key, "table"))
 			{
@@ -389,9 +383,8 @@ static int method_view(json_t *json_params, json_t **result, void *userdata)
 		*result = json_array();
 
 		sqlite3_stmt *statement;
-		int size = 256;
 		char sql[] = "PRAGMA table_info('@TABLE')";
-		sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
+		sqlite3_prepare_v2(db, sql, -1, &statement, NULL);
 
 		const char *key;
 		json_t *value;
@@ -403,7 +396,7 @@ static int method_view(json_t *json_params, json_t **result, void *userdata)
 				dbname = json_string_value(value);
 				sqlite3_open(dbname, &db);
 				sqlite3_finalize(statement);
-				sqlite3_prepare_v2(db, sql, strlen(sql), &statement, NULL);
+				sqlite3_prepare_v2(db, sql, -1, &statement, NULL);
 			}
 			else if (json_is_string(value) && !strcmp(key, "table"))
 			{
