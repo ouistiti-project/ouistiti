@@ -98,22 +98,39 @@
 #define dbg(...)
 #endif
 
-int crypt_ouimd5(const char *user, const char *passwd, const char *realm, char *out, int outlen)
+int method_digest(const char *user, const char *passwd, const char *realm, char *out, int outlen)
+{
+	int len = 0;
+	if (len > outlen)
+		return -1;
+	len  += sprintf(out + len, user);
+	if (len > outlen)
+		return -1;
+	len  += sprintf(out + len, ":");
+	if (len > outlen)
+		return -1;
+	len  += sprintf(out + len, realm);
+	if (len > outlen)
+		return -1;
+	len  += sprintf(out + len, ":");
+	if (len > outlen)
+		return -1;
+	len  += sprintf(out + len, passwd);
+	if (len > outlen)
+		return -1;
+	return len;
+}
+int crypt_ouimd5(char *string, char *out, int outlen)
 {
 	char md5passwd[16];
 	MD5_ctx ctx;
 	MD5_init(&ctx);
-	MD5_update(&ctx, user, strlen(user));
-	MD5_update(&ctx, ":", 1);
-	MD5_update(&ctx, realm, strlen(realm));
-	MD5_update(&ctx, ":", 1);
-	MD5_update(&ctx, passwd, strlen(passwd));
+	MD5_update(&ctx, string, strlen(string));
 	MD5_finish(md5passwd, &ctx);
 	char b64passwd[25];
-	BASE64_encode(md5passwd, 16, b64passwd, 25);
+	BASE64_encode(md5passwd, 16, out, outlen);
 
-	snprintf(out, outlen, "%s:$a1$realm=%s$%s", user, realm, b64passwd);
-	return 0;
+	return strlen(out);
 }
 
 void display_help(char * const *argv)
@@ -124,28 +141,31 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-R \tset the realm of the connection\n");
 	fprintf(stderr, "\t-T <Basic|Digest>\tset the type of security\n");
 	fprintf(stderr, "\t-u <name>\tset the user name\n");
-	fprintf(stderr, "\t-p <value>\tset the passzord\n");
+	fprintf(stderr, "\t-p <value>\tset the password\n");
 	fprintf(stderr, "\t-g <name>\tset the group\n");
-	fprintf(stderr, "\t-h <directory>\tset the home directory\n");
+	fprintf(stderr, "\t-H <directory>\tset the home directory\n");
+	fprintf(stderr, "\t-A [MD5|SHA-256|SHA-512)\tset the encryption method\n");
 }
 
-#define DIGESTMD5 1
-
+#define MD5 1
+#define SHA256 5
+#define SHA512 6
+#define BASIC 0x1000
+#define DIGEST 0x2000
 int main(int argc, char * const *argv)
 {
 	int ret = -1;
-	int mode = DIGESTMD5;
+	int mode = DIGEST|MD5;
 	const char *realm = NULL;
 	const char *user = NULL;
 	char *passwd = NULL;
 	char *group = NULL;
 	char *home = NULL;
-	char *type = "Digest";
 #ifdef HAVE_GETOPT
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "hVR:u:g:p:T:H:");
+		opt = getopt(argc, argv, "hVR:u:g:p:T:H:A:");
 		switch (opt)
 		{
 			case 'h':
@@ -157,7 +177,10 @@ int main(int argc, char * const *argv)
 				return -1;
 			break;
 			case 'T':
-				type = optarg;
+				if (!strcmp(optarg, "Digest"))
+					mode |= DIGEST;
+				if (!strcmp(optarg, "Basic"))
+					mode |= BASIC;
 			break;
 			case 'R':
 				realm = optarg;
@@ -173,6 +196,14 @@ int main(int argc, char * const *argv)
 			break;
 			case 'H':
 				home = optarg;
+			break;
+			case 'A':
+				if (!strcmp(optarg, "MD5"))
+					mode |= MD5;
+				if (!strcmp(optarg, "SHA-256"))
+					mode |= SHA256;
+				if (!strcmp(optarg, "SHA-512"))
+					mode |= SHA512;
 			break;
 		}
 	} while(opt != -1);
@@ -214,14 +245,33 @@ int main(int argc, char * const *argv)
 		}
 
 		char *output = calloc(256, sizeof(char));
-		switch (mode)
+		if (mode & DIGEST)
 		{
-			case DIGESTMD5:
-				if (realm != NULL)
-					ret = crypt_ouimd5(user, passwd, realm, output, 256);
+			method_digest(user, passwd, realm, output, 256);
+		}
+		char cryptpasswd[64];
+		switch (mode & 0xFF)
+		{
+			case MD5:
+				ret = crypt_ouimd5(output, cryptpasswd, 64);
+			break;
+			case SHA256:
+				ret = crypt_ouimd5(output, cryptpasswd, 64);
+			break;
+			case SHA512:
+				ret = crypt_ouimd5(output, cryptpasswd, 64);
 			break;
 		}
-		printf(output);
+		printf("%s:", user);
+		if (mode & DIGEST && realm != NULL)
+		{
+			printf("$a%d$realm=%s$", mode & 0xFF, realm);
+		}
+		else if (mode & BASIC)
+		{
+			printf("$a%d$$", mode & 0xFF);
+		}
+		printf(cryptpasswd);
 		if (group)
 			printf(":%s",group);
 		if (group  && home)
