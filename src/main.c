@@ -424,7 +424,7 @@ int main(int argc, char * const *argv)
 	}
 
 #ifdef HAVE_PWD_H
-	if (pw_uid > -1)
+	if (pw_uid > 0)
 	{
 		setgid(pw_gid);
 		setuid(pw_uid);
