@@ -56,8 +56,7 @@
 #include "httpserver/mod_tls.h"
 #include "httpserver/mod_websocket.h"
 #include "httpserver/mod_cookie.h"
-#include "mod_static_file.h"
-#include "mod_filestorage.h"
+#include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
@@ -92,8 +91,7 @@ static const char str_auth[] = "auth";
 static const char str_methodlock[] = "methodlock";
 static const char str_serverheader[] = "server";
 static const char str_cgi[] = "cgi";
-static const char str_filestorage[] = "filestorage";
-static const char str_static_file[] = "static_file";
+static const char str_document[] = "document";
 static const char str_webstream[] = "webstream";
 static const char str_websocket[] = "websocket";
 static const char str_redirect404[] = "redirect404";
@@ -125,11 +123,8 @@ static const module_t *modules[] =
 #if defined CGI
 	&mod_cgi,
 #endif
-#if defined FILESTORAGE
-	&mod_filestorage,
-#endif
-#if defined STATIC_FILE
-	&mod_static_file,
+#if defined DOCUMENT
+	&mod_document,
 #endif
 #if defined WEBSTREAM
 	&mod_webstream,
@@ -402,10 +397,8 @@ int main(int argc, char * const *argv)
 			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)
 				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
-			if (server->config->modules.static_file)
-				server->modules[j].config = loadmodule(str_static_file, server->server, server->config->modules.static_file, &server->modules[j++].destroy);
-			if (server->config->modules.filestorage)
-				server->modules[j].config = loadmodule(str_filestorage, server->server, server->config->modules.filestorage, &server->modules[j++].destroy);
+			if (server->config->modules.document)
+				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
 			if (server->config->modules.webstream)
 				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
 			if (server->config->modules.websocket)

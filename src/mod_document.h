@@ -26,52 +26,53 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_STATIC_FILE_H__
-#define __MOD_STATIC_FILE_H__
+#ifndef __MOD_DOCUMENT_H__
+#define __MOD_DOCUMENT_H__
 
 #include <dirent.h>
 
-#define STATIC_FILE_DIRLISTING 0x01
-#define STATIC_FILE_SENDFILE 0x02
-#define STATIC_FILE_RANGE 0x04
+#define DOCUMENT_DIRLISTING 0x01
+#define DOCUMENT_SENDFILE 0x02
+#define DOCUMENT_RANGE 0x04
+#define DOCUMENT_REST 0x08
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-typedef struct mod_static_file_s
+typedef struct mod_document_s
 {
 	const char *docroot;
 	const char *allow;
 	const char *deny;
 	const char *defaultpage;
 	int options;
-} mod_static_file_t;
+} mod_document_t;
 
-extern const module_t mod_static_file;
-void *mod_static_file_create(http_server_t *server, char *vhost, mod_static_file_t *config);
-void mod_static_file_destroy(void *data);
+extern const module_t mod_document;
+void *mod_document_create(http_server_t *server, char *vhost, mod_document_t *config);
+void mod_document_destroy(void *data);
 
 /**
  * interface to change the data transfer function
  */
 #define CONTENTCHUNK 64
 
-typedef struct _mod_static_file_mod_s _mod_static_file_mod_t;
-typedef struct _static_file_connector_s static_file_connector_t;
-typedef int (*mod_transfer_t)(static_file_connector_t *private, http_message_t *response);
+typedef struct _mod_document_mod_s _mod_document_mod_t;
+typedef struct _document_connector_s document_connector_t;
+typedef int (*mod_transfer_t)(document_connector_t *private, http_message_t *response);
 
-struct _mod_static_file_mod_s
+struct _mod_document_mod_s
 {
-	mod_static_file_t *config;
+	mod_document_t *config;
 	void *vhost;
 	mod_transfer_t transfer;
 };
 
-struct _static_file_connector_s
+struct _document_connector_s
 {
 	int type;
-	_mod_static_file_mod_t *mod;
+	_mod_document_mod_t *mod;
 	http_client_t *ctl;
 	void *previous;
 	char *path_info;
@@ -93,9 +94,17 @@ struct _static_file_connector_s
 #ifdef RANGEREQUEST
 int range_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
+#ifdef DIRLISTING
+int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
+#endif
+#ifdef DOCUMENTREST
 int getfile_connector(void *arg, http_message_t *request, http_message_t *response);
+int putfile_connector(void *arg, http_message_t *request, http_message_t *response);
+int postfile_connector(void *arg, http_message_t *request, http_message_t *response);
+int deletefile_connector(void *arg, http_message_t *request, http_message_t *response);
+#endif
 
-int static_file_close(static_file_connector_t *private);
+int document_close(document_connector_t *private);
 
 #ifdef __cplusplus
 }
