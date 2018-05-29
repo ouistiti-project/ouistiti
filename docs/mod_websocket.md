@@ -33,7 +33,7 @@ Example: *allow="ws_\*";*
 The list of websocket name disabled for the clients. Default: "".  
 Example: *deny="internal/\*";*
 
-### "mode":
+### "options":
 The list of features availables on the websocket. Currently the mode "direct" is available only for HTTP connection (not for HTTPS).
 
 #### direct mode:

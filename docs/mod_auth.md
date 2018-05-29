@@ -47,7 +47,7 @@ AUTHZ_UNIX : add support of unix login system.
 
 ## authentication configuration:
 
-###"type" :
+### "type" :
 the authentication method:
 
  * "None" : this is not a real login and just set the process owner after client connection.
@@ -56,7 +56,7 @@ the authentication method:
 
 Example: *type="Digest";*
 
-###"algorithm" :
+### "algorithm" :
 the algorithm to use with digest authentication. The  RFC requires the support of sha256, but the default value is "MD5".
 
  * "MD5"
@@ -66,41 +66,41 @@ the algorithm to use with digest authentication. The  RFC requires the support o
 
 Example: *algorithm="SHA-256";*
 
-###"protect" :
+### "protect" :
 a string which contains a list of pathes to request a login. By default "protect" is widlcard ("\*") and request login for all pathes.  
 Example: *protect="^private/\*,^tools/\*";*
 
-###"unprotect" :
+### "unprotect" :
 a string which contains a list of pathes to accept directly without login request. This allows to send some generics files like javascrypt libraries (jquery, bootstrap...).  
 Example: *unprotect="^public/\*,^js/\*";*
 
-###"file" :
+### "file" :
 the path to the login/password storage file or unix login system.  
 Example: *file="/etc/shadow";*  
 Example: *file="/etc/ouistiti/passwd";*
 
-###"dbname" :
+### "dbname" :
 the path to the sqlite database file.  
 Example: *dbname="/etc/ouistiti/passwd.db";*
 
-###"user" :
+### "user" :
 the login available of the server for configuration file storage or the "None" method.  
 Example: *user="nobody";*
 
-###"passwd" :
+### "passwd" :
 the passwd of "user" to use for configuration file storage.  
 Example: *passwd="0u1sTi#i";*  
 Example: *passwd="$a1$realm=testrealm@host.com$k551eO2ePFGKRSrO52O86Q==";*
 
-###"group" :
+### "group" :
 the group of "user" to use for configuration file storage.
 Example: *group="www-data";*
 
-###"home" :
+### "home" :
 the home directory of "user" to use for configuration file storage.
 Example: *home="private";*
 
-###"mode" :
+### "options" :
 a string with a list of options to set some features:
 
  * "home" : force the path on the directory of the user. All URL has to contains :  
@@ -115,16 +115,16 @@ a string with a list of options to set some features:
     X-Remote-Group: \<group>  
     X-Remote-Home: \<home>
   
-Example: *mode="cookie,header";*
+Example: *options="cookie,header";*
 
-##Examples
+## Examples
 
 	auth = {
 		type="Digest";
 		algorithm="SHA-256";
 		unprotect="lib;login.html";
 		dbname="/etc/ouistiti/passwd.db";
-		mode="cookie";
+		options="cookie";
 	};
 
 	auth = {
