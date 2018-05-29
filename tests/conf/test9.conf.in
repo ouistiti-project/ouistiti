@@ -10,7 +10,7 @@ servers= ({
 			file="%PWD%/tests/conf/passwd";
 			realm="testrealm@host.com";
 		};
-		static_file = {
+		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";

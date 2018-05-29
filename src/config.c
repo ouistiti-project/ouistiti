@@ -81,7 +81,7 @@ static mod_document_t *document_config(config_setting_t *iterator, int tls, char
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
 		if (static_file->defaultpage == NULL)
 			static_file->defaultpage = str_index;
-		config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&transfertype);
+		config_setting_lookup_string(configstaticfile, "options", (const char **)&transfertype);
 		char *ext = transfertype;
 
 		while (ext != NULL)
@@ -257,7 +257,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 #endif
 		char *mode = NULL;
-		config_setting_lookup_string(configauth, "mode", (const char **)&mode);
+		config_setting_lookup_string(configauth, "options", (const char **)&mode);
 		if (mode && strstr(mode, "home") != NULL)
 			auth->authz_type |= AUTHZ_HOME_E;
 		if (mode && strstr(mode, "cookie") != NULL)
@@ -366,7 +366,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
 		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
 		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
-		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+		config_setting_lookup_string(configws, "options", (const char **)&mode);
 		char *ext = mode;
 
 		while (ext != NULL)
@@ -414,7 +414,7 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
 		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
 		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
-		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+		config_setting_lookup_string(configws, "options", (const char **)&mode);
 		char *ext = mode;
 
 		while (ext != NULL)

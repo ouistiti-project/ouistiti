@@ -4,14 +4,14 @@ servers= ({
 		port = 80;
 		keepalivetimeout = 5;
 		version="HTTP11";
-		static_file = {
+		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 		};
 		vhosts = ({
 			hostname="test";
-			static_file = {
+			document = {
 				docroot = "%PWD%/tests/htdocs/vhost";
 				allow = ".html,.htm,.css,.js,.txt,*";
 				deny = ".htaccess,.php";

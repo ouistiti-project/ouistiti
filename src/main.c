@@ -340,7 +340,7 @@ int main(int argc, char * const *argv)
 		result = getpwnam(ouistiticonfig->user);
 		if (result == NULL)
 		{
-			fprintf(stderr, "Error: start as root\n");
+			err("Error: user %s not found\n", ouistiticonfig->user);
 			return -1;
 		}
 		pw_uid = result->pw_uid;
@@ -420,7 +420,8 @@ int main(int argc, char * const *argv)
 	if (pw_uid > 0)
 	{
 		setgid(pw_gid);
-		setuid(pw_uid);
+		if (setuid(pw_uid))
+			err("Error: start server as root");
 	}
 #endif
 	server = first;

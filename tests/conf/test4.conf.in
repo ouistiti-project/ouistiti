@@ -13,10 +13,11 @@ servers= ({
 			group="superuser";
 			passwd="Circle Of Life";
 		};
-		filestorage = {
+		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
+			options = "rest";
 		};
 	});
 

@@ -11,11 +11,11 @@ servers= ({
 			passwd = "test";
 			group = "user";
 		};
-		filestorage = {
+		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
-			transfer_type = "dirlisting";
+			options = "dirlisting,rest";
 		};
 	});
 
