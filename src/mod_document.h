@@ -35,6 +35,7 @@
 #define DOCUMENT_SENDFILE 0x02
 #define DOCUMENT_RANGE 0x04
 #define DOCUMENT_REST 0x08
+#define DOCUMENT_HOME 0x10
 
 #ifdef __cplusplus
 extern "C"

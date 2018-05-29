@@ -40,6 +40,7 @@
 #include "httpserver/uri.h"
 #include "httpserver/utils.h"
 #include "mod_document.h"
+#include "mod_auth.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -118,7 +119,16 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 		if (private->path_info == NULL)
 			return EREJECT;
 
-		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
+		const char *docroot = config->docroot;
+#ifdef DOCUMENTHOME
+		if (config->options & DOCUMENT_HOME)
+		{
+			const char *home = auth_info(request, "home");
+			if (home != NULL)
+				docroot = home;
+		}
+#endif
+		private->filepath = utils_buildpath(docroot, private->path_info, "", "", &filestat);
 #ifdef DOCUMENTREST
 		const char *method = httpmessage_REQUEST(request, "method");
 		if (config->options & DOCUMENT_REST)
@@ -126,7 +136,7 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			const char *method = httpmessage_REQUEST(request, "method");
 			if ((private->filepath == NULL) && (!strcmp(method, str_put)))
 			{
-				private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
+				private->filepath = utils_buildpath(docroot, private->path_info, "", "", NULL);
 				private->func = putfile_connector;
 				private->size = 0;
 			}

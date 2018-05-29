@@ -118,6 +118,12 @@ static mod_document_t *document_config(config_setting_t *iterator, int tls, char
 				static_file->options |= DOCUMENT_REST;
 			}
 #endif
+#ifdef DOCUMENTHOME
+			if (!strncmp(ext, "home", length))
+			{
+				static_file->options |= DOCUMENT_HOME;
+			}
+#endif
 			ext = ext_end;
 		}
 	}
