@@ -31,19 +31,21 @@ The module allows some other features:
 
 # Build options:
 
-MOD_AUTH : build this module.  
-AUTHN_NONE : add support of "None" login method.  
-AUTHN_BASIC : add support of "Basic" login method.  
-AUTHN_DIGEST : add support of "Digest" login method.  
-AUTHZ_SIMPLE : add support of password storage into the configuration file.  
-AUTHZ_FILE :  add support of password storage into text file.  
-AUTHZ_SQLITE : add support of password storage into sqlite database.  
-AUTHZ_UNIX : add support of unix login system.  
+ - AUTH : build this module.  
+ - AUTHN_NONE : add support of "None" login method.  
+ - AUTHN_BASIC : add support of "Basic" login method.  
+ - AUTHN_DIGEST : add support of "Digest" login method.  
+ - AUTHZ_SIMPLE : add support of password storage into the configuration file.  
+ - AUTHZ_FILE :  add support of password storage into text file.  
+ - AUTHZ_SQLITE : add support of password storage into sqlite database.  
+ - AUTHZ_UNIX : add support of unix login system.  
 
 # Configuration:
 
 ## server configuration:
-"auth" : authentication object of the server. Each server may contain one and only one object of the type.
+
+### "auth" :
+The authentication object of the server. Each server may contain one and only one object of the type.
 
 ## authentication configuration:
 
