@@ -23,7 +23,6 @@ LIBHTTPSERVER_CONF_OPTS = \
 	--host=$(TARGET_CC:%gcc=%) \
 	--enable-static \
 	--disable-dynamic \
-	--enable-websocket \
 	--enable-libutils \
 	--with-vthread-type=fork
 
@@ -34,6 +33,12 @@ LIBHTTPSERVER_DEPENDENCIES += mbedtls
 LIBHTTPSERVER_CONF_OPTS += --enable-mbedtls
 else
 LIBHTTPSERVER_CONF_OPTS += --disable-mbedtls
+endif
+
+ifeq ($(BR2_PACKAGE_LIBHTTPSERVER_WEBSOCKET),y)
+LIBHTTPSERVER_CONF_OPTS += --enable-websocket
+else
+LIBHTTPSERVER_CONF_OPTS += --disable-websocket
 endif
 
 #LIBHTTPSERVER_MAKE_OPTS+=VTHREAD_TYPE=pthread

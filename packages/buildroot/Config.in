@@ -1,11 +1,3 @@
-source "package/ouistiti/libhttpserver/Config.in"
+source "$BR2_EXTERNAL_OUISTITI_PATH/ouistiti/Config.in"
+source "$BR2_EXTERNAL_OUISTITI_PATH/libhttpserver/Config.in"
 
-config BR2_PACKAGE_OUISTITI
-	bool "ouistiti"
-	depends on BR2_USE_MMU
-	select BR2_PACKAGE_LIBCONFIG
-	select BR2_PACKAGE_LIBHTTPSERVER
-	help
-	  ouistiti small, fast and secure webserver.
-
-	  https://github.com/ouistiti-net
