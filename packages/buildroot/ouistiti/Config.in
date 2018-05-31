@@ -1,0 +1,38 @@
+config BR2_PACKAGE_OUISTITI
+	bool "ouistiti: Embedded webserver and websocket gateway"
+	depends on BR2_USE_MMU
+	select BR2_PACKAGE_LIBCONFIG
+	select BR2_PACKAGE_LIBHTTPSERVER
+	help
+	  ouistiti small, fast and secure webserver.
+	  It is dedicated to configure and manage embedded devices.
+
+	  https://github.com/ouistiti-project
+
+if BR2_PACKAGE_OUISTITI
+
+config BR2_PACKAGE_OUISTITI_AUTH
+	bool "authentication support"
+	help
+	  Enable Basic/Digest support for ouistiti.
+
+config BR2_PACKAGE_OUISTITI_AUTH_SQLITE
+	bool "auth: sqlite db storage"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
+	select BR2_PACKAGE_SQLITE
+	help
+	  Enable password storage into sqlite DB.
+endif
+
+config BR2_PACKAGE_OUISTITI_WS_JSONRPC
+	bool "websocket: jsonrpc server"
+	depends on BR2_PACKAGE_LIBHTTPSERVER_WEBSOCKET
+	select BR2_PACKAGE_JANSSON
+	help
+	  Add a jsonrpc server for websocket.
+
+config BR2_PACKAGE_OUISTITI_WS_CHAT
+	bool "websocket: chat server"
+	depends on BR2_PACKAGE_LIBHTTPSERVER_WEBSOCKET
+	help
+	  Add a jsonrpc server for websocket.
