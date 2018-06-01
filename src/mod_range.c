@@ -38,7 +38,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
-#include "mod_static_file.h"
+#include "mod_document.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -51,8 +51,8 @@
 
 int range_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	static_file_connector_t *private = (static_file_connector_t *)arg;
-	if (private->type & STATIC_FILE_DIRLISTING || private->filepath == NULL)
+	document_connector_t *private = (document_connector_t *)arg;
+	if (private->type & DOCUMENT_DIRLISTING || private->filepath == NULL)
 		return EREJECT;
 
 	int filesize = private->size;

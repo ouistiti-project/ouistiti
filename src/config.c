@@ -41,7 +41,7 @@
 
 #include "httpserver/mod_tls.h"
 #include "httpserver/mod_websocket.h"
-#include "mod_static_file.h"
+#include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
@@ -60,12 +60,11 @@ static config_t configfile;
 static char *logfile = NULL;
 static int logfd = 0;
 
-#ifdef STATIC_FILE
+#ifdef DOCUMENT
 static const char *str_index = "index.html";
-#define static_file_config(iterator, tls) file_config(iterator, tls, "static_file")
-static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char *entry)
+static mod_document_t *document_config(config_setting_t *iterator, int tls, char *entry)
 {
-	mod_static_file_t * static_file = NULL;
+	mod_document_t * static_file = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configstaticfile = config_setting_get_member(iterator, entry);
 #else
@@ -82,7 +81,7 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
 		if (static_file->defaultpage == NULL)
 			static_file->defaultpage = str_index;
-		config_setting_lookup_string(configstaticfile, "transfer_type", (const char **)&transfertype);
+		config_setting_lookup_string(configstaticfile, "options", (const char **)&transfertype);
 		char *ext = transfertype;
 
 		while (ext != NULL)
@@ -96,13 +95,13 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 			}
 #ifdef DIRLISTING
 			if (!strncmp(ext, "dirlisting", length))
-				static_file->options |= STATIC_FILE_DIRLISTING;
+				static_file->options |= DOCUMENT_DIRLISTING;
 #endif
 #ifdef SENDFILE
 			if (!strncmp(ext, "sendfile", length))
 			{
 				if(!tls)
-					static_file->options |= STATIC_FILE_SENDFILE;
+					static_file->options |= DOCUMENT_SENDFILE;
 				else
 					warn("sendfile configuration is not allowed with tls");
 			}
@@ -110,7 +109,19 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 #ifdef RANGEREQUEST
 			if (!strncmp(ext, "range", length))
 			{
-				static_file->options |= STATIC_FILE_RANGE;
+				static_file->options |= DOCUMENT_RANGE;
+			}
+#endif
+#ifdef DOCUMENTREST
+			if (!strncmp(ext, "rest", length))
+			{
+				static_file->options |= DOCUMENT_REST;
+			}
+#endif
+#ifdef DOCUMENTHOME
+			if (!strncmp(ext, "home", length))
+			{
+				static_file->options |= DOCUMENT_HOME;
 			}
 #endif
 			ext = ext_end;
@@ -119,14 +130,9 @@ static mod_static_file_t *file_config(config_setting_t *iterator, int tls, char 
 	return static_file;
 }
 #else
-#define static_file_config(...) NULL
+#define document_config(...) NULL
 #endif
 
-#ifdef FILESTORAGE
-#define filestorage_config(iterator, tls) file_config(iterator, tls, "filestorage")
-#else
-#define filestorage_config(...) NULL
-#endif
 
 #if defined(TLS)
 static mod_tls_t *tls_config(config_setting_t *iterator)
@@ -257,7 +263,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 #endif
 		char *mode = NULL;
-		config_setting_lookup_string(configauth, "mode", (const char **)&mode);
+		config_setting_lookup_string(configauth, "options", (const char **)&mode);
 		if (mode && strstr(mode, "home") != NULL)
 			auth->authz_type |= AUTHZ_HOME_E;
 		if (mode && strstr(mode, "cookie") != NULL)
@@ -366,7 +372,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
 		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
 		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
-		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+		config_setting_lookup_string(configws, "options", (const char **)&mode);
 		char *ext = mode;
 
 		while (ext != NULL)
@@ -414,7 +420,7 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
 		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
 		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
-		config_setting_lookup_string(configws, "mode", (const char **)&mode);
+		config_setting_lookup_string(configws, "options", (const char **)&mode);
 		char *ext = mode;
 
 		while (ext != NULL)
@@ -471,8 +477,15 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 	{
 		vhost = calloc(1, sizeof(*vhost));
 		vhost->hostname = hostname;
-		vhost->modules.static_file = static_file_config(iterator, tls);
-		vhost->modules.filestorage = filestorage_config(iterator, tls);
+		vhost->modules.document = document_config(iterator, tls, "document");
+		if (vhost->modules.document == NULL)
+			vhost->modules.document = document_config(iterator, tls, "static_file");
+		if (vhost->modules.document == NULL)
+		{
+			vhost->modules.document = document_config(iterator, tls, "filestorage");
+			if (vhost->modules.document != NULL)
+				vhost->modules.document->options |= DOCUMENT_REST;
+		}
 		vhost->modules.auth = auth_config(iterator, tls);
 		vhost->modules.clientfilter = clientfilter_config(iterator, tls);
 		vhost->modules.cgi = cgi_config(iterator, tls);
@@ -580,8 +593,15 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 
 					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 					config->tls = tls_config(iterator);
-					config->modules.static_file = static_file_config(iterator,(config->tls!=NULL));
-					config->modules.filestorage = filestorage_config(iterator,(config->tls!=NULL));
+					config->modules.document = document_config(iterator,(config->tls!=NULL), "document");
+					if (config->modules.document == NULL)
+						config->modules.document = document_config(iterator,(config->tls!=NULL), "static_file");
+					if (config->modules.document == NULL)
+					{
+						config->modules.document = document_config(iterator,(config->tls!=NULL), "filestorage");
+						if (config->modules.document != NULL)
+							config->modules.document->options |= DOCUMENT_REST;
+					}
 					config->modules.auth = auth_config(iterator,(config->tls!=NULL));
 					config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
@@ -619,10 +639,8 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 
 static void _modulesconfig_destroy(modulesconfig_t *config)
 {
-	if (config->static_file)
-		free(config->static_file);
-	if (config->filestorage)
-		free(config->filestorage);
+	if (config->document)
+		free(config->document);
 	if (config->websocket)
 		free(config->websocket);
 	if (config->auth)

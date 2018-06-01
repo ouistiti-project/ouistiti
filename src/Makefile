@@ -27,16 +27,10 @@ ifneq ($(MAX_SERVERS),)
 $(TARGET)_CFLAGS+=-DMAXSERVERS=$(MAX_SERVERS)
 endif
 
-ifeq ($(FILESTORAGE),y)
-STATIC_FILE=y
-DIRLISTING=y
-endif
-
 ifneq ($(MODULES),y)
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(WOLFSSL)+=mod_wolfssl
-$(TARGET)_LIBS-$(STATIC_FILE)+=mod_static_file 
-$(TARGET)_LIBS-$(FILESTORAGE)+=mod_filestorage
+$(TARGET)_LIBS-$(DOCUMENT)+=mod_document
 $(TARGET)_LIBS-$(CGI)+=mod_cgi
 $(TARGET)_LIBS-$(AUTH)+=mod_auth
 $(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts
@@ -49,7 +43,7 @@ $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
 $(TARGET)_LIBS-$(COOKIE)+=mod_cookie
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
-$(TARGET)_LIBS-$(STATIC_FILE)+=utils_mod
+$(TARGET)_LIBS-$(DOCUMENT)+=utils_mod
 $(TARGET)_LIBS-$(CGI)+=utils_mod
 $(TARGET)_LIBS-$(AUTH)+=hash_mod
 
@@ -60,11 +54,12 @@ $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=crypt
 
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DTLS
 $(TARGET)_CFLAGS-$(WOLFSSL)+=-DTLS
-$(TARGET)_CFLAGS-$(STATIC_FILE)+=-DSTATIC_FILE
+$(TARGET)_CFLAGS-$(DOCUMENT)+=-DDOCUMENT
 $(TARGET)_CFLAGS-$(SENDFILE)+=-DSENDFILE
 $(TARGET)_CFLAGS-$(DIRLISTING)+=-DDIRLISTING
-$(TARGET)_CFLAGS-$(FILESTORAGE)+=-DFILESTORAGE
 $(TARGET)_CFLAGS-$(RANGEREQUEST)+=-DRANGEREQUEST
+$(TARGET)_CFLAGS-$(DOCUMENTREST)+=-DDOCUMENTREST
+$(TARGET)_CFLAGS-$(DOCUMENTHOME)+=-DDOCUMENTHOME
 $(TARGET)_CFLAGS-$(CGI)+=-DCGI
 $(TARGET)_CFLAGS-$(AUTH)+=-DAUTH
 $(TARGET)_CFLAGS-$(AUTHN_NONE)+=-DAUTHN_NONE
@@ -84,10 +79,10 @@ $(TARGET)_CFLAGS-$(WEBSTREAM)+=-DWEBSTREAM
 $(TARGET)_CFLAGS-$(COOKIE)+=-DCOOKIE
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
+$(TARGET)_LIBRARY-$(DEBUG)+=rt
 
 subdir-$(CGI)+=mod_cgi.mk
-subdir-$(STATIC_FILE)+=mod_static_file.mk
-subdir-$(FILESTORAGE)+=mod_filestorage.mk
+subdir-$(DOCUMENT)+=mod_document.mk
 subdir-$(AUTH)+=mod_auth.mk
 subdir-$(VHOSTS)+=mod_vhosts.mk
 subdir-$(METHODLOCK)+=mod_methodlock.mk

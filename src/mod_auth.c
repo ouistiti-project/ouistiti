@@ -339,30 +339,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	uriencoded = httpmessage_REQUEST(request, "uri");
 	uri = utils_urldecode(uriencoded);
-	protect = utils_searchexp(uri, config->protect);
-	if (protect != ESUCCESS)
-	{
-		ret = EREJECT;
-	}
-	else
-	{
-		protect = utils_searchexp(uri, config->unprotect);
-		if (protect == ESUCCESS)
-		{
-			ret = EREJECT;
-		}
-		const char *redirect = config->redirect;
-		if (redirect)
-		{
-			if (redirect[0] == '/')
-				redirect++;
-			protect = utils_searchexp(uri, redirect);
-			if (protect == ESUCCESS)
-			{
-				ret = EREJECT;
-			}
-		}
-	}
 
 	authorization = httpmessage_REQUEST(request, (char *)str_authenticate);
 	if (authorization != NULL && authorization[0] != '\0')
@@ -449,6 +425,32 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			}
 		}
 	}
+
+	protect = utils_searchexp(uri, config->protect);
+	if (protect != ESUCCESS)
+	{
+		ret = EREJECT;
+	}
+	else
+	{
+		protect = utils_searchexp(uri, config->unprotect);
+		if (protect == ESUCCESS)
+		{
+			ret = EREJECT;
+		}
+		const char *redirect = config->redirect;
+		if (redirect)
+		{
+			if (redirect[0] == '/')
+				redirect++;
+			protect = utils_searchexp(uri, redirect);
+			if (protect == ESUCCESS)
+			{
+				ret = EREJECT;
+			}
+		}
+	}
+
 	if (ret != EREJECT)
 	{
 		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);

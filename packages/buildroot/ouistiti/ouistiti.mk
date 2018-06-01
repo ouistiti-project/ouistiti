@@ -23,7 +23,6 @@ OUISTITI_CONF_OPTS = \
 	--host=$(TARGET_CC:%gcc=%) \
 	--enable-static \
 	--disable-dynamic \
-	--enable-websocket \
 	--disable-websocket-rt \
 	--with-vthread-type=fork
 
@@ -39,6 +38,36 @@ endif
 define OUISTITI_CONFIGURE_CMDS
 	cd $(@D); ./configure $(OUISTITI_CONF_OPTS)
 endef
+
+ifeq ($(BR2_PACKAGE_LIBHTTPSERVER_WEBSOCKET),y)
+LIBHTTPSERVER_CONF_OPTS += --enable-websocket
+else
+LIBHTTPSERVER_CONF_OPTS += --disable-websocket
+endif
+
+ifeq ($(BR2_PACKAGE_OUISTITI_AUTH),y)
+LIBHTTPSERVER_CONF_OPTS += --enable-auth
+else
+LIBHTTPSERVER_CONF_OPTS += --disable-auth
+endif
+
+ifeq ($(BR2_PACKAGE_OUISTITI_AUTH_SQLITE),y)
+LIBHTTPSERVER_CONF_OPTS += --enable-auth-sqlite
+else
+LIBHTTPSERVER_CONF_OPTS += --disable-auth-sqlite
+endif
+
+ifeq ($(BR2_PACKAGE_OUISTITI_WS_JSONRPC),y)
+LIBHTTPSERVER_CONF_OPTS += --enable-ws-jsonrpc
+else
+LIBHTTPSERVER_CONF_OPTS += --disable-ws-jsonrpc
+endif
+
+ifeq ($(BR2_PACKAGE_OUISTITI_WS_CHAT),y)
+LIBHTTPSERVER_CONF_OPTS += --enable-ws-chat
+else
+LIBHTTPSERVER_CONF_OPTS += --disable-ws-chat
+endif
 
 #OUISTITI_MAKE_OPTS+=DEBUG=y
 #OUISTITI_MAKE_OPTS+=VTHREAD_TYPE=pthread

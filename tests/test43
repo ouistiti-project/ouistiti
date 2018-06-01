@@ -1,0 +1,5 @@
+DESC="test to PUT a big file on the server"
+PREPARE="rm -f tests/htdocs/test43.txt"
+CONFIG=test10.conf
+TESTREQUEST=test43_rq.txt
+TESTCODE=200

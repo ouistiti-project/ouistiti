@@ -39,8 +39,7 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
 #include "httpserver/utils.h"
-#include "mod_static_file.h"
-#include "mod_dirlisting.h"
+#include "mod_document.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -50,7 +49,7 @@
 #define dbg(...)
 #endif
 
-typedef struct _static_file_connector_s static_file_connector_t;
+typedef struct _document_connector_s document_connector_t;
 
 #define DIRLISTING_HEADER "\
 {\
@@ -76,9 +75,9 @@ static const char *_sizeunit[] = {
 int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	static_file_connector_t *private = (static_file_connector_t *)arg;
-	_mod_static_file_mod_t *mod = private->mod;
-	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+	document_connector_t *private = (document_connector_t *)arg;
+	_mod_document_mod_t *mod = private->mod;
+	mod_document_t *config = (mod_document_t *)mod->config;
 
 	if (private->dir == NULL)
 	{
@@ -92,7 +91,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 			{
 				closedir(private->dir);
 				private->dir = NULL;
-				static_file_close(private);
+				document_close(private);
 				ret = ESUCCESS;
 			}
 			else
@@ -108,7 +107,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		else
 		{
 			warn("dirlisting: directory not open %s %s", private->filepath, strerror(errno));
-			static_file_close(private);
+			document_close(private);
 			httpmessage_result(response, RESULT_400);
 			ret = ESUCCESS;
 		}
@@ -123,7 +122,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		httpclient_shutdown(private->ctl);
 		closedir(private->dir);
 		private->dir = NULL;
-		static_file_close(private);
+		document_close(private);
 		ret = ESUCCESS;
 	}
 	else
@@ -172,9 +171,9 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 #ifdef DIRLISTING_MOD
 static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
-	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;
-	mod_static_file_t *config = mod->config;
-	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
+	mod_document_t *config = mod->config;
+	document_connector_t *ctx = calloc(1, sizeof(*ctx));
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
@@ -185,7 +184,7 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 
 static void _mod_dirlisting_freectx(void *vctx)
 {
-	static_file_connector_t *ctx = vctx;
+	document_connector_t *ctx = vctx;
 	if (ctx->path_info)
 	{
 		free(ctx->path_info);
@@ -194,9 +193,9 @@ static void _mod_dirlisting_freectx(void *vctx)
 	free(ctx);
 }
 
-void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_static_file_t *config)
+void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_document_t *config)
 {
-	_mod_static_file_mod_t *mod = calloc(1, sizeof(*mod));
+	_mod_document_mod_t *mod = calloc(1, sizeof(*mod));
 
 	if (config == NULL)
 		return NULL;

@@ -33,8 +33,7 @@
 #define MAX_SERVERS 4
 #endif
 
-#include "mod_static_file.h"
-#include "mod_filestorage.h"
+#include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_clientfilter.h"
@@ -46,8 +45,7 @@
 
 typedef struct modulesconfig_s
 {
-	mod_static_file_t *static_file;
-	mod_static_file_t *filestorage;
+	mod_document_t *document;
 	mod_cgi_config_t *cgi;
 	mod_auth_t *auth;
 	mod_clientfilter_t *clientfilter;
@@ -103,7 +101,7 @@ servers={
 			crtfile = "/etc/ssl/private/server.pem",
 			dhmfile = "/etc/ssl/private/dhparam.pem",
 		};
-		static_file = {
+		document = {
 			docroot = "/srv/www/htdocs";
 			accepted_ext = ".html,.htm,.css,.js,.txt";
 			ignored_ext = ".htaccess,.php";
@@ -132,7 +130,7 @@ ouistiticonfig_t g_ouistiticonfig =
 				.version = HTTP11
 			},
 		.tls = NULL,
-		.static_file = 
+		.document = 
 			&(mod_static_file_t) {
 				.docroot = "/srv/www/htdocs",
 				.accepted_ext = ".html,.htm,.css,.js,.txt",
@@ -160,7 +158,7 @@ ouistiticonfig_t g_ouistiticonfig =
 				.cachain = NULL,
 				.dhmfile = "/etc/ssl/private/dhparam.pem",
 			},
-		.static_file =
+		.document =
 			&(mod_static_file_t) {
 				.docroot = "/srv/www/htdocs",
 				.accepted_ext = ".html,.htm,.css,.js,.txt",

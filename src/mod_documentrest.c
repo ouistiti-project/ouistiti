@@ -40,8 +40,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
-#include "mod_static_file.h"
-#include "mod_dirlisting.h"
+#include "mod_document.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -51,16 +50,13 @@
 #define dbg(...)
 #endif
 
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
 static const char str_OK[] = "OK";
 static const char str_KO[] = "KO";
-static const char str_filestorage[] = "filestorage";
 
-static int filestorage_checkname(static_file_connector_t *private, http_message_t *response)
+static int filestorage_checkname(document_connector_t *private, http_message_t *response)
 {
-	_mod_static_file_mod_t *mod = private->mod;
-	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+	_mod_document_mod_t *mod = private->mod;
+	mod_document_t *config = (mod_document_t *)mod->config;
 	if (private->path_info[0] == '.')
 	{
 		return  EREJECT;
@@ -76,9 +72,9 @@ static int filestorage_checkname(static_file_connector_t *private, http_message_
 int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	static_file_connector_t *private = (static_file_connector_t *)arg;
-	_mod_static_file_mod_t *mod = private->mod;
-	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+	document_connector_t *private = (document_connector_t *)arg;
+	_mod_document_mod_t *mod = private->mod;
+	mod_document_t *config = (mod_document_t *)mod->config;
 
 	if (private->fd == 0)
 	{
@@ -90,7 +86,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 			if (mkdir(private->filepath, 0777) > 0)
 			{
-				err("directory creation not allowed %s", private->path_info);
+				err("document: directory creation not allowed %s", private->path_info);
 				httpmessage_appendcontent(response, "KO\"}", -1);
 #if defined RESULT_403
 				httpmessage_result(response, RESULT_403);
@@ -100,11 +96,11 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			}
 			else
 			{
-				warn("directory creation %s", private->path_info);
+				warn("document: directory creation %s", private->path_info);
 				httpmessage_appendcontent(response, "OK\"}", -1);
 			}
 			ret = ESUCCESS;
-			static_file_close(private);
+			document_close(private);
 
 		}
 		else
@@ -130,10 +126,10 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 #ifdef DEBUG
 				gettimeofday(&private->start, NULL);
 #endif
-		}
+			}
 			else
 			{
-				err("file creation not allowed %s", private->path_info);
+				err("document: file creation not allowed %s", private->path_info);
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
 				httpmessage_appendcontent(response, private->path_info, -1);
 				httpmessage_appendcontent(response, "\"}", -1);
@@ -151,7 +147,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 #endif
 				ret = ESUCCESS;
 				private->fd = 0;
-				static_file_close(private);
+				document_close(private);
 			}
 		}
 	}
@@ -180,7 +176,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			int wret = write(private->fd, input, inputlen);
 			if (wret < 0)
 			{
-				err("filestorage: access file error %s", strerror(errno));
+				err("document: access file error %s", strerror(errno));
 				if (errno != EAGAIN)
 				{
 #ifdef RESULT_500
@@ -208,27 +204,28 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		if (rest < 1)
 		{
 #ifdef DEBUG
-			err("filestorage: store %llu bytes", private->datasize);
+			err("document: store %llu bytes", private->datasize);
 			struct timeval stop;
 			struct timeval value;
 			gettimeofday(&stop, NULL);
 			timersub(&stop, &private->start, &value);
-			dbg("filestorage: %d:%3d", value.tv_sec, value.tv_usec/1000);
+			dbg("document: %d:%3d", value.tv_sec, value.tv_usec/1000);
 			private->datasize *= 1000 / (value.tv_sec * 1000000 + value.tv_usec);
-			dbg("filestorage: bps %llu", private->datasize);
+			dbg("document: bps %llu", private->datasize);
 #endif
+			dbg("document: %s uploaded", private->filepath);
 			if (private->fd)
 				close(private->fd);
 			private->fd = 0;
 			ret = ESUCCESS;
-			static_file_close(private);
+			document_close(private);
 		}
 	}
 	return ret;
 }
 
 typedef int (*changefunc)(const char *oldpath, const char *newpath);
-static int changename(mod_static_file_t *config, char *oldpath, const char *newname, changefunc func)
+static int changename(mod_document_t *config, char *oldpath, const char *newname, changefunc func)
 {
 	int ret = -1;
 	if (newname && newname[0] != '\0')
@@ -247,9 +244,9 @@ static int changename(mod_static_file_t *config, char *oldpath, const char *newn
 
 int postfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	static_file_connector_t *private = (static_file_connector_t *)arg;
-	_mod_static_file_mod_t *mod = private->mod;
-	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+	document_connector_t *private = (document_connector_t *)arg;
+	_mod_document_mod_t *mod = private->mod;
+	mod_document_t *config = (mod_document_t *)mod->config;
 
 	warn("change %s", private->filepath);
 	char *result = (char *)str_KO;
@@ -278,15 +275,15 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 	httpmessage_appendcontent(response, result, -1);
 	httpmessage_appendcontent(response, "\"}", 2);
-	static_file_close(private);
+	document_close(private);
 	return ESUCCESS;
 }
 
 int deletefile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	static_file_connector_t *private = (static_file_connector_t *)arg;
-	_mod_static_file_mod_t *mod = private->mod;
-	mod_static_file_t *config = (mod_static_file_t *)mod->config;
+	document_connector_t *private = (document_connector_t *)arg;
+	_mod_document_mod_t *mod = private->mod;
+	mod_document_t *config = (mod_document_t *)mod->config;
 
 	httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"name\":\"", -1);
 	httpmessage_appendcontent(response, private->path_info, -1);
@@ -313,174 +310,6 @@ int deletefile_connector(void *arg, http_message_t *request, http_message_t *res
 		warn("remove file : %s", private->path_info);
 		httpmessage_appendcontent(response, "OK\"}", -1);
 	}
-	static_file_close(private);
+	document_close(private);
 	return ESUCCESS;
 }
-
-static int filestorage_connector(void *arg, http_message_t *request, http_message_t *response)
-{
-	int ret =  EREJECT;
-	static_file_connector_t *private = (static_file_connector_t *)arg;
-	_mod_static_file_mod_t *mod = private->mod;
-	mod_static_file_t *config = (mod_static_file_t *)mod->config;
-
-	if (private->func == NULL)
-	{
-		private->size = 0;
-		private->offset = 0;
-
-		struct stat filestat;
-		if (private->path_info)
-			free(private->path_info);
-		const char *uri = httpmessage_REQUEST(request,"uri");
-		private->path_info = utils_urldecode(uri);
-		if (private->path_info == NULL)
-			return EREJECT;
-
-		const char *method = httpmessage_REQUEST(request, "method");
-		private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", &filestat);
-		if ((private->filepath == NULL) && (!strcmp(method, "PUT")))
-		{
-			private->filepath = utils_buildpath(config->docroot, private->path_info, "", "", NULL);
-			private->func = putfile_connector;
-			private->size = 0;
-			private->offset = 0;
-		}
-		else if (private->filepath && filestorage_checkname(private, response) == ESUCCESS)
-		{
-			if (!strcmp(method, "GET") || !strcmp(method, "HEAD"))
-			{
-				if (S_ISDIR(filestat.st_mode))
-				{
-					int length = strlen(private->path_info);
-					const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-					if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) ||
-						(private->path_info[length - 1] != '/'))
-					{
-						private->func = dirlisting_connector;
-					}
-					else
-					{
-#ifdef DIRLISTING
-						if (config->options & STATIC_FILE_DIRLISTING)
-						{
-							private->func = dirlisting_connector;
-						}
-#else
-						warn("static file: %s is directory", private->path_info);
-#endif
-						char *indexpath = utils_buildpath(config->docroot, private->path_info,
-														config->defaultpage, "", &filestat);
-						if (indexpath)
-						{
-							free(indexpath);
-#if defined(RESULT_301)
-							char *location = calloc(1, length + strlen(config->defaultpage) + 2);
-							sprintf(location, "/%s%s", private->path_info, config->defaultpage);
-							httpmessage_addheader(response, str_location, location);
-							httpmessage_result(response, RESULT_301);
-							free(location);
-							static_file_close(private);
-							return ESUCCESS;
-#endif
-						}
-					}
-				}
-				else
-				{
-					private->func = getfile_connector;
-					private->size = filestat.st_size;
-					private->offset = 0;
-				}
-			}
-			else if (!strcmp(method, "PUT"))
-			{
-				private->size = filestat.st_size;
-				private->offset = 0;
-				private->func = putfile_connector;
-			}
-			else if (!strcmp(method, "POST"))
-			{
-				private->func = postfile_connector;
-			}
-			else if (!strcmp(method, "DELETE"))
-			{
-				private->func = deletefile_connector;
-			}
-		}
-		else if (private->filepath)
-		{
-			warn("filestorage: forbidden %s file %s", private->path_info, (ret == 0)?"deny":"not allow");
-			httpmessage_result(response, RESULT_403);
-		}
-	}
-	return  EREJECT;
-}
-
-static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
-{
-	static_file_connector_t *private = (static_file_connector_t *)arg;
-	if (private->func)
-		return private->func(arg, request, response);
-	static_file_close(private);
-	return EREJECT;
-}
-
-static void *_mod_filestorage_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
-{
-	_mod_static_file_mod_t *mod = (_mod_static_file_mod_t *)arg;
-	mod_static_file_t *config = mod->config;
-	static_file_connector_t *ctx = calloc(1, sizeof(*ctx));
-
-	ctx->mod = mod;
-	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx, str_filestorage);
-#ifdef RANGEREQUEST
-	if (config->options & STATIC_FILE_RANGE)
-		httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_filestorage);
-#endif
-	httpclient_addconnector(ctl, mod->vhost, filestorage_connector, ctx, str_filestorage);
-
-	return ctx;
-}
-
-static void _mod_filestorage_freectx(void *vctx)
-{
-	static_file_connector_t *ctx = vctx;
-	if (ctx->path_info)
-	{
-		free(ctx->path_info);
-		ctx->path_info = NULL;
-	}
-	free(ctx);
-}
-
-void *mod_filestorage_create(http_server_t *server, char *vhost, mod_static_file_t *config)
-{
-	_mod_static_file_mod_t *mod = calloc(1, sizeof(*mod));
-
-	if (config == NULL)
-		return NULL;
-
-	mod->config = config;
-	mod->vhost = vhost;
-	httpserver_addmod(server, _mod_filestorage_getctx, _mod_filestorage_freectx, mod, str_filestorage);
-	httpserver_addmethod(server, str_put, 1);
-	httpserver_addmethod(server, str_delete, 1);
-	return mod;
-}
-
-void mod_filestorage_destroy(void *data)
-{
-	free(data);
-}
-
-const module_t mod_filestorage =
-{
-	.name = str_filestorage,
-	.create = (module_create_t)mod_filestorage_create,
-	.destroy = mod_filestorage_destroy
-};
-#ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_filestorage")));
-#endif

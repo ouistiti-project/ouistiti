@@ -1,4 +1,4 @@
-DESC="test to access to .htaccess file"
+DESC="test to access to .htaccess file for error 403"
 CONFIG=test1.conf
 TESTREQUEST=test31_rq.txt
-TESTCODE=404
+TESTCODE=403

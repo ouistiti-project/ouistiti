@@ -9,7 +9,7 @@ servers= ({
 			type="Basic";
 			file="%PWD%/tests/conf/passwd";
 		};
-		static_file = {
+		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
