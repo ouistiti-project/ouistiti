@@ -71,23 +71,29 @@ The server is defined with several informations:
 ### "hostname" :
 the name associated to the server. The default value is the IP
  address of the ethernet interface.
+
 ### "port" :
 the port number of socket's server. The default value is 80. For a
  HTTPS server this value should be set to 443.
+
 ### "addr" :
 the address of the ethernet interface to listen. By default
  the server listen on all ethernet interface.
+
 ### "keepalivetimeout" :
 the timeout of the keepalive. The default value is 0 and
  there is not keepalive, after each client request the socket is closed.
+
 ### "chunksize" :
 the value defines a size of data. Please refer to the specific chapter
  for more informations. The default value is 63 but for a normal use case
  use 1500 (the MTU of the main interface).
+
 ### "maxclients" :
 the maximum number of clients at the same time connected
  to the server. The default value is 10. For very stressed server,
  you can use a value of 2048.
+
 ### "version" : define the HTTP version to use. The availables values are :
     - "HTTP/0.9"
     - "HTTP/1.0"
@@ -114,8 +120,26 @@ Each module may have is own configuration.
  
 ### "auth" :
 [mod_auth](mod_auth.md) allows to set the users and their password for restricted access.
+
+Example :
+
+	auth = {
+		type="Digest";
+		algorithm="SHA-256";
+		unprotect="lib;login.html";
+		dbname="/etc/ouistiti/passwd.db";
+		options="cookie";
+	};
+
 ### "websocket" :
 [mod_websocket](mod_websocket.md) allows to use a location of websocket servers.
+
+Example :
+
+	websocket = {
+		docroot="/var/run/websocket";
+	};
+
 ### "tls" :
 [mod_{mbedtls|wolfssl|openssl] allows to set a SSL/TLS connection and its certificates files.
 
@@ -133,14 +157,7 @@ Example:
 	});
 
 ### "document" :
-[mod_document] allows to GET files from a root directory. This module
-accepts somme options:
-
-	* "dirlisting" to send the directory listing if the default page is not present.
-	* "sendfile" to optimize the sending into HTTP (not available on HTTPS).
-	* "range" to allows the sending packet by packet.
-	* "rest" to allows the management of the files with Rest (PUT/DELETE/POST) commands.
-	* "home" to change the "docroot" with the "home" directory of the authenticated user.
+[mod_document](mod_document.md) allows to GET files from a root directory.
 
 Example:
 
@@ -155,22 +172,3 @@ Example:
 		};
 	});
 
-	servers = ({
-	    hostname="ouistiti.net";
-	    port=80;
-		auth = {
-			protect = "";
-			unprotect = "*";
-			type = "Basic";
-			user = "test";
-			passwd = "test";
-			group = "user";
-			home = "/home/test/htdocs";
-		};
-		document = {
-			docroot = "/srv/www/htdocs";
-			allow = ".html,.*htm*,.css,.js,.txt,*";
-			deny = ".htaccess,.php";
-			options = "dirlisting,rest,home";
-		};
-	});
