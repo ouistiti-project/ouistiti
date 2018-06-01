@@ -4,11 +4,11 @@ servers= ({
 		port = 80;
 		keepalivetimeout = 5;
 		version="HTTP11";
-		static_file = {
+		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
-			transfer_type = "dirlisting,range";
+			options = "dirlisting,range,rest";
 		};
 	});
 

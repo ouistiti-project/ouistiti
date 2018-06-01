@@ -39,7 +39,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
-#include "mod_static_file.h"
+#include "mod_document.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -51,7 +51,7 @@
 
 
 #define CONTENTSIZE 1024
-int mod_send_sendfile(static_file_connector_t *private, http_message_t *response)
+int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 {
 	int ret, size;
 

@@ -41,7 +41,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/mod_websocket.h"
-#include "mod_static_file.h"
+#include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_clientfilter.h"
@@ -124,13 +124,9 @@ void *mod_vhost_create(http_server_t *server, char *unused, mod_vhost_t *config)
 	if (config->modules.cgi)
 		mod->mod_cgi = mod_cgi_create(server, config->hostname, config->modules.cgi);
 #endif
-#if defined FILESTORAGE
-	if (config->modules.filestorage)
-		mod->mod_filestorage = mod_filestorage_create(server, config->hostname, config->modules.filestorage);
-#endif
-#if defined STATIC_FILE
-	if (config->modules.static_file)
-		mod->mod_static_file = mod_static_file_create(server, config->hostname, config->modules.static_file);
+#if defined DOCUMENT
+	if (config->modules.document)
+		mod->mod_document = mod_document_create(server, config->hostname, config->modules.document);
 #endif
 #if defined REDIRECT404
 	if (config->modules.redirect404)
@@ -143,13 +139,9 @@ void *mod_vhost_create(http_server_t *server, char *unused, mod_vhost_t *config)
 void mod_vhost_destroy(void *arg)
 {
 	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
-#if defined STATIC_FILE
-	if (mod->mod_static_file)
-		mod_static_file_destroy(mod->mod_static_file);
-#endif
-#if defined FILESTORAGE
-	if (mod->mod_filestorage)
-		mod_filestorage_destroy(mod->mod_filestorage);
+#if defined DOCUMENT
+	if (mod->mod_document)
+		mod_document_destroy(mod->mod_document);
 #endif
 #if defined CGI
 	if (mod->mod_cgi)

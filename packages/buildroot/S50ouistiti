@@ -7,6 +7,7 @@ SYSCONFDIR=/etc/ouistiti
 RUNDIR=/var/run
 SBINDIR=/usr/sbin
 BINDIR=/usr/bin
+LIBDIR=/usr/lib/ouistiti
 SERVER=ouistiti
 ORGANISATION=ouistiti
 COUNTRY=fr
@@ -39,17 +40,33 @@ init() {
 
 start() {
 	printf "Starting ouistiti: "
-#	start-stop-daemon -S -q -p ${RUNDIR}/ouistiti.pid --exec ${SBINDIR}/ouistiti -- -D -f ${SYSCONFDIR}/ouistiti.conf
-	${SBINDIR}/ouistiti -D -p ${RUNDIR}/ouistiti.pid -f ${SYSCONFDIR}/ouistiti.conf
+	start-stop-daemon -S -q --exec ${SBINDIR}/ouistiti -- -D -f ${SYSCONFDIR}/ouistiti.conf -p ${RUNDIR}/ouistiti.pid
+#	${SBINDIR}/ouistiti -D -p ${RUNDIR}/ouistiti.pid -f ${SYSCONFDIR}/ouistiti.conf
 	echo "OK"
-	mkdir ${RUNDIR}/websocket
-	chmod a+rw ${RUNDIR}/websocket
-	nohup /usr/bin/websocket_chat -R ${RUNDIR}/websocket -u www-data -w &
+	if [ ! -d ${RUNDIR}/websocket ]; then
+		mkdir ${RUNDIR}/websocket
+		chmod a+rw ${RUNDIR}/websocket
+	fi
+	printf "Starting web chat: "
+	start-stop-daemon -S -b -q -m -p ${RUNDIR}/ws_chat.pid --exec ${BINDIR}/websocket_chat -- -R ${RUNDIR}/websocket -u www-data -w
+	echo "OK"
+	printf "Starting web sql: "
+	start-stop-daemon -S -b -q -m -p ${RUNDIR}/ws_sql.pid --exec ${BINDIR}/websocket_jsonrpc -- -R ${RUNDIR}/websocket -u www-data -L ${LIBDIR}/jsonsql.so -n sql
+	echo "OK"
+#	nohup /usr/bin/websocket_chat -R ${RUNDIR}/websocket -u www-data -w &
 }
 stop() {
 	printf "Stopping ouistiti: "
-#	start-stop-daemon -K -q -p ${RUNDIR}/ouistiti.pid
-	kill $(cat ${RUNDIR}/ouistiti.pid)
+	if [ -e ${RUNDIR}/ouistiti.pid ]; then
+		start-stop-daemon -K -q -p ${RUNDIR}/ouistiti.pid
+	fi
+	if [ -e ${RUNDIR}/ws_chat.pid ]; then
+		start-stop-daemon -K -q -p ${RUNDIR}/ws_chat.pid
+	fi
+	if [ -e ${RUNDIR}/ws_sql.pid ]; then
+		start-stop-daemon -K -q -p ${RUNDIR}/ws_sql.pid
+	fi
+#	kill $(cat ${RUNDIR}/ouistiti.pid)
 	echo "OK"
 }
 restart() {
