@@ -34,8 +34,6 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/un.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sched.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
@@ -253,10 +251,10 @@ int main(int argc, char **argv)
 			int newsock = 0;
 			do
 			{
-				struct sockaddr_in addr;
+				struct sockaddr_un addr;
 				int addrsize = sizeof(addr);
 				newsock = accept(sock, (struct sockaddr *)&addr, &addrsize);
-				printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
+				printf("echo: new connection from %s\n", addr.sun_path);
 				if (newsock > 0)
 				{
 					start(jsonrpc_server, newsock);
