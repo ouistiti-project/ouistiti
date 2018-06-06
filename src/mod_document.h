@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_static_file.h: Simple HTTPS module
+ * mod_document.h: Simple HTTPS module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -84,7 +84,7 @@ struct _document_connector_s
 	unsigned long long size;
 	unsigned long long offset;
 #ifdef DEBUG
-	struct timeval start;
+	struct timespec start;
 	unsigned long long datasize;
 #endif
 };

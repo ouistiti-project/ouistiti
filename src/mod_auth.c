@@ -25,7 +25,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
 /**
     auth module needs the type of authentication ("Basic" or "Digest").
     After the rule to check the password is an authn_<type>_<name>

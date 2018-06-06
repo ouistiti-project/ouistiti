@@ -24,6 +24,9 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
+#define _XOPEN_SOURCE 700
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -37,6 +40,7 @@
 #include <sched.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
+#include <time.h>
 
 #include "../websocket.h"
 #include "httpserver/websocket.h"
@@ -130,7 +134,8 @@ int start(server_t server, int newsock)
 	}
 	sched_yield();
 	sched_yield();
-	usleep(50);
+	struct timespec req = {0, 50000000};
+	nanosleep(&req, NULL);
 	printf("close\n");
 	close(newsock);
 	return 0;

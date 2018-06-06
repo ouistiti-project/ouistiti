@@ -25,7 +25,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -35,6 +34,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "../compliant.h"
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_clientfilter.h"
@@ -93,7 +93,16 @@ static void *_mod_clientfilter_getctx(void *arg, http_client_t *ctl, struct sock
 	static char address[NI_MAXHOST];
 
 	mod->ctl = ctl;
+#ifdef HAVE_GETNAMEINFO
 	if (!getnameinfo(addr, addrsize, address, NI_MAXHOST, 0, 0, NI_NUMERICHOST))
+#else
+	struct hostent *entity;
+
+	entity = gethostbyaddr(addr, addrsize, AF_INET);
+	if (entity != NULL)
+		strncpy(address, entity->h_name, NI_MAXHOST);
+	if (entity != NULL)
+#endif
 	{
 		if (config->deny)
 		{
