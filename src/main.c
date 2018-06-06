@@ -407,8 +407,6 @@ int main(int argc, char * const *argv)
 			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)
 				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
-			if (server->config->modules.document)
-				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
 			if (server->config->modules.webstream)
 				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
 			if (server->config->modules.websocket)
@@ -422,6 +420,8 @@ int main(int argc, char * const *argv)
 #endif
 				server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j++].destroy);
 			}
+			if (server->config->modules.document)
+				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
 			server->modules[j].config = loadmodule(str_redirect404, server->server, server->config->modules.redirect404, &server->modules[j++].destroy);
 			server->modules[j].config = NULL;
 		}
