@@ -98,8 +98,8 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 #ifdef DIRLISTING
 int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
-#ifdef DOCUMENTREST
 int getfile_connector(void *arg, http_message_t *request, http_message_t *response);
+#ifdef DOCUMENTREST
 int putfile_connector(void *arg, http_message_t *request, http_message_t *response);
 int postfile_connector(void *arg, http_message_t *request, http_message_t *response);
 int deletefile_connector(void *arg, http_message_t *request, http_message_t *response);
