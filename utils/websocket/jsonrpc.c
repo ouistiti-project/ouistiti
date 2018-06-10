@@ -24,6 +24,9 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
+#define _XOPEN_SOURCE 700
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -34,11 +37,10 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/un.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sched.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
+#include <time.h>
 
 #include "../websocket.h"
 #include "httpserver/websocket.h"
@@ -132,7 +134,8 @@ int start(server_t server, int newsock)
 	}
 	sched_yield();
 	sched_yield();
-	usleep(50);
+	struct timespec req = {0, 50000000};
+	nanosleep(&req, NULL);
 	printf("close\n");
 	close(newsock);
 	return 0;
@@ -253,10 +256,10 @@ int main(int argc, char **argv)
 			int newsock = 0;
 			do
 			{
-				struct sockaddr_in addr;
+				struct sockaddr_un addr;
 				int addrsize = sizeof(addr);
 				newsock = accept(sock, (struct sockaddr *)&addr, &addrsize);
-				printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
+				printf("echo: new connection from %s\n", addr.sun_path);
 				if (newsock > 0)
 				{
 					start(jsonrpc_server, newsock);

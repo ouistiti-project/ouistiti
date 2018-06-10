@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_static_file.h: Simple HTTPS module
+ * mod_document.h: Simple HTTPS module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -84,7 +84,7 @@ struct _document_connector_s
 	unsigned long long size;
 	unsigned long long offset;
 #ifdef DEBUG
-	struct timeval start;
+	struct timespec start;
 	unsigned long long datasize;
 #endif
 };
@@ -98,8 +98,8 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 #ifdef DIRLISTING
 int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
-#ifdef DOCUMENTREST
 int getfile_connector(void *arg, http_message_t *request, http_message_t *response);
+#ifdef DOCUMENTREST
 int putfile_connector(void *arg, http_message_t *request, http_message_t *response);
 int postfile_connector(void *arg, http_message_t *request, http_message_t *response);
 int deletefile_connector(void *arg, http_message_t *request, http_message_t *response);

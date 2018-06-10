@@ -24,6 +24,7 @@ config BR2_PACKAGE_OUISTITI_AUTH_SQLITE
 	  Enable password storage into sqlite DB.
 endif
 
+if BR2_PACKAGE_LIBHTTPSERVER_WEBSOCKET
 config BR2_PACKAGE_OUISTITI_WS_JSONRPC
 	bool "websocket: jsonrpc server"
 	depends on BR2_PACKAGE_LIBHTTPSERVER_WEBSOCKET
@@ -36,3 +37,4 @@ config BR2_PACKAGE_OUISTITI_WS_CHAT
 	depends on BR2_PACKAGE_LIBHTTPSERVER_WEBSOCKET
 	help
 	  Add a jsonrpc server for websocket.
+endif

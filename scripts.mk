@@ -119,11 +119,11 @@ endif
 # if cc is a link on gcc, prefer to use directly gcc for ld
 CCVERSION=$(shell $(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CC) -v 2>&1)
 ifneq ($(findstring GCC,$(CCVERSION)), )
-	LD=gcc
-	HOSTLD=$(LD)
+	LD=$(CC)
+	HOSTLD?=$(CC)
 	ldgcc=-Wl,$(1),$(2)
 else ifneq ($(findstring gcc,$(CC)),)
-	LD=gcc
+	LD=$(CC)
 	ldgcc=-Wl,$(1),$(2)
 else
 	ldgcc=$(1) $(2)
@@ -242,29 +242,22 @@ $(foreach t,$(subdir-y),$(eval $(t)_CONFIGURE+=$($(t)_CONFIGURE-y)))
 $(foreach t,$(subdir-y),$(if $($(t)_CONFIGURE), $(eval subdir-project+=$(t))))
 subdir-y:=$(filter-out $(subdir-project),$(subdir-y))
 
-#subdir-y may contain directory's names or file's names.
-#for each directory, the script may check Makefile and *.mk files
-#list of directories
-subdir-dir:=$(wildcard $(foreach dir,$(subdir-y),$(join $(dir)/,$(notdir $(join $(dir),/.)))))
+#dispatch from subdir-y to directory paths and makefile paths
+subdir-dir:=$(foreach dir,$(subdir-y),$(filter-out %$(makefile-ext:%=.%), $(filter-out %Makefile, $(dir))))
+subdir-files:=$(foreach dir,$(subdir-y),$(filter %$(makefile-ext:%=.%),$(dir)) $(filter %Makefile, $(dir)))
 
 #target each Makefile in directories
-subdir-target:=$(wildcard $(addsuffix /Makefile,$(subdir-dir:%/.=%)))
-#target all *.mk file in directories
-#subdir-target+=$(wildcard $(filter-out */scripts.mk,$(addsuffix /*$(makefile-ext:%=.%),$(subdir-dir:%/.=%))))
-#remove all directories from the list
-subdir-files:=$(subdir-y)
-$(foreach dir, $(subdir-dir:%/.=%),$(eval subdir-files:=$(filter-out $(dir),$(subdir-files))))
-#target the files from the list
-subdir-target+=$(wildcard $(subdir-files))
+subdir-target:=$(sort $(wildcard $(addsuffix /Makefile,$(subdir-dir:%/.=%))))
+subdir-target+=$(sort $(wildcard $(subdir-files)))
 
 
 objdir:=$(sort $(dir $(target-objs)))
 
 targets:=
-targets+=$(lib-dynamic-target)
-targets+=$(modules-target)
-targets+=$(lib-static-target)
-targets+=$(bin-target)
+targets+=$(sort $(lib-dynamic-target))
+targets+=$(sort $(modules-target))
+targets+=$(sort $(lib-static-target))
+targets+=$(sort $(bin-target))
 
 ifneq ($(CROSS_COMPILE),)
 DESTDIR:=$(sysroot:"%"=%)
@@ -336,17 +329,17 @@ _clean: $(subdir-target) _clean_objs
 	$(Q)$(call cmd,clean,$(wildcard $(targets)))
 	$(Q)$(call cmd,clean,$(wildcard $(hostslib-target) $(hostbin-target)))
 
-_clean_objs:
+_clean_objs: _info 
 	$(Q)$(call cmd,clean,$(wildcard $(target-objs)) $(wildcard $(target-hostobjs)))
 
 _distclean: action:=_distclean
 _distclean: build:=$(action) -f $(srcdir)$(makemore) file
-_distclean: $(subdir-target) _clean
+_distclean: _info $(subdir-target) _clean
 	$(Q)$(call cmd,clean_dir,$(filter-out $(src),$(obj)))
 
 _check: action:=_check
 _check: build:=$(action) -s -f $(srcdir)$(makemore) file
-_check: $(subdir-target) $(LIBRARY) $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))
+_check: _info $(subdir-target) $(LIBRARY) $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))
 
 clean: action:=_clean
 clean: build:=$(action) -f $(srcdir)$(makemore) file
@@ -369,7 +362,7 @@ check: action:=_check
 check: build:=$(action) -s -f $(srcdir)$(makemore) file
 check: $(.DEFAULT_GOAL)
 
-default_action: _info _configbuild _versionbuild
+default_action: _configbuild _versionbuild
 	$(Q)$(MAKE) $(build)=$(file)
 	@:
 

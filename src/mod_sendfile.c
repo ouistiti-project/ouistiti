@@ -25,7 +25,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +36,7 @@
 #include <errno.h>
 #include <signal.h>
 
+#include "../compliant.h"
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
 #include "mod_document.h"
@@ -49,6 +49,7 @@
 #define dbg(...)
 #endif
 
+#define sighandler_t __sighandler_t
 
 #define CONTENTSIZE 1024
 int mod_send_sendfile(document_connector_t *private, http_message_t *response)
@@ -56,10 +57,15 @@ int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 	int ret, size;
 
 	size = (private->size < CONTENTSIZE)? private->size : CONTENTSIZE;
+#ifdef HAVE_SIGACTION
 	sigset_t sigset;
 	sigemptyset (&sigset);
 	sigaddset(&sigset, SIGPIPE);
 	sigprocmask(SIG_BLOCK, &sigset, NULL);
+#else
+	sighandler_t handler_old;
+	handler_old = signal(SIGPIPE, SIG_IGN);
+#endif
 
 	do
 	{
@@ -76,7 +82,11 @@ int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 		while (ret < 0 && errno == EINTR);
 	}
 	if (ret >= 0)
+#ifdef HAVE_SIGACTION
 		sigprocmask(SIG_UNBLOCK, &sigset, NULL);
+#else
+		signal(SIGPIPE, handler_old);
+#endif
 	if (ret == 0 && size > 0)
 	{
 		ret = -1;

@@ -130,17 +130,19 @@ ouistiticonfig_t g_ouistiticonfig =
 				.version = HTTP11
 			},
 		.tls = NULL,
-		.document = 
-			&(mod_static_file_t) {
-				.docroot = "/srv/www/htdocs",
-				.accepted_ext = ".html,.htm,.css,.js,.txt",
-				.ignored_ext = ".htaccess,.php"
-			},
-		.cgi =
-			&(mod_cgi_config_t) {
-				.docroot = "/srv/www/cgi-bin",
-				.accepted_ext = ",.cgi,.sh",
-				.ignored_ext = ".htaccess"
+		.modules = {
+			.document = 
+				&(mod_document_t) {
+					.docroot = "/srv/www/htdocs",
+					.allow = ".html,.htm,.css,.js,.txt",
+					.deny = ".htaccess,.php"
+				},
+			.cgi =
+				&(mod_cgi_config_t) {
+					.docroot = "/srv/www/cgi-bin",
+					.allow = ",.cgi,.sh",
+					.deny = ".htaccess"
+				},
 			},
 		},
 		&(serverconfig_t) {
@@ -158,11 +160,13 @@ ouistiticonfig_t g_ouistiticonfig =
 				.cachain = NULL,
 				.dhmfile = "/etc/ssl/private/dhparam.pem",
 			},
-		.document =
-			&(mod_static_file_t) {
-				.docroot = "/srv/www/htdocs",
-				.accepted_ext = ".html,.htm,.css,.js,.txt",
-				.ignored_ext = ".htaccess,.php"
+		.modules = {
+			.document =
+				&(mod_document_t) {
+					.docroot = "/srv/www/htdocs",
+					.allow = ".html,.htm,.css,.js,.txt",
+					.deny = ".htaccess,.php"
+				},
 			},
 		},
 		NULL,
