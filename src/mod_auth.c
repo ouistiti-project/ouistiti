@@ -25,7 +25,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
 /**
     auth module needs the type of authentication ("Basic" or "Digest").
     After the rule to check the password is an authn_<type>_<name>
@@ -426,27 +425,30 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 	}
 
-	protect = utils_searchexp(uri, config->protect);
-	if (protect != ESUCCESS)
+	if (ret != EREJECT)
 	{
-		ret = EREJECT;
-	}
-	else
-	{
-		protect = utils_searchexp(uri, config->unprotect);
-		if (protect == ESUCCESS)
+		protect = utils_searchexp(uri, config->protect);
+		if (protect != ESUCCESS)
 		{
 			ret = EREJECT;
 		}
-		const char *redirect = config->redirect;
-		if (redirect)
+		else
 		{
-			if (redirect[0] == '/')
-				redirect++;
-			protect = utils_searchexp(uri, redirect);
+			protect = utils_searchexp(uri, config->unprotect);
 			if (protect == ESUCCESS)
 			{
 				ret = EREJECT;
+			}
+			const char *redirect = config->redirect;
+			if (redirect)
+			{
+				if (redirect[0] == '/')
+					redirect++;
+				protect = utils_searchexp(uri, redirect);
+				if (protect == ESUCCESS)
+				{
+					ret = EREJECT;
+				}
 			}
 		}
 	}

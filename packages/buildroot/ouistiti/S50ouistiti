@@ -76,7 +76,7 @@ restart() {
 
 case "$1" in
   start)
-	init
+	#init
 	start
 	;;
   stop)

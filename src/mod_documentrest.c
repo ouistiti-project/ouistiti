@@ -25,7 +25,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -36,7 +35,7 @@
 #include <sys/sendfile.h>
 #include <errno.h>
 #include <signal.h>
-#include <sys/time.h>
+#include <time.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -124,7 +123,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				httpmessage_appendcontent(response, private->path_info, -1);
 				httpmessage_appendcontent(response, "\"}", -1);
 #ifdef DEBUG
-				gettimeofday(&private->start, NULL);
+				clock_gettime(CLOCK_REALTIME, &private->start);
 #endif
 			}
 			else
@@ -204,16 +203,15 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		if (rest < 1)
 		{
 #ifdef DEBUG
-			err("document: store %llu bytes", private->datasize);
-			struct timeval stop;
-			struct timeval value;
-			gettimeofday(&stop, NULL);
-			timersub(&stop, &private->start, &value);
-			dbg("document: %d:%3d", value.tv_sec, value.tv_usec/1000);
-			private->datasize *= 1000 / (value.tv_sec * 1000000 + value.tv_usec);
-			dbg("document: bps %llu", private->datasize);
+			struct timespec stop;
+			struct timespec value;
+			clock_gettime(CLOCK_REALTIME, &stop);
+
+			value.tv_sec = stop.tv_sec - private->start.tv_sec;
+			value.tv_nsec = stop.tv_nsec - private->start.tv_nsec;
+			dbg("document: (%llu bytes) %d:%3d", private->datasize, value.tv_sec, value.tv_nsec/1000000);
 #endif
-			dbg("document: %s uploaded", private->filepath);
+			warn("document: %s uploaded", private->filepath);
 			if (private->fd)
 				close(private->fd);
 			private->fd = 0;
@@ -264,12 +262,14 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 		if (!chmod(private->filepath, mod))
 			result = (char *)str_OK;
 	}
+#ifdef HAVE_SYMLINK
 	else if (cmd && !strcmp("ln", cmd))
 	{
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (!changename(config, private->filepath, arg, symlink))
 			result = (char *)str_OK;
 	}
+#endif
 	httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"name\":\"", -1);
 	httpmessage_appendcontent(response, private->path_info, -1);
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);

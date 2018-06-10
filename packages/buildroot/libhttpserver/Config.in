@@ -1,5 +1,5 @@
 config BR2_PACKAGE_LIBHTTPSERVER
-	bool "libhttpserver"
+	bool
 	help
 	  small, fast and secure http library.
 

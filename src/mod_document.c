@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_static_file.c: callbacks and management of files
+ * mod_document.c: callbacks and management of files
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -34,7 +34,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <sys/time.h>
+#include <time.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/uri.h"
@@ -294,7 +294,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			dbg("document: send %llu bytes", private->size);
 			mod->transfer = mod_send_read;
 #ifdef DEBUG
-			gettimeofday(&private->start, NULL);
+			clock_gettime(CLOCK_REALTIME, &private->start);
 			private->datasize = private->size;
 #endif
 #ifdef SENDFILE
@@ -324,13 +324,13 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		if (ret == 0 || private->size <= 0)
 		{
 #ifdef DEBUG
-			struct timeval stop;
-			struct timeval value;
-			gettimeofday(&stop, NULL);
-			timersub(&stop, &private->start, &value);
-			dbg("document: %d:%3d", value.tv_sec, value.tv_usec/1000);
-			private->datasize *= 1000 / (value.tv_sec * 1000000 + value.tv_usec);
-			dbg("document: bps %llu", private->datasize);
+			struct timespec stop;
+			struct timespec value;
+			clock_gettime(CLOCK_REALTIME, &stop);
+
+			value.tv_sec = stop.tv_sec - private->start.tv_sec;
+			value.tv_nsec = stop.tv_nsec - private->start.tv_nsec;
+			dbg("document: (%llu bytes) %d:%3d", private->datasize, value.tv_sec, value.tv_nsec/1000000);
 #endif
 			dbg("document: send %s", private->filepath);
 			close(private->fd);

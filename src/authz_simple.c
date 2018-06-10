@@ -61,7 +61,7 @@ int authz_simple_check(void *arg, char *user, char *passwd)
 {
 	authz_simple_t *config = (authz_simple_t *)arg;
 
-	if (!strcmp(user, config->user)  && !strcmp(passwd, config->passwd))
+	if (!strcmp(user, config->user)  && config->passwd && !strcmp(passwd, config->passwd))
 		return 1;
 	return 0;
 }

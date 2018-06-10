@@ -25,7 +25,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,12 +37,8 @@
 # include <sys/types.h>
 # include <unistd.h>
 # include <fcntl.h>
-# define HAVE_GETOPT
-# define HAVE_PWD_H
-# ifdef HAVE_PWD_H
-#  include <pwd.h>
-#  include <grp.h>
-# endif
+# include <pwd.h>
+# include <grp.h>
 #else
 # include <winsock2.h>
 #endif
@@ -51,6 +46,7 @@
 #include <dlfcn.h>
 #endif
 
+#include "../compliant.h"
 #include "httpserver/httpserver.h"
 
 #include "httpserver/mod_tls.h"
@@ -170,7 +166,11 @@ void display_help(char * const *argv)
 
 static server_t *first = NULL;
 static char run = 0;
+#ifdef HAVE_SIGACTION
 static void handler(int sig, siginfo_t *si, void *arg)
+#else
+static void handler(int sig)
+#endif
 {
 	run = 'q';
 	server_t *server;
@@ -198,15 +198,20 @@ static void _setpidfile(char *pidfile)
 			int length;
 			pid_t pid = 1;
 
+#ifdef HAVE_LOCKF
 			if (lockf(pidfd, F_TLOCK,0)<0)
 			{
 				err("server already running");
 				exit(0);
 			}
+#endif
 			pid = getpid();
 			length = snprintf(buffer, 32, "%d\n", pid);
 			write(pidfd, buffer, length);
+			/**
+			 * the file must be open while the process is running
 			close(pidfd);
+			 */ 
 		}
 		else
 		{
@@ -323,14 +328,19 @@ int main(int argc, char * const *argv)
 	else if (ouistiticonfig->pidfile)
 		_setpidfile(ouistiticonfig->pidfile);
 
+#ifdef HAVE_SIGACTION
 	struct sigaction action;
 	action.sa_flags = SA_SIGINFO;
 	sigemptyset(&action.sa_mask);
 	action.sa_sigaction = handler;
 	sigaction(SIGTERM, &action, NULL);
 	sigaction(SIGINT, &action, NULL);
+#else
+	signal(SIGTERM, handler);
+	signal(SIGINT, handler);
+#endif
 
-#ifdef HAVE_PWD_H
+#ifdef HAVE_PWD
 	uid_t   pw_uid = -1;
 	gid_t   pw_gid;
 	if (ouistiticonfig->user)
@@ -397,19 +407,21 @@ int main(int argc, char * const *argv)
 			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)
 				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
-			if (server->config->modules.document)
-				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
 			if (server->config->modules.webstream)
 				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
 			if (server->config->modules.websocket)
 			{
+#ifdef WEBSOCKET_RT
 				if (((mod_websocket_t*)server->config->modules.websocket)->options & WEBSOCKET_REALTIME)
 				{
 					((mod_websocket_t*)server->config->modules.websocket)->run = ouistiti_websocket_run;
 					warn("server %p runs realtime websocket!", server->server);
 				}
+#endif
 				server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j++].destroy);
 			}
+			if (server->config->modules.document)
+				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
 			server->modules[j].config = loadmodule(str_redirect404, server->server, server->config->modules.redirect404, &server->modules[j++].destroy);
 			server->modules[j].config = NULL;
 		}

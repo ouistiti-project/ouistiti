@@ -25,7 +25,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <string.h>
@@ -40,6 +39,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "../compliant.h"
 #include "httpserver/httpserver.h"
 #include "mod_auth.h"
 #include "authz_unix.h"
@@ -54,6 +54,8 @@
 
 //#define FILE_MMAP
 #define MAXLENGTH 255
+
+#ifdef HAVE_PWD
 
 typedef struct authz_unix_s authz_unix_t;
 struct authz_unix_s
@@ -100,13 +102,22 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
 			ret = 1;
+#ifdef HAVE_STRDUP
 			ctx->user = strdup(pw->pw_name);
 			ctx->home = strdup(pw->pw_dir);
+#else
+			ctx->user = pw->pw_name;
+			ctx->home = pw->pw_dir;
+#endif
 			struct group *grp;
 			grp = getgrgid(pw->pw_gid);
 			if (grp)
 			{
+#ifdef HAVE_STRDUP
 				ctx->group = strdup(grp->gr_name);
+#else
+				ctx->group = grp->gr_name;
+#endif
 			}
 			setgid(pw->pw_gid);
 			setuid(pw->pw_uid);
@@ -141,12 +152,14 @@ void authz_unix_destroy(void *arg)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 
+#ifdef HAVE_STRDUP
 	if (ctx->user)
 		free(ctx->user);
 	if (ctx->home)
 		free(ctx->home);
 	if (ctx->group)
 		free(ctx->group);
+#endif
 	free(ctx);
 }
 
@@ -159,3 +172,4 @@ authz_rules_t authz_unix_rules =
 	.home = authz_unix_home,
 	.destroy = authz_unix_destroy,
 };
+#endif

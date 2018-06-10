@@ -427,12 +427,14 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 				case REMOTE_PORT:
 					value = httpmessage_REQUEST(request, "remote_port");
 				break;
+#ifdef AUTH
 				case REMOTE_USER:
 					value = auth_info(request, "user");
 				break;
 				case AUTH_TYPE:
 					value = auth_info(request, "type");
 				break;
+#endif
 				case HTTP_COOKIE:
 					value = httpmessage_REQUEST(request, "Cookie");
 				break;

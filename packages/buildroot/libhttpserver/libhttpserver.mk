@@ -20,7 +20,6 @@ LIBHTTPSERVER_CONF_OPTS = \
 	--prefix=/usr \
 	--libdir=/usr/lib/ouistiti \
 	--sysconfdir=/etc/ouistiti \
-	--host=$(TARGET_CC:%gcc=%) \
 	--enable-static \
 	--disable-dynamic \
 	--enable-libutils \

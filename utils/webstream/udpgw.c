@@ -24,6 +24,8 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
+#define _XOPEN_SOURCE 700
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -205,6 +207,7 @@ int multicast(buffer_t *buffer, int resume)
 		struct addrinfo *sourceaddress = buffer->sourceaddress;
 		if ( sourceaddress->ai_family == PF_INET)
 		{
+#ifdef _GNU_SOURCE
 			struct sockaddr_in *addr = ((struct sockaddr_in*)(sourceaddress->ai_addr));
 			if (IN_MULTICAST(addr->sin_addr.s_addr))
 			{
@@ -226,6 +229,7 @@ int multicast(buffer_t *buffer, int resume)
 						(const void *)&imreq, sizeof(struct ip_mreq));
 				}
 			}
+#endif
 		}
 		if ( sourceaddress->ai_family == PF_INET6)
 		{
@@ -242,13 +246,13 @@ int multicast(buffer_t *buffer, int resume)
 				{
 					// JOIN multicast group on default interface
 					ret = setsockopt(buffer->sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, 
-						(const void *)&imreq, sizeof(struct ip_mreq));
+						(const void *)&imreq, sizeof(struct ipv6_mreq));
 				}
 				else
 				{
 					// JOIN multicast group on default interface
 					ret = setsockopt(buffer->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, 
-						(const void *)&imreq, sizeof(struct ip_mreq));
+						(const void *)&imreq, sizeof(struct ipv6_mreq));
 				}
 			}
 		}

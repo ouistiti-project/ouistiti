@@ -41,6 +41,10 @@
 #include "httpserver/utils.h"
 #include "mod_document.h"
 
+#ifndef S_IFMT
+# define S_IFMT 0xF000
+#endif
+
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
