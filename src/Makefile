@@ -23,11 +23,26 @@ $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
 $(TARGET)_LIBS+=httpserver
-$(TARGET)_LDFLAGS+=-L ../httpserver/src/httpserver
-$(TARGET)_LDFLAGS+=-L ../httpserver/src
-main_CFLAGS+= -Dsysconfdir="\"$(sysconfdir)\""
-main_CFLAGS+= -Dmoduledir="\"$(pkglibdir)\""
-$(TARGET)_CFLAGS-$(STATIC_CONFIG)+=-DSTATIC_CONFIG
+
+ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/src/httpserver/libhttpserver.so),)
+$(TARGET)_LDFLAGS+=-L$(buildpath)$(LIBHTTPSERVER_DIR)/src/httpserver
+$(TARGET)_LDFLAGS+=-L$(buildpath)$(LIBHTTPSERVER_DIR)/src
+endif
+ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/lib/libhttpserver.so),)
+$(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/lib
+endif
+ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/libhttpserver.so),)
+$(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)
+endif
+
+ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/include/httpserver/httpserver.h),)
+$(TARGET)_CFLAGS+=-I$(LIBHTTPSERVER_DIR)/include
+endif
+ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/httpserver/httpserver.h),)
+$(TARGET)_CFLAGS+=-I$(LIBHTTPSERVER_DIR)
+endif
+
+$(TARGET)_CFLAGS-$(FILE_CONFIG)+=-DFILE_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
