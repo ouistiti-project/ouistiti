@@ -83,6 +83,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 	break;
 	default:
 	{
+#if defined(AUTH)
 		const char *group = auth_info(request, "group");
 		if (group && group[0] != '\0')
 		{
@@ -112,6 +113,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 #endif
 			}
 		}
+#endif
 	}
 	}
 	return ret;

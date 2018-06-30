@@ -76,6 +76,7 @@ $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
 $(TARGET)_LIBS-$(COOKIE)+=mod_cookie
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
+$(TARGET)_LIBS-$(WEBSOCKET)+=hash_mod
 $(TARGET)_LIBS-$(DOCUMENT)+=utils_mod
 $(TARGET)_LIBS-$(CGI)+=utils_mod
 $(TARGET)_LIBS-$(AUTH)+=hash_mod
