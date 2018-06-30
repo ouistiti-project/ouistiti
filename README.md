@@ -153,7 +153,6 @@ value should be **y** or **n**. For some specific cases, it is a string.
 
 ### Server configuration:
 
- * STATIC_CONFIG : use the configuration defined into the src/config.h file.  
  * FILE_CONFIG : use the ouistiti.conf file for the configuration.  
 
  * VTHREAD : enable the multithreading into the server.  

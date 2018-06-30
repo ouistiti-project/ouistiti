@@ -49,6 +49,9 @@
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
 
+#ifndef FILE_CONFIG
+#define STATIC_CONFIG
+#endif
 #include "httpserver/mod_tls.h"
 #include "httpserver/mod_websocket.h"
 #include "httpserver/mod_cookie.h"
@@ -314,7 +317,7 @@ int main(int argc, char * const *argv)
 		return 0;
 	}
 
-#ifdef STATIC_CONFIG
+#ifndef FILE_CONFIG
 	ouistiticonfig = &g_ouistiticonfig;
 #else
 	ouistiticonfig = ouistiticonfig_create(configfile);
@@ -472,7 +475,7 @@ int main(int argc, char * const *argv)
 		free(server);
 		server = next;
 	}
-#ifndef STATIC_CONFIG
+#ifdef FILE_CONFIG
 	ouistiticonfig_destroy(ouistiticonfig);
 #endif
 	return 0;
