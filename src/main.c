@@ -49,6 +49,9 @@
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
 
+#ifndef FILE_CONFIG
+#define STATIC_CONFIG
+#endif
 #include "httpserver/mod_tls.h"
 #include "httpserver/mod_websocket.h"
 #include "httpserver/mod_cookie.h"
@@ -77,7 +80,7 @@ extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_me
 #define dbg(...)
 #endif
 
-#define DEFAULT_CONFIGPATH sysconfdir"/ouistiti.conf"
+#define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
 static const char str_tls[] = "tls";
 static const char str_vhost[] = "vhost";
@@ -237,7 +240,7 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 	}
 #else
 	char file[512];
-	snprintf(file, 511, moduledir"/mod_%s.so", name);
+	snprintf(file, 511, PKGLIBDIR"/mod_%s.so", name);
 	void *dh = dlopen(file, RTLD_LAZY);
 	if (dh != NULL)
 	{
@@ -314,7 +317,7 @@ int main(int argc, char * const *argv)
 		return 0;
 	}
 
-#ifdef STATIC_CONFIG
+#ifndef FILE_CONFIG
 	ouistiticonfig = &g_ouistiticonfig;
 #else
 	ouistiticonfig = ouistiticonfig_create(configfile);
@@ -472,7 +475,7 @@ int main(int argc, char * const *argv)
 		free(server);
 		server = next;
 	}
-#ifndef STATIC_CONFIG
+#ifdef FILE_CONFIG
 	ouistiticonfig_destroy(ouistiticonfig);
 #endif
 	return 0;

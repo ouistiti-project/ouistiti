@@ -120,7 +120,7 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			return EREJECT;
 
 		const char *docroot = config->docroot;
-#ifdef DOCUMENTHOME
+#if defined(DOCUMENTHOME) && defined(AUTH)
 		if (config->options & DOCUMENT_HOME)
 		{
 			const char *home = auth_info(request, "home");

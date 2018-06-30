@@ -153,15 +153,14 @@ value should be **y** or **n**. For some specific cases, it is a string.
 
 ### Server configuration:
 
- * STATIC_CONFIG : use the configuration defined into the src/config.h file.  
  * FILE_CONFIG : use the ouistiti.conf file for the configuration.  
 
  * VTHREAD : enable the multithreading into the server.  
  * VTHREAD_TYPE : take a value like [fork|pthread|windows] to specify how to manage threads.  
 
- * STATIC : build the application, libraries and modules into a standalone binary.  
- * DYNAMIC : build the libraries and the application.  
- * MODULES : build the modules as dynamic libraries.
+ * STATIC : build the application, libraries (libhttpserver, libutils...) and modules into a standalone binary.  
+ * SHARED : build/link the dynamic libraries (libhttpserver, ...) and the application with integrated modules.  
+ * MODULES : build the modules as dynamic libraries, the application will load at the run time.
 
  * MAX_SERVERS : allow to choice the number of servers and virtual hosts to manage.  
 
