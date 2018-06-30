@@ -1,10 +1,9 @@
-#select STATIC_CONFIG or FILE_CONFIG
-#STATIC_CONFIG need to modify src/config.h
-STATIC_CONFIG=n
+#select FILE_CONFIG to use a configuration file
+#or modify src/config.h
 FILE_CONFIG=y
-#select DYNAMIC or STATIC
+#select SHARED or STATIC
 #STATIC build only one binary
-DYNAMIC=y
+SHARED=y
 STATIC=n
 MODULES=n
 #select the maximum of host to manage (host/port and virtual)

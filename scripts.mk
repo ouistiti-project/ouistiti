@@ -1,4 +1,5 @@
 makemore:=$(notdir $(lastword $(MAKEFILE_LIST)))
+MAKEFLAGS+=--no-print-directory
 ifeq ($(inside_makemore),)
 inside_makemore:=yes
 ##
@@ -37,47 +38,49 @@ srcdir?=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 file?=$(notdir $(firstword $(MAKEFILE_LIST)))
 
 VERSIONFILE=version
-
-CROSS_COMPILE?=
-
-# CONFIG could define LD CC or/and CFLAGS
-# CONFIG must be included before "Commands for build and link"
-CONFIGURE_STATUS:=configure.status
-ifneq ($(wildcard $(obj)$(CONFIGURE_STATUS)),)
-include $(obj)$(CONFIGURE_STATUS)
-else ifneq ($(wildcard $(srcdir)$(CONFIGURE_STATUS)),)
-include $(srcdir)$(CONFIGURE_STATUS)
-endif
-
-CONFIG?=config
-ifneq ($(wildcard $(obj)$(CONFIG)),)
-configfile:=$(obj)$(CONFIG)
-else ifneq ($(wildcard $(srcdir)$(CONFIG)),)
-configfile:=$(srcdir)$(CONFIG)
-endif
-ifneq ($(configfile),)
-include $(configfile)
+DEFCONFIG=defconfig
+ifneq ($(wildcard $(srcdir)$(DEFCONFIG)),)
+include $(srcdir)$(DEFCONFIG)
 endif
 
 #ifneq ($(findstring -arch,$(CFLAGS)),)
 #ARCH=$(shell echo $(CFLAGS) 2>&1 | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
 #buildpath=$(join $(srcdir),$(ARCH))
 #endif
-ifneq ($(builddir),)
-buildpath=$(if $(wildcard $(addprefix /.,$(builddir))),$(builddir:%/=%)/,$(join $(srcdir),$(builddir:%/=%)/))
-else ifneq ($(CROSS_COMPILE),)
-buildpath=$(join $(srcdir),$(CROSS_COMPILE:%-=%)/)
-endif
-ifneq ($(buildpath),)
-obj=$(addprefix $(buildpath),$(cwdir))
+ifneq ($(BUILDDIR),)
+  builddir=$(BUILDDIR:%/=%)/
+  buildpath:=$(if $(wildcard $(addprefix /.,$(builddir))),$(builddir),$(join $(srcdir),$(builddir)))
 else
-obj=
+  builddir=$(srcdir)
 endif
-hostobj:=$(srcdir:%=%/)host/$(cwdir)
+
+# CONFIG could define LD CC or/and CFLAGS
+# CONFIG must be included before "Commands for build and link"
+CONFIGURE_STATUS:=.config.cache
+ifneq ($(wildcard $(builddir)$(CONFIGURE_STATUS)),)
+include $(builddir)$(CONFIGURE_STATUS)
+endif
+
+CONFIG?=.config
+ifneq ($(wildcard $(builddir)$(CONFIG)),)
+include $(builddir)$(CONFIG)
+endif
 
 ifneq ($(file),)
-include $(file)
+  include $(file)
 endif
+
+ifneq ($(buildpath),)
+  obj=$(addprefix $(buildpath),$(cwdir))
+else
+  ifneq ($(CROSS_COMPILE),)
+	buildpath:=$(builddir)$(CROSS_COMPILE:%-=%)/
+    obj:=$(addprefix $(buildpath),$(cwdir))
+  else
+    obj=
+  endif
+endif
+hostobj:=$(builddir)host/$(cwdir)
 
 PATH:=$(value PATH):$(hostobj)
 TMPDIR:=/tmp
@@ -87,6 +90,7 @@ TESTFILE:=makemore_test
 ##
 # not set variable if not into the build step
 AWK?=awk
+GREP?=grep
 RM?=rm -f
 INSTALL?=install
 INSTALL_PROGRAM?=$(INSTALL) -D
@@ -96,9 +100,14 @@ YACC?=bison
 MOC?=moc$(QT:%=-%)
 UIC?=uic$(QT:%=-%)
 
+TOOLCHAIN?=
+CROSS_COMPILE?=
 CC?=gcc
+CFLAGS?=
 CXX?=g++
+CXXFLAGS?=
 LD?=gcc
+LDFLAGS?=
 AR?=ar
 RANLIB?=ranlib
 HOSTCC?=$(CC)
@@ -110,10 +119,14 @@ HOSTCFLAGS?=$(CFLAGS)
 HOSTLDFLAGS?=$(LDFLAGS)
 
 ifneq ($(CROSS_COMPILE),)
-CROSS_COMPILE:=$(CROSS_COMPILE:%-=%)-
-ifeq ($(CC),cc)
-CC=gcc
-endif
+ ifneq ($(findstring $(CROSS_COMPILE),$(CC)),)
+  CROSS_COMPILE:=
+ else
+  CROSS_COMPILE:=$(CROSS_COMPILE:%-=%)-
+ endif
+ ifeq ($(CC),cc)
+  CC=gcc
+ endif
 endif
 
 # if cc is a link on gcc, prefer to use directly gcc for ld
@@ -129,11 +142,13 @@ else
 	ldgcc=$(1) $(2)
 endif
 
-ARCH?=$(shell LANG=C $(CC) -v 2>&1 | grep Target | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
+ARCH?=$(shell LANG=C $(CC) -v 2>&1 | $(GREP) Target | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
 libsuffix=$(findstring 64,$(ARCH))
 
 prefix?=/usr/local
 prefix:=$(prefix:"%"=%)
+program_prefix?=
+library_prefix?=lib
 bindir?=$(prefix)/bin
 bindir:=$(bindir:"%"=%)
 sbindir?=$(prefix)/sbin
@@ -150,30 +165,33 @@ datadir:=$(datadir:"%"=%)
 pkglibdir?=$(libdir)/$(package:"%"=%)
 pkglibdir:=$(pkglibdir:"%"=%)
 
-ifneq ($(sysroot:"%"=%),)
-SYSROOT_CFLAGS+=--sysroot=$(sysroot:"%"=%)
-SYSROOT_CFLAGS+=-isysroot $(sysroot:"%"=%)
-SYSROOT_CFLAGS+=-I$(sysroot:"%"=%)$(includedir)
-SYSROOT_LDFLAGS+=--sysroot=$(sysroot:"%"=%)
-SYSROOT_LDFLAGS+=-L$(sysroot:"%"=%)$(libdir)
-SYSROOT_LDFLAGS+=-L$(sysroot:"%"=%)$(pkglibdir)
+ifneq ($(SYSROOT),)
+sysroot:=$(patsubst "%",%,$(SYSROOT:%/=%)/)
+SYSROOT_CFLAGS+=--sysroot=$(sysroot)
+SYSROOT_CFLAGS+=-isysroot $(sysroot)
+SYSROOT_LDFLAGS+=--sysroot=$(sysroot)
+else
+sysroot:=
 endif
 
 #CFLAGS+=$(foreach macro,$(DIRECTORIES_LIST),-D$(macro)=\"$($(macro))\")
+CFLAGS+=-I$(obj)
+CXXFLAGS+=-I$(obj)
 ifneq ($(src),)
 CFLAGS+=-I$(src)
+CXXFLAGS+=-I$(src)
 endif
-CFLAGS+=-I$(CURDIR) -I.
 LIBRARY+=
-ifneq ($(obj),)
 LDFLAGS+=-L$(obj:%/=%)
-else
-LDFLAGS+=-L.
-endif
 LDFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
 LDFLAGS+=$(if $(strip $(pkglibdir)),$(call ldgcc,-rpath,$(strip $(pkglibdir))))
 
-#export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir
+CFLAGS+=-I$(sysroot)$(includedir)
+LDFLAGS+=-L$(sysroot)$(libdir)
+LDFLAGS+=-L$(sysroot)$(pkglibdir)
+
+
+export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir builddir
 
 ##
 # objects recipes generation
@@ -227,13 +245,13 @@ $(foreach t,$(bin-y) $(sbin-y),$(if $(findstring dl, $($(t)_LIBS) $(LIBS)),$(eva
 # targets recipes generation
 ##
 ifeq (STATIC,y)
-lib-static-target:=$(addprefix $(obj),$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(slib-y) $(lib-y))))
+lib-static-target:=$(addprefix $(obj),$(addsuffix $(slib-ext:%=.%),$(addprefix $(library_prefix),$(slib-y) $(lib-y))))
 else
-lib-static-target:=$(addprefix $(obj),$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(slib-y))))
-lib-dynamic-target:=$(addprefix $(obj),$(addsuffix $(dlib-ext:%=.%),$(addprefix lib,$(lib-y))))
+lib-static-target:=$(addprefix $(obj),$(addsuffix $(slib-ext:%=.%),$(addprefix $(library_prefix),$(slib-y))))
+lib-dynamic-target:=$(addprefix $(obj),$(addsuffix $(dlib-ext:%=.%),$(addprefix $(library_prefix),$(lib-y))))
 endif
 modules-target:=$(addprefix $(obj),$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
-bin-target:=$(addprefix $(obj),$(addsuffix $(bin-ext:%=.%),$(bin-y) $(sbin-y)))
+bin-target:=$(addprefix $(obj),$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(bin-y) $(sbin-y))))
 hostslib-target:=$(addprefix $(hostobj),$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(hostslib-y))))
 hostbin-target:=$(addprefix $(hostobj),$(addsuffix $(bin-ext:%=.%),$(hostbin-y)))
 
@@ -247,17 +265,16 @@ subdir-dir:=$(foreach dir,$(subdir-y),$(filter-out %$(makefile-ext:%=.%), $(filt
 subdir-files:=$(foreach dir,$(subdir-y),$(filter %$(makefile-ext:%=.%),$(dir)) $(filter %Makefile, $(dir)))
 
 #target each Makefile in directories
-subdir-target:=$(sort $(wildcard $(addsuffix /Makefile,$(subdir-dir:%/.=%))))
-subdir-target+=$(sort $(wildcard $(subdir-files)))
-
+subdir-target:=$(wildcard $(addsuffix /Makefile,$(subdir-dir:%/.=%)))
+subdir-target+=$(wildcard $(subdir-files))
 
 objdir:=$(sort $(dir $(target-objs)))
 
 targets:=
-targets+=$(sort $(lib-dynamic-target))
-targets+=$(sort $(modules-target))
-targets+=$(sort $(lib-static-target))
-targets+=$(sort $(bin-target))
+targets+=$(lib-dynamic-target)
+targets+=$(modules-target)
+targets+=$(lib-static-target)
+targets+=$(bin-target)
 
 ifneq ($(CROSS_COMPILE),)
 DESTDIR:=$(sysroot:"%"=%)
@@ -271,8 +288,8 @@ include-install:=$(addprefix $(DESTDIR:%=%/)$(includedir)/,$(include-y))
 lib-static-install:=$(addprefix $(DESTDIR:%=%/)$(libdir)/,$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(slib-y))))
 lib-dynamic-install:=$(addprefix $(DESTDIR:%=%/)$(libdir)/,$(addsuffix $(dlib-ext:%=.%),$(addprefix lib,$(lib-y))))
 modules-install:=$(addprefix $(DESTDIR:%=%/)$(pkglibdir)/,$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
-bin-install:=$(addprefix $(DESTDIR:%=%/)$(bindir)/,$(addsuffix $(bin-ext:%=.%),$(bin-y)))
-sbin-install:=$(addprefix $(DESTDIR:%=%/)$(sbindir)/,$(addsuffix $(bin-ext:%=.%),$(sbin-y)))
+bin-install:=$(addprefix $(DESTDIR:%=%/)$(bindir)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(bin-y))))
+sbin-install:=$(addprefix $(DESTDIR:%=%/)$(sbindir)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(sbin-y))))
 
 DEVINSTALL?=y
 install:=
@@ -312,8 +329,8 @@ _info:
 	@:
 
 _hostbuild: $(if $(strip $(hostslib-y) $(hostbin-y)), $(hostobj) $(hostslib-target) $(hostbin-target))
-_configbuild: $(obj) $(if $(wildcard $(configfile)),$(join $(obj),$(CONFIG:%=%.h)))
-_versionbuild: $(if $(package) $(version), $(join $(obj),$(VERSIONFILE:%=%.h)))
+_configbuild: $(obj) $(if $(wildcard $(builddir)$(CONFIG)),$(join $(builddir),$(CONFIG:.%=%.h)))
+_versionbuild: $(if $(package) $(version), $(join $(builddir),$(VERSIONFILE:%=%.h)))
 
 _build: _info $(objdir) $(subdir-project) $(subdir-target) _hostbuild $(targets)
 	@:
@@ -329,17 +346,17 @@ _clean: $(subdir-target) _clean_objs
 	$(Q)$(call cmd,clean,$(wildcard $(targets)))
 	$(Q)$(call cmd,clean,$(wildcard $(hostslib-target) $(hostbin-target)))
 
-_clean_objs: _info 
+_clean_objs:
 	$(Q)$(call cmd,clean,$(wildcard $(target-objs)) $(wildcard $(target-hostobjs)))
 
 _distclean: action:=_distclean
 _distclean: build:=$(action) -f $(srcdir)$(makemore) file
-_distclean: _info $(subdir-target) _clean
+_distclean: $(subdir-target) _clean
 	$(Q)$(call cmd,clean_dir,$(filter-out $(src),$(obj)))
 
 _check: action:=_check
 _check: build:=$(action) -s -f $(srcdir)$(makemore) file
-_check: _info $(subdir-target) $(LIBRARY) $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))
+_check: $(subdir-target) $(LIBRARY) $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))
 
 clean: action:=_clean
 clean: build:=$(action) -f $(srcdir)$(makemore) file
@@ -350,8 +367,8 @@ distclean: build:=$(action) -f $(srcdir)$(makemore) file
 distclean: $(.DEFAULT_GOAL)
 distclean:
 	$(Q)$(call cmd,clean_dir,$(wildcard $(buildpath:%=%/)host))
-	$(Q)$(call cmd,clean,$(wildcard $(configfile)))
-	$(Q)$(call cmd,clean,$(wildcard $(join $(obj),$(CONFIG:%=%.h))))
+	$(Q)$(call cmd,clean,$(wildcard $(obj)$(CONFIG)))
+	$(Q)$(call cmd,clean,$(wildcard $(join $(obj),$(CONFIG:.%=%.h))))
 	$(Q)$(call cmd,clean,$(wildcard $(join $(obj),$(VERSIONFILE:%=%.h))))
 
 install: action:=_install
@@ -362,29 +379,43 @@ check: action:=_check
 check: build:=$(action) -s -f $(srcdir)$(makemore) file
 check: $(.DEFAULT_GOAL)
 
-default_action: _configbuild _versionbuild
+default_action: _info _configbuild _versionbuild
 	$(Q)$(MAKE) $(build)=$(file)
 	@:
 
-pc: $(obj)$(package:%=%.pc)
+pc: $(builddir)$(package:%=%.pc)
 
 all: default_action
 
-$(obj)$(CONFIG:%=%.h): $(configfile)
-	@$(call cmd,config)
+PHONY: menuconfig gconfig xconfig config
+menuconfig gconfig xconfig: $(builddir)$(CONFIG)
+	$(EDITOR) $(obj)$(CONFIG)
 
-$(obj)$(VERSIONFILE:%=%.h):
-	@$(call cmd,versionfile)
+%_defconfig:
+	@echo "  "DEFCONFIG $*
+	@$(GREP) -v "^#" $(wildcard $(srcdir)/configs/$< $(srcdir)/$<) > $(obj)$(CONFIG)
 
-quiet_cmd_versionfile=VERSION $*
-define cmd_versionfile
-	echo '#ifndef __VERSION_H__' >> $@
-	echo '#define __VERSION_H__' >> $@
-	$(if $(version), echo '#define VERSION "'$(version)'"' >> $@)
-	$(if $(package), echo '#define PACKAGE "'$(package)'"' >> $@)
-	$(if $(sysconfdir), echo '#define SYSCONFDIR "'$(sysconfdir)'"' >> $@)
-	echo '#endif' >> $@
-endef
+config: $(builddir)$(CONFIG)
+	@echo "  "CONFIG $*
+
+$(builddir)$(CONFIG): $(srcdir)$(DEFCONFIG)
+	@$(eval CONFIGS=$(shell $(GREP) -v "^#" $< | $(AWK) -F= 't$$1 != t {print $$1}'))
+	@$(foreach config,$(CONFIGS),$(shell echo $(config)=$($(config)) >> $@))
+
+$(builddir)$(CONFIG:.%=%.h): $(builddir)$(CONFIG)
+	@echo "  "CONFIG $*
+	@$(GREP) -v "^#" $< | $(AWK) -F= 't$$1 != t {print "#define "$$1" "$$2}' > $@
+
+$(builddir)$(VERSIONFILE:%=%.h):
+	@echo "  "VERSION $*
+	@echo '#ifndef __VERSION_H__' > $@
+	@echo '#define __VERSION_H__' >> $@
+	@$(if $(version), echo '#define VERSION "'$(version)'"' >> $@)
+	@$(if $(package), echo '#define PACKAGE "'$(package)'"' >> $@)
+	@$(if $(pkglibdir), echo '#define PKGLIBDIR "'$(pkglibdir)'"' >> $@)
+	@$(if $(datadir), echo '#define DATADIR "'$(datadir)'"' >> $@)
+	@$(if $(sysconfdir), echo '#define SYSCONFDIR "'$(sysconfdir)'"' >> $@)
+	@echo '#endif' >> $@
 
 ##
 # Commands for clean
@@ -404,7 +435,7 @@ quiet_cmd_as_o_s=AS $*
 quiet_cmd_cc_o_c=CC $*
  cmd_cc_o_c=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CC) $(SYSROOT_CFLAGS) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_cpp=CXX $*
- cmd_cc_o_cpp=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CXX) $(SYSROOT_CFLAGS) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
+ cmd_cc_o_cpp=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CXX) $(SYSROOT_CFLAGS) $(CXXFLAGS) $($*_CXXFLAGS) -c -o $@ $<
 quiet_cmd_moc_hpp=QTMOC $*
  cmd_moc_hpp=$(MOC) $(INCLUDES) $($*_MOCFLAGS) $($*_MOCFLAGS-y) -o $@ $<
 quiet_cmd_uic_hpp=QTUIC $*
@@ -497,11 +528,13 @@ $(hostslib-target): $(hostobj)lib%$(slib-ext:%=.%): $$(if $$(%-objs), $$(addpref
 
 .PHONY: $(subdir-project) $(subdir-target) FORCE
 $(subdir-project): %: FORCE
+	$(Q)echo "  "PROJECT $*
 	$(Q)cd $* && $($*_CONFIGURE)
 	$(Q)$(MAKE) -C $* 
 	$(Q)$(MAKE) -C $* install
 
 $(subdir-target): %: FORCE
+	$(Q)echo "  "SUBDIR $*
 	$(Q)$(MAKE) -C $(dir $*) cwdir=$(cwdir)$(dir $*) builddir=$(builddir) $(build)=$(notdir $*)
 
 $(LIBRARY) $(sort $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))): %:
@@ -550,16 +583,6 @@ $(bin-install): $(DESTDIR:%=%/)$(bindir)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%
 $(sbin-install): $(DESTDIR:%=%/)$(sbindir)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
 	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR:%=%/)$(sbindir) && rm -f $(a) && ln -s $(sbindir)$*$(bin-ext:%=.%) $(a)))
-
-##
-# commands for configuration
-##
-empty=
-space=$(empty) $(empty)
-quote="
-sharp=\#
-quiet_cmd_config=CONFIG $*
- cmd_config=$(AWK) -F= '$$1 != $(quote)$(quote) {print $(quote)$(sharp)define$(space)$(quote)$$1$(quote)$(space)$(quote)$$2}' $< > $@
 
 #if inside makemore
 endif

@@ -4,9 +4,13 @@ AWK=awk
 GREP=grep
 SED=sed
 MAKE=make
-CONFIG=config
-CONFIGURE_STATUS=configure.status
+DEFCONFIG=defconfig
+CONFIG=.config
+CONFIGURE_STATUS=.config.cache
 out=$CONFIGURE_STATUS
+
+srcdir=$(dirname $(realpath $0))/
+builddir=$(pwd)/
 
 prefix=/usr/local
 function argument {
@@ -28,6 +32,7 @@ function help {
 	printf "\nSystem types:\n"
 	printf "\t--build=BUILD\t\tconfigure for building on BUILD [guessed]\n"
 	printf "\t--host=HOST\t\tcross-compile to build programs to run on HOST [BUILD]\n"
+	printf "\t--target=<host>\t\tcross-compile to build programs to run on HOST [BUILD]\n"
 	printf "\t--sysroot=DIR\t\tcross-compiler root directory [none]\n"
 	printf "\t--toolchain=DIR\t\tcross-compiler tools path [none]\n"
 	printf "\nFeatures enabling:\n"
@@ -55,17 +60,24 @@ function help {
 	exit
 }
 
-if [ ! -e ${CONFIG} -a -e default.config ]; then
-	cp default.config ${CONFIG}
+if [ ! -e ${builddir}${CONFIG} -a -e ${srcdir}${DEFCONFIG} ]; then
+	grep -v "^#" ${srcdir}${DEFCONFIG} | awk -F= 't$$1 != t {print $$1"="$$2}' >  ${builddir}${CONFIG}
+	#cp ${srcdir}${DEFCONFIG} ${builddir}${CONFIG}
 fi
 
-OPTIONS=$(cat ${CONFIG} | ${SED} 's/\#.*//g')
+if [ -e ${srcdir}${DEFCONFIG} ]; then
+  OPTIONS=$(cat ${srcdir}${DEFCONFIG} | ${SED} 's/\#.*//g')
+fi
+
 error=n
 
 while [ "${1}" != "" ]; do
 	case ${1} in
 		--prefix*)
 			prefix=$(argument ${1})
+			;;
+		--program-prefix*)
+			program_prefix=$(argument ${1})
 			;;
 		--bindir*)
 			bindir=$(argument ${1})
@@ -88,8 +100,14 @@ while [ "${1}" != "" ]; do
 		--host*)
 			CROSS_COMPILE=$(argument ${1})
 			;;
+		--target*)
+			CROSS_COMPILE=$(argument ${1})
+			;;
+		--build*)
+			HOST_COMPILE=$(argument ${1})
+			;;
 		--sysroot*)
-			sysroot=$(argument ${1})
+			SYSROOT=$(argument ${1})
 			;;
 		--toolchain*)
 			TOOLCHAIN=$(argument ${1})
@@ -97,40 +115,28 @@ while [ "${1}" != "" ]; do
 		--disable-error)
 			error=disable
 			;;
+		--disable-check)
+			check=disable
+			;;
 		--help*)
 			help
 			;;
+		--enable-*)
+			name=$(echo ${1} | ${SED} 's/--enable-//g' | ${SED} 's/-/_/g' | ${AWK} '{print toupper($1)}')
+			ENABLEOPTIONS="${ENABLEOPTIONS} $name"
+			;;
+		--disable-*)
+			name=$(echo ${1} | ${SED} 's/--disable-//g' | ${SED} 's/-/_/g' | ${AWK} '{print toupper($1)}')
+			DISABLEOPTIONS="${DISABLEOPTIONS} $name"
+			;;
+		--with-*)
+			name=$(echo ${1} | ${SED} 's/--with-//g' | ${SED} 's/-/_/g' | ${AWK} -F= '{print toupper($1)}')
+			value=$(echo ${1} | ${SED} 's/--with-//g' | ${SED} 's/-/_/g' | ${AWK} -F= '{print $2}')
+			WITHOPTIONS="${WITHOPTIONS} $name"
+			eval $name="$value"
+			;;
 		*)
-			found=n
-			OPTION=$(echo ${1} | ${SED} 's/=/ /g' | ${AWK} '{print $1}')
-			for opt in $OPTIONS
-			do
-				default=$(echo $opt | ${SED} 's/=/ /g' | ${AWK} '{print $2}')
-				option=$(echo $opt | ${SED} 's/=/ /g' | ${AWK} '{print $1}')
-
-				enable=$(echo $opt | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--enable-"tolower($1)}')
-				disable=$(echo $opt | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--disable-"tolower($1)}')
-				with=$(echo $opt | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--with-"tolower($1)}')
-
-				if [ "$enable" == "$OPTION" ]; then
-					default=y
-					found=y
-				fi
-				if [ "$disable" == "$OPTION" ]; then
-					default=n
-					found=y
-				fi
-				if [ "$with" == "$OPTION" ]; then
-					default=$(argument ${1})
-					found=y
-				fi
-				NEWOPTIONS="$NEWOPTIONS ${option}=${default}"
-			done
-			OPTIONS=$NEWOPTIONS
-			NEWOPTIONS=""
-			if [ $found == n -a $error == n ]; then
-				error=${1}
-			fi
+			error=${1}
 			;;
 	esac
 	shift
@@ -141,67 +147,141 @@ if [ $error != n  -a $error != disable ]; then
 	help
 fi
 
-echo "#Makemore 1.0" > $out
+echo "#Makemore 1.0" > ${builddir}$out
 printf "\nInstallation:\n"
-if [ $prefix ]; then
-	echo "prefix="$prefix"" >> $out
+if [ -n "$prefix" ]; then
+	echo "prefix="$prefix"" >> ${builddir}$out
 	printf " prefix:\t$prefix\n"
 fi
-if [ $bindir ]; then
-	echo "bindir="$bindir"" >> $out
+if [ -n "$bindir" ]; then
+	echo "bindir="$bindir"" >> ${builddir}$out
 	printf " bindir:\t$bindir\n"
 fi
-if [ $sbindir ]; then
-	echo "sbindir="$sbindir"" >> $out
+if [ -n "$sbindir" ]; then
+	echo "sbindir="$sbindir"" >> ${builddir}$out
 	printf " sbindir:\t$sbindir\n"
 fi
-if [ $includedir ]; then
-	echo "includedir="$includedir"" >> $out
+if [ -n "$includedir" ]; then
+	echo "includedir="$includedir"" >> ${builddir}$out
 	printf " includedir:\t$includedir\n"
 fi
-if [ $libdir ]; then
-	echo "libdir="$libdir"" >> $out
+if [ -n "$libdir" ]; then
+	echo "libdir="$libdir"" >> ${builddir}$out
 	printf " libdir:\t$libdir\n"
 fi
-if [ $sysconfdir ]; then
-	echo "sysconfdir="$sysconfdir"" >> $out
+if [ -n "$sysconfdir" ]; then
+	echo "sysconfdir="$sysconfdir"" >> ${builddir}$out
 	printf " sysconfdir:\t$sysconfdir\n"
 fi
-if [ $sysroot ]; then
-	echo "sysroot="$sysroot"" >> $out
-	printf " sysroot:\t$sysroot\n"
+if [ -n "$SYSROOT" ]; then
+	echo "SYSROOT=$SYSROOT" >> ${builddir}$out
+	printf " sysroot:\t$SYSROOT\n"
 fi
-if [ $CROSS_COMPILE ]; then
-	echo "CROSS_COMPILE="$CROSS_COMPILE >> $out
+if [ -n "$CROSS_COMPILE" ]; then
+	echo "CROSS_COMPILE=$CROSS_COMPILE" >> ${builddir}$out
 	printf " host:\t$CROSS_COMPILE\n"
 fi
-if [ $TOOLCHAIN ]; then
-	echo "TOOLCHAIN="$TOOLCHAIN >> $out
+if [ -n "$TOOLCHAIN" ]; then
+	echo "TOOLCHAIN=$TOOLCHAIN" >> ${builddir}$out
 	printf " toolchain:\t$TOOLCHAIN\n"
 fi
-
-echo "# Configuration file set with ./configure" > ${CONFIG}
-for opt in $OPTIONS
-do
-	echo $opt >> ${CONFIG}
-done
-
-${MAKE} check 2> /dev/null
-if [ $? != 0 ]; then
-	echo "binary dependences failed"
-	exit -1
+if [ -n "$CC" ]; then
+	echo "CC=$CC" >> ${builddir}$out
+fi
+if [ -n "$CFLAGS" ]; then
+	echo "CFLAGS=$CFLAGS" >> ${builddir}$out
+fi
+if [ -n "$CXX" ]; then
+	echo "CXX=$CXX" >> ${builddir}$out
+fi
+if [ -n "$CXXFLAGS" ]; then
+	echo "CXXFLAGS=$CXXFLAGS" >> ${builddir}$out
+fi
+if [ -n "$LD" ]; then
+	echo "LD=$LD" >> ${builddir}$out
+fi
+if [ -n "$LDFLAGS" ]; then
+	echo "LDFLAGS=$LDFLAGS" >> ${builddir}$out
+fi
+if [ -n "$AS" ]; then
+	echo "AS=$AS" >> ${builddir}$out
+fi
+if [ -n "$AR" ]; then
+	echo "AR=$AR" >> ${builddir}$out
+fi
+if [ -n "$RANLIB" ]; then
+	echo "RANLIB=$RANLIB" >> ${builddir}$out
+fi
+if [ -n "$CC_FOR_BUILD" ]; then
+	echo "HOSTCC=$CC_FOR_BUILD" >> ${builddir}$out
+fi
+if [ -n "$CFLAGS_FOR_BUILD" ]; then
+	echo "HOSTCFLAGS=$CFLAGS_FOR_BUILD" >> ${builddir}$out
+fi
+if [ -n "$CXX_FOR_BUILD" ]; then
+	echo "HOSTCXX=$CXX_FOR_BUILD" >> ${builddir}$out
+fi
+if [ -n "$CXXFLAGS_FOR_BUILD" ]; then
+	echo "HOSTCXXFLAGS=$CXXFLAGS_FOR_BUILD" >> ${builddir}$out
+fi
+if [ -n "$LD_FOR_BUILD" ]; then
+	echo "HOSTLD=$LD_FOR_BUILD" >> ${builddir}$out
 fi
 
 printf "\nConfiguration:\n"
-for opt in $OPTIONS
-do
-	default=$(echo $opt | ${SED} 's/=/ /g' | ${AWK} '{print $2}')
-	option=$(echo $opt | ${SED} 's/=/ /g' | ${AWK} '{print $1}')
-	if [ $(echo $option | wc -c) -ge 15 ]; then
-		printf " $option:\t$default\n"
-	elif [ $(echo $option | wc -c) -ge 7 ]; then
-		printf " $option:\t\t$default\n"
-	else
-		printf " $option:\t\t\t$default\n"
+rm ${builddir}${CONFIG}
+if [ -n "$OPTIONS" ]; then
+	for option in $OPTIONS
+	do
+		name=$(echo ${option} | ${AWK} -F= '{print $1}')
+		value=$(echo ${option} | ${AWK} -F= '{print $2}')
+		found=$(echo $ENABLEOPTIONS | grep $name)
+		if [ x"$found" != x"" ]; then
+			value=y
+		fi
+		found=$(echo $DISABLEOPTIONS | grep $name)
+		if [ -n "$found" ]; then
+			value=n
+		fi
+		found=$(echo $WITHOPTIONS | grep $name)
+		if [ x"$found" != x"" ]; then
+			value=${!name}
+		fi
+		printf "  $name:\t$value\n"
+		echo $name=$value >> ${builddir}${CONFIG}
+	done
+else
+	for name in $ENABLEOPTIONS
+	do
+		printf "  $name:\ty\n"
+		echo $name=y >> ${builddir}${CONFIG}
+	done
+	for name in $DISABLEOPTIONS
+	do
+		printf "  $name:\tn\n"
+		echo $name=n >> ${builddir}${CONFIG}
+	done
+	for name in $DISABLEOPTIONS
+	do
+		value=${!name}
+		printf "  $name:\t$value\n"
+		echo $name=$value >> ${builddir}${CONFIG}
+	done
+fi
+
+printf "\nDependencies checking:\n"
+if [ "$check" != "disable" ]; then
+	${MAKE} BUILDDIR=${builddir} -C${srcdir} check 2> /dev/null
+	if [ $? != 0 ]; then
+		echo "binary dependencies failed"
+		exit -1
 	fi
-done
+fi
+
+if [ ! -e ${builddir}Makefile ]; then
+	printf '#Generated Makefile\n' > ${builddir}Makefile
+	printf 'goal:=$(filter-out Makefile,$(MAKECMDGOALS))\n' >> ${builddir}Makefile
+	printf 'goals:=$(if $(goal),$(goal),all)\n' >> ${builddir}Makefile
+	printf '$(goals):\n' >> ${builddir}Makefile
+	printf '\t@make BUILDDIR='${builddir}' -C'${srcdir}' $@\n' >> ${builddir}Makefile
+fi
