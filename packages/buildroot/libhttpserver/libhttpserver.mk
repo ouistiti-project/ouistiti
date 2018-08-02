@@ -21,7 +21,9 @@ LIBHTTPSERVER_CONF_OPTS = \
 	--libdir=/usr/lib/ouistiti \
 	--sysconfdir=/etc/ouistiti \
 	--enable-static \
-	--disable-dynamic \
+	--disable-shared \
+	--disable-error \
+	--disable-check \
 	--enable-libutils \
 	--with-vthread-type=fork
 
