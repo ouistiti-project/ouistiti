@@ -191,7 +191,7 @@ LDFLAGS+=-L$(sysroot)$(libdir)
 LDFLAGS+=-L$(sysroot)$(pkglibdir)
 
 
-export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir builddir
+export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir builddir sysconfdir
 
 ##
 # objects recipes generation
@@ -387,7 +387,7 @@ pc: $(builddir)$(package:%=%.pc)
 
 all: default_action
 
-PHONY: menuconfig gconfig xconfig config
+PHONY: menuconfig gconfig xconfig config oldconfig
 menuconfig gconfig xconfig: $(builddir)$(CONFIG)
 	$(EDITOR) $(obj)$(CONFIG)
 
@@ -395,11 +395,20 @@ menuconfig gconfig xconfig: $(builddir)$(CONFIG)
 	@echo "  "DEFCONFIG $*
 	@$(GREP) -v "^#" $(wildcard $(srcdir)/configs/$< $(srcdir)/$<) > $(obj)$(CONFIG)
 
-config: $(builddir)$(CONFIG)
+config: $(builddir)$(CONFIG) $(builddir)$(VERSIONFILE:%=%.h)
 	@echo "  "CONFIG $*
+
+oldconfig: $(builddir)$(CONFIG).old
+	@$(eval CONFIGS=$(shell $(GREP) -v "^#" $(srcdir)$(DEFCONFIG) | $(AWK) -F= 't$$1 != t {print $$1}'))
+	@echo "" > $(builddir)$(CONFIG)
+	@$(foreach config,$(CONFIGS),$(if $($(config)),,$(eval $(config)=y)) $(shell echo $(config)=$($(config)) >> $(builddir)$(CONFIG)))
+
+$(builddir)$(CONFIG).old: $(builddir)$(CONFIG)
+	@cp $< $@
 
 $(builddir)$(CONFIG): $(srcdir)$(DEFCONFIG)
 	@$(eval CONFIGS=$(shell $(GREP) -v "^#" $< | $(AWK) -F= 't$$1 != t {print $$1}'))
+	@echo "" > $@
 	@$(foreach config,$(CONFIGS),$(shell echo $(config)=$($(config)) >> $@))
 
 $(builddir)$(CONFIG:.%=%.h): $(builddir)$(CONFIG)
