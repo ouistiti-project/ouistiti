@@ -1,5 +1,5 @@
 [Unit]
-Description=A embedded web server for system management
+Description=An embedded web server for system management
 After=syslog.target network.target
 
 [Service]
