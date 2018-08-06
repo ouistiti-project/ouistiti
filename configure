@@ -235,15 +235,15 @@ if [ -n "$OPTIONS" ]; then
 	do
 		name=$(echo ${option} | ${AWK} -F= '{print $1}')
 		value=$(echo ${option} | ${AWK} -F= '{print $2}')
-		found=$(echo $ENABLEOPTIONS | grep $name)
+		found=$(echo $ENABLEOPTIONS | grep -w $name)
 		if [ x"$found" != x"" ]; then
 			value=y
 		fi
-		found=$(echo $DISABLEOPTIONS | grep $name)
+		found=$(echo $DISABLEOPTIONS | grep -w $name)
 		if [ -n "$found" ]; then
 			value=n
 		fi
-		found=$(echo $WITHOPTIONS | grep $name)
+		found=$(echo $WITHOPTIONS | grep -w $name)
 		if [ x"$found" != x"" ]; then
 			value=${!name}
 		fi
