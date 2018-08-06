@@ -431,7 +431,7 @@ int main(int argc, char * const *argv)
 		server = server->next;
 	}
 
-#ifdef HAVE_PWD_H
+#ifdef HAVE_PWD
 	if (pw_uid > 0)
 	{
 		setgid(pw_gid);
