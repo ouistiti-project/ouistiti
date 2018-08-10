@@ -120,17 +120,14 @@ HOSTLDFLAGS?=$(LDFLAGS)
 
 export PATH:=$(PATH):$(TOOLCHAIN):$(TOOLCHAIN)/bin
 # if cc is a link on gcc, prefer to use directly gcc for ld
-CCVERSION:=$(shell $(CC) -v 2>&1)
 ifeq ($(CC),cc)
- ifneq ($(findstring GCC,$(CCVERSION)),)
-  CC=gcc
-  LD=gcc
- endif
+ CC=gcc
+endif
+CCVERSION:=$(shell $(CC) -v 2>&1)
+ifneq ($(findstring GCC,$(CCVERSION)),)
+  LD=$(CC)
 endif
 ifneq ($(CROSS_COMPILE),)
- ifeq ($(CC),cc)
-  CC=gcc
- endif
  CC:=$(CROSS_COMPILE:%-=%)-$(CC)
  CCVERSION:=$(shell $(CC) -v 2>&1)
  ifneq ($(findstring GCC,$(CCVERSION)),)
