@@ -118,28 +118,28 @@ HOSTRANLIB?=$(RANLIB)
 HOSTCFLAGS?=$(CFLAGS)
 HOSTLDFLAGS?=$(LDFLAGS)
 
+export PATH:=$(PATH):$(TOOLCHAIN):$(TOOLCHAIN)/bin
+# if cc is a link on gcc, prefer to use directly gcc for ld
+CCVERSION:=$(shell $(CC) -v 2>&1)
+ifneq ($(findstring GCC,$(CCVERSION)),)
+ CC=gcc
+ LD=gcc
+endif
 ifneq ($(CROSS_COMPILE),)
- ifneq ($(findstring $(CROSS_COMPILE),$(CC)),)
-  CROSS_COMPILE:=
- else
-  CROSS_COMPILE:=$(CROSS_COMPILE:%-=%)-
- endif
  ifeq ($(CC),cc)
   CC=gcc
  endif
-endif
-
-# if cc is a link on gcc, prefer to use directly gcc for ld
-CCVERSION=$(shell $(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CC) -v 2>&1)
-ifneq ($(findstring GCC,$(CCVERSION)), )
-	LD=$(CC)
-	HOSTLD?=$(CC)
-	ldgcc=-Wl,$(1),$(2)
-else ifneq ($(findstring gcc,$(CC)),)
-	LD=$(CC)
-	ldgcc=-Wl,$(1),$(2)
+ CC:=$(CROSS_COMPILE:%-=%)-$(CC)
+ CCVERSION:=$(shell $(CC) -v 2>&1)
+ifneq ($(findstring GCC,$(CCVERSION)),)
+ LD:=$(CROSS_COMPILE:%-=%)-gcc
 else
-	ldgcc=$(1) $(2)
+ LD:=$(CROSS_COMPILE:%-=%)-$(LD)
+endif
+ AS:=$(CROSS_COMPILE:%-=%)-$(AS)
+ CXX:=$(CROSS_COMPILE:%-=%)-$(CXX)
+ AR:=$(CROSS_COMPILE:%-=%)-$(AR)
+ RANLIB:=$(CROSS_COMPILE:%-=%)-$(RANLIB)
 endif
 
 ARCH?=$(shell LANG=C $(CC) -v 2>&1 | $(GREP) Target | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
@@ -169,27 +169,28 @@ ifneq ($(SYSROOT),)
 sysroot:=$(patsubst "%",%,$(SYSROOT:%/=%)/)
 SYSROOT_CFLAGS+=--sysroot=$(sysroot)
 SYSROOT_CFLAGS+=-isysroot $(sysroot)
+SYSROOT_CFLAGS+=-I$(sysroot)$(includedir)
 SYSROOT_LDFLAGS+=--sysroot=$(sysroot)
+SYSROOT_LDFLAGS+=-L$(sysroot)$(libdir)
+SYSROOT_LDFLAGS+=-L$(sysroot)$(pkglibdir)
 else
 sysroot:=
 endif
 
 #CFLAGS+=$(foreach macro,$(DIRECTORIES_LIST),-D$(macro)=\"$($(macro))\")
+LIBRARY+=
+LDFLAGS+=
+LDFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
+LDFLAGS+=$(if $(strip $(pkglibdir)),$(call ldgcc,-rpath,$(strip $(pkglibdir))))
+ifneq ($(obj),)
 CFLAGS+=-I$(obj)
 CXXFLAGS+=-I$(obj)
+LDFLAGS+=-L$(obj)
+endif
 ifneq ($(src),)
 CFLAGS+=-I$(src)
 CXXFLAGS+=-I$(src)
 endif
-LIBRARY+=
-LDFLAGS+=-L$(obj:%/=%)
-LDFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
-LDFLAGS+=$(if $(strip $(pkglibdir)),$(call ldgcc,-rpath,$(strip $(pkglibdir))))
-
-CFLAGS+=-I$(sysroot)$(includedir)
-LDFLAGS+=-L$(sysroot)$(libdir)
-LDFLAGS+=-L$(sysroot)$(pkglibdir)
-
 
 export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir builddir sysconfdir
 
@@ -277,7 +278,7 @@ targets+=$(lib-static-target)
 targets+=$(bin-target)
 
 ifneq ($(CROSS_COMPILE),)
-DESTDIR:=$(sysroot:"%"=%)
+DESTDIR?=$(sysroot:"%"=%)
 endif
 ##
 # install recipes generation
@@ -294,8 +295,6 @@ sbin-install:=$(addprefix $(DESTDIR:%=%/)$(sbindir)/,$(addprefix $(program_prefi
 DEVINSTALL?=y
 install:=
 dev-install-y:=
-ifneq ($(CROSS_COMPILE),)
-ifneq ($(DESTDIR),)
 install+=$(bin-install)
 install+=$(sbin-install)
 dev-install-$(DEVINSTALL)+=$(lib-static-install)
@@ -304,17 +303,6 @@ install+=$(modules-install)
 install+=$(data-install)
 install+=$(sysconf-install)
 dev-install-$(DEVINSTALL)+=$(include-install)
-endif
-else
-install+=$(bin-install)
-install+=$(sbin-install)
-dev-install-$(DEVINSTALL)+=$(lib-static-install)
-install+=$(lib-dynamic-install)
-install+=$(modules-install)
-install+=$(data-install)
-install+=$(sysconf-install)
-dev-install-$(DEVINSTALL)+=$(include-install)
-endif
 
 ##
 # main entries
@@ -440,23 +428,23 @@ RPATH=$(wildcard $(addsuffix /.,$(wildcard $(CURDIR:%/=%)/* $(obj)*)))
 quiet_cmd_yacc_y=YACC $*
  cmd_yacc_y=$(YACC) -o $@ $<
 quiet_cmd_as_o_s=AS $*
- cmd_as_o_s=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(AS) $(SYSROOT_CFLAGS) $(ASFLAGS) $($*_CFLAGS) -c -o $@ $<
+ cmd_as_o_s= $(SYSROOT_CFLAGS) $(ASFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_c=CC $*
- cmd_cc_o_c=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CC) $(SYSROOT_CFLAGS) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
+ cmd_cc_o_c=$(CC) $(SYSROOT_CFLAGS) $(CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_cpp=CXX $*
- cmd_cc_o_cpp=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(CXX) $(SYSROOT_CFLAGS) $(CXXFLAGS) $($*_CXXFLAGS) -c -o $@ $<
+ cmd_cc_o_cpp=$(CXX) $(SYSROOT_CFLAGS) $(CXXFLAGS) $($*_CXXFLAGS) -c -o $@ $<
 quiet_cmd_moc_hpp=QTMOC $*
  cmd_moc_hpp=$(MOC) $(INCLUDES) $($*_MOCFLAGS) $($*_MOCFLAGS-y) -o $@ $<
 quiet_cmd_uic_hpp=QTUIC $*
  cmd_uic_hpp=$(UIC) $< > $@
 quiet_cmd_ld_bin=LD $*
- cmd_ld_bin=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(LD) $(SYSROOT_LDFLAGS) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+ cmd_ld_bin=$(LD) $(SYSROOT_LDFLAGS) -o $@ $^ $(LDFLAGS) $($*_LDFLAGS) -L. $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
 quiet_cmd_ld_slib=LD $*
  cmd_ld_slib=$(RM) $@ && \
-	$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(AR) -cvq $@ $^ > /dev/null && \
-	$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(RANLIB) $@
+	$(AR) -cvq $@ $^ > /dev/null && \
+	$(RANLIB) $@
 quiet_cmd_ld_dlib=LD $*
- cmd_ld_dlib=$(TOOLCHAIN:%=%/)$(CROSS_COMPILE)$(LD) $(SYSROOT_LDFLAGS) $(LDFLAGS) $($*_LDFLAGS) -shared $(call ldgcc,-soname,$(strip $(notdir $@))) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%)
+ cmd_ld_dlib=$(LD) $(SYSROOT_LDFLAGS) $(LDFLAGS) $($*_LDFLAGS) -Bdynamic -shared $(call ldgcc,-soname,$(strip $(notdir $@))) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
 
 quiet_cmd_hostcc_o_c=HOSTCC $*
  cmd_hostcc_o_c=$(HOSTCC) $(HOSTCFLAGS) $($*_CFLAGS) -c -o $@ $<
