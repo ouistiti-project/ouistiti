@@ -295,14 +295,14 @@ sbin-install:=$(addprefix $(DESTDIR:%=%/)$(sbindir)/,$(addprefix $(program_prefi
 DEVINSTALL?=y
 install:=
 dev-install-y:=
-install+=$(bin-install)
-install+=$(sbin-install)
 dev-install-$(DEVINSTALL)+=$(lib-static-install)
 install+=$(lib-dynamic-install)
 install+=$(modules-install)
 install+=$(data-install)
 install+=$(sysconf-install)
 dev-install-$(DEVINSTALL)+=$(include-install)
+install+=$(bin-install)
+install+=$(sbin-install)
 
 ##
 # main entries
