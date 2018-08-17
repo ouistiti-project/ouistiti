@@ -1,13 +1,10 @@
 #ifndef _MAKEMORE_FEATURES_
 #define _MAKEMORE_FEATURES_
 
-#ifdef _DARWIN_C_SOURCE
-#error
-# define HAVE_GETNAMEINFO
-# define HAVE_STRDUP
-# define HAVE_GETOPT
-# define HAVE_SIGACTION
-# define HAVE_SYMLINK
+#include <unistd.h>
+
+#ifdef _POSIX_VERSION
+# define _POSIX_C_SOURCE _POSIX_VERSION
 #endif
 
 #ifdef _POSIX_C_SOURCE
