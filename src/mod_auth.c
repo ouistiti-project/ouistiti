@@ -117,6 +117,13 @@ const char *str_authenticate_types[] =
 	"Basic",
 	"Digest",
 };
+const char *str_authenticate_engine[] =
+{
+	"simple",
+	"file",
+	"unix",
+	"sqlite",
+};
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE
 	&authn_none_rules,
@@ -191,19 +198,28 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 		{
 			mod->authn->hash = hash_sha1;
 		}
-		if (hash_sha224 && !strcmp(config->algo, hash_sha224->name))
+		else if (hash_sha224 && !strcmp(config->algo, hash_sha224->name))
 		{
 			mod->authn->hash = hash_sha224;
 		}
-		if (hash_sha256 && !strcmp(config->algo, hash_sha256->name))
+		else if (hash_sha256 && !strcmp(config->algo, hash_sha256->name))
 		{
 			mod->authn->hash = hash_sha256;
 		}
-		if (hash_sha512 && !strcmp(config->algo, hash_sha512->name))
+		else if (hash_sha512 && !strcmp(config->algo, hash_sha512->name))
 		{
 			mod->authn->hash = hash_sha512;
 		}
-		dbg("auth : use %d as hash method", config->algo);
+		else
+		{
+			warn("auth: bad algorithm %s (%s | %s | %s | %s)",
+				config->algo,
+				(hash_sha1?hash_sha1->name:""),
+				(hash_sha224?hash_sha224->name:""),
+				(hash_sha256?hash_sha256->name:""),
+				(hash_sha512?hash_sha512->name:""));
+		}
+		dbg("auth : use %s as hash method", config->algo);
 	}
 	if (mod->authn->hash == NULL && hash_md5)
 	{

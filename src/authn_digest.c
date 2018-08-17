@@ -356,6 +356,11 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 		warn("try connection on %s with authorization on %s", url, uri);
 		return NULL;
 	}
+	if (mod->authz->rules->passwd == NULL)
+	{
+		err("authn Digest is not compatible with authz %d", str_authenticate_engine[mod->authz->type&AUTHZ_TYPE_MASK]);
+		return NULL;
+	}
 	passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
 	if (passwd && authn_digest_computing)
 	{

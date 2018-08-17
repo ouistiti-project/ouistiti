@@ -85,6 +85,7 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 
 	if (ctx->user && !strcmp(user, ctx->user))
 		ret = 1;
+
 	struct passwd *pw = NULL;
 	pw = getpwnam(user);
 	if (passwd && pw)
@@ -95,9 +96,16 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 		if (spasswd && spasswd->sp_pwdp) {
 			cryptpasswd = spasswd->sp_pwdp;
 		}
+
 		char *testpasswd = NULL;
 		if (strcmp(cryptpasswd, "x"))
 			testpasswd = crypt(passwd, cryptpasswd);
+		else
+		{
+			warn("authz unix: unaccessible user");
+			if (geteuid() != 0)
+				err("authz unix: run ouistiti as root for unix file authentication");
+		}
 
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
@@ -122,6 +130,14 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 			setgid(pw->pw_gid);
 			setuid(pw->pw_uid);
 		}
+		else
+		{
+			dbg("authz unix: passwd error");
+		}
+	}
+	else
+	{
+		dbg("authz unix: user %s not found", user);
 	}
 	return ret;
 }
