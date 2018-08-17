@@ -25,8 +25,8 @@ $(TARGET)_SOURCES+=main.c
 $(TARGET)_LIBS+=httpserver
 
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/src/httpserver/libhttpserver.so),)
-$(TARGET)_LDFLAGS+=-L$(buildpath)$(LIBHTTPSERVER_DIR)/src/httpserver
-$(TARGET)_LDFLAGS+=-L$(buildpath)$(LIBHTTPSERVER_DIR)/src
+$(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/src/httpserver
+$(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/src
 endif
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/lib/libhttpserver.so),)
 $(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/lib
