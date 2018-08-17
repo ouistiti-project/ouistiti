@@ -92,9 +92,14 @@ static int document_checkname(document_connector_t *private, http_message_t *res
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(private->path_info, config->deny) == ESUCCESS ||
-		utils_searchexp(private->path_info, config->allow) != ESUCCESS)
+	if (utils_searchexp(private->path_info, config->deny) == ESUCCESS)
 	{
+		warn("document: forbidden %s file %s", private->path_info, "deny");
+		return  EREJECT;
+	}
+	if (utils_searchexp(private->path_info, config->allow) != ESUCCESS)
+	{
+		warn("document: forbidden %s file %s", private->path_info, "not allow");
 		return  EREJECT;
 	}
 	return ESUCCESS;
@@ -150,7 +155,6 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 		}
 		else if (document_checkname(private, response) == EREJECT)
 		{
-			warn("document: forbidden %s file %s", private->path_info, (ret == 0)?"deny":"not allow");
 			httpmessage_result(response, RESULT_403);
 			document_close(private);
 			return  EREJECT;
