@@ -4,16 +4,16 @@ FILE_CONFIG=y
 #select SHARED or STATIC
 #STATIC build only one binary
 SHARED=y
-STATIC=n
+STATIC=y
 MODULES=n
 #select the maximum of host to manage (host/port and virtual)
 MAX_SERVERS=4
 
 #LIBHTTPSERVER configuration
-LIBHTTPSERVER_DIR=libhttpserver
-LIBB64_DIR=../libb64
-LIBMD5_DIR=../md5-c
-LIBSHA1_DIR=../libsha1
+LIBHTTPSERVER_DIR=$(srcdir)libhttpserver/
+LIBB64_DIR=$(LIBHTTPSERVER_DIR)libb64
+LIBMD5_DIR=$(LIBHTTPSERVER_DIR)md5-c
+LIBSHA1_DIR=$(LIBHTTPSERVER_DIR)libsha1
 #multi threads server may run with "fork" or "pthread"
 #if mono thread only one server may run
 VTHREAD=y
@@ -68,12 +68,13 @@ COOKIE=y
 
 HOST_UTILS=n
 
-#prefix=
+prefix=/usr
 #bindir=
 #sbindir=
 #includedir=
-#libdir=
-#sysconfdir=
+libdir=/usr/lib/ouistiti
+pkglibdir=/usr/lib/ouistiti
+sysconfdir=/etc/ouistiti
 
 #sysroot=
 #CROSS_COMPILER=
