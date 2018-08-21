@@ -1,6 +1,12 @@
 #ifndef _MAKEMORE_FEATURES_
 #define _MAKEMORE_FEATURES_
 
+#include <unistd.h>
+
+#ifdef _POSIX_VERSION
+# define _POSIX_C_SOURCE _POSIX_VERSION
+#endif
+
 #ifdef _POSIX_C_SOURCE
 # define HAVE_GETNAMEINFO
 # define HAVE_PWD
