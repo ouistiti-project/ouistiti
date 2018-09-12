@@ -31,6 +31,7 @@ sbin-y:=
 lib-y:=
 slib-y:=
 modules-y:=
+modules-y:=
 data-y:=
 hostbin-y:=
 
@@ -135,16 +136,21 @@ TARGETAR:=$(AR)
 TARGETRANLIB:=$(RANLIB)
 
 CCVERSION:=$(shell $(TARGETCC) -v 2>&1)
-ifneq ($(CROSS_COMPILE),)
- ifeq ($(findstring $(CROSS_COMPILE),$(TARGETCC)),)
-  TARGETCC:=$(CROSS_COMPILE:%-=%)-$(TARGETCC)
-  TARGETLD:=$(CROSS_COMPILE:%-=%)-$(LD)
-  TARGETAS:=$(CROSS_COMPILE:%-=%)-$(AS)
-  TARGETCXX:=$(CROSS_COMPILE:%-=%)-$(CXX)
-  TARGETAR:=$(CROSS_COMPILE:%-=%)-$(AR)
-  TARGETRANLIB:=$(CROSS_COMPILE:%-=%)-$(RANLIB)
- endif
+ifneq ($(dirname $(TARGETCC)),)
+TARGETPREFIX=
+elifneq ($(CROSS_COMPILE),)
+ifeq ($(findstring $(CROSS_COMPILE),$(TARGETCC)),)
+TARGETPREFIX=$(CROSS_COMPILE:%-=%)-
 endif
+else
+TARGETPREFIX=
+endif
+TARGETCC:=$(TARGETPREFIX)$(TARGETCC)
+TARGETLD:=$(TARGETPREFIX)$(LD)
+TARGETAS:=$(TARGETPREFIX)$(AS)
+TARGETCXX:=$(TARGETPREFIX)$(CXX)
+TARGETAR:=$(TARGETPREFIX)$(AR)
+TARGETRANLIB:=$(TARGETPREFIX)$(RANLIB)
 
 ARCH?=$(shell LANG=C $(TARGETCC) -v 2>&1 | $(GREP) Target | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
 libsuffix=$(findstring 64,$(ARCH))
@@ -171,23 +177,31 @@ pkglibdir:=$(pkglibdir:"%"=%)
 
 ifneq ($(SYSROOT),)
 sysroot:=$(patsubst "%",%,$(SYSROOT:%/=%)/)
+TARGETPATHPREFIX=$(sysroot)
 SYSROOT_CFLAGS+=--sysroot=$(sysroot)
 SYSROOT_CFLAGS+=-isysroot $(sysroot)
-SYSROOT_CFLAGS+=-I$(sysroot)$(includedir)
 SYSROOT_LDFLAGS+=--sysroot=$(sysroot)
-SYSROOT_LDFLAGS+=-L$(sysroot)$(libdir)
-SYSROOT_LDFLAGS+=-L$(sysroot)$(pkglibdir)
 else
 sysroot:=
+TARGETPATHPREFIX= =
 endif
 
 #CFLAGS+=$(foreach macro,$(DIRECTORIES_LIST),-D$(macro)=\"$($(macro))\")
 LIBRARY+=
 LDFLAGS+=
-RPATHFLAGS+=$(if $(strip $(libdir)),$(call ldgcc,-rpath,$(strip $(libdir))))
-ifneq ($(strip $(pkglibdir)),$(strip $(libdir)))
-RPATHFLAGS+=$(if $(strip $(pkglibdir)),$(call ldgcc,-rpath,$(strip $(pkglibdir))))
+
+ifneq ($(strip $(includedir)),)
+SYSROOT_CFLAGS+=-I$(TARGETPATHPREFIX)$(strip $(includedir))
 endif
+ifneq ($(strip $(libdir)),)
+RPATHFLAGS+=-Wl,-rpath,$(strip $(libdir))
+SYSROOT_LDFLAGS+=-L$(TARGETPATHPREFIX)$(strip $(libdir))
+endif
+ifneq ($(strip $(pkglibdir)),)
+RPATHFLAGS+=-Wl,-rpath,$(strip $(pkglibdir))
+SYSROOT_LDFLAGS+=-L$(TARGETPATHPREFIX)$(strip $(pkglibdir))
+endif
+
 ifneq ($(obj),)
 CFLAGS+=-I$(obj)
 CXXFLAGS+=-I$(obj)
@@ -387,7 +401,8 @@ menuconfig gconfig xconfig: $(builddir)$(CONFIG)
 
 %_defconfig:
 	@echo "  "DEFCONFIG $*
-	@$(GREP) -v "^#" $(wildcard $(srcdir)/configs/$< $(srcdir)/$<) > $(obj)$(CONFIG)
+	$(eval DEFCONFIG:=$(wildcard $(srcdir)/configs/$@ $(srcdir)/$@))
+	@$(if $(DEFCONFIG),$(GREP) -v "^#" $(DEFCONFIG) > $(obj)$(CONFIG))
 
 oldconfig: $(builddir)$(CONFIG).old
 	@$(eval CONFIGS=$(shell $(GREP) -v "^#" $(DEFCONFIG) | $(AWK) -F= 't$$1 != t {print $$1}'))
@@ -442,7 +457,7 @@ quiet_cmd_ld_slib=LD $*
 	$(TARGETAR) -cvq $@ $^ > /dev/null && \
 	$(TARGETRANLIB) $@
 quiet_cmd_ld_dlib=LD $*
- cmd_ld_dlib=$(TARGETCC) $(SYSROOT_LDFLAGS) $(LDFLAGS) $($*_LDFLAGS) -Bdynamic -shared $(call ldgcc,-soname,$(strip $(notdir $@))) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
+ cmd_ld_dlib=$(TARGETCC) $(SYSROOT_LDFLAGS) $(LDFLAGS) $($*_LDFLAGS) -Bdynamic -shared -Wl,-soname,$(strip $(notdir $@)) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
 
 quiet_cmd_hostcc_o_c=HOSTCC $*
  cmd_hostcc_o_c=$(HOSTCC) $(HOSTCFLAGS) $($*_CFLAGS) -c -o $@ $<
