@@ -75,6 +75,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 
 static const char str_auth[] = "auth";
+static const char str_cachecontrol[] = "Cache-Control";
 
 typedef struct authsession_s
 {
@@ -377,12 +378,27 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				cookie = 1;
 			}
 		}
+
 		if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
 		{
 			char *authentication = strchr(authorization, ' ');
 			if (authentication)
 				authentication++;
-			const char *method = httpmessage_REQUEST(request, "method");
+			const char *method;
+			/**
+			 * The current authentication is made by the client (the browser).
+			 * In this case the client compute the autorization for each file to download.
+			 * With redirection to the login page, all files should contain the code
+			 * to compute the autorizarion. But it is impossible to do it. Then
+			 * only the method HEAD is used to login and the client must send
+			 * same autorization for all files to download.
+			 * WARNING: It is incorrect to use this method for security.
+			 * The autorization is always acceptable and it is dangerous.
+			 */
+			if (config->redirect)
+				method = str_head;
+			else
+				method = httpmessage_REQUEST(request, "method");
 			const char *uri = httpmessage_REQUEST(request, "uri");
 			char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
 			if (user != NULL)
@@ -455,17 +471,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			{
 				ret = EREJECT;
 			}
-			const char *redirect = config->redirect;
-			if (redirect)
-			{
-				if (redirect[0] == '/')
-					redirect++;
-				protect = utils_searchexp(uri, redirect);
-				if (protect == ESUCCESS)
-				{
-					ret = EREJECT;
-				}
-			}
 		}
 	}
 
@@ -488,8 +493,20 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			}
 			else if (config->redirect)
 			{
-				httpmessage_addheader(response, str_location, config->redirect);
-				httpmessage_result(response, RESULT_301);
+				const char *redirect = config->redirect;
+				if (redirect[0] == '/')
+					redirect++;
+				protect = utils_searchexp(uri, redirect);
+				if (protect == ESUCCESS)
+				{
+					ret = EREJECT;
+				}
+				else
+				{
+					httpmessage_addheader(response, str_location, config->redirect);
+					httpmessage_addheader(response, str_cachecontrol, "no-cache");
+					httpmessage_result(response, RESULT_301);
+				}
 			}
 			else
 			{

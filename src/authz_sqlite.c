@@ -101,6 +101,7 @@ void *authz_sqlite_create(void *arg)
 			i++;
 		}
 		sqlite3_close(db);
+		chmod(config->dbname, S_IWGRP|S_IRGRP);
 	}
 	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK)
@@ -165,7 +166,8 @@ char *authz_sqlite_passwd(void *arg, char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	return authz_sqlite_search(ctx, user, "passwd");
+	char * passwd = authz_sqlite_search(ctx, user, "passwd");
+	return passwd;
 }
 
 int authz_sqlite_check(void *arg, char *user, char *passwd)
@@ -174,21 +176,21 @@ int authz_sqlite_check(void *arg, char *user, char *passwd)
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	authz_sqlite_config_t *config = ctx->config;
 
-	char *chekpasswd = authz_sqlite_passwd(arg, user);
-	if (chekpasswd)
+	char *checkpasswd = authz_sqlite_passwd(arg, user);
+	if (checkpasswd)
 	{
-		if (chekpasswd[0] == '$')
+		if (checkpasswd[0] == '$')
 		{
 			const hash_t *hash = NULL;
-			if (!strncmp(chekpasswd, "$a1", 3))
+			if (!strncmp(checkpasswd, "$a1", 3))
 			{
 				hash = hash_md5;
 			}
-			if (!strncmp(chekpasswd, "$a5", 3))
+			if (!strncmp(checkpasswd, "$a5", 3))
 			{
 				hash = hash_sha256;
 			}
-			if (!strncmp(chekpasswd, "$a6", 3))
+			if (!strncmp(checkpasswd, "$a6", 3))
 			{
 				hash = hash_sha512;
 			}
@@ -199,8 +201,8 @@ int authz_sqlite_check(void *arg, char *user, char *passwd)
 				int length;
 
 				ctx = hash->init();
-				chekpasswd = strchr(chekpasswd + 1, '$');
-				char *realm = strstr(chekpasswd, "realm=");
+				checkpasswd = strchr(checkpasswd + 1, '$');
+				char *realm = strstr(checkpasswd, "realm=");
 				if (realm)
 				{
 					realm += 6;
@@ -215,18 +217,18 @@ int authz_sqlite_check(void *arg, char *user, char *passwd)
 				char b64passwd[50];
 				base64->encode(hashpasswd, hash->size, b64passwd, 50);
 
-				chekpasswd = strrchr(chekpasswd, '$');
-				if (chekpasswd)
+				checkpasswd = strrchr(checkpasswd, '$');
+				if (checkpasswd)
 				{
-					chekpasswd++;
+					checkpasswd++;
 				}
-				if (!strcmp(b64passwd, chekpasswd))
+				if (!strcmp(b64passwd, checkpasswd))
 					ret = 1;
 			}
 		}
 		else
 		{
-			if (!strcmp(passwd, chekpasswd))
+			if (!strcmp(passwd, checkpasswd))
 				ret = 1;
 		}
 	}
