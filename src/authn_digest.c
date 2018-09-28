@@ -102,6 +102,7 @@ static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 	mod->authz = authz;
 	mod->challenge = calloc(1, 256);
 	mod->hash = authn->hash;
+	authn_digest_opaque(mod, mod->opaque, sizeof(mod->opaque) - 1);
 
 	return mod;
 }
@@ -144,7 +145,6 @@ static int authn_digest_setup(void *arg, struct sockaddr *addr, int addrsize)
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
 	mod->stale = 0;
-	authn_digest_opaque(mod, mod->opaque, sizeof(mod->opaque) - 1);
 	authn_digest_nonce(arg, mod->nonce, sizeof(mod->nonce) - 1);
 }
 
@@ -153,7 +153,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	int ret;
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
-	snprintf(mod->challenge, 256, "%s realm=\"%s\" qop=\"auth\" nonce=\"%s\" opaque=\"%s\" stale=%s",
+	snprintf(mod->challenge, 256, "%s realm=\"%s\",qop=\"auth\",nonce=\"%s\",opaque=\"%s\",stale=%s",
 						str_authenticate_types[AUTHN_DIGEST_E],
 						mod->config->realm,
 						mod->nonce,
@@ -326,18 +326,24 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 		break;
 		}
 	}
+
 	if (nonce == NULL)
+	{
+		warn("auth: nonce is unset");
 		return NULL;
+	}
 
 	if (strcmp(nonce, mod->nonce))
 	{
 		mod->stale++;
 		mod->stale %= 5;
+		warn("auth: nonce is corrupted");
 		return NULL;
 	}
 
 	if (strcmp(algorithm, mod->hash->name))
 	{
+		warn("auth: algorithm is bad");
 #ifdef AUTH_DOWNGRADE
 		mod->hash = hash_md5;
 #else
@@ -349,12 +355,12 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 	mod->stale = 0;
 	if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
 	{
+		warn("auth: opaque or realm is bad");
 		return NULL;
 	}
 	if (strcmp(url, uri))
 	{
 		warn("try connection on %s with authorization on %s", url, uri);
-		return NULL;
 	}
 	if (mod->authz->rules->passwd == NULL)
 	{
