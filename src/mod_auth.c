@@ -505,7 +505,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				{
 					httpmessage_addheader(response, str_location, config->redirect);
 					httpmessage_addheader(response, str_cachecontrol, "no-cache");
-					httpmessage_result(response, RESULT_301);
+					httpmessage_result(response, RESULT_307);
 				}
 			}
 			else
