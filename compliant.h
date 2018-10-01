@@ -3,7 +3,7 @@
 
 #include <unistd.h>
 
-#ifdef _POSIX_VERSION
+#if !defined(_POSIX_C_SOURCE) && defined(_POSIX_VERSION)
 # define _POSIX_C_SOURCE _POSIX_VERSION
 #endif
 
