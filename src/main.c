@@ -434,8 +434,8 @@ int main(int argc, char * const *argv)
 #ifdef HAVE_PWD
 	if (pw_uid > 0)
 	{
-		setgid(pw_gid);
-		if (setuid(pw_uid))
+		setegid(pw_gid);
+		if (seteuid(pw_uid))
 			err("Error: start server as root");
 	}
 #endif

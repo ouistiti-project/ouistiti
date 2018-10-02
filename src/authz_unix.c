@@ -127,8 +127,6 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 				ctx->group = grp->gr_name;
 #endif
 			}
-			setgid(pw->pw_gid);
-			setuid(pw->pw_uid);
 		}
 		else
 		{
