@@ -44,6 +44,7 @@ extern "C"
 typedef struct mod_document_s
 {
 	const char *docroot;
+	const char *dochome;
 	const char *allow;
 	const char *deny;
 	const char *defaultpage;

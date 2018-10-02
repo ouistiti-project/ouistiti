@@ -76,6 +76,7 @@ static mod_document_t *document_config(config_setting_t *iterator, int tls, char
 		char *transfertype = NULL;
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
+		config_setting_lookup_string(configstaticfile, "dochome", (const char **)&static_file->dochome);
 		config_setting_lookup_string(configstaticfile, "allow", (const char **)&static_file->allow);
 		config_setting_lookup_string(configstaticfile, "deny", (const char **)&static_file->deny);
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);

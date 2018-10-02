@@ -120,20 +120,30 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			free(private->path_info);
 		const char *uri = httpmessage_REQUEST(request,"uri");
 		private->path_info = utils_urldecode(uri);
+		const char *url = private->path_info;
 
 		if (private->path_info == NULL)
 			return EREJECT;
 
-		const char *docroot = config->docroot;
-#if defined(DOCUMENTHOME) && defined(AUTH)
-		if (config->options & DOCUMENT_HOME)
+		const char *docroot;
+#ifdef DOCUMENTHOME
+		if (private->path_info[0] == '~' && config->dochome != NULL)
 		{
-			const char *home = auth_info(request, "home");
-			if (home != NULL)
-				docroot = home;
-		}
+			docroot = config->dochome;
+			url = private->path_info + 1;
+#ifdef AUTH
+			if (config->options & DOCUMENT_HOME)
+			{
+				const char *home = auth_info(request, "home");
+				if (home != NULL)
+					docroot = home;
+			}
 #endif
-		private->filepath = utils_buildpath(docroot, private->path_info, "", "", &filestat);
+		}
+		else
+#endif
+			docroot = config->docroot;
+		private->filepath = utils_buildpath(docroot, url, "", "", &filestat);
 #ifdef DOCUMENTREST
 		const char *method = httpmessage_REQUEST(request, "method");
 		if (config->options & DOCUMENT_REST)
@@ -141,7 +151,7 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			const char *method = httpmessage_REQUEST(request, "method");
 			if ((private->filepath == NULL) && (!strcmp(method, str_put)))
 			{
-				private->filepath = utils_buildpath(docroot, private->path_info, "", "", NULL);
+				private->filepath = utils_buildpath(docroot, url, "", "", NULL);
 				private->func = putfile_connector;
 				private->size = 0;
 			}
@@ -178,7 +188,7 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			else
 #endif
 			{
-				char *indexpath = utils_buildpath(config->docroot, private->path_info,
+				char *indexpath = utils_buildpath(docroot, url,
 												config->defaultpage, "", &filestat);
 				dbg("document: move to %s", indexpath);
 #ifdef DIRLISTING
@@ -334,7 +344,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 
 			value.tv_sec = stop.tv_sec - private->start.tv_sec;
 			value.tv_nsec = stop.tv_nsec - private->start.tv_nsec;
-			dbg("document: (%llu bytes) %d:%3d", private->datasize, value.tv_sec, value.tv_nsec/1000000);
+			dbg("document: (%llu bytes) %ld:%3ld", private->datasize, value.tv_sec, value.tv_nsec/1000000);
 #endif
 			dbg("document: send %s", private->filepath);
 			close(private->fd);
