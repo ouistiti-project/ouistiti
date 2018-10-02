@@ -41,6 +41,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+# include <pwd.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -451,6 +452,23 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 							cookie_set(request, str_home, (char *)home);
 					}
 				}
+
+				struct passwd *result;
+
+				result = getpwnam(user);
+				if (result != NULL)
+				{
+					uid_t uid;
+					uid = getuid();
+					//only "saved set-uid", "uid" and "euid" may be set
+					//first step: set the "saved set-uid" (root) 
+					seteuid(uid);
+					//second step: set the new "euid"
+					seteuid(result->pw_uid);
+					setegid(result->pw_gid);
+				}
+				else
+					dbg("user not found on system");
 				warn("user \"%s\" accepted from %p", user, ctx->ctl);
 				ret = EREJECT;
 			}

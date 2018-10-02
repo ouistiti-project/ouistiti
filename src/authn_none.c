@@ -79,8 +79,12 @@ static int authn_none_challenge(void *arg, http_message_t *request, http_message
 	}
 	if (pw)
 	{
-		setgid(pw->pw_gid);
-		setuid(pw->pw_uid);
+		//read mod_auth.c
+		uid_t uid;
+		uid = getuid();
+		seteuid(uid);
+		setegid(pw->pw_gid);
+		seteuid(pw->pw_uid);
 	}
 	else
 	{
@@ -89,7 +93,10 @@ static int authn_none_challenge(void *arg, http_message_t *request, http_message
 			err("Security set the user of authentication in configuration");
 		else
 			err("auth getpwnam error %s", strerror(errno));
-		setuid(1000);
+		uid_t uid;
+		uid = getuid();
+		seteuid(uid);
+		setegid(1000);
 	}
 	return EREJECT;
 }
