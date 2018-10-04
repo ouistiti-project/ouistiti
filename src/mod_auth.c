@@ -447,9 +447,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					if (home)
 					{
 						if (mod->authz->type & AUTHZ_HEADER_E)
-							httpmessage_addheader(response, str_xhome, home);
+							httpmessage_addheader(response, str_xhome, "~/");
 						if (mod->authz->type & AUTHZ_COOKIE_E)
-							cookie_set(request, str_home, (char *)home);
+							cookie_set(request, str_home, "~/");
 					}
 				}
 
