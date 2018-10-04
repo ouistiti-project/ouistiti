@@ -4,6 +4,7 @@ slib-y+=mod_document
 mod_document_SOURCES+=mod_document.c
 mod_document_CFLAGS+=-DSTATIC_FILE -I../libhttpserver/include
 mod_document_CFLAGS-$(MODULES)+=-DMODULES
+mod_document_CFLAGS-$(AUTH)+=-DAUTH
 
 mod_document_SOURCES-$(SENDFILE)+=mod_sendfile.c
 mod_document_CFLAGS-$(SENDFILE)+=-DSENDFILE

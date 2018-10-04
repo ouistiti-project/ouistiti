@@ -126,24 +126,33 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			return EREJECT;
 
 		const char *docroot;
+		const char *other = "";
 #ifdef DOCUMENTHOME
+#ifdef AUTH
+		if (config->options & DOCUMENT_HOME)
+		{
+			if (private->path_info[0] == '~')
+				url = private->path_info + 1;
+			const char *home = auth_info(request, "home");
+			if (home != NULL)
+				docroot = home;
+		} else
+#endif
 		if (private->path_info[0] == '~' && config->dochome != NULL)
 		{
 			docroot = config->dochome;
 			url = private->path_info + 1;
 #ifdef AUTH
-			if (config->options & DOCUMENT_HOME)
+			if (url[0] == '/')
 			{
-				const char *home = auth_info(request, "home");
-				if (home != NULL)
-					docroot = home;
+				other = auth_info(request, "user");
 			}
 #endif
 		}
 		else
 #endif
 			docroot = config->docroot;
-		private->filepath = utils_buildpath(docroot, url, "", "", &filestat);
+		private->filepath = utils_buildpath(docroot, other, url, "", &filestat);
 #ifdef DOCUMENTREST
 		const char *method = httpmessage_REQUEST(request, "method");
 		if (config->options & DOCUMENT_REST)
@@ -190,7 +199,6 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			{
 				char *indexpath = utils_buildpath(docroot, url,
 												config->defaultpage, "", &filestat);
-				dbg("document: move to %s", indexpath);
 #ifdef DIRLISTING
 				if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) ||
 					(indexpath == NULL && ((config->options & DOCUMENT_DIRLISTING) ||
@@ -204,6 +212,7 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 #endif
 				if (indexpath)
 				{
+					dbg("document: move to %s", indexpath);
 #if defined(RESULT_301)
 					char *location = calloc(1, length + strlen(config->defaultpage) + 2);
 					sprintf(location, "/%s%s", private->path_info, config->defaultpage);
