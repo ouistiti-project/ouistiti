@@ -92,7 +92,11 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 	{
 		char *cryptpasswd = pw->pw_passwd;
 		/* get the shadow password if possible */
+		uid_t uid;
+		uid = geteuid();
+		seteuid(0);
 		struct spwd *spasswd = getspnam(pw->pw_name);
+		seteuid(uid);
 		if (spasswd && spasswd->sp_pwdp) {
 			cryptpasswd = spasswd->sp_pwdp;
 		}
