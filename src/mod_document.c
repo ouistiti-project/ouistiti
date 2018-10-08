@@ -125,17 +125,19 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 		if (private->path_info == NULL)
 			return EREJECT;
 
-		const char *docroot;
+		const char *docroot = NULL;
 		const char *other = "";
 #ifdef DOCUMENTHOME
 #ifdef AUTH
 		if (config->options & DOCUMENT_HOME)
 		{
 			if (private->path_info[0] == '~')
+			{
 				url = private->path_info + 1;
-			const char *home = auth_info(request, "home");
-			if (home != NULL)
-				docroot = home;
+				const char *home = auth_info(request, "home");
+				if (home != NULL)
+					docroot = home;
+			}
 		} else
 #endif
 		if (private->path_info[0] == '~' && config->dochome != NULL)
@@ -149,8 +151,8 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			}
 #endif
 		}
-		else
 #endif
+		if (docroot == NULL)
 			docroot = config->docroot;
 		private->filepath = utils_buildpath(docroot, other, url, "", &filestat);
 #ifdef DOCUMENTREST
