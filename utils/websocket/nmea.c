@@ -234,6 +234,12 @@ const char *str_username = "apache";
 
 #define OPTION_OUISTITI 0x01
 
+#ifndef SOCKDOMAIN
+#define SOCKDOMAIN AF_UNIX
+#endif
+#ifndef SOCKPROTOCOL
+#define SOCKPROTOCOL 0
+#endif
 int main(int argc, char **argv)
 {
 	int ret = -1;
@@ -308,7 +314,7 @@ int main(int argc, char **argv)
 		setuid(user->pw_uid);
 	}
 
-	sock = socket(PF_UNIX, SOCK_STREAM, 0);
+	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);
 	if (sock > 0)
 	{
 		struct sockaddr_un addr;
