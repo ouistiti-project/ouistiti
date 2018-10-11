@@ -31,4 +31,10 @@
 
 #define AF_WEBSOCKET PF_MAX + 0x0100 /* on Linux currently 0x0129 */
 
+#ifndef WS_TEXT
+#define WS_TEXT 153
+#define WS_AUTO -1
+#define WS_BLOB 0
+#endif
+
 #endif
