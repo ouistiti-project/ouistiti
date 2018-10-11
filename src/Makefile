@@ -24,23 +24,8 @@ endif
 $(TARGET)_SOURCES+=main.c
 $(TARGET)_LIBS+=httpserver
 
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/src/httpserver/libhttpserver.so),)
-$(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/src/httpserver
-$(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/src
-endif
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/lib/libhttpserver.so),)
-$(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/lib
-endif
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/libhttpserver.so),)
-$(TARGET)_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)
-endif
-
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/include/httpserver/httpserver.h),)
-$(TARGET)_CFLAGS+=-I$(LIBHTTPSERVER_DIR)/include
-endif
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/httpserver/httpserver.h),)
-$(TARGET)_CFLAGS+=-I$(LIBHTTPSERVER_DIR)
-endif
+$(TARGET)_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
+$(TARGET)_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 
 $(TARGET)_CFLAGS-$(FILE_CONFIG)+=-DFILE_CONFIG
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
