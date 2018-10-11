@@ -43,7 +43,6 @@
 #include <time.h>
 
 #include "../websocket.h"
-#include "httpserver/websocket.h"
 #include "jsonrpc.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -152,6 +151,12 @@ int start(server_t server, int newsock)
 
 const char *str_username = "apache";
 
+#ifndef SOCKDOMAIN
+#define SOCKDOMAIN AF_UNIX
+#endif
+#ifndef SOCKPROTOCOL
+#define SOCKPROTOCOL 0
+#endif
 int main(int argc, char **argv)
 {
 	int ret = -1;
@@ -160,8 +165,8 @@ int main(int argc, char **argv)
 	const char *name = "jsonrpc";
 	int maxclients = 50;
 	const char *username = str_username;
-	int domain = AF_UNIX;
-	int proto = 0;
+	int domain = SOCKDOMAIN;
+	int proto = SOCKPROTOCOL;
 	void *lhandler = NULL;
 
 	int opt;

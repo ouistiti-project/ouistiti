@@ -41,7 +41,6 @@
 #include <sqlite3.h>
 
 #include "../websocket.h"
-#include "httpserver/websocket.h"
 #include "jsonrpc.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
