@@ -202,7 +202,7 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	struct passwd *userpasswd = NULL;
 	userpasswd = getpwnam(user);
 	if (userpasswd)
-		warn("user %s pwd %d home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
+		warn("user %s pwd %s home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
 
 	char *chekpasswd = authz_file_passwd(arg, user);
 	if (chekpasswd)

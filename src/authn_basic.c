@@ -68,9 +68,13 @@ static void *authn_basic_create(authn_t *authn, authz_t *authz, void *arg)
 	}
 	else
 	{
+#ifdef HAVE_STRDUP
+		mod->challenge = strdup(format);
+#else
 		mod->challenge = calloc(1, sizeof(format) + 1);
 		if (mod->challenge)
-			sprintf(mod->challenge, format);
+			strcpy(mod->challenge, format);
+#endif
 	}
 
 	return mod;
