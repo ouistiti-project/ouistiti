@@ -107,7 +107,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			if (private->size > private->offset)
 			{
 				char range[20];
-				sprintf(range, "bytes %d/*", private->size);
+				sprintf(range, "bytes %ld/*", (long)private->size);
 				httpmessage_addheader(response, "Content-Range", range);
 			}
 			else
@@ -128,7 +128,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			}
 			else
 			{
-				err("document: file creation not allowed %s (size: %d)", private->filepath, private->size);
+				err("document: file creation not allowed %s (size: %ld)", private->filepath, (long)private->size);
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
 				httpmessage_appendcontent(response, private->path_info, -1);
 				httpmessage_appendcontent(response, "\"}", -1);

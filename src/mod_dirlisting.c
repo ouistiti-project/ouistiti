@@ -62,7 +62,7 @@ typedef struct _document_connector_s document_connector_t;
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
-#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":\"%u %s\",\"type\":%d,\"mime\":\"%s\"},"
+#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%s\"},"
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
 #define DIRLISTING_FOOTER "\
 {}]}"

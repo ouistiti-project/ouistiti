@@ -364,7 +364,7 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 	}
 	if (mod->authz->rules->passwd == NULL)
 	{
-		err("authn Digest is not compatible with authz %d", str_authenticate_engine[mod->authz->type&AUTHZ_TYPE_MASK]);
+		err("authn Digest is not compatible with authz %s", str_authenticate_engine[mod->authz->type&AUTHZ_TYPE_MASK]);
 		return NULL;
 	}
 	passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
