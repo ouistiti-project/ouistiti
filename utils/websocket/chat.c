@@ -340,6 +340,8 @@ int main(int argc, char **argv)
 								struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr;
 								warn("chat: new connection from %s %p", inet_ntoa(addr_in->sin_addr), user);
 							}
+							else
+								warn("chat: new connection");
 							/*
 							char *buffer = calloc(1, strlen(str_hello) + 1);	
 							sprintf(buffer, str_hello, newsock);
