@@ -1,13 +1,11 @@
 [Unit]
-Description=An embedded web server for system management
-After=syslog.target network.target
+Description=Ouistiti Embedded Web server
+After=network.target
 
 [Service]
-Type=forking
-PIDFile=/var/run/ouistiti.pid
-ExecStartPre=/usr/bin/mkdir -p /var/run/ouistiti
-ExecStart=/usr/sbin/ouistiti -D -p /var/run/ouistiti.pid -f /etc/ouistiti/ouistiti.conf
-PrivateDevices=yes
+EnvironmentFile=-/etc/ouistiti/ouistiti.conf
+ExecStart=/usr/sbin/ouistiti -D
+ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
 WantedBy=multi-user.target
