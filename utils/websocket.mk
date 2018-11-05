@@ -40,6 +40,13 @@ websocket_chat_LIBS+=pthread
 
 websocket_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
+bin-$(WS_CHAT)+=client_chat
+client_chat_SOURCES+=$(WS_SRC)client_chat.c
+client_chat_CFLAGS+=-DPTHREAD
+client_chat_CFLAGS-$(WEBSOCKET_RT)+=-DSOCKDOMAIN="(AF_MAX+0X100)"
+client_chat_CFLAGS-$(WEBSOCKET_RT)+=-DSOCKPROTOCOL=153
+client_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
 bin-$(WS_JSONRPC)+=websocket_jsonrpc
 websocket_jsonrpc_SOURCES+=$(WS_SRC)jsonrpc.c
 websocket_jsonrpc_SOURCES+=jsonrpc/jsonrpc.c
