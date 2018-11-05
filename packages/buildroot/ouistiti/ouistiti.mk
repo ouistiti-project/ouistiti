@@ -18,84 +18,78 @@ OUISTITI_MAKE=$(MAKE1)
 
 OUISTITI_USERS += www-data
 
-OUISTITI_KCONFIG_FILE = $(call qstrip,$(OUISTITI_PKGDIR)/config)
-OUISTITI_KCONFIG_OPTS = \
-	CROSS_COMPILE="$(TARGET_CROSS)" \
+OUISTITI_OVERRIDE_SRCDIR=$(BR2_EXTERNAL_MALTESE_PATH)/../ouistiti
+
+OUISTITI_KCONFIG_FILE = $(call qstrip,$(OUISTITI_PKGDIR)/default.config)
+OUISTITI_MAKE_OPTS = \
 	ARCH=$(KERNEL_ARCH) \
-	DESTDIR="$(TARGET_DIR)" \
+	SYSROOT=$(STAGING_DIR) \
+	DESTDIR="$(TARGET_DIR)"
 
-OUISTITI_CONF_OPTS = \
-	--sysroot=$(STAGING_DIR) \
-	--prefix=/usr \
-	--sysconfdir=/etc/ouistiti \
-	--enable-static \
-	--disable-shared \
-	--disable-error \
-	--disable-check \
-	--disable-websocket-rt \
-	--with-vthread-type=fork \
-	--with-libhttpserver-dir=$(BUILD_DIR)/libhttpserver-$(LIBHTTPSERVER_VERSION)
-
-OUISTITI_MAKE_OPTS+=V=1
+#OUISTITI_MAKE_OPTS+=V=1
 
 ifeq ($(BR2_PACKAGE_LIBHTTPSERVER_MBEDTLS),y)
 OUISTITI_DEPENDENCIES += mbedtls
-OUISTITI_CONF_OPTS += --enable-mbedtls
-OUISTITI_KCONFIG_OPTS+=MBEDTLS=y
+OUISTITI_MBEDTLS_OPTS=$(call KCONFIG_ENABLE_OPT,MBEDTLS,$(@D)/.config)
 else
-OUISTITI_CONF_OPTS += --disable-mbedtls
-OUISTITI_KCONFIG_OPTS+=MBEDTLS=n
+OUISTITI_MBEDTLS_OPTS=$(call KCONFIG_DISABLE_OPT,MBEDTLS,$(@D)/.config)
 endif
 
 ifeq ($(BR2_PACKAGE_LIBHTTPSERVER_WEBSOCKET),y)
-OUISTITI_CONF_OPTS += --enable-websocket
-OUISTITI_KCONFIG_OPTS+=WEBDSOCKET=y
+OUISTITI_WEBDSOCKET_OPTS=$(call KCONFIG_ENABLE_OPT,WEBSOCKET,$(@D)/.config)
 else
-OUISTITI_CONF_OPTS += --disable-websocket
-OUISTITI_KCONFIG_OPTS+=WEBDSOCKET=n
+OUISTITI_WEBDSOCKET_OPTS=$(call KCONFIG_DISABLE_OPT,WEBSOCKET,$(@D)/.config)
 endif
 
 ifeq ($(BR2_PACKAGE_OUISTITI_AUTH),y)
-OUISTITI_CONF_OPTS += --enable-auth
-OUISTITI_KCONFIG_OPTS+=AUTH=y
+OUISTITI_AUTH_OPTS=$(call KCONFIG_ENABLE_OPT,AUTH,$(@D)/.config)
 else
-OUISTITI_CONF_OPTS += --disable-auth
-OUISTITI_KCONFIG_OPTS+=AUTH=n
+OUISTITI_AUTH_OPTS=$(call KCONFIG_DISABLE_OPT,AUTH,$(@D)/.config)
 endif
 
 ifeq ($(BR2_PACKAGE_OUISTITI_AUTH_SQLITE),y)
 OUISTITI_DEPENDENCIES += sqlite
-OUISTITI_CONF_OPTS += --enable-authz-sqlite
-OUISTITI_KCONFIG_OPTS+=AUTH_SQLITE=y
+OUISTITI_AUTH_SQLITE_OPTS=$(call KCONFIG_ENABLE_OPT,AUTHZ_SQLITE,$(@D)/.config)
 else
-OUISTITI_CONF_OPTS += --disable-authz-sqlite
-OUISTITI_KCONFIG_OPTS+=AUTH_SQLITE=n
+OUISTITI_AUTH_SQLITE_OPTS=$(call KCONFIG_ENABLE_OPT,AUTHZ_SQLITE,$(@D)/.config)
 endif
 
 ifeq ($(BR2_PACKAGE_OUISTITI_WS_JSONRPC),y)
-OUISTITI_CONF_OPTS += --enable-ws-jsonrpc
-OUISTITI_KCONFIG_OPTS+=WS_JSONRPC=y
+OUISTITI_WS_JSONRPC_OPTS=$(call KCONFIG_ENABLE_OPT,WS_JSONRPC,$(@D)/.config)
+OUISTITI_DEPENDENCIES += jansson
 else
-OUISTITI_CONF_OPTS += --disable-ws-jsonrpc
-OUISTITI_KCONFIG_OPTS+=WS_JSONRPC=n
+OUISTITI_WS_JSONRPC_OPTS=$(call KCONFIG_DISABLE_OPT,WS_JSONRPC,$(@D)/.config)
 endif
 
 ifeq ($(BR2_PACKAGE_OUISTITI_WS_CHAT),y)
-OUISTITI_CONF_OPTS += --enable-ws-chat
-OUISTITI_KCONFIG_OPTS+=WS_CHAT=y
+OUISTITI_WS_CHAT_OPTS=$(call KCONFIG_ENABLE_OPT,WS_CHAT,$(@D)/.config)
 else
-OUISTITI_CONF_OPTS += --disable-ws-chat
-OUISTITI_KCONFIG_OPTS+=WS_CHAT=n
+OUISTITI_WS_CHAT_OPTS=$(call KCONFIG_DISABLE_OPT,WS_CHAT,$(@D)/.config)
 endif
 
-#OUISTITI_MAKE_OPTS+=DEBUG=y
+OUISTITI_MAKE_OPTS+=DEBUG=y
+
+define OUISTITI_KCONFIG_FIXUP_CMDS
+	$(OUISTITI_MBEDTLS_OPTS)
+	$(OUISTITI_WEBDSOCKET_OPTS)
+	$(OUISTITI_AUTH_OPTS)
+	$(OUISTITI_AUTH_SQLITE_OPTS)
+	$(OUISTITI_WS_JSONRPC_OPTS)
+	$(OUISTITI_WS_CHAT_OPTS)
+endef
+
+define OUISTITI_BUILD_CMDS
+	$(TARGET_CONFIGURE_OPTS) $(TARGET_MAKE_ENV) \
+		$(MAKE1) -C $(@D) $(OUISTITI_MAKE_OPTS)
+endef
 
 define OUISTITI_INSTALL_TARGET_CMDS
-	$(INSTALL) -D -m 0644 $(OUISTITI_PKGDIR)/ouistiti.conf \
-		$(TARGET_DIR)/etc/ouistiti/ouistiti.conf
+	$(MAKE) -C $(@D) $(OUISTITI_MAKE_OPTS) install
 endef
 
 define OUISTITI_INSTALL_INIT_SYSTEMD
+	$(INSTALL) -D -m 0644 $(OUISTITI_PKGDIR)/ouistiti.conf \
+		$(TARGET_DIR)/etc/ouistiti/ouistiti.conf
 	$(INSTALL) -D -m 644 $(OUISTITI_PKGDIR)/ouistiti.service \
 		$(TARGET_DIR)/usr/lib/systemd/system/ouistiti.service
 	mkdir -p $(TARGET_DIR)/etc/systemd/system/multi-user.target.wants
@@ -103,10 +97,11 @@ define OUISTITI_INSTALL_INIT_SYSTEMD
 		$(TARGET_DIR)/etc/systemd/system/multi-user.target.wants/ouistiti.service
 endef
 define OUISTITI_INSTALL_INIT_SYSV
+	$(INSTALL) -D -m 0644 $(OUISTITI_PKGDIR)/ouistiti.conf \
+		$(TARGET_DIR)/etc/ouistiti/ouistiti.conf
 	$(INSTALL) -D -m 755 $(OUISTITI_PKGDIR)/S50ouistiti \
 		$(TARGET_DIR)/etc/init.d/S50ouistiti
 endef
 
-#$(eval $(kconfig-package))
-$(eval $(autotools-package))
-
+$(eval $(kconfig-package))
+#$(eval $(autotools-package))
