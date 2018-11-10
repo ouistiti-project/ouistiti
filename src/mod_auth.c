@@ -433,6 +433,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
 					cookie_set(request, str_authorization, (char *)authorization);
+					httpmessage_addheader(response, str_authorization, (char *)authorization);
 					if (mod->authz->type & AUTHZ_HEADER_E)
 						httpmessage_addheader(response, str_xuser, user);
 					if (mod->authz->type & AUTHZ_COOKIE_E)
