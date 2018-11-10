@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<!--script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script type="text/javascript" language="javascript" src="js/jquery.min.js"></script>
+		<script language="javascript" type="text/javascript">
+send = function()
+{
+	var file = this.file;
+	if (file == undefined)
+		return;
+	const xhr = new XMLHttpRequest();
+
+	xhr.upload.onprogress = function(event)
+	{
+		if (this.onprogress != undefined)
+			this.onprogress(event.loaded, event.total);
+	}.bind(this);
+	xhr.onreadystatechange = function()
+	{
+		if (xhr.readyState === XMLHttpRequest.DONE)
+		{
+			if (xhr.status === 200)
+			{
+				this.isready = false;
+				$("#status").html("download done");
+				this.file = undefined;
+			}
+		}
+		else if (xhr.readyState >= XMLHttpRequest.LOADING &&
+				xhr.status > 399)
+		{
+			this.authorization = xhr.getResponseHeader("Authorization");
+
+			if (xhr.status === 403 || xhr.status === 401)
+			{
+				$("#status").html("download error: need authenticate");
+			}
+			else if (xhr.status === 404)
+			{
+				if (this.onnotfound != undefined)
+				{
+					var url = document.createElement('a');
+					url.href = xhr.responseURL;
+					$("#status").html("download error: not found");
+				}
+			}
+			else if (xhr.status === 405)
+			{
+				$("#status").html("download error: method not allowed");
+			}
+			else if (xhr.status === 416)
+			{
+				var crange = xhr.getResponseHeader("Content-Range");
+				if (crange != undefined)
+				{
+					var offset = crange.substring(0,crange.indexOf("/"));
+					if (this.file.size > offset)
+						this.get(this.file,offset);
+					else if (this.onerror != undefined)
+						$("#status").html("download error: on range sending");
+				}
+			}
+			else if (this.onerror != undefined)
+			{
+				$("#status").html("download error: "+xhr.status);
+			}
+			if (xhr.readyState === XMLHttpRequest.LOADING)
+				xhr.abort();
+		}
+		return true;
+	}.bind(this);
+	xhr.ontimeout = function()
+	{
+		alert("Uploader timeout");
+	}.bind(this);
+	var data = undefined;
+	if (this.file != undefined)
+	{
+		var filename = this.directory+this.file.name;
+		xhr.open("PUT", filename);
+		data = this.file;
+	}
+	else
+	{
+		xhr.open("PUT", this.directory);
+	}
+	xhr.responseType = "text/json";
+	xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+	if (this.authorization)
+		xhr.setRequestHeader("Authorization",this.authorization);
+	else
+		xhr.setRequestHeader("Authorization", "None");
+	xhr.send(data);
+}
+onselect = function(evt)
+{
+	var file = evt.target.files[0];
+	var reader = new FileReader();
+	reader.onloadend = function(evt)
+		{
+			const array = new Uint8ClampedArray(evt.target.result);
+			file.data = array;
+
+			if (reader.readyState == 2)
+			{
+				this.isready = true;
+				this.file = file;
+			}
+		}.bind(this);
+	reader.onerror = function(err) {
+	  alert("load error "+err);
+	}.bind(this);
+	reader.readAsArrayBuffer(file);
+}
+$(document).ready(function()
+{
+	var sender = new Object();
+	sender.directory = "upload/";
+	$("#input").on("change", onselect.bind(sender));
+	$("#push").on("click", send.bind(sender));
+});
+		</script>
+	</head>
+	<body>
+		<div>
+			ouistiti configuration needs authentication.
+			at least:
+			<xmp>
+			unlock_groups = "nogroup";
+			auth = {
+				type = "None";
+				user = "www-data";
+				group = "nogroup";
+			};
+			</xmp>
+		</div>
+		<title>WebPut</title>
+		<form>
+			<input type="file" id="input" />
+			<input type="button" id="push" value="Send" />
+		</form>
+		<div id="status"></div>
+	</body>
+</html>
