@@ -61,10 +61,11 @@ struct _mod_methodlock_s
 static int methodlock_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
-	int ret = ESUCCESS;
+	int ret;
 
 	const char *method = httpmessage_REQUEST(request, "method");
-	switch (httpmessage_isprotected(request))
+	ret = httpmessage_isprotected(request);
+	switch (ret)
 	{
 	case -1:
 	{
@@ -74,6 +75,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 #else
 		httpmessage_result(response, RESULT_400);
 #endif
+		ret = ESUCCESS;
 	}
 	break;
 	case 0:
@@ -83,6 +85,7 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 	break;
 	default:
 	{
+		ret = ESUCCESS;
 #if defined(AUTH)
 		const char *group = auth_info(request, "group");
 		if (group && group[0] != '\0')
@@ -103,15 +106,18 @@ static int methodlock_connector(void *arg, http_message_t *request, http_message
 						iterator++;
 				}
 			}
-			if (ret != EREJECT)
-			{
+		}
+		if (ret != EREJECT)
+		{
+			if (group != NULL)
 				warn("method use with bad user group %s set unlock_groups", group);
+			else
+				warn("method need authentication", group);
 #if defined RESULT_403
-				httpmessage_result(response, RESULT_403);
+			httpmessage_result(response, RESULT_403);
 #else
-				httpmessage_result(response, RESULT_400);
+			httpmessage_result(response, RESULT_400);
 #endif
-			}
 		}
 #endif
 	}
