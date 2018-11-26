@@ -121,6 +121,10 @@ static int webstream_connector(void *arg, http_message_t *request, http_message_
 			if (S_ISSOCK(filestat.st_mode))
 			{
 				ctx->socket = httpmessage_keepalive(response);
+				const char *mime = NULL;
+				mime = utils_getmime(filepath);
+				httpmessage_addcontent(response, mime, NULL, -1);
+
 				int wssock;
 				if (config->options & WEBSOCKET_REALTIME)
 				{
@@ -131,12 +135,13 @@ static int webstream_connector(void *arg, http_message_t *request, http_message_
 
 				if (wssock > 0)
 				{
-					const char *mime = NULL;
-					mime = utils_getmime(filepath);
-					httpmessage_addcontent(response, mime, "", -1);
-
 					ctx->client = wssock;
 					ret = ECONTINUE;
+				}
+				else
+				{
+					httpmessage_result(response, RESULT_404);
+					ret = ESUCCESS;
 				}
 			}
 		}
