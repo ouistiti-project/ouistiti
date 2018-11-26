@@ -124,6 +124,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				httpmessage_appendcontent(response, "\"}", -1);
 #ifdef DEBUG
 				clock_gettime(CLOCK_REALTIME, &private->start);
+				dbg("document transfer start: %ld:%ld", private->start.tv_sec, private->start.tv_nsec);
 #endif
 			}
 			else
