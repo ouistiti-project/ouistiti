@@ -40,6 +40,7 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_document.h"
+#include "mod_auth.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -210,7 +211,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 
 			value.tv_sec = stop.tv_sec - private->start.tv_sec;
 			value.tv_nsec = stop.tv_nsec - private->start.tv_nsec;
-			dbg("document: (%llu bytes) %d:%3d", private->datasize, value.tv_sec, value.tv_nsec/1000000);
+			dbg("document: (%llu bytes) %ld:%3ld", private->datasize, value.tv_sec, value.tv_nsec/1000000);
 #endif
 			warn("document: %s uploaded", private->filepath);
 			if (private->fd)
@@ -224,12 +225,26 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 }
 
 typedef int (*changefunc)(const char *oldpath, const char *newpath);
-static int changename(mod_document_t *config, char *oldpath, const char *newname, changefunc func)
+static int changename(mod_document_t *config, http_message_t *request, char *oldpath, const char *newname, changefunc func)
 {
 	int ret = -1;
 	if (newname && newname[0] != '\0')
 	{
-		char *newpath = utils_buildpath(config->docroot, newname, "", "", NULL);
+		const char *docroot = config->docroot;
+		const char *other = "";
+		const char *homepath = strstr(newname, "~");
+		if (homepath != NULL && config->dochome != NULL)
+		{
+			docroot = config->dochome;
+			newname = homepath + 1;
+#ifdef AUTH
+			if (newname[0] == '/')
+			{
+				other = auth_info(request, "user");
+			}
+#endif
+		}
+		char *newpath = utils_buildpath(docroot, other, newname, "", NULL);
 		if (newpath)
 		{
 			warn("change %s to %s", oldpath, newpath);
@@ -253,7 +268,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	if (cmd && !strcmp("mv", cmd))
 	{
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
-		if (!changename(config, private->filepath, arg, rename))
+		if (!changename(config, request, private->filepath, arg, rename))
 			result = (char *)str_OK;
 	}
 	else if (cmd && !strcmp("chmod", cmd))
