@@ -78,7 +78,7 @@ struct _mod_webstream_ctx_s
 	http_client_t *ctl;
 };
 
-int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
+static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
 
 static const char str_webstream[] = "webstream";
 
@@ -273,7 +273,7 @@ static void *_webstream_main(void *arg)
 	return 0;
 }
 
-int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
+static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 {
 	pid_t pid;
 
