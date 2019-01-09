@@ -34,7 +34,7 @@ class JsonRPC
 		if (result.result)
 			this.result = result.result;
 		else
-			return "Error: " + result.error.code + " " + result.error.message;
+			this.error = result.error;
 		return this;
 	}
 };
@@ -114,7 +114,9 @@ function onClose(evt)
 
 function onMessage(evt)
 {
-	rpc.parse(evt.data);
+	var message = evt.data;
+	console.log(message);
+	rpc.parse(message);
 	writeToScreen(rpc.params.query);
 	var result = rpc.result;
 	if (rpc.error != undefined)
@@ -179,6 +181,7 @@ onLoad = function()
 	else if (location.protocol === "https:")
 		uri += "wss://";
 	uri += location.hostname;
+	uri += ":"+location.port;
 	uri += "/auth";
 	var _wsUri = document.getElementById("wsUri");
 	_wsUri.value = uri;
@@ -226,8 +229,13 @@ onLoad = function()
 		var _field; 
 		_field = document.getElementById("user");
 		rpc.append("user", _field.value);
+		_field = document.getElementById("group");
+		rpc.append("group", _field.value);
 		_field = document.getElementById("passwd");
 		rpc.append("passwd", _field.value);
+		_field = document.getElementById("home");
+		if (_field.value.length > 0)
+			rpc.append("home", _field.value);
 		var rpcstring = rpc.stringify();
 		websocket.send(rpcstring);
 	}.bind(_input);
@@ -249,26 +257,35 @@ onLoad = function()
 	</head>
 	<body onload="onLoad();">
 		<form>
-			<input type="text" id="wsUri" value="ws://127.0.0.1/jsonrpc" />
+			<input type="text" id="wsUri"/>
 			<input type="button" id="connect" value="Connect" />
 			<input type="button" id="disconnect" value="Disconnect" />
 		</form>
-		<h2>SQL shell</h2>
-		<form>
-			<div>
-				user: <input type="text" id="user" />
-			</div>
-			<div>
-				password: <input type="text" id="passwd" />
-				<input type="button" id="auth" value="login" />
-				<input type="button" id="adduser" value="add" />
-			</div>
-			<div>
-				new password: <input type="text" id="new" />
-				confirm new password: <input type="text" id="confirm" />
-				<input type="button" id="change" value="change" />
-				<input type="button" id="rmuser" value="remove" />
-			</div>
+		<h2>User definition</h2>
+		<form id="userpassword" readonly>
+			<fieldset>
+				<div>
+					<label for="user">user: </label><input type="text" id="user" />
+					<label for="home">home: </label><input type="text" id="home" />
+					<label for="group">group: </label><select id="group">
+					  <option value="users">users</option>
+					  <option value="root">root</option>
+					</select>
+				</div>
+				<fieldset>
+					<label for="passwd">password: </label><input type="text" id="passwd" />
+					<br/>
+					<input type="button" id="auth" value="test user" />
+					<input type="button" id="adduser" value="create user" />
+				</fieldset>
+				<fieldset>
+					<label for="new">new password: </label><input type="text" id="new" />
+					<label for="confirm">confirm new password: </label><input type="text" id="confirm" />
+					<br/>
+					<input type="button" id="change" value="change" />
+					<input type="button" id="rmuser" value="remove" />
+				</fieldset>
+			</fieldset>
 		</form>
 		<div id="output"></div>
 	</body>

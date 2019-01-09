@@ -78,7 +78,8 @@ int jsonrpc_runner(int sock,
 				ret--;
 				printf("echo: receive %d %s\n", ret, buffer);
 				char *out = jsonrpc_handler(buffer, ret, methods_table, methods_context);
-				ret = strlen(out);
+				ret = strlen(out) + 1;
+				printf("echo: send %d %s\n", ret, out);
 				ret = send(sock, out, ret, MSG_DONTWAIT | MSG_NOSIGNAL);
 			}
 		}
@@ -103,7 +104,7 @@ int jsonrpc_runner(int sock,
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s <-L jsonlibrary> [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
+	fprintf(stderr, "%s [-L <jsonlibrary>] [-C <jsonLibrary argument> [-R <socket directory>] [-n <socket name>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
 }
 
 static char *g_library_config = NULL;

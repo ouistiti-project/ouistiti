@@ -204,21 +204,21 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	if (userpasswd)
 		warn("user %s pwd %s home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
 
-	char *chekpasswd = authz_file_passwd(arg, user);
-	if (chekpasswd)
+	char *checkpasswd = authz_file_passwd(arg, user);
+	if (checkpasswd)
 	{
-		if (chekpasswd[0] == '$')
+		if (checkpasswd[0] == '$')
 		{
 			const hash_t *hash = NULL;
-			if (!strncmp(chekpasswd, "$a1", 3))
+			if (!strncmp(checkpasswd, "$a1", 3))
 			{
 				hash = hash_md5;
 			}
-			if (!strncmp(chekpasswd, "$a5", 3))
+			if (!strncmp(checkpasswd, "$a5", 3))
 			{
 				hash = hash_sha256;
 			}
-			if (!strncmp(chekpasswd, "$a6", 3))
+			if (!strncmp(checkpasswd, "$a6", 3))
 			{
 				hash = hash_sha512;
 			}
@@ -229,8 +229,8 @@ int authz_file_check(void *arg, char *user, char *passwd)
 				int length;
 
 				ctx = hash->init();
-				chekpasswd = strchr(chekpasswd+1, '$');
-				char *realm = strstr(chekpasswd, "realm=");
+				checkpasswd = strchr(checkpasswd+1, '$');
+				char *realm = strstr(checkpasswd, "realm=");
 				if (realm)
 				{
 					realm += 6;
@@ -245,18 +245,26 @@ int authz_file_check(void *arg, char *user, char *passwd)
 				char b64passwd[50];
 				base64->encode(hashpasswd, hash->size, b64passwd, 50);
 
-				chekpasswd = strrchr(chekpasswd, '$');
-				if (chekpasswd)
+				checkpasswd = strrchr(checkpasswd, '$');
+				if (checkpasswd)
 				{
-					chekpasswd++;
+					checkpasswd++;
 				}
-				if (!strcmp(b64passwd, chekpasswd))
+				char *bug = strstr(b64passwd, "AAAAA");
+				if (bug != NULL)
+				{
+					err("auth: bug on utf8 password");
+					bug[0] = '\0';
+					bug = strstr(checkpasswd, "AAAAA");
+					bug[0] = '\0';
+				}
+				if (!strcmp(b64passwd, checkpasswd))
 					ret = 1;
 			}
 		}
 		else
 		{
-			if (!strcmp(passwd, chekpasswd))
+			if (!strcmp(passwd, checkpasswd))
 				ret = 1;
 		}
 	}
