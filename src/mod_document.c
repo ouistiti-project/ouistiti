@@ -162,7 +162,7 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 			const char *method = httpmessage_REQUEST(request, "method");
 			if ((private->filepath == NULL) && (!strcmp(method, str_put)))
 			{
-				private->filepath = utils_buildpath(docroot, url, "", "", NULL);
+				private->filepath = utils_buildpath(docroot, other, url, "", NULL);
 				private->func = putfile_connector;
 				private->size = 0;
 			}

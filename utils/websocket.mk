@@ -67,7 +67,7 @@ jsonsql_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 modules-$(WS_JSONRPC)+=authrpc
 authrpc_SOURCES+=$(WS_SRC)authrpc.c
-authrpc_LIBRARY+=sqlite3
+authrpc_LIBRARY+=sqlite3 hash_mod
 authrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 bin-$(WS_SYSLOGD)+=websocket_syslogd
