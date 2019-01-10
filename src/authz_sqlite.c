@@ -212,7 +212,7 @@ int authz_sqlite_check(void *arg, char *user, char *passwd)
 					hash->update(&ctx, realm, length);
 					hash->update(&ctx, ":", 1);
 				}
-				hash->update(&ctx, passwd, strlen(passwd));
+				hash->update(ctx, passwd, strlen(passwd));
 				hash->finish(ctx, hashpasswd);
 				char b64passwd[50];
 				base64->encode(hashpasswd, hash->size, b64passwd, 50);
@@ -222,9 +222,19 @@ int authz_sqlite_check(void *arg, char *user, char *passwd)
 				{
 					checkpasswd++;
 				}
+				char *bug = strstr(b64passwd, "AAAAA");
+				if (bug != NULL)
+				{
+					err("auth: bug on utf8 password");
+					bug[0] = '\0';
+					bug = strstr(checkpasswd, "AAAAA");
+					bug[0] = '\0';
+				}
 				if (!strcmp(b64passwd, checkpasswd))
 					ret = 1;
 			}
+			else
+				err("auth: hash %s not found", checkpasswd);
 		}
 		else
 		{

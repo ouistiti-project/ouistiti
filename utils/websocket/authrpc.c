@@ -40,6 +40,7 @@
 #include <sys/stat.h>
 #include <sqlite3.h>
 
+#include "httpserver/hash.h"
 #include "../websocket.h"
 #include "jsonrpc.h"
 
@@ -76,7 +77,26 @@ static int _change_passwd(int id, const char *passwd, json_t **result, void *use
 	index = sqlite3_bind_parameter_index(statement, "@PASSWD");
 	if (index > 0)
 	{
-		sqlite3_bind_text(statement, index, passwd, -1, SQLITE_STATIC);
+		const hash_t *hash = NULL;
+		hash = hash_sha256;
+
+		if (hash != NULL)
+		{
+			char *hashpasswd = malloc(hash->size);
+			void *ctx;
+			ctx = hash->init();
+			hash->update(ctx, passwd, strlen(passwd));
+			hash->finish(ctx, hashpasswd);
+	
+			char b64passwd[3 + 50];
+			strcpy(b64passwd, "$a5$");
+			base64->encode(hashpasswd, hash->size, b64passwd + 3, 50);
+
+			sqlite3_bind_text(statement, index, b64passwd, -1, SQLITE_STATIC);
+			free(hashpasswd);
+		}
+		else
+			sqlite3_bind_text(statement, index, passwd, -1, SQLITE_STATIC);
 	}
 	index = sqlite3_bind_parameter_index(statement, "@ROWID");
 	if (index > 0)
@@ -290,6 +310,37 @@ static int method_passwd(json_t *json_params, json_t **result, void *userdata)
 	return ret;
 }
 
+static int get_groupid(sqlite3 *db, const char *group)
+{
+	int groupid = -1;
+	int ret;
+	do
+	{
+		const char *query = "select id from groups where name=@GROUP;";
+		char *error = NULL;
+		sqlite3_stmt *statement;
+		ret = sqlite3_prepare_v2(db, query, -1, &statement, NULL);
+
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@GROUP");
+		if (index > 0)
+		{
+			sqlite3_bind_text(statement, index, group, -1, SQLITE_STATIC);
+			ret = sqlite3_step(statement);
+			if (ret == SQLITE_ROW)
+			{
+				groupid = sqlite3_column_int(statement, 0);
+			}
+			else
+				group = "users";
+		}
+		else
+			break;
+		sqlite3_finalize(statement);
+	} while (groupid == -1);
+	return groupid;
+}
+
 static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 {
 	jsonauth_ctx_t *ctx = (jsonauth_ctx_t *)userdata;
@@ -302,6 +353,20 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 	int prepare = 0;
 	if (json_is_object(json_params))
 	{
+		json_t *value;
+		value = json_object_get(json_params, "group");
+		if (json_is_string(value))
+		{
+			const char *grouptmp = json_string_value(value);
+			if (!strcmp(grouptmp, "root"))
+			{
+				if (ctx->userid & ROOTUSER)
+					group = grouptmp;
+			}
+			else
+				group = grouptmp;
+		}
+		groupid = get_groupid(db, group);
 
 		const char query[] = "insert into users (name,groupid,passwd,home) values(@USER,@GROUPID,@PASSWD,@HOME);";
 		char *error = NULL;
@@ -309,7 +374,6 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 		ret = sqlite3_prepare_v2(db, query, -1, &statement, NULL);
 
 		const char *key;
-		json_t *value;
 		json_object_foreach(json_params, key, value)
 		{
 			int index;
@@ -341,48 +405,17 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 				}
 				prepare |= 0x0004;
 			}
-			else if (json_is_string(value) && !strcmp(key, "group"))
-			{
-				const char *grouptmp = json_string_value(value);
-				if (!strcmp(grouptmp, "root"))
-				{
-					if (ctx->userid & ROOTUSER)
-						group = grouptmp;
-				}
-				else
-					group = grouptmp;
-			}
 		}
-
-		do
-		{
-			const char query[] = "select id from groups where name=@GROUP";
-			char *error = NULL;
-			sqlite3_stmt *statement;
-			ret = sqlite3_prepare_v2(db, query, -1, &statement, NULL);
-
-			int index;
-			index = sqlite3_bind_parameter_index(statement, "@GROUP");
-			if (index > 0)
-			{
-				sqlite3_bind_text(statement, index, group, -1, SQLITE_STATIC);
-				ret = sqlite3_step(statement);
-				if (ret == SQLITE_DONE)
-				{
-					groupid = sqlite3_column_int(statement, 0);
-				}
-				else
-					group = "users";
-			}
-			else
-				break;
-			sqlite3_finalize(statement);
-		} while (groupid == -1);
-
 		if ((prepare & 0x00001) == 0)
+		{
+			err("adduser: User name missing");
 			ret = -1;
+		}
 		if ((prepare & 0x00002) == 0)
+		{
+			err("adduser: Password missing");
 			ret = -1;
+		}
 		if ((prepare & 0x00004) == 0)
 		{
 			int index;
@@ -392,14 +425,11 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 				sqlite3_bind_null(statement, index);
 			}
 		}
-		if ((prepare & 0x00008) == 0)
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@GROUPID");
+		if (index > 0)
 		{
-			int index;
-			index = sqlite3_bind_parameter_index(statement, "@GROUPID");
-			if (index > 0)
-			{
-				ret = sqlite3_bind_int(statement, index, groupid);
-			}
+			ret = sqlite3_bind_int(statement, index, groupid);
 		}
 		if (ret == 0)
 		{
@@ -540,6 +570,7 @@ void *jsonrpc_init(struct jsonrpc_method_entry_t **table, char *config)
 	jsonauth_ctx_t *ctx;
 	ctx = calloc(1, sizeof(*ctx));
 	//sqlite3_initialize();
+	warn("Auth sqlite DB: %s", config);
 	if (config)
 	{
 		int ret;
@@ -559,10 +590,21 @@ void *jsonrpc_init(struct jsonrpc_method_entry_t **table, char *config)
 			warn("sqlite open 3 %d", ret);
 		}
 		if (ret != SQLITE_OK)
+		{
+			err("Auth sqlite DB error on open");
 			ctx->db = NULL;
+		}
 	}
-	ctx->userid = -1;
-	*table = jsonsql_table;
+	if (ctx->db != NULL)
+	{
+		ctx->userid = -1;
+		*table = jsonsql_table;
+	}
+	else
+	{
+		free(ctx);
+		ctx = NULL;
+	}
 	return ctx;
 }
 
