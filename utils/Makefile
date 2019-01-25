@@ -4,7 +4,7 @@ subdir-$(WEBSTREAM)+=webstream.mk
 hostbin-$(HOST_UTILS)+=testclient
 testclient_SOURCES+=testclient.c
 testclient_CFLAGS-$(MBEDTLS)+=-DMBEDTLS
-testclient_LIBS-$(MBEDTLS)+=mbedcrypto mbedtls mbedx509
+testclient_LIBS-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 testclient_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 ifeq ($(HTTPCLIENT_FEATURES),y)
