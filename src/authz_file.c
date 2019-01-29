@@ -250,14 +250,6 @@ int authz_file_check(void *arg, char *user, char *passwd)
 				{
 					checkpasswd++;
 				}
-				char *bug = strstr(b64passwd, "AAAAA");
-				if (bug != NULL)
-				{
-					err("auth: bug on utf8 password");
-					bug[0] = '\0';
-					bug = strstr(checkpasswd, "AAAAA");
-					bug[0] = '\0';
-				}
 				if (!strcmp(b64passwd, checkpasswd))
 					ret = 1;
 			}
