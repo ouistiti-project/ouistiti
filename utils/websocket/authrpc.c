@@ -61,6 +61,30 @@ struct jsonauth_ctx_s
 	int userid;
 };
 
+static int _compute_passwd(const char *input, char *output, int outlen)
+{
+	const hash_t *hash = NULL;
+	hash = hash_sha256;
+
+	if (hash != NULL)
+	{
+		char *hashpasswd = malloc(hash->size);
+		void *ctx;
+		ctx = hash->init();
+		hash->update(ctx, input, strlen(input));
+		hash->finish(ctx, hashpasswd);
+
+		size_t cnt = 0;
+		strcpy(output, "$a5$");
+		base64->encode(hashpasswd, hash->size, output + 4, outlen - 4);
+		free(hashpasswd);
+	}
+	else
+	{
+		strncpy(output, input, outlen);
+	}
+}
+
 static int _change_passwd(int id, const char *passwd, json_t **result, void *userdata)
 {
 	jsonauth_ctx_t *ctx = (jsonauth_ctx_t *)userdata;
@@ -77,26 +101,9 @@ static int _change_passwd(int id, const char *passwd, json_t **result, void *use
 	index = sqlite3_bind_parameter_index(statement, "@PASSWD");
 	if (index > 0)
 	{
-		const hash_t *hash = NULL;
-		hash = hash_sha256;
-
-		if (hash != NULL)
-		{
-			char *hashpasswd = malloc(hash->size);
-			void *ctx;
-			ctx = hash->init();
-			hash->update(ctx, passwd, strlen(passwd));
-			hash->finish(ctx, hashpasswd);
-	
-			char b64passwd[3 + 50];
-			strcpy(b64passwd, "$a5$");
-			base64->encode(hashpasswd, hash->size, b64passwd + 3, 50);
-
-			sqlite3_bind_text(statement, index, b64passwd, -1, SQLITE_STATIC);
-			free(hashpasswd);
-		}
-		else
-			sqlite3_bind_text(statement, index, passwd, -1, SQLITE_STATIC);
+		char b64passwd[4 + 100];
+		_compute_passwd(passwd, b64passwd, 4 + 100);
+		sqlite3_bind_text(statement, index, b64passwd, -1, SQLITE_STATIC);
 	}
 	index = sqlite3_bind_parameter_index(statement, "@ROWID");
 	if (index > 0)
@@ -181,7 +188,9 @@ static int _searchuser(const char *user, const char *passwd, json_t **result, vo
 	index = sqlite3_bind_parameter_index(statement, "@PASSWD");
 	if (index > 0)
 	{
-		sqlite3_bind_text(statement, index, passwd, -1, SQLITE_STATIC);
+		char b64passwd[3 + 50];
+		_compute_passwd(passwd, b64passwd, 3 + 50);
+		sqlite3_bind_text(statement, index, b64passwd, -1, SQLITE_STATIC);
 	}
 
 	ret = sqlite3_step(statement);
@@ -392,7 +401,10 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 				index = sqlite3_bind_parameter_index(statement, "@PASSWD");
 				if (index > 0)
 				{
-					ret = sqlite3_bind_text(statement, index, json_string_value(value), -1, SQLITE_STATIC);
+					const char *passwd = json_string_value(value);
+					char b64passwd[3 + 50];
+					_compute_passwd(passwd, b64passwd, 3 + 50);
+					ret = sqlite3_bind_text(statement, index, b64passwd, -1, SQLITE_STATIC);
 				}
 				prepare |= 0x0002;
 			}
