@@ -69,6 +69,8 @@ modules-$(WS_JSONRPC)+=authrpc
 authrpc_SOURCES+=$(WS_SRC)authrpc.c
 authrpc_LIBRARY+=sqlite3 hash_mod
 authrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
+authrpc_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
+authrpc_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 
 bin-$(WS_SYSLOGD)+=websocket_syslogd
 websocket_syslogd_SOURCES+=$(WS_SRC)syslogd.c

@@ -120,6 +120,7 @@ static char *authz_sqlite_search(authz_sqlite_t *ctx, char *user, char *field)
 {
 	authz_sqlite_config_t *config = ctx->config;
 	int ret;
+	char *value = NULL;
 	const char *query = "select %s from users inner join groups on groups.id=users.groupid where users.name=@NAME;";
 
 	int size = strlen(query) + strlen(field);
@@ -149,17 +150,20 @@ static char *authz_sqlite_search(authz_sqlite_t *ctx, char *user, char *field)
 				free(ctx->value);
 				ctx->value = NULL;
 			}
-			if (!ctx->value)
-				ctx->value = malloc(length + 1);
-			strcpy(ctx->value, data);
+			if (length > 0)
+			{
+				if (!ctx->value)
+					ctx->value = malloc(length + 1);
+				strcpy(ctx->value, data);
+				value = ctx->value;
+			}
 			break;
 		}
 		ret = sqlite3_step(statement);
 	} while (ret == SQLITE_ROW);
 	sqlite3_finalize(statement);
 	sqlite3_free(sql);
-	dbg("auth: sqlite %s contains %s", field, ctx->value);
-	return ctx->value;
+	return value;
 }
 
 char *authz_sqlite_passwd(void *arg, char *user)
@@ -221,14 +225,6 @@ int authz_sqlite_check(void *arg, char *user, char *passwd)
 				if (checkpasswd)
 				{
 					checkpasswd++;
-				}
-				char *bug = strstr(b64passwd, "AAAAA");
-				if (bug != NULL)
-				{
-					err("auth: bug on utf8 password");
-					bug[0] = '\0';
-					bug = strstr(checkpasswd, "AAAAA");
-					bug[0] = '\0';
 				}
 				if (!strcmp(b64passwd, checkpasswd))
 					ret = 1;
