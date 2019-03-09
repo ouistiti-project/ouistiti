@@ -519,7 +519,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 		config_lookup_string(&configfile, "log-file", (const char **)&logfile);
 		if (logfile != NULL && logfile[0] != '\0')
 		{
-			logfd = open(logfile, O_WRONLY | O_CREAT, 00644);
+			logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00644);
 			if (logfd > 0)
 			{
 				dup2(logfd, 1);
