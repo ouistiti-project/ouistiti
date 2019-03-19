@@ -67,7 +67,8 @@ jsonsql_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 modules-$(WS_JSONRPC)+=authrpc
 authrpc_SOURCES+=$(WS_SRC)authrpc.c
-authrpc_LIBRARY+=sqlite3 hash_mod
+authrpc_LIBRARY+=sqlite3
+authrpc_LIBS+=hash_mod
 authrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 authrpc_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 authrpc_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
