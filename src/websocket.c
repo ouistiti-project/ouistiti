@@ -68,7 +68,7 @@ int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_
 	}
 	if (sock == -1)
 	{
-		warn("websocket error: %s", strerror(errno));
+		warn("websocket %s error: %s", filepath, strerror(errno));
 	}
 	return sock;
 }

@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
+#include <libgen.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -112,7 +113,22 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				httpmessage_addheader(response, "Content-Range", range);
 			}
 			else
+			{
+#ifdef PUTTMPFILE
+#ifndef O_TMPFILE
+#define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
+#endif
+				/**
+				 * tmpfile will be not visible before to be closed
+				 */
+				char filepath[PATH_MAX];
+				strncpy(filepath, private->filepath, PATH_MAX);
+				char *dirpath = dirname(filepath);
+				private->fd = open(dirpath, O_WRONLY | O_TMPFILE, 0644);
+#else
 				private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
+#endif
+			}
 			if (private->fd > 0)
 			{
 				if (private->offset > 0)
@@ -215,7 +231,14 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 #endif
 			warn("document: %s uploaded", private->filepath);
 			if (private->fd)
+			{
+#ifdef PUTTMPFILE
+				char path[PATH_MAX];
+				snprintf(path, PATH_MAX, "/proc/self/fd/%d", private->fd);
+				linkat(AT_FDCWD, path, AT_FDCWD, private->filepath,AT_SYMLINK_FOLLOW);
+#endif
 				close(private->fd);
+			}
 			private->fd = 0;
 			ret = ESUCCESS;
 			document_close(private);
