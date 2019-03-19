@@ -194,7 +194,7 @@ static void _setpidfile(char *pidfile)
 {
 	if (pidfile[0] != '\0')
 	{
-		int pidfd = open(pidfile,O_RDWR|O_CREAT,0640);
+		int pidfd = open(pidfile,O_RDWR|O_CREAT|O_TRUNC,0640);
 		if (pidfd > 0)
 		{
 			char buffer[32];
