@@ -512,7 +512,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			}
 			else if (config->redirect)
 			{
-				const char *redirect = config->redirect;
+				const char *redirect = strstr(config->redirect, "://");
+				if (redirect != NULL)
+				{
+					redirect += 3;
+					redirect = strchr(redirect, '/');
+				}
+				else
+					redirect = config->redirect;
 				if (redirect[0] == '/')
 					redirect++;
 				protect = utils_searchexp(uri, redirect);
