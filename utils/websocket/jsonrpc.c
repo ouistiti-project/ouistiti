@@ -150,8 +150,6 @@ int start(server_t server, int newsock)
 }
 #endif
 
-const char *str_username = "apache";
-
 #ifndef SOCKDOMAIN
 #define SOCKDOMAIN AF_UNIX
 #endif
@@ -165,7 +163,7 @@ int main(int argc, char **argv)
 	const char *root = "/var/run/ouistiti";
 	const char *name = "jsonrpc";
 	int maxclients = 50;
-	const char *username = str_username;
+	const char *username = NULL;
 	int domain = SOCKDOMAIN;
 	int proto = SOCKPROTOCOL;
 	void *lhandler = NULL;
@@ -234,12 +232,15 @@ int main(int argc, char **argv)
 		chmod(root, 0777);
 	}
 
-	if (getuid() == 0)
+	if (getuid() == 0 && username != NULL)
 	{
 		struct passwd *user = NULL;
 		user = getpwnam(username);
-		setgid(user->pw_gid);
-		setuid(user->pw_uid);
+		if (user != NULL)
+		{
+			setgid(user->pw_gid);
+			setuid(user->pw_uid);
+		}
 	}
 
 	sock = socket(domain, SOCK_STREAM, proto);

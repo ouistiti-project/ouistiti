@@ -66,6 +66,8 @@ REDIRECT404=y
 #support cookie parser
 COOKIE=y
 
+CERTIFICATE=n
+
 HOST_UTILS=n
 
 prefix=/usr
