@@ -61,6 +61,21 @@ struct jsonauth_ctx_s
 	int userid;
 };
 
+static void _db_error(int ret)
+{
+	switch (ret)
+	{
+		case SQLITE_READONLY:
+			warn("auth: DB in ReadOnly");
+		break;
+		case SQLITE_CANTOPEN:
+			warn("auth: DB not Open");
+		break;
+		default:
+			warn("auth: password rejected %d", ret);
+	}
+}
+
 static int _compute_passwd(const char *input, char *output, int outlen)
 {
 	const hash_t *hash = NULL;
@@ -119,7 +134,7 @@ static int _change_passwd(int id, const char *passwd, json_t **result, void *use
 	}
 	else
 	{
-		warn("auth: password rejected %d", ret);
+		_db_error(ret);
 		json_decref(*result);
 		*result = jsonrpc_error_object(ret, "password rejected", json_string("password rejected"));
 	}
@@ -153,6 +168,7 @@ static int _remove_user(int id, json_t **result, void *userdata)
 	}
 	else
 	{
+		_db_error(ret);
 		json_decref(*result);
 		*result = jsonrpc_error_object(ret, "access rejected", json_string("acess rejected"));
 	}
@@ -589,17 +605,20 @@ void *jsonrpc_init(struct jsonrpc_method_entry_t **table, char *config)
 		if (!access(config, R_OK|W_OK))
 		{
 			ret = sqlite3_open_v2(config, &ctx->db, SQLITE_OPEN_READWRITE, NULL);
-			warn("sqlite open 1 %d", ret);
+			if (ret == 0)
+				warn("sqlite open read/write");
 		}
 		else if (!access(config, R_OK))
 		{
 			ret = sqlite3_open_v2(config, &ctx->db, SQLITE_OPEN_READONLY, NULL);
-			warn("sqlite open 2 %d", ret);
+			if (ret == 0)
+				warn("sqlite open read only");
 		}
 		else
 		{
 			ret = sqlite3_open_v2(config, &ctx->db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
-			warn("sqlite open 3 %d", ret);
+			if (ret == 0)
+				warn("sqlite create");
 		}
 		if (ret != SQLITE_OK)
 		{
