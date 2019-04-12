@@ -23,10 +23,10 @@ ouipasswd_LIBS-$(MBEDTLS)+=mbedcrypto
 ouipasswd_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 sysconf-${FILE_CONFIG}+=ouistiti.conf
-sysconf-${FILE_CONFIG}+=ouistiti_ca.crt
-sysconf-${FILE_CONFIG}+=ouistiti_srv.crt
-sysconf-${FILE_CONFIG}+=ouistiti_srv.key
-sysconf-${FILE_CONFIG}+=ouistiti_dhparam.key
+sysconf-${CERTIFICATE}+=ouistiti_ca.crt
+sysconf-${CERTIFICATE}+=ouistiti_srv.crt
+sysconf-${CERTIFICATE}+=ouistiti_srv.key
+sysconf-${CERTIFICATE}+=ouistiti_dhparam.key
 
 SERVER?=ouistiti.net
 
