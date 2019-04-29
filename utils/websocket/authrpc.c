@@ -191,7 +191,10 @@ static int _searchuser(const char *user, const char *passwd, json_t **result, vo
 
 	index = 0;
 	if (!passwd)
+	{
 		index = 1;
+		warn("check user without passwd");
+	}
 	ret = sqlite3_prepare_v2(db, query[index], -1, &statement, NULL);
 
 	int id = -1;
@@ -504,6 +507,8 @@ static int method_rmuser(json_t *json_params, json_t **result, void *userdata)
 			else if (json_is_string(value) && !strcmp(key, "passwd"))
 			{
 				passwd = json_string_value(value);
+				if (passwd[0] == '\0')
+					passwd = NULL;
 			}
 		}
 		if(user)

@@ -357,7 +357,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			value.tv_nsec = stop.tv_nsec - private->start.tv_nsec;
 			dbg("document: (%llu bytes) %ld:%3ld", private->datasize, value.tv_sec, value.tv_nsec/1000000);
 #endif
-			dbg("document: send %s", private->filepath);
+			warn("document: send %s", private->filepath);
 			close(private->fd);
 			document_close(private);
 			return ESUCCESS;
