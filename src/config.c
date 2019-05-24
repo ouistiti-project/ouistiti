@@ -45,6 +45,7 @@
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_vhosts.h"
+#include "mod_cors.h"
 
 #include "config.h"
 
@@ -450,6 +451,26 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 #define webstream_config(...) NULL
 #endif
 
+#ifdef CORS
+static mod_cors_t *cors_config(config_setting_t *iterator, int tls)
+{
+	mod_cors_t *config = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config_set = config_setting_get_member(iterator, "cors");
+#else
+	config_setting_t *config_set = config_setting_lookup(iterator, "cors");
+#endif
+	if (config_set)
+	{
+		config = calloc(1, sizeof(*config));
+		config_setting_lookup_string(config_set, "origin", (const char **)&config->origin);
+	}
+	return config;
+}
+#else
+#define cors_config(...) NULL
+#endif
+
 #ifdef REDIRECT404
 static mod_redirect404_t *redirect404_config(config_setting_t *iterator, int tls)
 {
@@ -491,6 +512,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 		vhost->modules.clientfilter = clientfilter_config(iterator, tls);
 		vhost->modules.cgi = cgi_config(iterator, tls);
 		vhost->modules.websocket = websocket_config(iterator, tls);
+		vhost->modules.cors = cors_config(iterator, tls);
 	}
 	else
 	{
@@ -609,6 +631,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
 					config->modules.redirect404 = redirect404_config(iterator,(config->tls!=NULL));
+					config->modules.cors = cors_config(iterator,(config->tls!=NULL));
 					config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5

@@ -59,6 +59,7 @@ $(TARGET)_LIBS-$(CLIENTFILTER)+=mod_clientfilter
 $(TARGET)_LIBS-$(REDIRECT404)+=mod_redirect404
 $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
 $(TARGET)_LIBS-$(COOKIE)+=mod_cookie
+$(TARGET)_LIBS-$(CORS)+=mod_cors
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
 $(TARGET)_LIBS-$(WEBSOCKET)+=hash_mod
@@ -96,6 +97,7 @@ $(TARGET)_CFLAGS-$(CLIENTFILTER)+=-DCLIENTFILTER
 $(TARGET)_CFLAGS-$(REDIRECT404)+=-DREDIRECT404
 $(TARGET)_CFLAGS-$(WEBSTREAM)+=-DWEBSTREAM
 $(TARGET)_CFLAGS-$(COOKIE)+=-DCOOKIE
+$(TARGET)_CFLAGS-$(CORS)+=-DCORS
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 $(TARGET)_LIBRARY-$(DEBUG)+=rt
@@ -109,3 +111,4 @@ subdir-$(SERVERHEADER)+=mod_server.mk
 subdir-$(CLIENTFILTER)+=mod_clientfilter.mk
 subdir-$(REDIRECT404)+=mod_redirect404.mk
 subdir-$(WEBSTREAM)+=mod_webstream.mk
+subdir-$(CORS)+=mod_cors.mk
