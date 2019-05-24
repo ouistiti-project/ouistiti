@@ -156,6 +156,7 @@ void *mod_cors_create(http_server_t *server, char *vhost, mod_cors_t *config)
 	mod->vhost = vhost;
 	mod->config = config;
 
+	dbg("CORS available");
 	httpserver_addmethod(server, str_options, 1);
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
 	return mod;
