@@ -77,7 +77,7 @@ void *authz_unix_create(void *arg)
 	return ctx;
 }
 
-int authz_unix_check(void *arg, char *user, char *passwd)
+int authz_unix_check(void *arg, const char *user, const char *passwd)
 {
 	int ret = 0;
 	authz_unix_t *ctx = (authz_unix_t *)arg;
@@ -144,7 +144,7 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 	return ret;
 }
 
-char *authz_unix_group(void *arg, char *user)
+const char *authz_unix_group(void *arg, const char *user)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
@@ -156,7 +156,7 @@ char *authz_unix_group(void *arg, char *user)
 	return NULL;
 }
 
-char *authz_unix_home(void *arg, char *user)
+const char *authz_unix_home(void *arg, const char *user)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
