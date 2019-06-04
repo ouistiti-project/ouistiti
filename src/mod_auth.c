@@ -144,6 +144,30 @@ authn_rules_t *authn_rules[] = {
 #endif
 };
 
+authz_rules_t *authz_rules[] = {
+	NULL,
+#ifdef AUTHZ_SIMPLE
+	&authz_simple_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHZ_FILE
+	&authz_file_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHZ_UNIX
+	&authz_unix_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHZ_SQLITE
+	&authz_sqlite_rules,
+#else
+	NULL,
+#endif
+};
+
 void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
@@ -157,33 +181,11 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
-	switch (config->authz_type & AUTHZ_TYPE_MASK)
-	{
-#ifdef AUTHZ_SIMPLE
-	case AUTHZ_SIMPLE_E:
-		mod->authz->rules = &authz_simple_rules;
-		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
-	break;
-#endif
-#ifdef AUTHZ_FILE
-	case AUTHZ_FILE_E:
-		mod->authz->rules = &authz_file_rules;
-		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
-	break;
-#endif
-#ifdef AUTHZ_UNIX
-	case AUTHZ_UNIX_E:
-		mod->authz->rules = &authz_unix_rules;
-		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
-	break;
-#endif
-#ifdef AUTHZ_SQLITE
-	case AUTHZ_SQLITE_E:
-		mod->authz->rules = &authz_sqlite_rules;
-		mod->authz->ctx = mod->authz->rules->create(config->authz_config);
-	break;
-#endif
-	}
+	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
+	if (mod->authz->rules == NULL)
+		err("authentication type is not availlable, change configuration");
+
+	mod->authz->ctx = mod->authz->rules->create(config->authz_config);
 	if (mod->authz->ctx == NULL)
 	{
 		free(mod->authz);
@@ -194,6 +196,9 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->type = config->authn_type;
 	mod->authn->rules = authn_rules[config->authn_type];
+	if (mod->authn->rules == NULL)
+		err("authentication type is not availlable, change configuration");
+
 	if (config->algo)
 	{
 		if (hash_sha1 && !strcmp(config->algo, hash_sha1->name))
@@ -221,11 +226,9 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 				(hash_sha256?hash_sha256->name:""),
 				(hash_sha512?hash_sha512->name:""));
 		}
-		dbg("auth : use %s as hash method", config->algo);
 	}
 	if (mod->authn->hash == NULL && hash_md5)
 	{
-		dbg("auth : use default md5 as hash method");
 		mod->authn->hash = hash_md5;
 	}
 	if (mod->authn->rules && mod->authz->rules)
