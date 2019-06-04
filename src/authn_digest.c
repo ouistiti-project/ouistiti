@@ -166,6 +166,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	}
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
 	httpmessage_keepalive(response);
+	httpmessage_result(response, RESULT_401);
 	ret = ESUCCESS;
 	return ret;
 }

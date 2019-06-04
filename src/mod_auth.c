@@ -41,7 +41,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
-# include <pwd.h>
+#include <pwd.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -502,13 +502,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
 			{
-#if defined(RESULT_403)
 				httpmessage_result(response, RESULT_403);
-#elif defined(RESULT_401)
-				httpmessage_result(response, RESULT_401);
-#else
-				httpmessage_result(response, RESULT_400);
-#endif
 			}
 			else if (config->redirect)
 			{
@@ -534,28 +528,15 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					 * reject to manage the request and another module
 					 * should send response to the request0.
 					 */
+					httpmessage_result(response, RESULT_200);
 					ret = EREJECT;
 				}
 				else
 				{
 					httpmessage_addheader(response, str_location, config->redirect);
 					httpmessage_addheader(response, str_cachecontrol, "no-cache");
-#if defined(RESULT_307)
-					httpmessage_result(response, RESULT_307);
-#elif defined(RESULT_301)
-					httpmessage_result(response, RESULT_301);
-#else
-					httpmessage_result(response, RESULT_401);
-#endif
+					httpmessage_result(response, RESULT_302);
 				}
-			}
-			else
-			{
-#if defined(RESULT_401)
-				httpmessage_result(response, RESULT_401);
-#else
-				httpmessage_result(response, RESULT_400);
-#endif
 			}
 		}
 	}
