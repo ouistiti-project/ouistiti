@@ -113,7 +113,7 @@ void *authz_file_create(void *arg)
 	return ctx;
 }
 
-char *authz_file_passwd(void *arg, char *user)
+const char *authz_file_passwd(void *arg, const char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;
@@ -193,7 +193,7 @@ char *authz_file_passwd(void *arg, char *user)
 	return NULL;
 }
 
-int authz_file_check(void *arg, char *user, char *passwd)
+int authz_file_check(void *arg, const char *user, const char *passwd)
 {
 	int ret = 0;
 	authz_file_t *ctx = (authz_file_t *)arg;
@@ -204,7 +204,7 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	if (userpasswd)
 		warn("user %s pwd %s home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
 
-	char *checkpasswd = authz_file_passwd(arg, user);
+	const char *checkpasswd = authz_file_passwd(arg, user);
 	if (checkpasswd)
 	{
 		if (checkpasswd[0] == '$')
@@ -263,7 +263,7 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	return ret;
 }
 
-char *authz_file_group(void *arg, char *user)
+const char *authz_file_group(void *arg, const char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;
@@ -275,7 +275,7 @@ char *authz_file_group(void *arg, char *user)
 	return NULL;
 }
 
-char *authz_file_home(void *arg, char *user)
+const char *authz_file_home(void *arg, const char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;

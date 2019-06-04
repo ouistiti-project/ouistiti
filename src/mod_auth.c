@@ -401,15 +401,15 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			else
 				method = httpmessage_REQUEST(request, "method");
 			const char *uri = httpmessage_REQUEST(request, "uri");
-			char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
+			const char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
 			if (user != NULL)
 			{
 				authsession_t *info = NULL;
 				info = ctx->info;
 				if (info == NULL)
 				{
-					char *group = NULL;
-					char *home = NULL;
+					const char *group = NULL;
+					const char *home = NULL;
 					if (mod->authz->rules->group)
 						group = mod->authz->rules->group(mod->authz->ctx, user);
 					if (mod->authz->rules->home)
@@ -462,7 +462,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					uid_t uid;
 					uid = getuid();
 					//only "saved set-uid", "uid" and "euid" may be set
-					//first step: set the "saved set-uid" (root) 
+					//first step: set the "saved set-uid" (root)
 					seteuid(uid);
 					//second step: set the new "euid"
 					seteuid(result->pw_uid);
@@ -512,6 +512,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			}
 			else if (config->redirect)
 			{
+				/**
+				 * check the url redirection
+				 */
 				const char *redirect = strstr(config->redirect, "://");
 				if (redirect != NULL)
 				{
@@ -525,6 +528,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				protect = utils_searchexp(uri, redirect);
 				if (protect == ESUCCESS)
 				{
+					/**
+					 * the request URI is the URL of the redirection
+					 * the authentication has to accept (this module
+					 * reject to manage the request and another module
+					 * should send response to the request0.
+					 */
 					ret = EREJECT;
 				}
 				else

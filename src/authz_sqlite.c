@@ -116,7 +116,7 @@ void *authz_sqlite_create(void *arg)
 	return ctx;
 }
 
-static char *authz_sqlite_search(authz_sqlite_t *ctx, char *user, char *field)
+static char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
 {
 	authz_sqlite_config_t *config = ctx->config;
 	int ret;
@@ -166,7 +166,7 @@ static char *authz_sqlite_search(authz_sqlite_t *ctx, char *user, char *field)
 	return value;
 }
 
-char *authz_sqlite_passwd(void *arg, char *user)
+static const char *authz_sqlite_passwd(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
@@ -174,13 +174,13 @@ char *authz_sqlite_passwd(void *arg, char *user)
 	return passwd;
 }
 
-int authz_sqlite_check(void *arg, char *user, char *passwd)
+int authz_sqlite_check(void *arg, const char *user, const char *passwd)
 {
 	int ret = 0;
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	authz_sqlite_config_t *config = ctx->config;
 
-	char *checkpasswd = authz_sqlite_passwd(arg, user);
+	const char *checkpasswd = authz_sqlite_passwd(arg, user);
 	if (checkpasswd)
 	{
 		if (checkpasswd[0] == '$')
@@ -241,14 +241,14 @@ int authz_sqlite_check(void *arg, char *user, char *passwd)
 	return ret;
 }
 
-char *authz_sqlite_group(void *arg, char *user)
+const char *authz_sqlite_group(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
 	return authz_sqlite_search(ctx, user, "groups.name as \"group\"");
 }
 
-char *authz_sqlite_home(void *arg, char *user)
+const char *authz_sqlite_home(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 

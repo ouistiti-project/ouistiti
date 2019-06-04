@@ -268,7 +268,7 @@ static char *authn_digest_a2(const hash_t * hash, const char *method, const char
 	hash->finish(ctx, A2);
 	return utils_stringify(A2, hash->size);
 }
-struct authn_digest_computing_s authn_digest_md5_computing = 
+struct authn_digest_computing_s authn_digest_md5_computing =
 {
 	.digest = authn_digest_digest,
 	.a1 = authn_digest_a1,
@@ -278,12 +278,12 @@ struct authn_digest_computing_s authn_digest_md5_computing =
 struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
 
 static char *str_empty = "";
-static char *authn_digest_check(void *arg, const char *method, const char *url, char *string)
+static const char *authn_digest_check(void *arg, const char *method, const char *url, char *string)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
-	char *passwd = NULL;
+	const char *passwd = NULL;
 	const char *user = str_empty;
-	char *user_ret = NULL;
+	const char *user_ret = NULL;
 	const char *uri = NULL;
 	const char *realm = str_empty;
 	const char *qop = NULL;
