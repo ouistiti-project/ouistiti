@@ -69,7 +69,7 @@ struct authz_sqlite_s
 	authz_sqlite_user_t user;
 };
 
-void *authz_sqlite_create(void *arg)
+static void *authz_sqlite_create(void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
 	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
@@ -174,7 +174,7 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 	return passwd;
 }
 
-int authz_sqlite_check(void *arg, const char *user, const char *passwd)
+static int authz_sqlite_check(void *arg, const char *user, const char *passwd)
 {
 	int ret = 0;
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -241,21 +241,21 @@ int authz_sqlite_check(void *arg, const char *user, const char *passwd)
 	return ret;
 }
 
-const char *authz_sqlite_group(void *arg, const char *user)
+static const char *authz_sqlite_group(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
 	return authz_sqlite_search(ctx, user, "groups.name as \"group\"");
 }
 
-const char *authz_sqlite_home(void *arg, const char *user)
+static const char *authz_sqlite_home(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
 	return authz_sqlite_search(ctx, user, "home");
 }
 
-void authz_sqlite_destroy(void *arg)
+static void authz_sqlite_destroy(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 

@@ -268,14 +268,14 @@ static char *authn_digest_a2(const hash_t * hash, const char *method, const char
 	hash->finish(ctx, A2);
 	return utils_stringify(A2, hash->size);
 }
-struct authn_digest_computing_s authn_digest_md5_computing =
+static struct authn_digest_computing_s authn_digest_md5_computing =
 {
 	.digest = authn_digest_digest,
 	.a1 = authn_digest_a1,
 	.a2 = authn_digest_a2,
 };
 
-struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
+static struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
 
 static char *str_empty = "";
 static const char *authn_digest_check(void *arg, const char *method, const char *url, char *string)
