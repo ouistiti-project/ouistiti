@@ -193,10 +193,9 @@ static const char *authz_file_passwd(void *arg, const char *user)
 	return NULL;
 }
 
-static int authz_file_check(void *arg, const char *user, const char *passwd)
+static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;
 
 	struct passwd *userpasswd = NULL;
@@ -204,7 +203,7 @@ static int authz_file_check(void *arg, const char *user, const char *passwd)
 	if (userpasswd)
 		warn("user %s pwd %s home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
 
-	const char *checkpasswd = authz_file_passwd(arg, user);
+	const char *checkpasswd = authz_file_passwd(ctx, user);
 	if (checkpasswd)
 	{
 		if (checkpasswd[0] == '$')
@@ -261,6 +260,15 @@ static int authz_file_check(void *arg, const char *user, const char *passwd)
 		}
 	}
 	return ret;
+}
+
+static int authz_file_check(void *arg, const char *user, const char *passwd, const char *token)
+{
+	authz_file_t *ctx = (authz_file_t *)arg;
+
+	if (user != NULL && passwd != NULL)
+		return _authz_file_checkpasswd(ctx, user, passwd);
+	return -1;
 }
 
 static const char *authz_file_group(void *arg, const char *user)

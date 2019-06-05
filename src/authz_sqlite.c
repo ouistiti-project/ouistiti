@@ -174,13 +174,12 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 	return passwd;
 }
 
-static int authz_sqlite_check(void *arg, const char *user, const char *passwd)
+static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	authz_sqlite_config_t *config = ctx->config;
 
-	const char *checkpasswd = authz_sqlite_passwd(arg, user);
+	const char *checkpasswd = authz_sqlite_passwd(ctx, user);
 	if (checkpasswd)
 	{
 		if (checkpasswd[0] == '$')
@@ -239,6 +238,15 @@ static int authz_sqlite_check(void *arg, const char *user, const char *passwd)
 		}
 	}
 	return ret;
+}
+
+static int authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+
+	if (passwd != NULL)
+		return _authz_sqlite_checkpasswd(ctx, user, passwd);
+	return -1;
 }
 
 static const char *authz_sqlite_group(void *arg, const char *user)
