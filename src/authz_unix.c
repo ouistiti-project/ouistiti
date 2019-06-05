@@ -77,10 +77,9 @@ static void *authz_unix_create(void *arg)
 	return ctx;
 }
 
-static int authz_unix_check(void *arg, const char *user, const char *passwd)
+static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
 
 	if (ctx->user && !strcmp(user, ctx->user))
@@ -142,6 +141,15 @@ static int authz_unix_check(void *arg, const char *user, const char *passwd)
 		dbg("authz unix: user %s not found", user);
 	}
 	return ret;
+}
+
+static int authz_unix_check(void *arg, const char *user, const char *passwd, const char *token)
+{
+	authz_unix_t *ctx = (authz_unix_t *)arg;
+
+	if (user != NULL && passwd != NULL)
+		return _authz_unix_checkpasswd(ctx, user, passwd);
+	return -1;
 }
 
 static const char *authz_unix_group(void *arg, const char *user)
