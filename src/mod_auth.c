@@ -283,11 +283,14 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	ctx->mod = mod;
 	ctx->ctl = ctl;
 
-	if(mod->authn->rules->setup)
-		mod->authn->rules->setup(mod->authn->ctx, addr, addrsize);
 	if (mod->authz->type & AUTHZ_HOME_E)
 		httpclient_addconnector(ctl, mod->vhost, _home_connector, ctx, str_auth);
 	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx, str_auth);
+	/**
+	 * authn may require prioritary connector and it has to be added after this one
+	 */
+	if(mod->authn->rules->setup)
+		mod->authn->rules->setup(mod->authn->ctx, ctl, addr, addrsize);
 
 	return ctx;
 }

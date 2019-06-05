@@ -140,7 +140,7 @@ static void authn_digest_opaque(void *arg, char *opaque, int opaquelen)
 #endif
 }
 
-static int authn_digest_setup(void *arg, struct sockaddr *addr, int addrsize)
+static int authn_digest_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
