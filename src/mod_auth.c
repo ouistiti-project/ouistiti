@@ -381,8 +381,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			authorization = cookie_get(request, (char *)str_authorization);
 			if (authorization)
 			{
-				authorization = strchr(authorization, '=') + 1;
-				cookie = 1;
+				authorization = strchr(authorization, '=');
+				if (authorization)
+				{
+					authorization++;
+					cookie = 1;
+				}
 			}
 		}
 
