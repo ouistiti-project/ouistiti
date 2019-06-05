@@ -52,6 +52,16 @@
 #define dbg(...)
 #endif
 
+#ifdef DEBUG
+#define SQLITE3_CHECK(ret, value, sql) \
+	if (ret != SQLITE_OK) {\
+		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql, sqlite3_errmsg(ctx->db)); \
+		return value; \
+	}
+#else
+#define SQLITE3_CHECK(...)
+#endif
+
 typedef struct authz_sqlite_user_s authz_sqlite_user_t;
 struct authz_sqlite_user_s
 {
@@ -81,11 +91,12 @@ static void *authz_sqlite_create(void *arg)
 		ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
 		const char *query[] = {
 			"create table groups (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
-			"create table users (\"name\" TEXT UNIQUE,\"groupid\" INTEGER  NOT NULL,\"passwd\" TEXT,\"home\" TEXT, FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL);",
+			"create table users (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL,\"groupid\" INTEGER NOT NULL,\"passwd\" TEXT,\"home\" TEXT, FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL);",
+			"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER NOT NULL, FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
 			"insert into groups (name) values(\"root\");",
 			"insert into groups (name) values(\"users\");",
-			"insert into users values(\"root\",(select id from groups where name=\"root\"),\"test\",\"\");",
-			"insert into users values(\"foo\",(select id from groups where name=\"users\"),\"bar\",\"foo\");",
+			"insert into users (name,groupid,passwd,home) values(\"root\",(select id from groups where name=\"root\"),\"test\",\"\");",
+			"insert into users (name,groupid,passwd,home) values(\"foo\",(select id from groups where name=\"users\"),\"bar\",\"foo\");",
 			NULL,
 		};
 		char *error = NULL;
@@ -101,14 +112,21 @@ static void *authz_sqlite_create(void *arg)
 			i++;
 		}
 		sqlite3_close(db);
-		chmod(config->dbname, S_IWGRP|S_IRGRP);
+		chmod(config->dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
 	}
-	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READONLY, NULL);
+	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK)
 	{
 		err("auth: database not found %s", config->dbname);
 		return NULL;
 	}
+	/** empty the session table */
+	sqlite3_stmt *statement;
+	const char *sql = "delete from session;";
+	ret = sqlite3_prepare_v2(db, sql, -1, &statement, NULL);
+
+	ret = sqlite3_step(statement);
+	sqlite3_finalize(statement);
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->db = db;
@@ -172,6 +190,52 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 
 	char * passwd = authz_sqlite_search(ctx, user, "passwd");
 	return passwd;
+}
+
+static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *username, const char *token, int expirable)
+{
+	int ret;
+	const char *value = NULL;
+	sqlite3_stmt *statement = NULL;
+	const char *sql[] = {
+		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire = NULL;",
+		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire > strftime('%s','now');",
+		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN;",
+	};
+	ret = sqlite3_prepare_v2(ctx->db, sql[expirable], -1, &statement, NULL);
+	SQLITE3_CHECK(ret, NULL, sql[expirable]);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@TOKEN");
+	ret = sqlite3_bind_text(statement, index, token, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, NULL, sql[expirable]);
+
+	ret = sqlite3_step(statement);
+	if (ret == SQLITE_ROW)
+	{
+		int i = 0;
+		const char *key = sqlite3_column_name(statement, i);
+		if (sqlite3_column_type(statement, i) == SQLITE_TEXT)
+		{
+			const char *data = sqlite3_column_text(statement, i);
+			int length = strlen(data);
+			if (ctx->value && length > strlen(ctx->value))
+			{
+			ctx->value = NULL;
+			}
+			if (length > 0)
+			{
+				if (!ctx->value)
+					   ctx->value = malloc(length + 1);
+				strcpy(ctx->value, data);
+				value = ctx->value;
+			}
+		}
+	}
+	else
+		err("user not found");
+	sqlite3_finalize(statement);
+	return value;
 }
 
 static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
@@ -242,11 +306,18 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 
 static int authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)
 {
+	int ret = 0;
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	if (passwd != NULL)
-		return _authz_sqlite_checkpasswd(ctx, user, passwd);
-	return -1;
+	if (user != NULL && passwd != NULL)
+		ret = _authz_sqlite_checkpasswd(ctx, user, passwd);
+	if (ret == 0 && token != NULL)
+	{
+		ret = (_authz_sqlite_checktoken(ctx, user, token, 1) != NULL);
+		if (ret == 0)
+			ret = (_authz_sqlite_checktoken(ctx, user, token, 0) != NULL);
+	}
+	return ret;
 }
 
 static const char *authz_sqlite_group(void *arg, const char *user)
