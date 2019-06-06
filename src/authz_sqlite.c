@@ -192,7 +192,7 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 	return passwd;
 }
 
-static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *username, const char *token, int expirable)
+static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *token, int expirable)
 {
 	int ret;
 	const char *value = NULL;
@@ -221,12 +221,13 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *use
 			int length = strlen(data);
 			if (ctx->value && length > strlen(ctx->value))
 			{
-			ctx->value = NULL;
+				free(ctx->value);
+				ctx->value = NULL;
 			}
 			if (length > 0)
 			{
 				if (!ctx->value)
-					   ctx->value = malloc(length + 1);
+					ctx->value = malloc(length + 1);
 				strcpy(ctx->value, data);
 				value = ctx->value;
 			}
@@ -313,9 +314,9 @@ static int authz_sqlite_check(void *arg, const char *user, const char *passwd, c
 		ret = _authz_sqlite_checkpasswd(ctx, user, passwd);
 	if (ret == 0 && token != NULL)
 	{
-		ret = (_authz_sqlite_checktoken(ctx, user, token, 1) != NULL);
+		ret = (_authz_sqlite_checktoken(ctx, token, 1) != NULL);
 		if (ret == 0)
-			ret = (_authz_sqlite_checktoken(ctx, user, token, 0) != NULL);
+			ret = (_authz_sqlite_checktoken(ctx, token, 0) != NULL);
 	}
 	return ret;
 }
