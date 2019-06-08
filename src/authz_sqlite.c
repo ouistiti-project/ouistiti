@@ -210,6 +210,7 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 	}
 	else
 		err("user not found");
+
 	return value;
 }
 
@@ -286,12 +287,124 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 	if (user != NULL && passwd != NULL && _authz_sqlite_checkpasswd(ctx, user, passwd))
 		return user;
 	user = NULL;
+
 	if (token != NULL)
 	{
 		user = _authz_sqlite_checktoken(ctx, token);
 	}
 	return user;
 }
+
+static int authz_sqlite_join(void *arg, const char *user, const char *token)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+
+	int userid = -1;
+	{
+		int ret;
+		sqlite3_stmt *statement;
+		const char *sql = "select id from users where name=@NAME;";
+		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@NAME");
+		ret = sqlite3_bind_text(statement, index, user, -1, SQLITE_STATIC);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		ret = sqlite3_step(statement);
+		if (ret == SQLITE_ROW)
+		{
+			if (sqlite3_column_type(statement, 0) == SQLITE_INTEGER)
+				userid = sqlite3_column_int(statement, 0);
+		}
+		sqlite3_finalize(statement);
+	}
+
+	if (userid == -1)
+	{
+		err("authz associatie unknown user %s", user);
+		return EREJECT;
+	}
+
+	{
+		int ret;
+		sqlite3_stmt *statement;
+		const char *sql = "delete from session where userid=@USERID or token=@TOKEN;";
+		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@TOKEN");
+		ret = sqlite3_bind_text(statement, index, token, -1, SQLITE_STATIC);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		index = sqlite3_bind_parameter_index(statement, "@USERID");
+		ret = sqlite3_bind_int(statement, index, userid);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		ret = sqlite3_step(statement);
+		if (ret == SQLITE_ROW)
+		{
+			if (sqlite3_column_type(statement, 0) == SQLITE_INTEGER)
+				userid = sqlite3_column_int(statement, 0);
+		}
+		sqlite3_finalize(statement);
+	}
+
+	int ret;
+	sqlite3_stmt *statement;
+	const char *sql[] = {
+		"insert into session (\"token\",\"userid\",\"expire\") values (@TOKEN,@USERID,@EXPIRE);"
+	};
+	int sqlid = 0;
+	ret = sqlite3_prepare_v2(ctx->db, sql[sqlid], -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql[sqlid]);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@TOKEN");
+	ret = sqlite3_bind_text(statement, index, token, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql[sqlid]);
+
+	index = sqlite3_bind_parameter_index(statement, "@USERID");
+	ret = sqlite3_bind_int(statement, index, userid);
+	SQLITE3_CHECK(ret, EREJECT, sql[sqlid]);
+
+	index = sqlite3_bind_parameter_index(statement, "@EXPIRE");
+	if (index > 0)
+	{
+		ret = sqlite3_bind_null(statement, index);
+		SQLITE3_CHECK(ret, EREJECT, sql[sqlid]);
+	}
+
+	ret = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+
+#if 0
+	{
+		int ret;
+		sqlite3_stmt *statement;
+		const char *sql = "select token from session where userid=@USERID;";
+		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@USERID");
+		ret = sqlite3_bind_int(statement, index, userid);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		ret = sqlite3_step(statement);
+		while (ret == SQLITE_ROW)
+		{
+			if (sqlite3_column_type(statement, 0) == SQLITE_TEXT)
+				warn("session token found %s", sqlite3_column_text(statement, 0));
+			ret = sqlite3_step(statement);
+		}
+		sqlite3_finalize(statement);
+	}
+#endif
+	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
+ }
 
 static const char *authz_sqlite_group(void *arg, const char *user)
 {
@@ -324,5 +437,6 @@ authz_rules_t authz_sqlite_rules =
 	.passwd = authz_sqlite_passwd,
 	.group = authz_sqlite_group,
 	.home = authz_sqlite_home,
+	.join = authz_sqlite_join,
 	.destroy = authz_sqlite_destroy,
 };
