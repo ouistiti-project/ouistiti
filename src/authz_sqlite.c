@@ -92,7 +92,7 @@ static void *authz_sqlite_create(void *arg)
 		const char *query[] = {
 			"create table groups (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
 			"create table users (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL,\"groupid\" INTEGER NOT NULL,\"passwd\" TEXT,\"home\" TEXT, FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL);",
-			"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER NOT NULL, FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
+			"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER, FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
 			"insert into groups (name) values(\"root\");",
 			"insert into groups (name) values(\"users\");",
 			"insert into users (name,groupid,passwd,home) values(\"root\",(select id from groups where name=\"root\"),\"test\",\"\");",
@@ -179,14 +179,12 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 	return passwd;
 }
 
-static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *token, int expirable)
+static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *token)
 {
 	int ret;
 	const char *value = NULL;
 	const char *sql[] = {
-		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire = NULL;",
-		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire > strftime('%s','now');",
-		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN;",
+		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN;"
 	};
 
 	if (ctx->statement != NULL)
@@ -289,9 +287,7 @@ static int authz_sqlite_check(void *arg, const char *user, const char *passwd, c
 		ret = _authz_sqlite_checkpasswd(ctx, user, passwd);
 	if (ret == 0 && token != NULL)
 	{
-		ret = (_authz_sqlite_checktoken(ctx, token, 1) != NULL);
-		if (ret == 0)
-			ret = (_authz_sqlite_checktoken(ctx, token, 0) != NULL);
+		ret = (_authz_sqlite_checktoken(ctx, token) != NULL);
 	}
 	return ret;
 }
