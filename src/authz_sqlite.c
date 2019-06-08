@@ -75,7 +75,7 @@ struct authz_sqlite_s
 {
 	authz_sqlite_config_t *config;
 	sqlite3 *db;
-	char *value;
+	sqlite3_stmt *statement;
 	authz_sqlite_user_t user;
 };
 
@@ -145,41 +145,28 @@ static char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *fi
 	char *sql = sqlite3_malloc(size);
 	snprintf(sql, size, query, field);
 
-	sqlite3_stmt *statement;
-	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	if (ctx->statement != NULL)
+		sqlite3_finalize(ctx->statement);
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &ctx->statement, NULL);
 	int index;
-	index = sqlite3_bind_parameter_index(statement, "@NAME");
+	index = sqlite3_bind_parameter_index(ctx->statement, "@NAME");
 	if (index > 0)
-		ret = sqlite3_bind_text(statement, index, user, -1, SQLITE_STATIC);
+		ret = sqlite3_bind_text(ctx->statement, index, user, -1, SQLITE_STATIC);
 
-	ret = sqlite3_step(statement);
+	ret = sqlite3_step(ctx->statement);
 	do
 	{
 		if (ret < SQLITE_ROW)
 			break;
 		int i = 0;
-		const char *key = sqlite3_column_name(statement, i);
-		if (sqlite3_column_type(statement, i) == SQLITE_TEXT)
+		const char *key = sqlite3_column_name(ctx->statement, i);
+		if (sqlite3_column_type(ctx->statement, i) == SQLITE_TEXT)
 		{
-			const char *data = sqlite3_column_text(statement, i);
-			int length = strlen(data);
-			if (ctx->value && length > strlen(ctx->value))
-			{
-				free(ctx->value);
-				ctx->value = NULL;
-			}
-			if (length > 0)
-			{
-				if (!ctx->value)
-					ctx->value = malloc(length + 1);
-				strcpy(ctx->value, data);
-				value = ctx->value;
-			}
+			value = sqlite3_column_text(ctx->statement, i);
 			break;
 		}
-		ret = sqlite3_step(statement);
+		ret = sqlite3_step(ctx->statement);
 	} while (ret == SQLITE_ROW);
-	sqlite3_finalize(statement);
 	sqlite3_free(sql);
 	return value;
 }
@@ -196,46 +183,34 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 {
 	int ret;
 	const char *value = NULL;
-	sqlite3_stmt *statement = NULL;
 	const char *sql[] = {
 		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire = NULL;",
 		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire > strftime('%s','now');",
 		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN;",
 	};
-	ret = sqlite3_prepare_v2(ctx->db, sql[expirable], -1, &statement, NULL);
+
+	if (ctx->statement != NULL)
+		sqlite3_finalize(ctx->statement);
+	ret = sqlite3_prepare_v2(ctx->db, sql[expirable], -1, &ctx->statement, NULL);
 	SQLITE3_CHECK(ret, NULL, sql[expirable]);
 
 	int index;
-	index = sqlite3_bind_parameter_index(statement, "@TOKEN");
-	ret = sqlite3_bind_text(statement, index, token, -1, SQLITE_STATIC);
+	index = sqlite3_bind_parameter_index(ctx->statement, "@TOKEN");
+	ret = sqlite3_bind_text(ctx->statement, index, token, -1, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, NULL, sql[expirable]);
 
-	ret = sqlite3_step(statement);
+	ret = sqlite3_step(ctx->statement);
 	if (ret == SQLITE_ROW)
 	{
 		int i = 0;
-		const char *key = sqlite3_column_name(statement, i);
-		if (sqlite3_column_type(statement, i) == SQLITE_TEXT)
+		const char *key = sqlite3_column_name(ctx->statement, i);
+		if (sqlite3_column_type(ctx->statement, i) == SQLITE_TEXT)
 		{
-			const char *data = sqlite3_column_text(statement, i);
-			int length = strlen(data);
-			if (ctx->value && length > strlen(ctx->value))
-			{
-				free(ctx->value);
-				ctx->value = NULL;
-			}
-			if (length > 0)
-			{
-				if (!ctx->value)
-					ctx->value = malloc(length + 1);
-				strcpy(ctx->value, data);
-				value = ctx->value;
-			}
+			value = sqlite3_column_text(ctx->statement, i);
 		}
 	}
 	else
 		err("user not found");
-	sqlite3_finalize(statement);
 	return value;
 }
 
@@ -339,9 +314,9 @@ static void authz_sqlite_destroy(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
+	if (ctx->statement != NULL)
+		sqlite3_finalize(ctx->statement);
 	sqlite3_close(ctx->db);
-	if (ctx->value)
-		free(ctx->value);
 	free(ctx);
 }
 
