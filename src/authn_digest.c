@@ -97,6 +97,11 @@ static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 {
 	if (authn->hash == NULL)
 		return NULL;
+	if (authz->rules->passwd == NULL)
+	{
+		err("authn Digest is not compatible with authz %s", str_authenticate_engine[authz->type&AUTHZ_TYPE_MASK]);
+		return NULL;
+	}
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
 	mod->authz = authz;
@@ -331,18 +336,14 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	if (nonce == NULL)
 	{
 		warn("auth: nonce is unset");
-		return NULL;
 	}
-
-	if (strcmp(nonce, mod->nonce))
+	else if (strcmp(nonce, mod->nonce))
 	{
 		mod->stale++;
 		mod->stale %= 5;
 		warn("auth: nonce is corrupted");
-		return NULL;
 	}
-
-	if (strcmp(algorithm, mod->hash->name))
+	else if (strcmp(algorithm, mod->hash->name))
 	{
 		warn("auth: algorithm is bad");
 #ifdef AUTH_DOWNGRADE
@@ -350,25 +351,20 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 #else
 		mod->stale++;
 		mod->stale %= 5;
-		return NULL;
 #endif
 	}
-	mod->stale = 0;
-	if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
+	else if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
 	{
 		warn("auth: opaque or realm is bad");
-		return NULL;
+	}
+	else
+	{
+		passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
 	}
 	if (strcmp(url, uri))
 	{
 		warn("try connection on %s with authorization on %s", url, uri);
 	}
-	if (mod->authz->rules->passwd == NULL)
-	{
-		err("authn Digest is not compatible with authz %s", str_authenticate_engine[mod->authz->type&AUTHZ_TYPE_MASK]);
-		return NULL;
-	}
-	passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
 	if (passwd && authn_digest_computing)
 	{
 		char *a1 = authn_digest_computing->a1(mod->hash, user, realm, passwd);
