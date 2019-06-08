@@ -42,6 +42,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <time.h>
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -106,6 +107,7 @@ struct _mod_auth_s
 
 const char *str_authenticate = "WWW-Authenticate";
 static const char *str_authorization = "Authorization";
+static const char *str_xtoken = "X-Token";
 static const char *str_xuser = "X-Remote-User";
 static const char *str_xgroup = "X-Remote-Group";
 static const char *str_xhome = "X-Remote-Home";
@@ -172,8 +174,16 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
 
+	srandom(time(NULL));
+
 	if (!config)
 		return NULL;
+
+	if ((config->authz_type & AUTHZ_TOKEN_E) &&  (authz_rules[config->authz_type & AUTHZ_TYPE_MASK])->join == NULL)
+	{
+		err("Please use other authz module (sqlite) to enable token");
+		config->authz_type &= ~AUTHZ_TOKEN_E;
+	}
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
@@ -349,6 +359,20 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
+static char *auth_generatetoken(_mod_auth_ctx_t *ctx, authsession_t *info)
+{
+	char *token = calloc(1, 36);
+	char _nonce[24];
+	int i;
+	for (i = 0; i < 6; i++)
+	{
+		*(int *)(_nonce + i * 4) = random();
+	}
+	int ret = 0;
+	ret = base64->encode(_nonce, 24, token, 36);
+	return token;
+}
+
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -372,29 +396,46 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ret == ECONTINUE)
 	{
 		int from = 0;
+		/**
+		 * with standard authentication, the authorization code
+		 * is sended info header
+		 */
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = httpmessage_REQUEST(request, (char *)str_authorization);
 		}
+		/**
+		 * to send the authorization header only once, the "cookie"
+		 * option of the server store the authorization inside cookie.
+		 * This method allow to use little client which manage only cookie.
+		 */
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = cookie_get(request, (char *)str_authorization);
 			if (authorization)
-			{
-				authorization = strchr(authorization, '=');
-				if (authorization)
-				{
-					authorization++;
-					from = 1;
-				}
-			}
+				from = 1;
 		}
 
-		if (mod->authn->ctx && authorization != NULL && !strncmp(authorization, mod->type, mod->typelength))
+		if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
+			authorization = NULL;
+		/**
+		 * The authorization may be accepted and replaced by a token.
+		 * This token is available inside the cookie.
+		 */
+		if (authorization == NULL || authorization[0] == '\0')
+		{
+			authorization = cookie_get(request, str_xtoken);
+			if (authorization)
+				from = 2;
+		}
+
+		if (mod->authn->ctx && authorization != NULL)
 		{
 			char *authentication = strchr(authorization, ' ');
 			if (authentication)
 				authentication++;
+			else
+				authentication = authorization;
 			const char *method;
 			/**
 			 * The current authentication is made by the client (the browser).
@@ -442,9 +483,18 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
+
+					if (from == 0 && mod->authz->type & AUTHZ_TOKEN_E)
+					{
+							char *token = auth_generatetoken(ctx, info);
+							mod->authz->rules->join(mod->authz->ctx, user, token);
+							cookie_set(response, str_xtoken, (char *)token);
+							free(token);
+					}
 					if (mod->authz->type & AUTHZ_HEADER_E)
 					{
-						httpmessage_addheader(response, str_authorization, (char *)authorization);
+						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+							httpmessage_addheader(response, str_authorization, (char *)authorization);
 						httpmessage_addheader(response, str_xuser, user);
 						if (group)
 							httpmessage_addheader(response, str_xgroup, group);
@@ -453,7 +503,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
 					{
-						cookie_set(response, str_authorization, (char *)authorization);
+						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+							cookie_set(response, str_authorization, (char *)authorization);
 						cookie_set(response, str_user, (char *)user);
 						if (group)
 							cookie_set(response, str_group, (char *)group);

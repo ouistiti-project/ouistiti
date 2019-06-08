@@ -86,6 +86,7 @@ typedef enum
 	AUTHZ_HOME_E = 0x10,
 	AUTHZ_COOKIE_E = 0x20,
 	AUTHZ_HEADER_E = 0x40,
+	AUTHZ_TOKEN_E = 0x80,
 } authz_type_t;
 struct authz_s
 {
