@@ -382,7 +382,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	}
 	else
 	{
-		warn("unknown user");
+		user_ret = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 	}
 	return user_ret;
 }

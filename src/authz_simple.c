@@ -64,13 +64,13 @@ static int _authz_simple_checkpasswd(authz_simple_t *config, const char *user, c
 	return 0;
 }
 
-static int authz_simple_check(void *arg, const char *user, const char *passwd, const char *token)
+static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	authz_simple_t *ctx = (authz_simple_t *)arg;
 
-	if (user != NULL && passwd != NULL)
-		return _authz_simple_checkpasswd(ctx, user, passwd);
-	return -1;
+	if (user != NULL && passwd != NULL && _authz_simple_checkpasswd(ctx, user, passwd))
+		return user;
+	return NULL;
 }
 
 static const char *authz_simple_group(void *arg, const char *user)

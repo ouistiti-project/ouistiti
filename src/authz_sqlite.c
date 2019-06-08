@@ -279,18 +279,18 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 	return ret;
 }
 
-static int authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)
+static const char *authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)
 {
-	int ret = 0;
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	if (user != NULL && passwd != NULL)
-		ret = _authz_sqlite_checkpasswd(ctx, user, passwd);
-	if (ret == 0 && token != NULL)
+	if (user != NULL && passwd != NULL && _authz_sqlite_checkpasswd(ctx, user, passwd))
+		return user;
+	user = NULL;
+	if (token != NULL)
 	{
-		ret = (_authz_sqlite_checktoken(ctx, token) != NULL);
+		user = _authz_sqlite_checktoken(ctx, token);
 	}
-	return ret;
+	return user;
 }
 
 static const char *authz_sqlite_group(void *arg, const char *user)
