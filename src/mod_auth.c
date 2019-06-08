@@ -371,7 +371,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret == ECONTINUE)
 	{
-		int cookie = 0;
+		int from = 0;
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = httpmessage_REQUEST(request, (char *)str_authorization);
@@ -385,7 +385,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				if (authorization)
 				{
 					authorization++;
-					cookie = 1;
+					from = 1;
 				}
 			}
 		}
@@ -442,25 +442,23 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
-					cookie_set(request, str_authorization, (char *)authorization);
-					httpmessage_addheader(response, str_authorization, (char *)authorization);
 					if (mod->authz->type & AUTHZ_HEADER_E)
+					{
+						httpmessage_addheader(response, str_authorization, (char *)authorization);
 						httpmessage_addheader(response, str_xuser, user);
-					if (mod->authz->type & AUTHZ_COOKIE_E)
-						cookie_set(request, str_user, (char *)user);
-					if (group)
-					{
-						if (mod->authz->type & AUTHZ_HEADER_E)
+						if (group)
 							httpmessage_addheader(response, str_xgroup, group);
-						if (mod->authz->type & AUTHZ_COOKIE_E)
-							cookie_set(request, str_group, (char *)group);
-					}
-					if (home)
-					{
-						if (mod->authz->type & AUTHZ_HEADER_E)
+						if (home)
 							httpmessage_addheader(response, str_xhome, "~/");
-						if (mod->authz->type & AUTHZ_COOKIE_E)
-							cookie_set(request, str_home, "~/");
+					}
+					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
+					{
+						cookie_set(response, str_authorization, (char *)authorization);
+						cookie_set(response, str_user, (char *)user);
+						if (group)
+							cookie_set(response, str_group, (char *)group);
+						if (home)
+							cookie_set(response, str_home, "~/");
 					}
 				}
 
