@@ -384,6 +384,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	char *uri;
 	int protect = 1;
 
+	/**
+	 * If ctx->info is set, this connection has been already authenticated.
+	 * It is useless to authenticate again.
+	 */
+	if (ctx->info != NULL)
+		return EREJECT;
+
 	uriencoded = httpmessage_REQUEST(request, "uri");
 	uri = utils_urldecode(uriencoded);
 
@@ -435,7 +442,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			if (authentication)
 				authentication++;
 			else
-				authentication = authorization;
+				authentication = (char *)authorization;
 			const char *method;
 			/**
 			 * The current authentication is made by the client (the browser).
