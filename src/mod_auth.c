@@ -425,6 +425,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 		if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
 			authorization = NULL;
+#ifdef AUTH_TOKEN
 		/**
 		 * The authorization may be accepted and replaced by a token.
 		 * This token is available inside the cookie.
@@ -435,6 +436,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			if (authorization)
 				from = 2;
 		}
+#endif
 
 		if (mod->authn->ctx && authorization != NULL)
 		{
@@ -491,6 +493,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
 
+#ifdef AUTH_TOKEN
 					if (from == 0 && mod->authz->type & AUTHZ_TOKEN_E)
 					{
 							char *token = auth_generatetoken(ctx, info);
@@ -498,9 +501,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 							cookie_set(response, str_xtoken, (char *)token);
 							free(token);
 					}
+#endif
 					if (mod->authz->type & AUTHZ_HEADER_E)
 					{
+#ifdef AUTH_TOKEN
 						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+#endif
 							httpmessage_addheader(response, str_authorization, (char *)authorization);
 						httpmessage_addheader(response, str_xuser, user);
 						if (group)
@@ -510,7 +516,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
 					{
+#ifdef AUTH_TOKEN
 						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+#endif
 							cookie_set(response, str_authorization, (char *)authorization);
 						cookie_set(response, str_user, (char *)user);
 						if (group)
