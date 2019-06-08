@@ -60,6 +60,7 @@ struct authz_sqlite_config_s
 
 typedef void *(*authz_rule_create_t)(void *config);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
+typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token);
 typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);
 typedef const char *(*authz_rule_group_t)(void *arg, const char *user);
 typedef const char *(*authz_rule_home_t)(void *arg, const char *user);
@@ -69,6 +70,7 @@ struct authz_rules_s
 {
 	authz_rule_create_t create;
 	authz_rule_check_t check;
+	authz_rule_join_t join;
 	authz_rule_passwd_t passwd;
 	authz_rule_group_t group;
 	authz_rule_home_t home;
