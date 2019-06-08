@@ -106,7 +106,7 @@ static const char *authn_basic_check(void *arg, const char *method, const char *
 		passwd++;
 	}
 
-	return mod->authz->rules->check(mod->authz->ctx, user, passwd, NULL);
+	return mod->authz->rules->check(mod->authz->ctx, user, passwd, string);
 }
 
 static void authn_basic_destroy(void *arg)
