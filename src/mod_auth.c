@@ -487,7 +487,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					if (from == 0 && mod->authz->type & AUTHZ_TOKEN_E)
 					{
 							char *token = auth_generatetoken(ctx, info);
-							mod->authz->rules->join(mod->authz->ctx, user, token);
+							mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
 							cookie_set(response, str_xtoken, (char *)token);
 							free(token);
 					}
