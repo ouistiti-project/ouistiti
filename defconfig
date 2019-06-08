@@ -37,6 +37,7 @@ DOCUMENTHOME=y
 CGI=y
 #support Authentification Basic
 AUTH=y
+AUTH_TOKEN=y
 AUTHN_NONE=y
 AUTHN_BASIC=y
 AUTHN_DIGEST=y

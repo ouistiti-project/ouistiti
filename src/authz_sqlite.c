@@ -179,6 +179,7 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 	return passwd;
 }
 
+#ifdef AUTH_TOKEN
 static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *token, int expirable)
 {
 	int ret;
@@ -212,6 +213,7 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 
 	return value;
 }
+#endif
 
 static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
 {
@@ -287,6 +289,7 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 		return user;
 	user = NULL;
 
+#ifdef AUTH_TOKEN
 	if (token != NULL)
 	{
 		/** check expirable token */
@@ -295,9 +298,11 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 			/** check unexpirable token */
 			user = _authz_sqlite_checktoken(ctx, token, 0);
 	}
+#endif
 	return user;
 }
 
+#ifdef AUTH_TOKEN
 static int authz_sqlite_join(void *arg, const char *user, const char *token, int expire)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -409,6 +414,9 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 #endif
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
  }
+#else
+#define authz_sqlite_join NULL
+#endif
 
 static const char *authz_sqlite_group(void *arg, const char *user)
 {
