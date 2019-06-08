@@ -271,6 +271,8 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			auth->authz_type |= AUTHZ_COOKIE_E;
 		if (mode && strstr(mode, "header") != NULL)
 			auth->authz_type |= AUTHZ_HEADER_E;
+		if (mode && strstr(mode, "token") != NULL)
+			auth->authz_type |= AUTHZ_TOKEN_E;
 
 		char *type = NULL;
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
@@ -307,7 +309,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 #endif
 		if (auth->authn_config)
-			config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);		
+			config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);
 	}
 	return auth;
 }
