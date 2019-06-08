@@ -134,11 +134,11 @@ static void *authz_sqlite_create(void *arg)
 	return ctx;
 }
 
-static char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
+static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
 {
 	authz_sqlite_config_t *config = ctx->config;
 	int ret;
-	char *value = NULL;
+	const char *value = NULL;
 	const char *query = "select %s from users inner join groups on groups.id=users.groupid where users.name=@NAME;";
 
 	int size = strlen(query) + strlen(field);
@@ -175,7 +175,7 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	char * passwd = authz_sqlite_search(ctx, user, "passwd");
+	const char * passwd = authz_sqlite_search(ctx, user, "passwd");
 	return passwd;
 }
 
@@ -187,6 +187,7 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN;"
 	};
 
+	int expirable = 0;
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
 	ret = sqlite3_prepare_v2(ctx->db, sql[expirable], -1, &ctx->statement, NULL);
