@@ -179,15 +179,16 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 	return passwd;
 }
 
-static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *token)
+static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *token, int expirable)
 {
 	int ret;
 	const char *value = NULL;
 	const char *sql[] = {
+		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire is null;",
+		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire > strftime('%s','now');",
 		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN;"
 	};
 
-	int expirable = 0;
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
 	ret = sqlite3_prepare_v2(ctx->db, sql[expirable], -1, &ctx->statement, NULL);
@@ -208,8 +209,6 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 			value = sqlite3_column_text(ctx->statement, i);
 		}
 	}
-	else
-		err("user not found");
 
 	return value;
 }
@@ -290,12 +289,16 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 
 	if (token != NULL)
 	{
-		user = _authz_sqlite_checktoken(ctx, token);
+		/** check expirable token */
+		user = _authz_sqlite_checktoken(ctx, token, 1);
+		if (user == NULL)
+			/** check unexpirable token */
+			user = _authz_sqlite_checktoken(ctx, token, 0);
 	}
 	return user;
 }
 
-static int authz_sqlite_join(void *arg, const char *user, const char *token)
+static int authz_sqlite_join(void *arg, const char *user, const char *token, int expire)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
@@ -355,6 +358,7 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token)
 	int ret;
 	sqlite3_stmt *statement;
 	const char *sql[] = {
+		"insert into session (\"token\",\"userid\",\"expire\") values (@TOKEN,@USERID,strftime('%s','now') + @EXPIRE);",
 		"insert into session (\"token\",\"userid\",\"expire\") values (@TOKEN,@USERID,@EXPIRE);"
 	};
 	int sqlid = 0;
@@ -371,11 +375,11 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token)
 	SQLITE3_CHECK(ret, EREJECT, sql[sqlid]);
 
 	index = sqlite3_bind_parameter_index(statement, "@EXPIRE");
-	if (index > 0)
-	{
+	if (expire > 0)
+		ret = sqlite3_bind_int(statement, index, expire);
+	else
 		ret = sqlite3_bind_null(statement, index);
-		SQLITE3_CHECK(ret, EREJECT, sql[sqlid]);
-	}
+	SQLITE3_CHECK(ret, EREJECT, sql[sqlid]);
 
 	ret = sqlite3_step(statement);
 	sqlite3_finalize(statement);
