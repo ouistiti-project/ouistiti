@@ -262,13 +262,13 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 	return ret;
 }
 
-static int authz_file_check(void *arg, const char *user, const char *passwd, const char *token)
+static const char *authz_file_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 
-	if (user != NULL && passwd != NULL)
-		return _authz_file_checkpasswd(ctx, user, passwd);
-	return -1;
+	if (user != NULL && passwd != NULL && _authz_file_checkpasswd(ctx, user, passwd))
+		return user;
+	return NULL;
 }
 
 static const char *authz_file_group(void *arg, const char *user)
