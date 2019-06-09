@@ -75,17 +75,10 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
+static char *authz_generatetoken(authz_t *authz, authsession_t *info);
 
 static const char str_auth[] = "auth";
 static const char str_cachecontrol[] = "Cache-Control";
-
-typedef struct authsession_s
-{
-	char *type;
-	char *user;
-	char *group;
-	char *home;
-} authsession_t;
 
 struct _mod_auth_ctx_s
 {
@@ -191,6 +184,7 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
+	mod->authz->generatetoken = authz_generatetoken;
 	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
 	if (mod->authz->rules == NULL)
 		err("authentication type is not availlable, change configuration");
@@ -359,7 +353,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
-static char *auth_generatetoken(_mod_auth_ctx_t *ctx, authsession_t *info)
+static char *authz_generatetoken(authz_t *authz, authsession_t *info)
 {
 	char *token = calloc(1, 36);
 	char _nonce[24];
@@ -496,7 +490,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 #ifdef AUTH_TOKEN
 					if (from == 0 && mod->authz->type & AUTHZ_TOKEN_E)
 					{
-							char *token = auth_generatetoken(ctx, info);
+							char *token = mod->authz->generatetoken(mod->authz, info);
 							mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
 							cookie_set(response, str_xtoken, (char *)token);
 							free(token);
