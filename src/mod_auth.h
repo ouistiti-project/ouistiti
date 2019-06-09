@@ -37,6 +37,14 @@ extern const char *str_authenticate;
 extern const char *str_authenticate_types[];
 extern const char *str_authenticate_engine[];
 
+typedef struct authsession_s
+{
+	const char *type;
+	const char *user;
+	const char *group;
+	const char *home;
+} authsession_t;
+
 typedef struct authz_simple_config_s authz_simple_config_t;
 struct authz_simple_config_s
 {
@@ -88,13 +96,15 @@ typedef enum
 	AUTHZ_HEADER_E = 0x40,
 	AUTHZ_TOKEN_E = 0x80,
 } authz_type_t;
+typedef struct authz_s authz_t;
+typedef char *(*generatetoken_t)(authz_t *authz, authsession_t *info);
 struct authz_s
 {
 	void *ctx;
 	authz_rules_t *rules;
 	authz_type_t type;
+	generatetoken_t generatetoken;
 };
-typedef struct authz_s authz_t;
 
 typedef struct authn_none_config_s authn_none_config_t;
 struct authn_none_config_s
