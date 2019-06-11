@@ -304,14 +304,6 @@ static void _mod_auth_freectx(void *vctx)
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
 	if (ctx->info)
 	{
-		if (ctx->info->user)
-			free(ctx->info->user);
-		if (ctx->info->type)
-			free(ctx->info->type);
-		if (ctx->info->group)
-			free(ctx->info->group);
-		if (ctx->info->home)
-			free(ctx->info->home);
 		free(ctx->info);
 	}
 	free(ctx->authenticate);
@@ -464,25 +456,20 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				{
 					const char *group = NULL;
 					const char *home = NULL;
-					if (mod->authz->rules->group)
-						group = mod->authz->rules->group(mod->authz->ctx, user);
-					if (mod->authz->rules->home)
-						home = mod->authz->rules->home(mod->authz->ctx, user);
-
 					info = calloc(1, sizeof(*info));
-					info->user = calloc(strlen(user) + 1, sizeof(char));
-					strcpy(info->user, user);
-					info->type = calloc(strlen(mod->type) + 1, sizeof(char));
-					strcpy(info->type, mod->type);
-					if (group)
+					strncpy(info->user, user, sizeof(info->user));
+					strncpy(info->type, mod->type, sizeof(info->type));
+					if (mod->authz->rules->group)
 					{
-						info->group = calloc(strlen(group) + 1, sizeof(char));
-						strcpy(info->group, group);
+						group = mod->authz->rules->group(mod->authz->ctx, user);
+						if (group)
+							strncpy(info->group, group, sizeof(info->group));
 					}
-					if (home)
+					if (mod->authz->rules->home)
 					{
-						info->home = calloc(strlen(home) + 1, sizeof(char));
-						strcpy(info->home, home);
+						home = mod->authz->rules->home(mod->authz->ctx, user);
+						if (home)
+							strncpy(info->home, home, sizeof(info->home));
 					}
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
@@ -524,7 +511,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 				struct passwd *result;
 
-				result = getpwnam(user);
+				result = getpwnam(info->user);
 				if (result != NULL)
 				{
 					uid_t uid;
@@ -538,7 +525,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				}
 				else
 					dbg("user not found on system");
-				warn("user \"%s\" accepted from %p", user, ctx->ctl);
+				warn("user \"%s\" accepted from %p", info->user, ctx->ctl);
 				ret = EREJECT;
 			}
 		}
