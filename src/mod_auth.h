@@ -29,6 +29,8 @@
 #ifndef __MOD_AUTH_H__
 #define __MOD_AUTH_H__
 
+#include <linux/limits.h>
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -39,10 +41,10 @@ extern const char *str_authenticate_engine[];
 
 typedef struct authsession_s
 {
-	const char *type;
-	const char *user;
-	const char *group;
-	const char *home;
+	char type[10];
+	char user[32];
+	char group[32];
+	char home[PATH_MAX];
 } authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
