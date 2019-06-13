@@ -15,6 +15,9 @@ mod_auth_SOURCES-$(AUTHN_DIGEST)+=authn_digest.c
 mod_auth_CFLAGS-$(AUTHN_DIGEST)+=-DAUTHN_DIGEST
 mod_auth_LIBS-$(AUTHN_DIGEST)+=hash_mod
 
+mod_auth_SOURCES-$(AUTHN_BEARER)+=authn_bearer.c
+mod_auth_CFLAGS-$(AUTHN_BEARER)+=-DAUTHN_BEARER
+
 mod_auth_SOURCES-$(AUTHZ_SIMPLE)+=authz_simple.c
 mod_auth_CFLAGS-$(AUTHZ_SIMPLE)+=-DAUTHZ_SIMPLE
 
