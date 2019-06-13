@@ -192,7 +192,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 	if (configauth)
 	{
 		auth = calloc(1, sizeof(*auth));
-		config_setting_lookup_string(configauth, "error_redirection", &auth->redirect);
+		config_setting_lookup_string(configauth, "signin", &auth->redirect);
 		config_setting_lookup_string(configauth, "protect", &auth->protect);
 		config_setting_lookup_string(configauth, "unprotect", &auth->unprotect);
 #ifdef AUTHZ_UNIX
@@ -317,7 +317,11 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
 			if (authn_config->realm == NULL)
 				authn_config->realm = (char *)str_realm;
-			config_setting_lookup_string(configauth, "tokenEP", (const char **)&authn_config->tokenEP);
+			/**
+			 * token_ep and signin are not compatible
+			 */
+			auth->redirect = NULL;
+			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->tokenEP);
 			if (authn_config->tokenEP == NULL)
 				config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->tokenEP);
 			auth->authn_config = authn_config;
