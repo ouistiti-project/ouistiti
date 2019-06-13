@@ -309,6 +309,20 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			auth->authn_config = authn_config;
 		}
 #endif
+#ifdef AUTHN_BEARER
+		if (type != NULL && !strncmp(type, "Bearer", 5))
+		{
+			authn_bearer_config_t *authn_config = calloc(1, sizeof(*authn_config));
+			auth->authn_type = AUTHN_BEARER_E;
+			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+			if (authn_config->realm == NULL)
+				authn_config->realm = (char *)str_realm;
+			config_setting_lookup_string(configauth, "tokenEP", (const char **)&authn_config->tokenEP);
+			if (authn_config->tokenEP == NULL)
+				config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->tokenEP);
+			auth->authn_config = authn_config;
+		}
+#endif
 		if (auth->authn_config)
 			config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);
 	}

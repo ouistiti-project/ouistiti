@@ -51,6 +51,7 @@
 #include "authn_none.h"
 #include "authn_basic.h"
 #include "authn_digest.h"
+#include "authn_bearer.h"
 #include "authz_simple.h"
 #include "authz_file.h"
 #include "authz_unix.h"
@@ -99,8 +100,8 @@ struct _mod_auth_s
 };
 
 const char *str_authenticate = "WWW-Authenticate";
-static const char *str_authorization = "Authorization";
-static const char *str_xtoken = "X-Token";
+const char *str_authorization = "Authorization";
+static const char *str_xtoken = "X-Auth-Token";
 static const char *str_xuser = "X-Remote-User";
 static const char *str_xgroup = "X-Remote-Group";
 static const char *str_xhome = "X-Remote-Home";
@@ -113,6 +114,7 @@ const char *str_authenticate_types[] =
 	"None",
 	"Basic",
 	"Digest",
+	"Bearer",
 };
 const char *str_authenticate_engine[] =
 {
@@ -134,6 +136,11 @@ authn_rules_t *authn_rules[] = {
 #endif
 #ifdef AUTHN_DIGEST
 	&authn_digest_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHN_BEARER
+	&authn_bearer_rules,
 #else
 	NULL,
 #endif

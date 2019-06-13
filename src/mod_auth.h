@@ -36,6 +36,7 @@ extern "C"
 {
 #endif
 extern const char *str_authenticate;
+extern const char *str_authorization;
 extern const char *str_authenticate_types[];
 extern const char *str_authenticate_engine[];
 
@@ -127,6 +128,14 @@ struct authn_digest_config_s
 	const char *opaque;
 };
 
+typedef struct authn_bearer_config_s authn_bearer_config_t;
+struct authn_bearer_config_s
+{
+	const char *realm;
+	const char *tokenEP;
+	int expire;
+};
+
 typedef struct authn_s authn_t;
 typedef void *(*authn_rule_create_t)(authn_t *authn, authz_t *authz, void *config);
 typedef int (*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
@@ -147,6 +156,7 @@ typedef enum
 	AUTHN_NONE_E = 0,
 	AUTHN_BASIC_E = 1,
 	AUTHN_DIGEST_E,
+	AUTHN_BEARER_E,
 } authn_type_t;
 
 typedef struct hash_s hash_t;
