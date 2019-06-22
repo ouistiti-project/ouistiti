@@ -195,6 +195,27 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configauth, "signin", &auth->redirect);
 		config_setting_lookup_string(configauth, "protect", &auth->protect);
 		config_setting_lookup_string(configauth, "unprotect", &auth->unprotect);
+		/**
+		 * algorithm allow to change secret algorithm used during authentication default is md5. (see authn_digest.c)
+		 */
+		config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);
+		/**
+		 * secret is the secret used during the token generation. (see authz_jwt.c)
+		 */
+		config_setting_lookup_string(configauth, "secret", (const char **)&auth->secret);
+
+		char *mode = NULL;
+		config_setting_lookup_string(configauth, "options", (const char **)&mode);
+		if (mode && strstr(mode, "home") != NULL)
+			auth->authz_type |= AUTHZ_HOME_E;
+		if (mode && strstr(mode, "cookie") != NULL)
+			auth->authz_type |= AUTHZ_COOKIE_E;
+		if (mode && strstr(mode, "header") != NULL)
+			auth->authz_type |= AUTHZ_HEADER_E;
+		if (mode && strstr(mode, "token") != NULL)
+			auth->authz_type |= AUTHZ_TOKEN_E;
+		config_setting_lookup_int(configauth, "expire", &auth->expire);
+
 #ifdef AUTHZ_UNIX
 		if (auth->authz_config == NULL)
 		{
@@ -205,7 +226,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			{
 				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
 				authz_config->path = path;
-				auth->authz_type = AUTHZ_UNIX_E;
+				auth->authz_type |= AUTHZ_UNIX_E;
 				auth->authz_config = authz_config;
 			}
 		}
@@ -220,7 +241,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			{
 				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
 				authz_config->path = path;
-				auth->authz_type = AUTHZ_FILE_E;
+				auth->authz_type |= AUTHZ_FILE_E;
 				auth->authz_config = authz_config;
 			}
 		}
@@ -235,7 +256,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			{
 				authz_sqlite_config_t *authz_config = calloc(1, sizeof(*authz_config));
 				authz_config->dbname = path;
-				auth->authz_type = AUTHZ_SQLITE_E;
+				auth->authz_type |= AUTHZ_SQLITE_E;
 				auth->authz_config = authz_config;
 			}
 		}
@@ -258,22 +279,11 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 				authz_config->group = group;
 				authz_config->home = home;
 				authz_config->passwd = passwd;
-				auth->authz_type = AUTHZ_SIMPLE_E;
+				auth->authz_type |= AUTHZ_SIMPLE_E;
 				auth->authz_config = authz_config;
 			}
 		}
 #endif
-		char *mode = NULL;
-		config_setting_lookup_string(configauth, "options", (const char **)&mode);
-		if (mode && strstr(mode, "home") != NULL)
-			auth->authz_type |= AUTHZ_HOME_E;
-		if (mode && strstr(mode, "cookie") != NULL)
-			auth->authz_type |= AUTHZ_COOKIE_E;
-		if (mode && strstr(mode, "header") != NULL)
-			auth->authz_type |= AUTHZ_HEADER_E;
-		if (mode && strstr(mode, "token") != NULL)
-			auth->authz_type |= AUTHZ_TOKEN_E;
-		config_setting_lookup_int(configauth, "expire", &auth->expire);
 
 		char *type = NULL;
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
@@ -327,8 +337,6 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			auth->authn_config = authn_config;
 		}
 #endif
-		if (auth->authn_config)
-			config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);
 	}
 	return auth;
 }
