@@ -72,6 +72,12 @@ struct authz_sqlite_config_s
 	const char *dbname;
 };
 
+typedef struct authz_jwt_config_s authz_jwt_config_t;
+struct authz_jwt_config_s
+{
+	const char *key;
+};
+
 typedef void *(*authz_rule_create_t)(void *config);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
@@ -96,6 +102,7 @@ typedef enum
 	AUTHZ_FILE_E,
 	AUTHZ_UNIX_E,
 	AUTHZ_SQLITE_E,
+	AUTHZ_JWT_E,
 	AUTHZ_TYPE_MASK = 0x0F,
 	AUTHZ_HOME_E = 0x10,
 	AUTHZ_COOKIE_E = 0x20,

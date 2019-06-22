@@ -56,6 +56,7 @@
 #include "authz_file.h"
 #include "authz_unix.h"
 #include "authz_sqlite.h"
+#include "authz_jwt.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -122,6 +123,7 @@ const char *str_authenticate_engine[] =
 	"file",
 	"unix",
 	"sqlite",
+	"jwt",
 };
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE
@@ -168,6 +170,11 @@ authz_rules_t *authz_rules[] = {
 #else
 	NULL,
 #endif
+#ifdef AUTHZ_JWT
+	&authz_jwt_rules,
+#else
+	NULL,
+#endif
 };
 
 void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
@@ -191,7 +198,12 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
+
+#ifdef AUTHZ_JWT
+	mod->authz->generatetoken = authz_generatejwtoken;
+#else
 	mod->authz->generatetoken = authz_generatetoken;
+#endif
 	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
 	if (mod->authz->rules == NULL)
 		err("authentication type is not availlable, change configuration");

@@ -284,6 +284,18 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			}
 		}
 #endif
+#ifdef AUTHZ_JWT
+		/**
+		 * defautl configuration
+		 */
+		if (auth->authz_config == NULL)
+		{
+			authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
+			authz_config->key = auth->secret;
+			auth->authz_type |= AUTHZ_JWT_E;
+			auth->authz_config = authz_config;
+	}
+#endif
 
 		char *type = NULL;
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
