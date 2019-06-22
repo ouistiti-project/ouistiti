@@ -89,10 +89,13 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 		const char *scheme = httpmessage_REQUEST(request, "scheme");
 		const char *host = httpmessage_REQUEST(request, "host");
 		const char *port = httpmessage_SERVER(request, "port");
+		const char *portseparator = "";
+		if (port[0] != '\0')
+			portseparator = ":";
 		char location[256];
-		snprintf(location, 256, "%s?redirect_uri=%s://%s:%s/%s",
+		snprintf(location, 256, "%s?redirect_uri=%s://%s%s%s/%s",
 			config->tokenEP,
-			scheme, host, port, uri);
+			scheme, host, portseparator, port, uri);
 		httpmessage_addheader(response, (char *)str_location, location);
 		httpmessage_result(response, RESULT_302);
 	}
