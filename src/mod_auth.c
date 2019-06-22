@@ -510,24 +510,38 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 #ifdef AUTH_TOKEN
 						if (!(mod->authz->type & AUTHZ_TOKEN_E))
 #endif
+						{
 							httpmessage_addheader(response, str_authorization, (char *)authorization);
-						httpmessage_addheader(response, str_xuser, user);
-						if (group)
-							httpmessage_addheader(response, str_xgroup, group);
-						if (home)
-							httpmessage_addheader(response, str_xhome, "~/");
+						}
+#if defined(AUTH_TOKEN) && defined(AUTHZ_JWT)
+						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+#endif
+						{
+							httpmessage_addheader(response, str_xuser, user);
+							if (group)
+								httpmessage_addheader(response, str_xgroup, group);
+							if (home)
+								httpmessage_addheader(response, str_xhome, "~/");
+						}
 					}
 					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
 					{
 #ifdef AUTH_TOKEN
 						if (!(mod->authz->type & AUTHZ_TOKEN_E))
 #endif
+						{
 							cookie_set(response, str_authorization, (char *)authorization);
-						cookie_set(response, str_user, (char *)user);
-						if (group)
-							cookie_set(response, str_group, (char *)group);
-						if (home)
-							cookie_set(response, str_home, "~/");
+						}
+#if defined(AUTH_TOKEN) && defined(AUTHZ_JWT)
+						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+#endif
+						{
+							cookie_set(response, str_user, (char *)user);
+							if (group)
+								cookie_set(response, str_group, (char *)group);
+							if (home)
+								cookie_set(response, str_home, "~/");
+						}
 					}
 				}
 
