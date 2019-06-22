@@ -40,12 +40,15 @@ extern const char *str_authorization;
 extern const char *str_authenticate_types[];
 extern const char *str_authenticate_engine[];
 
+typedef struct mod_auth_s mod_auth_t;
+
 typedef struct authsession_s
 {
 	char type[10];
 	char user[32];
 	char group[32];
 	char home[PATH_MAX];
+	char *urlspace;
 } authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
@@ -169,18 +172,19 @@ struct authn_s
 	const hash_t *hash;
 };
 
-typedef struct mod_auth_s
+struct mod_auth_s
 {
 	void *authn_config;
 	authn_type_t authn_type;
 	void *authz_config;
 	authz_type_t authz_type;
 	const char *algo;
+	const char *secret;
 	const char *redirect;
 	const char *protect;
 	const char *unprotect;
 	int expire;
-} mod_auth_t;
+};
 
 extern const module_t mod_auth;
 void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *modconfig);
