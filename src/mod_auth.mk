@@ -32,4 +32,8 @@ mod_auth_SOURCES-$(AUTHZ_SQLITE)+=authz_sqlite.c
 mod_auth_CFLAGS-$(AUTHZ_SQLITE)+=-DAUTHZ_SQLITE
 mod_auth_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
 
+mod_auth_SOURCES-$(AUTHZ_JWT)+=authz_jwt.c
+mod_auth_CFLAGS-$(AUTHZ_JWT)+=-DAUTHZ_JWT
+mod_auth_LIBRARY-$(AUTHZ_JWT)+=jansson
+
 mod_auth_CFLAGS-$(DEBUG)+=-g -DDEBUG
