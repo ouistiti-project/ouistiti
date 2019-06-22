@@ -76,7 +76,7 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
-static char *authz_generatetoken(authz_t *authz, authsession_t *info);
+static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info);
 
 static const char str_auth[] = "auth";
 static const char str_cachecontrol[] = "Cache-Control";
@@ -352,7 +352,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
-static char *authz_generatetoken(authz_t *authz, authsession_t *info)
+static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
 {
 	char *token = calloc(1, 36);
 	char _nonce[24];
