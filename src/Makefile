@@ -24,6 +24,8 @@ endif
 $(TARGET)_SOURCES+=main.c
 $(TARGET)_LIBS+=httpserver
 
+$(TARGET)_LDFLAGS-$(STATIC)+=-static
+
 $(TARGET)_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 $(TARGET)_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 
@@ -66,10 +68,11 @@ $(TARGET)_LIBS-$(WEBSOCKET)+=hash_mod
 $(TARGET)_LIBS-$(DOCUMENT)+=utils_mod
 $(TARGET)_LIBS-$(CGI)+=utils_mod
 $(TARGET)_LIBS-$(AUTH)+=hash_mod
+$(TARGET)_LIBS-$(LIBB64)+=b64
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl
-$(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
+$(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3 pthread dl m
 $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=crypt
 $(TARGET)_LIBRARY-$(AUTHZ_JWT)+=jansson
 $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
