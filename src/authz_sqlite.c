@@ -418,6 +418,77 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 #define authz_sqlite_join NULL
 #endif
 
+static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	int groupid = 0;
+
+	{
+		int ret;
+		sqlite3_stmt *statement;
+		const char *sql = "select id from users where name = @NAME";
+		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@NAME");
+		ret = sqlite3_bind_text(statement, index, authinfo->user, -1, SQLITE_STATIC);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		ret = sqlite3_step(statement);
+		sqlite3_finalize(statement);
+		if (ret == SQLITE_ROW)
+			return ESUCCESS;
+	}
+	{
+		int ret;
+		sqlite3_stmt *statement;
+		const char *sql = "select id from groups where name = @GROUP";
+		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@GROUP");
+		ret = sqlite3_bind_text(statement, index, authinfo->group, -1, SQLITE_STATIC);
+		SQLITE3_CHECK(ret, EREJECT, sql);
+
+		ret = sqlite3_step(statement);
+		if (ret == SQLITE_ROW)
+		{
+			if (sqlite3_column_type(statement, 0) == SQLITE_INTEGER)
+				groupid = sqlite3_column_int(statement, 0);
+		}
+		sqlite3_finalize(statement);
+	}
+
+	int ret;
+	sqlite3_stmt *statement;
+	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"home\") values (@NAME,@PASSWD,@GROUP,@HOME);";
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@NAME");
+	ret = sqlite3_bind_text(statement, index, authinfo->user, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@PASSWD");
+	ret = sqlite3_bind_text(statement, index, "*", -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@HOME");
+	ret = sqlite3_bind_text(statement, index, authinfo->home, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@GROUP");
+	ret = sqlite3_bind_int(statement, index, groupid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	ret = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
+}
+
 static const char *authz_sqlite_group(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -450,5 +521,6 @@ authz_rules_t authz_sqlite_rules =
 	.group = authz_sqlite_group,
 	.home = authz_sqlite_home,
 	.join = authz_sqlite_join,
+	.adduser = authz_sqlite_adduser,
 	.destroy = authz_sqlite_destroy,
 };
