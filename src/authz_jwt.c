@@ -64,10 +64,10 @@ typedef struct authz_jwt_s authz_jwt_t;
 struct authz_jwt_s
 {
 	authz_jwt_config_t *config;
-	json_t *token;
+	authsession_t *token;
 };
 
-static int jwt_sign(const char *key, const char *input, size_t len, char *output)
+int jwt_sign(const char *key, const char *input, size_t len, char *output)
 {
 	int ret = EREJECT;
 	if (hash_macsha256 != NULL)
@@ -148,7 +148,7 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	return token;
 }
 
-static json_t *jwt_decode(const char *id_token, const char *key)
+json_t *jwt_decode_json(const char *id_token, const char *key)
 {
 	if (id_token == NULL)
 		return NULL;
@@ -199,12 +199,61 @@ static json_t *jwt_decode(const char *id_token, const char *key)
 		}
 	}
 	json_t *jpayload = NULL;
+#ifndef AUTHZ_JWT_SIGNNOTCHECK
 	if (ret == ESUCCESS)
+#endif
 	{
 		length = base64->decode(b64payload, b64payloadlength, data, 1024);
+		dbg("JWT: %s", data);
 		jpayload = json_loadb(data, length, 0, &error);
 	}
 	return jpayload;
+}
+
+authsession_t *jwt_decode(const char *id_token, const char *key)
+{
+	authsession_t *authsession = NULL;
+	json_t *jinfo = jwt_decode_json(id_token, key);
+	if (jinfo != NULL)
+	{
+		authsession = calloc(1, sizeof(*authsession));
+		const char *user = NULL;
+		json_t *juser = json_object_get(jinfo, "preferred_username");
+		if (juser && json_is_string(juser))
+			user = json_string_value(juser);
+		juser = json_object_get(jinfo, "username");
+		if (juser && json_is_string(juser))
+			user = json_string_value(juser);
+		juser = json_object_get(jinfo, "user");
+		if (juser && json_is_string(juser))
+			user = json_string_value(juser);
+		if (user == NULL)
+			user = str_anonymous;
+		strncpy(authsession->user, user, sizeof(authsession->user));
+
+		json_t *jhome = json_object_get(jinfo, "home");
+		if (jhome && json_is_string(jhome))
+		{
+			strncpy(authsession->home, json_string_value(jhome), sizeof(authsession->home));
+		}
+
+		json_t *jroles = json_object_get(jinfo, "roles");
+		if (jroles && json_is_string(jroles))
+		{
+			strncpy(authsession->group, json_string_value(jroles), sizeof(authsession->group));
+		}
+		else if (jroles && json_is_array(jroles))
+		{
+			strncpy(authsession->group, json_string_value(json_array_get(jroles, 0)), sizeof(authsession->group));
+		}
+		else
+		{
+			strncpy(authsession->group, "anonymous", sizeof(authsession->group));
+		}
+
+		json_decref(jinfo);
+	}
+	return authsession;
 }
 
 static void *authz_jwt_create(void *arg)
@@ -220,18 +269,10 @@ static void *authz_jwt_create(void *arg)
 
 static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
-	ctx->token = jwt_decode(token, ctx->config->key);
 	if (ctx->token == NULL)
-		return NULL;
-	json_t *juser = json_object_get(ctx->token, "preferred_username");
-	if (juser && json_is_string(juser))
-		return json_string_value(juser);
-	juser = json_object_get(ctx->token, "username");
-	if (juser && json_is_string(juser))
-		return json_string_value(juser);
-	juser = json_object_get(ctx->token, "user");
-	if (juser && json_is_string(juser))
-		return json_string_value(juser);
+		ctx->token = jwt_decode(token, ctx->config->key);
+	if (ctx->token != NULL)
+		return ctx->token->user;
 	return NULL;
 }
 
@@ -244,24 +285,16 @@ static const char *authz_jwt_check(void *arg, const char *user, const char *pass
 static const char *authz_jwt_group(void *arg, const char *user)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
-	json_t *jroles = json_object_get(ctx->token, "roles");
-	if (jroles && json_is_array(jroles))
-	{
-		json_t *jrole = json_array_get(jroles, 0);
-		if (jrole && json_is_string(jrole))
-			return json_string_value(jrole);
-	}
-	if (!strcmp(user, "anonymous"))
-		return "anonymous";
+	if (ctx->token)
+		return ctx->token->group;
 	return NULL;
 }
 
 static const char *authz_jwt_home(void *arg, const char *user)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
-	json_t *jhome = json_object_get(ctx->token, "home");
-	if (jhome && json_is_string(jhome))
-		return json_string_value(jhome);
+	if (ctx->token)
+		return ctx->token->home;
 	return NULL;
 }
 
@@ -269,7 +302,7 @@ static void authz_jwt_destroy(void *arg)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
 
-	json_decref(ctx->token);
+	free(ctx->token);
 	free(ctx);
 }
 
