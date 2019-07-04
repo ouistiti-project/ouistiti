@@ -526,6 +526,92 @@ static mod_redirect404_t *redirect404_config(config_setting_t *iterator, int tls
 #define redirect404_config(...) NULL
 #endif
 
+#ifdef REDIRECT
+static int redirect_mode(const char *mode)
+{
+	int options = 0;
+	const char *ext = mode;
+
+	while (ext != NULL)
+	{
+		int length;
+		length = strlen(ext);
+		char *ext_end = strchr(ext, ',');
+		if (ext_end)
+		{
+			length -= strlen(ext_end + 1) + 1;
+			ext_end++;
+		}
+		if (!strncmp(ext, "generate_204", length))
+		{
+			options |= REDIRECT_GENERATE204;
+		}
+		else if (!strncmp(ext, "hsts", length))
+		{
+			options |= REDIRECT_HSTS;
+		}
+		else if (!strncmp(ext, "temporary", length))
+		{
+			options |= REDIRECT_TEMPORARY;
+		}
+		else if (!strncmp(ext, "permanently", length))
+		{
+			options |= REDIRECT_PERMANENTLY;
+		}
+		ext = ext_end;
+	}
+	return options;
+}
+static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
+{
+	mod_redirect_t *conf = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "redirect");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "redirect");
+#endif
+	if (config)
+	{
+		conf = calloc(1, sizeof(*conf));
+		char *mode = NULL;
+		config_setting_lookup_string(config, "options", (const char **)&mode);
+		conf->options = redirect_mode(mode);
+
+		config_setting_t *configlinks = config_setting_lookup(config, "links");
+		if (configlinks)
+		{
+			conf->options |= REDIRECT_LINK;
+			int count = config_setting_length(configlinks);
+			int i;
+			for (i = 0; i < count; i++)
+			{
+				char *origin = NULL;
+				char *destination = NULL;
+				config_setting_t *iterator = config_setting_get_elem(configlinks, i);
+				if (iterator)
+				{
+					config_setting_lookup_string(iterator, "origin", (const char **)&origin);
+					config_setting_lookup_string(iterator, "options", (const char **)&mode);
+					config_setting_lookup_string(iterator, "destination", (const char **)&destination);
+					if (origin != NULL)
+					{
+						mod_redirect_link_t *link = calloc(1, sizeof(*link));
+						link->origin = origin;
+						link->options = redirect_mode(mode);
+						link->destination = destination;
+						link->next = conf->links;
+						conf->links = link;
+					}
+				}
+			}
+		}
+	}
+	return conf;
+}
+#else
+#define redirect_config(...) NULL
+#endif
+
 #ifdef VHOSTS
 static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 {
@@ -668,6 +754,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
 					config->modules.redirect404 = redirect404_config(iterator,(config->tls!=NULL));
+					config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
 					config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
@@ -704,6 +791,17 @@ static void _modulesconfig_destroy(modulesconfig_t *config)
 		free(config->document);
 	if (config->websocket)
 		free(config->websocket);
+	if (config->redirect)
+	{
+		mod_redirect_link_t *link = config->redirect->links;
+		while (link != NULL)
+		{
+			mod_redirect_link_t *old = link->next;
+			free(link);
+			link = old;
+		}
+		free(config->redirect);
+	}
 	if (config->auth)
 	{
 		if (config->auth->authn_config)
