@@ -26,6 +26,7 @@ VTHREAD_TYPE=fork
 MBEDTLS=y
 WOLFSSL=n
 OPENSSL=n
+LIBB64=y
 #support of static documents
 DOCUMENT=y
 DOCUMENTREST=y
