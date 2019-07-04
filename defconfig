@@ -65,8 +65,7 @@ WEBSTREAM=y
 UDPGW=y
 #support of client address filter
 CLIENTFILTER=y
-#support the redirection of 404 error request not found
-REDIRECT404=y
+#support the redirection
 REDIRECT=y
 #support cookie parser
 COOKIE=y

@@ -509,23 +509,6 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 #define webstream_config(...) NULL
 #endif
 
-#ifdef REDIRECT404
-static mod_redirect404_t *redirect404_config(config_setting_t *iterator, int tls)
-{
-	mod_redirect404_t *redirect404 = NULL;
-	char *redirect = NULL;
-	config_setting_lookup_string(iterator, "error_redirection", (const char **)&redirect);
-	if (redirect)
-	{
-		redirect404 = calloc(1, sizeof(*redirect404));
-		redirect404->redirect = redirect;
-	}
-	return redirect404;
-}
-#else
-#define redirect404_config(...) NULL
-#endif
-
 #ifdef REDIRECT
 static int redirect_mode(const char *mode)
 {
@@ -557,6 +540,10 @@ static int redirect_mode(const char *mode)
 		else if (!strncmp(ext, "permanently", length))
 		{
 			options |= REDIRECT_PERMANENTLY;
+		}
+		else if (!strncmp(ext, "error", length))
+		{
+			options |= REDIRECT_ERROR;
 		}
 		ext = ext_end;
 	}
@@ -753,7 +740,6 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
-					config->modules.redirect404 = redirect404_config(iterator,(config->tls!=NULL));
 					config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
 					config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS

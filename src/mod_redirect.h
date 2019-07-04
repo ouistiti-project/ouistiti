@@ -47,6 +47,7 @@ struct mod_redirect_link_s
 #define REDIRECT_GENERATE204	0x0004
 #define REDIRECT_PERMANENTLY	0x0008
 #define REDIRECT_TEMPORARY		0x0010
+#define REDIRECT_ERROR			0x0020
 typedef struct mod_redirect_s
 {
 	int options;
