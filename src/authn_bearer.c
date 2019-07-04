@@ -54,8 +54,6 @@ struct authn_bearer_s
 	http_client_t *clt;
 };
 
-const char *str_anonymous = "anonymous";
-
 static int bearer_tokenEP_connector(void *arg, http_message_t *request, http_message_t *response);
 
 static void *authn_bearer_create(authn_t *authn, authz_t *authz, void *arg)

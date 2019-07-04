@@ -35,8 +35,9 @@
 extern "C"
 {
 #endif
-extern const char *str_authenticate;
-extern const char *str_authorization;
+extern const char str_authenticate[];
+extern const char str_authorization[];
+extern const char str_anonymous[];
 extern const char *str_authenticate_types[];
 extern const char *str_authenticate_engine[];
 
