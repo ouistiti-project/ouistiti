@@ -121,7 +121,7 @@ ouistiticonfig_t g_ouistiticonfig =
 	.servers =
 	{
 		&(serverconfig_t) {
-		.server = 
+		.server =
 			&(http_server_config_t) {
 				.hostname = "www.ouistiti.net",
 				.port = 80,
@@ -131,7 +131,7 @@ ouistiticonfig_t g_ouistiticonfig =
 			},
 		.tls = NULL,
 		.modules = {
-			.document = 
+			.document =
 				&(mod_document_t) {
 					.docroot = "/srv/www/htdocs",
 					.allow = ".html,.htm,.css,.js,.txt",
@@ -146,14 +146,14 @@ ouistiticonfig_t g_ouistiticonfig =
 			},
 		},
 		&(serverconfig_t) {
-		.server = 
+		.server =
 			&(http_server_config_t) {
 				.port = 443,
 				.addr = NULL,
 				.keepalive = 10,
 				.version = HTTP11,
 			},
-		.tls = 
+		.tls =
 			&(mod_tls_t) {
 				.crtfile = "/etc/ssl/private/server.pem",
 				.pemfile = NULL,
