@@ -298,6 +298,30 @@ static const char *authz_jwt_home(void *arg, const char *user)
 	return NULL;
 }
 
+#ifdef AUTH_TOKEN
+static int authz_jwt_join(void *arg, const char *user, const char *token, int expire)
+{
+	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+	if (ctx->token == NULL)
+		return EREJECT;
+	return ESUCCESS;
+}
+#else
+#define authz_jwt_join NULL
+#endif
+
+static int authz_jwt_adduser(void *arg, authsession_t *newuser)
+{
+	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+	ctx->token = calloc(1, sizeof(ctx->token));
+	if (ctx->token != NULL)
+	{
+		memcpy(ctx->token, newuser, sizeof(ctx->token));
+		return ESUCCESS;
+	}
+	return EREJECT;
+}
+
 static void authz_jwt_destroy(void *arg)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
@@ -312,5 +336,7 @@ authz_rules_t authz_jwt_rules =
 	.check = authz_jwt_check,
 	.group = authz_jwt_group,
 	.home = authz_jwt_home,
+	.join = authz_jwt_join,
+	.adduser = authz_jwt_adduser,
 	.destroy = authz_jwt_destroy,
 };
