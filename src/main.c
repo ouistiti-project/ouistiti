@@ -111,9 +111,6 @@ static const module_t *modules[] =
 #if defined COOKIE
 	&mod_cookie,
 #endif
-#if defined REDIRECT
-	&mod_redirect,
-#endif
 #if defined AUTH
 	&mod_auth,
 #endif
@@ -135,8 +132,9 @@ static const module_t *modules[] =
 #if defined WEBSOCKET
 	&mod_websocket,
 #endif
-#if defined REDIRECT404
+#if defined REDIRECT
 	&mod_redirect404,
+	&mod_redirect,
 #endif
 	NULL
 };
@@ -433,7 +431,13 @@ int main(int argc, char * const *argv)
 			}
 			if (server->config->modules.document)
 				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
-			server->modules[j].config = loadmodule(str_redirect404, server->server, server->config->modules.redirect404, &server->modules[j++].destroy);
+#if defined(REDIRECT)
+			if (server->config->modules.redirect)
+			{
+				server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j++].destroy);
+				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
+			}
+#endif
 			server->modules[j].config = NULL;
 		}
 		server = server->next;

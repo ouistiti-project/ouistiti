@@ -51,7 +51,6 @@ typedef struct modulesconfig_s
 	mod_auth_t *auth;
 	mod_clientfilter_t *clientfilter;
 	mod_websocket_t *websocket;
-	mod_redirect404_t *redirect404;
 	mod_redirect_t *redirect;
 	mod_webstream_t *webstream;
 } modulesconfig_t;

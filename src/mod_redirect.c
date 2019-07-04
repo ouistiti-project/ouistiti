@@ -153,6 +153,8 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 	}
 	if (config->options & REDIRECT_LINK)
 	{
+		const char *status = httpmessage_REQUEST(response, "result");
+		while (*status == ' ') status++;
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
 		if (uri == NULL)
 		{
@@ -167,14 +169,29 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 				if (link->destination != NULL &&
 						utils_searchexp(uri, link->destination) != ESUCCESS)
 				{
+					int result = mod->result;
 					httpmessage_addheader(response, str_location, link->destination);
-					httpmessage_result(response, mod->result);
+					if (link->options & REDIRECT_PERMANENTLY)
+						result = RESULT_301;
+					else if (link->options & REDIRECT_TEMPORARY)
+						result = RESULT_307;
+					httpmessage_result(response, result);
 					free(uri);
 					return ESUCCESS;
 				}
 				else if (link->options & REDIRECT_GENERATE204)
 				{
 					httpmessage_result(response, RESULT_204);
+					free(uri);
+					return ESUCCESS;
+				}
+			}
+			if (link->options & REDIRECT_ERROR)
+			{
+				if (!strncmp(status, link->origin, 3))
+				{
+					httpmessage_addheader(response, str_location, link->destination);
+					httpmessage_result(response, RESULT_301);
 					free(uri);
 					return ESUCCESS;
 				}
