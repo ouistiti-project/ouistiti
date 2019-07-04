@@ -349,6 +349,24 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			auth->authn_config = authn_config;
 		}
 #endif
+#ifdef AUTHN_OAUTH2
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_OAUTH2_E], 6))
+		{
+			authn_oauth2_config_t *authn_config = calloc(1, sizeof(*authn_config));
+			auth->authn_type = AUTHN_OAUTH2_E;
+			if (authn_config->iss == NULL)
+				authn_config->iss = authn_config->realm;
+			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+			if (authn_config->realm == NULL)
+				authn_config->realm = (char *)str_realm;
+			config_setting_lookup_string(configauth, "auth_ep", (const char **)&authn_config->auth_ep);
+			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
+			authn_config->client_passwd = auth->secret;
+			authn_config->client_id = authn_config->realm;
+			config_setting_lookup_string(configauth, "discovery", (const char **)&authn_config->discovery);
+			auth->authn_config = authn_config;
+		}
+#endif
 	}
 	return auth;
 }

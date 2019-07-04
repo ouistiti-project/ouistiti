@@ -49,9 +49,18 @@
 #include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authn_none.h"
+#ifdef AUTHN_BASIC
 #include "authn_basic.h"
+#endif
+#ifdef AUTHN_DIGEST
 #include "authn_digest.h"
+#endif
+#ifdef AUTHN_BEARER
 #include "authn_bearer.h"
+#endif
+#ifdef AUTHN_OAUTH2
+#include "authn_oauth2.h"
+#endif
 #include "authz_simple.h"
 #include "authz_file.h"
 #include "authz_unix.h"
@@ -100,8 +109,10 @@ struct _mod_auth_s
 	int typelength;
 };
 
-const char *str_authenticate = "WWW-Authenticate";
-const char *str_authorization = "Authorization";
+const char str_authenticate[] = "WWW-Authenticate";
+const char str_authorization[] = "Authorization";
+const char str_anonymous[] = "anonymous";
+
 static const char *str_xtoken = "X-Auth-Token";
 static const char *str_xuser = "X-Remote-User";
 static const char *str_xgroup = "X-Remote-Group";
@@ -116,6 +127,7 @@ const char *str_authenticate_types[] =
 	"Basic",
 	"Digest",
 	"Bearer",
+	"oAuth2",
 };
 const char *str_authenticate_engine[] =
 {
@@ -143,6 +155,11 @@ authn_rules_t *authn_rules[] = {
 #endif
 #ifdef AUTHN_BEARER
 	&authn_bearer_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHN_OAUTH2
+	&authn_oauth2_rules,
 #else
 	NULL,
 #endif
@@ -424,18 +441,22 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = cookie_get(request, (char *)str_authorization);
+		err("cookie get %s %p",str_authorization, authorization);
 			if (authorization)
 				from = 1;
 		}
 
 		if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
+		{
+			err("authorization type: %.*s, %.*s", mod->typelength, authorization, mod->typelength, mod->type);
 			authorization = NULL;
+		}
 #ifdef AUTH_TOKEN
 		/**
 		 * The authorization may be accepted and replaced by a token.
 		 * This token is available inside the cookie.
 		 */
-		if (authorization == NULL || authorization[0] == '\0')
+		if ((authorization == NULL || authorization[0] == '\0') && mod->authz->type & AUTHZ_TOKEN_E)
 		{
 			authorization = cookie_get(request, str_xtoken);
 			if (authorization)
