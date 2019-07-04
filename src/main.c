@@ -62,6 +62,7 @@
 #include "mod_methodlock.h"
 #include "mod_server.h"
 #include "mod_redirect404.h"
+#include "mod_redirect.h"
 #include "mod_webstream.h"
 
 #if defined WEBSOCKET || defined WEBSTREAM
@@ -109,6 +110,9 @@ static const module_t *modules[] =
 #endif
 #if defined COOKIE
 	&mod_cookie,
+#endif
+#if defined REDIRECT
+	&mod_redirect,
 #endif
 #if defined AUTH
 	&mod_auth,
@@ -214,7 +218,7 @@ static void _setpidfile(char *pidfile)
 			/**
 			 * the file must be open while the process is running
 			close(pidfd);
-			 */ 
+			 */
 		}
 		else
 		{
@@ -404,6 +408,10 @@ int main(int argc, char * const *argv)
 			if (server->config->modules.clientfilter)
 				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
 			server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
+#if defined(REDIRECT)
+			if (server->config->modules.redirect)
+				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
+#endif
 			if (server->config->modules.auth)
 				server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
 			server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);

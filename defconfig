@@ -67,6 +67,7 @@ UDPGW=y
 CLIENTFILTER=y
 #support the redirection of 404 error request not found
 REDIRECT404=y
+REDIRECT=y
 #support cookie parser
 COOKIE=y
 
