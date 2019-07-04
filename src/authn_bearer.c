@@ -80,11 +80,11 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 	snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
 	httpmessage_addheader(response, str_authenticate, authenticate);
 
-	if (!utils_searchexp(uri, config->tokenEP))
+	if (!utils_searchexp(uri, config->token_ep))
 	{
 		ret = EREJECT;
 	}
-	else if (config->tokenEP != NULL && config->tokenEP[0] != '\0')
+	else if (config->token_ep != NULL && config->token_ep[0] != '\0')
 	{
 		const char *scheme = httpmessage_REQUEST(request, "scheme");
 		const char *host = httpmessage_REQUEST(request, "host");
@@ -94,7 +94,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 			portseparator = ":";
 		char location[256];
 		snprintf(location, 256, "%s?redirect_uri=%s://%s%s%s/%s",
-			config->tokenEP,
+			config->token_ep,
 			scheme, host, portseparator, port, uri);
 		httpmessage_addheader(response, (char *)str_location, location);
 		httpmessage_result(response, RESULT_302);
@@ -112,8 +112,7 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 	authn_bearer_t *mod = (authn_bearer_t *)arg;
 	authn_bearer_config_t *config = mod->config;
 
-	int length = strlen(config->tokenEP);
-	if (!strncmp(uri, config->tokenEP, length))
+	if (!strcmp(uri, config->token_ep))
 	{
 		return str_anonymous;
 	}
