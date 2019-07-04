@@ -144,7 +144,7 @@ typedef struct authn_bearer_config_s authn_bearer_config_t;
 struct authn_bearer_config_s
 {
 	const char *realm;
-	const char *tokenEP;
+	const char *token_ep;
 	int expire;
 };
 
