@@ -300,7 +300,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		char *type = NULL;
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
 #ifdef AUTHN_NONE
-		if (type != NULL && !strncmp(type, "None", 4))
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_NONE_E], 4))
 		{
 			authn_none_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_NONE_E;
@@ -309,7 +309,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 #endif
 #ifdef AUTHN_BASIC
-		if (type != NULL && !strncmp(type, "Basic", 5))
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_BASIC_E], 5))
 		{
 			authn_basic_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_BASIC_E;
@@ -320,7 +320,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 #endif
 #ifdef AUTHN_DIGEST
-		if (type != NULL && !strncmp(type, "Digest", 5))
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_DIGEST_E], 5))
 		{
 			authn_digest_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_DIGEST_E;
@@ -332,7 +332,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 #endif
 #ifdef AUTHN_BEARER
-		if (type != NULL && !strncmp(type, "Bearer", 5))
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_BEARER_E], 6))
 		{
 			authn_bearer_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_BEARER_E;
@@ -343,9 +343,9 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			 * token_ep and signin are not compatible
 			 */
 			auth->redirect = NULL;
-			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->tokenEP);
-			if (authn_config->tokenEP == NULL)
-				config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->tokenEP);
+			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
+			if (authn_config->token_ep == NULL)
+				config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->token_ep);
 			auth->authn_config = authn_config;
 		}
 #endif
