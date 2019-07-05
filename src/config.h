@@ -38,6 +38,7 @@
 #include "mod_auth.h"
 #include "mod_clientfilter.h"
 #include "mod_redirect404.h"
+#include "mod_redirect.h"
 #include "mod_webstream.h"
 #include "httpserver/mod_websocket.h"
 #include "httpserver/mod_tls.h"
@@ -50,7 +51,7 @@ typedef struct modulesconfig_s
 	mod_auth_t *auth;
 	mod_clientfilter_t *clientfilter;
 	mod_websocket_t *websocket;
-	mod_redirect404_t *redirect404;
+	mod_redirect_t *redirect;
 	mod_webstream_t *webstream;
 } modulesconfig_t;
 
@@ -121,7 +122,7 @@ ouistiticonfig_t g_ouistiticonfig =
 	.servers =
 	{
 		&(serverconfig_t) {
-		.server = 
+		.server =
 			&(http_server_config_t) {
 				.hostname = "www.ouistiti.net",
 				.port = 80,
@@ -131,7 +132,7 @@ ouistiticonfig_t g_ouistiticonfig =
 			},
 		.tls = NULL,
 		.modules = {
-			.document = 
+			.document =
 				&(mod_document_t) {
 					.docroot = "/srv/www/htdocs",
 					.allow = ".html,.htm,.css,.js,.txt",
@@ -146,14 +147,14 @@ ouistiticonfig_t g_ouistiticonfig =
 			},
 		},
 		&(serverconfig_t) {
-		.server = 
+		.server =
 			&(http_server_config_t) {
 				.port = 443,
 				.addr = NULL,
 				.keepalive = 10,
 				.version = HTTP11,
 			},
-		.tls = 
+		.tls =
 			&(mod_tls_t) {
 				.crtfile = "/etc/ssl/private/server.pem",
 				.pemfile = NULL,

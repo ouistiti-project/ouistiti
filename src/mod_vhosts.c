@@ -128,9 +128,12 @@ void *mod_vhost_create(http_server_t *server, char *unused, mod_vhost_t *config)
 	if (config->modules.document)
 		mod->mod_document = mod_document_create(server, config->hostname, config->modules.document);
 #endif
-#if defined REDIRECT404
-	if (config->modules.redirect404)
-		mod->mod_redirect404 = mod_redirect404_create(server, config->hostname, config->modules.redirect404);
+#if defined REDIRECT
+	if (config->modules.redirect)
+	{
+		mod->mod_redirect404 = mod_redirect404_create(server, config->hostname, NULL);
+		mod->mod_redirect = mod_redirect_create(server, config->hostname, config->modules.redirect);
+	}
 #endif
 
 	return mod;
