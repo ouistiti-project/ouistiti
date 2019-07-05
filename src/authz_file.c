@@ -69,7 +69,7 @@ struct authz_file_s
 #endif
 };
 
-void *authz_file_create(void *arg)
+static void *authz_file_create(void *arg)
 {
 	authz_file_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;
@@ -113,7 +113,7 @@ void *authz_file_create(void *arg)
 	return ctx;
 }
 
-char *authz_file_passwd(void *arg, char *user)
+static const char *authz_file_passwd(void *arg, const char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;
@@ -193,10 +193,9 @@ char *authz_file_passwd(void *arg, char *user)
 	return NULL;
 }
 
-int authz_file_check(void *arg, char *user, char *passwd)
+static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;
 
 	struct passwd *userpasswd = NULL;
@@ -204,7 +203,7 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	if (userpasswd)
 		warn("user %s pwd %s home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
 
-	char *checkpasswd = authz_file_passwd(arg, user);
+	const char *checkpasswd = authz_file_passwd(ctx, user);
 	if (checkpasswd)
 	{
 		if (checkpasswd[0] == '$')
@@ -263,7 +262,16 @@ int authz_file_check(void *arg, char *user, char *passwd)
 	return ret;
 }
 
-char *authz_file_group(void *arg, char *user)
+static const char *authz_file_check(void *arg, const char *user, const char *passwd, const char *token)
+{
+	authz_file_t *ctx = (authz_file_t *)arg;
+
+	if (user != NULL && passwd != NULL && _authz_file_checkpasswd(ctx, user, passwd))
+		return user;
+	return NULL;
+}
+
+static const char *authz_file_group(void *arg, const char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;
@@ -275,7 +283,7 @@ char *authz_file_group(void *arg, char *user)
 	return NULL;
 }
 
-char *authz_file_home(void *arg, char *user)
+static const char *authz_file_home(void *arg, const char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	authz_file_config_t *config = ctx->config;
@@ -285,7 +293,7 @@ char *authz_file_home(void *arg, char *user)
 	return NULL;
 }
 
-void authz_file_destroy(void *arg)
+static void authz_file_destroy(void *arg)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 

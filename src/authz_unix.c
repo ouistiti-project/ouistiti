@@ -67,7 +67,7 @@ struct authz_unix_s
 	char *home;
 };
 
-void *authz_unix_create(void *arg)
+static void *authz_unix_create(void *arg)
 {
 	authz_unix_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;
@@ -77,10 +77,9 @@ void *authz_unix_create(void *arg)
 	return ctx;
 }
 
-int authz_unix_check(void *arg, char *user, char *passwd)
+static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
 
 	if (ctx->user && !strcmp(user, ctx->user))
@@ -144,7 +143,16 @@ int authz_unix_check(void *arg, char *user, char *passwd)
 	return ret;
 }
 
-char *authz_unix_group(void *arg, char *user)
+static const char *authz_unix_check(void *arg, const char *user, const char *passwd, const char *token)
+{
+	authz_unix_t *ctx = (authz_unix_t *)arg;
+
+	if (user != NULL && passwd != NULL && _authz_unix_checkpasswd(ctx, user, passwd))
+		return user;
+	return NULL;
+}
+
+static const char *authz_unix_group(void *arg, const char *user)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
@@ -156,7 +164,7 @@ char *authz_unix_group(void *arg, char *user)
 	return NULL;
 }
 
-char *authz_unix_home(void *arg, char *user)
+static const char *authz_unix_home(void *arg, const char *user)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
@@ -166,7 +174,7 @@ char *authz_unix_home(void *arg, char *user)
 	return NULL;
 }
 
-void authz_unix_destroy(void *arg)
+static void authz_unix_destroy(void *arg)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 
