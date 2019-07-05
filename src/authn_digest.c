@@ -97,6 +97,11 @@ static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 {
 	if (authn->hash == NULL)
 		return NULL;
+	if (authz->rules->passwd == NULL)
+	{
+		err("authn Digest is not compatible with authz %s", str_authenticate_engine[authz->type&AUTHZ_TYPE_MASK]);
+		return NULL;
+	}
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
 	mod->authz = authz;
@@ -140,7 +145,7 @@ static void authn_digest_opaque(void *arg, char *opaque, int opaquelen)
 #endif
 }
 
-static int authn_digest_setup(void *arg, struct sockaddr *addr, int addrsize)
+static int authn_digest_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
@@ -166,6 +171,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	}
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
 	httpmessage_keepalive(response);
+	httpmessage_result(response, RESULT_401);
 	ret = ESUCCESS;
 	return ret;
 }
@@ -268,22 +274,22 @@ static char *authn_digest_a2(const hash_t * hash, const char *method, const char
 	hash->finish(ctx, A2);
 	return utils_stringify(A2, hash->size);
 }
-struct authn_digest_computing_s authn_digest_md5_computing = 
+static struct authn_digest_computing_s authn_digest_md5_computing =
 {
 	.digest = authn_digest_digest,
 	.a1 = authn_digest_a1,
 	.a2 = authn_digest_a2,
 };
 
-struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
+static struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
 
 static char *str_empty = "";
-static char *authn_digest_check(void *arg, const char *method, const char *url, char *string)
+static const char *authn_digest_check(void *arg, const char *method, const char *url, char *string)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
-	char *passwd = NULL;
+	const char *passwd = NULL;
 	const char *user = str_empty;
-	char *user_ret = NULL;
+	const char *user_ret = NULL;
 	const char *uri = NULL;
 	const char *realm = str_empty;
 	const char *qop = NULL;
@@ -330,18 +336,14 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 	if (nonce == NULL)
 	{
 		warn("auth: nonce is unset");
-		return NULL;
 	}
-
-	if (strcmp(nonce, mod->nonce))
+	else if (strcmp(nonce, mod->nonce))
 	{
 		mod->stale++;
 		mod->stale %= 5;
 		warn("auth: nonce is corrupted");
-		return NULL;
 	}
-
-	if (strcmp(algorithm, mod->hash->name))
+	else if (strcmp(algorithm, mod->hash->name))
 	{
 		warn("auth: algorithm is bad");
 #ifdef AUTH_DOWNGRADE
@@ -349,25 +351,20 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 #else
 		mod->stale++;
 		mod->stale %= 5;
-		return NULL;
 #endif
 	}
-	mod->stale = 0;
-	if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
+	else if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
 	{
 		warn("auth: opaque or realm is bad");
-		return NULL;
+	}
+	else
+	{
+		passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
 	}
 	if (strcmp(url, uri))
 	{
 		warn("try connection on %s with authorization on %s", url, uri);
 	}
-	if (mod->authz->rules->passwd == NULL)
-	{
-		err("authn Digest is not compatible with authz %s", str_authenticate_engine[mod->authz->type&AUTHZ_TYPE_MASK]);
-		return NULL;
-	}
-	passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
 	if (passwd && authn_digest_computing)
 	{
 		char *a1 = authn_digest_computing->a1(mod->hash, user, realm, passwd);
@@ -385,7 +382,7 @@ static char *authn_digest_check(void *arg, const char *method, const char *url, 
 	}
 	else
 	{
-		warn("unknown user");
+		user_ret = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 	}
 	return user_ret;
 }

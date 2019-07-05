@@ -86,12 +86,13 @@ static int authn_basic_challenge(void *arg, http_message_t *request, http_messag
 	authn_basic_t *mod = (authn_basic_t *)arg;
 
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
+	httpmessage_result(response, RESULT_401);
 	ret = ESUCCESS;
 	return ret;
 }
 
 static char user[256] = {0};
-static char *authn_basic_check(void *arg, const char *method, const char *uri, char *string)
+static const char *authn_basic_check(void *arg, const char *method, const char *uri, char *string)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
 	char *passwd;
@@ -105,11 +106,7 @@ static char *authn_basic_check(void *arg, const char *method, const char *uri, c
 		passwd++;
 	}
 
-	if (mod->authz->rules->check(mod->authz->ctx, user, passwd))
-	{
-		return user;
-	}
-	return NULL;
+	return mod->authz->rules->check(mod->authz->ctx, user, passwd, string);
 }
 
 static void authn_basic_destroy(void *arg)

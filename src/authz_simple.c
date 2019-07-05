@@ -44,12 +44,12 @@
 #endif
 
 typedef authz_simple_config_t authz_simple_t;
-void *authz_simple_create(void *config)
+static void *authz_simple_create(void *config)
 {
 	return config;
 }
 
-char *authz_simple_passwd(void *arg, char *user)
+static const char *authz_simple_passwd(void *arg,const  char *user)
 {
 	authz_simple_t *config = (authz_simple_t *)arg;
 	if (!strcmp(user, config->user))
@@ -57,16 +57,23 @@ char *authz_simple_passwd(void *arg, char *user)
 	return NULL;
 }
 
-int authz_simple_check(void *arg, char *user, char *passwd)
+static int _authz_simple_checkpasswd(authz_simple_t *config, const char *user, const char *passwd)
 {
-	authz_simple_t *config = (authz_simple_t *)arg;
-
 	if (!strcmp(user, config->user)  && config->passwd && !strcmp(passwd, config->passwd))
 		return 1;
 	return 0;
 }
 
-char *authz_simple_group(void *arg, char *user)
+static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *token)
+{
+	authz_simple_t *ctx = (authz_simple_t *)arg;
+
+	if (user != NULL && passwd != NULL && _authz_simple_checkpasswd(ctx, user, passwd))
+		return user;
+	return NULL;
+}
+
+static const char *authz_simple_group(void *arg, const char *user)
 {
 	authz_simple_t *config = (authz_simple_t *)arg;
 	if (!strcmp(user, config->user) && config->group && config->group[0] != '\0')
@@ -78,7 +85,7 @@ char *authz_simple_group(void *arg, char *user)
 	return NULL;
 }
 
-char *authz_simple_home(void *arg, char *user)
+static const char *authz_simple_home(void *arg, const char *user)
 {
 	authz_simple_t *config = (authz_simple_t *)arg;
 	if (!strcmp(user, config->user) && config->home && config->home[0] != '\0')

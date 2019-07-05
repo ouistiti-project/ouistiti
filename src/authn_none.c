@@ -101,7 +101,7 @@ static int authn_none_challenge(void *arg, http_message_t *request, http_message
 	return EREJECT;
 }
 
-static char *authn_none_check(void *arg, const char *method, const char *uri, char *string)
+static const char *authn_none_check(void *arg, const char *method, const char *uri, char *string)
 {
 	authn_none_t *mod = (authn_none_t *)arg;
 	authn_none_config_t *config = mod->config;
