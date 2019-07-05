@@ -192,9 +192,30 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 	if (configauth)
 	{
 		auth = calloc(1, sizeof(*auth));
-		config_setting_lookup_string(configauth, "error_redirection", &auth->redirect);
+		config_setting_lookup_string(configauth, "signin", &auth->redirect);
 		config_setting_lookup_string(configauth, "protect", &auth->protect);
 		config_setting_lookup_string(configauth, "unprotect", &auth->unprotect);
+		/**
+		 * algorithm allow to change secret algorithm used during authentication default is md5. (see authn_digest.c)
+		 */
+		config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);
+		/**
+		 * secret is the secret used during the token generation. (see authz_jwt.c)
+		 */
+		config_setting_lookup_string(configauth, "secret", (const char **)&auth->secret);
+
+		char *mode = NULL;
+		config_setting_lookup_string(configauth, "options", (const char **)&mode);
+		if (mode && strstr(mode, "home") != NULL)
+			auth->authz_type |= AUTHZ_HOME_E;
+		if (mode && strstr(mode, "cookie") != NULL)
+			auth->authz_type |= AUTHZ_COOKIE_E;
+		if (mode && strstr(mode, "header") != NULL)
+			auth->authz_type |= AUTHZ_HEADER_E;
+		if (mode && strstr(mode, "token") != NULL)
+			auth->authz_type |= AUTHZ_TOKEN_E;
+		config_setting_lookup_int(configauth, "expire", &auth->expire);
+
 #ifdef AUTHZ_UNIX
 		if (auth->authz_config == NULL)
 		{
@@ -205,7 +226,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			{
 				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
 				authz_config->path = path;
-				auth->authz_type = AUTHZ_UNIX_E;
+				auth->authz_type |= AUTHZ_UNIX_E;
 				auth->authz_config = authz_config;
 			}
 		}
@@ -220,7 +241,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			{
 				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
 				authz_config->path = path;
-				auth->authz_type = AUTHZ_FILE_E;
+				auth->authz_type |= AUTHZ_FILE_E;
 				auth->authz_config = authz_config;
 			}
 		}
@@ -235,7 +256,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			{
 				authz_sqlite_config_t *authz_config = calloc(1, sizeof(*authz_config));
 				authz_config->dbname = path;
-				auth->authz_type = AUTHZ_SQLITE_E;
+				auth->authz_type |= AUTHZ_SQLITE_E;
 				auth->authz_config = authz_config;
 			}
 		}
@@ -258,27 +279,28 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 				authz_config->group = group;
 				authz_config->home = home;
 				authz_config->passwd = passwd;
-				auth->authz_type = AUTHZ_SIMPLE_E;
+				auth->authz_type |= AUTHZ_SIMPLE_E;
 				auth->authz_config = authz_config;
 			}
 		}
 #endif
-		char *mode = NULL;
-		config_setting_lookup_string(configauth, "options", (const char **)&mode);
-		if (mode && strstr(mode, "home") != NULL)
-			auth->authz_type |= AUTHZ_HOME_E;
-		if (mode && strstr(mode, "cookie") != NULL)
-			auth->authz_type |= AUTHZ_COOKIE_E;
-		if (mode && strstr(mode, "header") != NULL)
-			auth->authz_type |= AUTHZ_HEADER_E;
-		if (mode && strstr(mode, "token") != NULL)
-			auth->authz_type |= AUTHZ_TOKEN_E;
-		config_setting_lookup_int(configauth, "expire", &auth->expire);
+#ifdef AUTHZ_JWT
+		/**
+		 * defautl configuration
+		 */
+		if (auth->authz_config == NULL)
+		{
+			authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
+			authz_config->key = auth->secret;
+			auth->authz_type |= AUTHZ_JWT_E;
+			auth->authz_config = authz_config;
+	}
+#endif
 
 		char *type = NULL;
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
 #ifdef AUTHN_NONE
-		if (type != NULL && !strncmp(type, "None", 4))
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_NONE_E], 4))
 		{
 			authn_none_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_NONE_E;
@@ -287,7 +309,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 #endif
 #ifdef AUTHN_BASIC
-		if (type != NULL && !strncmp(type, "Basic", 5))
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_BASIC_E], 5))
 		{
 			authn_basic_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_BASIC_E;
@@ -298,7 +320,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 #endif
 #ifdef AUTHN_DIGEST
-		if (type != NULL && !strncmp(type, "Digest", 5))
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_DIGEST_E], 5))
 		{
 			authn_digest_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_DIGEST_E;
@@ -309,8 +331,42 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			auth->authn_config = authn_config;
 		}
 #endif
-		if (auth->authn_config)
-			config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);
+#ifdef AUTHN_BEARER
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_BEARER_E], 6))
+		{
+			authn_bearer_config_t *authn_config = calloc(1, sizeof(*authn_config));
+			auth->authn_type = AUTHN_BEARER_E;
+			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+			if (authn_config->realm == NULL)
+				authn_config->realm = (char *)str_realm;
+			/**
+			 * token_ep and signin are not compatible
+			 */
+			auth->redirect = NULL;
+			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
+			if (authn_config->token_ep == NULL)
+				config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->token_ep);
+			auth->authn_config = authn_config;
+		}
+#endif
+#ifdef AUTHN_OAUTH2
+		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_OAUTH2_E], 6))
+		{
+			authn_oauth2_config_t *authn_config = calloc(1, sizeof(*authn_config));
+			auth->authn_type = AUTHN_OAUTH2_E;
+			if (authn_config->iss == NULL)
+				authn_config->iss = authn_config->realm;
+			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+			if (authn_config->realm == NULL)
+				authn_config->realm = (char *)str_realm;
+			config_setting_lookup_string(configauth, "auth_ep", (const char **)&authn_config->auth_ep);
+			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
+			authn_config->client_passwd = auth->secret;
+			authn_config->client_id = authn_config->realm;
+			config_setting_lookup_string(configauth, "discovery", (const char **)&authn_config->discovery);
+			auth->authn_config = authn_config;
+		}
+#endif
 	}
 	return auth;
 }
@@ -453,21 +509,94 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 #define webstream_config(...) NULL
 #endif
 
-#ifdef REDIRECT404
-static mod_redirect404_t *redirect404_config(config_setting_t *iterator, int tls)
+#ifdef REDIRECT
+static int redirect_mode(const char *mode)
 {
-	mod_redirect404_t *redirect404 = NULL;
-	char *redirect = NULL;
-	config_setting_lookup_string(iterator, "error_redirection", (const char **)&redirect);
-	if (redirect)
+	int options = 0;
+	const char *ext = mode;
+
+	while (ext != NULL)
 	{
-		redirect404 = calloc(1, sizeof(*redirect404));
-		redirect404->redirect = redirect;
+		int length;
+		length = strlen(ext);
+		char *ext_end = strchr(ext, ',');
+		if (ext_end)
+		{
+			length -= strlen(ext_end + 1) + 1;
+			ext_end++;
+		}
+		if (!strncmp(ext, "generate_204", length))
+		{
+			options |= REDIRECT_GENERATE204;
+		}
+		else if (!strncmp(ext, "hsts", length))
+		{
+			options |= REDIRECT_HSTS;
+		}
+		else if (!strncmp(ext, "temporary", length))
+		{
+			options |= REDIRECT_TEMPORARY;
+		}
+		else if (!strncmp(ext, "permanently", length))
+		{
+			options |= REDIRECT_PERMANENTLY;
+		}
+		else if (!strncmp(ext, "error", length))
+		{
+			options |= REDIRECT_ERROR;
+		}
+		ext = ext_end;
 	}
-	return redirect404;
+	return options;
+}
+static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
+{
+	mod_redirect_t *conf = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "redirect");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "redirect");
+#endif
+	if (config)
+	{
+		conf = calloc(1, sizeof(*conf));
+		char *mode = NULL;
+		config_setting_lookup_string(config, "options", (const char **)&mode);
+		conf->options = redirect_mode(mode);
+
+		config_setting_t *configlinks = config_setting_lookup(config, "links");
+		if (configlinks)
+		{
+			conf->options |= REDIRECT_LINK;
+			int count = config_setting_length(configlinks);
+			int i;
+			for (i = 0; i < count; i++)
+			{
+				char *origin = NULL;
+				char *destination = NULL;
+				config_setting_t *iterator = config_setting_get_elem(configlinks, i);
+				if (iterator)
+				{
+					config_setting_lookup_string(iterator, "origin", (const char **)&origin);
+					config_setting_lookup_string(iterator, "options", (const char **)&mode);
+					config_setting_lookup_string(iterator, "destination", (const char **)&destination);
+					if (origin != NULL)
+					{
+						mod_redirect_link_t *link = calloc(1, sizeof(*link));
+						link->origin = origin;
+						link->options = redirect_mode(mode);
+						link->destination = destination;
+						link->next = conf->links;
+						conf->links = link;
+					}
+				}
+			}
+		}
+	}
+	return conf;
 }
 #else
-#define redirect404_config(...) NULL
+#define redirect_config(...) NULL
 #endif
 
 #ifdef VHOSTS
@@ -611,7 +740,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
 					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
-					config->modules.redirect404 = redirect404_config(iterator,(config->tls!=NULL));
+					config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
 					config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
@@ -648,6 +777,17 @@ static void _modulesconfig_destroy(modulesconfig_t *config)
 		free(config->document);
 	if (config->websocket)
 		free(config->websocket);
+	if (config->redirect)
+	{
+		mod_redirect_link_t *link = config->redirect->links;
+		while (link != NULL)
+		{
+			mod_redirect_link_t *old = link->next;
+			free(link);
+			link = old;
+		}
+		free(config->redirect);
+	}
 	if (config->auth)
 	{
 		if (config->auth->authn_config)

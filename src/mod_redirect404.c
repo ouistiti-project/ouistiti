@@ -57,7 +57,6 @@ static const char str_redirect404[] = "redirect404";
 
 struct _mod_redirect404_s
 {
-	mod_redirect404_t	*config;
 	char *vhost;
 };
 
@@ -65,11 +64,7 @@ void *mod_redirect404_create(http_server_t *server, char *vhost, mod_redirect404
 {
 	_mod_redirect404_t *mod;
 
-	if (!config)
-		return NULL;
-
 	mod = calloc(1, sizeof(*mod));
-	mod->config = config;
 	mod->vhost = vhost;
 
 	httpserver_addmod(server, _mod_redirect404_getctx, _mod_redirect404_freectx, mod, str_redirect404);
@@ -85,7 +80,6 @@ void mod_redirect404_destroy(void *arg)
 static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
-	mod_redirect404_t *config = mod->config;
 
 	httpclient_addconnector(ctl, mod->vhost, _mod_redirect404_connector, arg, str_redirect404);
 	return mod;
@@ -98,18 +92,8 @@ static void _mod_redirect404_freectx(void *vctx)
 static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
-	mod_redirect404_t *config = mod->config;
-
-#if defined(RESULT_301)
-	if (config->redirect)
-		httpmessage_addheader(response, str_location, config->redirect);
-	else
-		httpmessage_addheader(response, str_location, "/");
-	httpmessage_result(response, RESULT_301);
-	return ESUCCESS;
-#else
-#error "redirect404 needs to define 301"
-#endif
+	httpmessage_result(response, RESULT_404);
+	return EREJECT;
 }
 
 const module_t mod_redirect404 =

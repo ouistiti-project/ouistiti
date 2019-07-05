@@ -26,6 +26,7 @@ VTHREAD_TYPE=fork
 MBEDTLS=y
 WOLFSSL=n
 OPENSSL=n
+LIBB64=y
 #support of static documents
 DOCUMENT=y
 DOCUMENTREST=y
@@ -37,13 +38,17 @@ DOCUMENTHOME=y
 CGI=y
 #support Authentification Basic
 AUTH=y
+AUTH_TOKEN=y
 AUTHN_NONE=y
 AUTHN_BASIC=y
 AUTHN_DIGEST=y
+AUTHN_BEARER=y
+AUTHN_OAUTH2=y
 AUTHZ_SIMPLE=y
 AUTHZ_FILE=y
 AUTHZ_UNIX=y
 AUTHZ_SQLITE=y
+AUTHZ_JWT=y
 #support of the websocket
 WEBSOCKET=y
 WEBSOCKET_RT=n
@@ -61,8 +66,8 @@ WEBSTREAM=y
 UDPGW=y
 #support of client address filter
 CLIENTFILTER=y
-#support the redirection of 404 error request not found
-REDIRECT404=y
+#support the redirection
+REDIRECT=y
 #support cookie parser
 COOKIE=y
 

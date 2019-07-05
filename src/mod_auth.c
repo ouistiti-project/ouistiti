@@ -49,12 +49,23 @@
 #include "httpserver/hash.h"
 #include "mod_auth.h"
 #include "authn_none.h"
+#ifdef AUTHN_BASIC
 #include "authn_basic.h"
+#endif
+#ifdef AUTHN_DIGEST
 #include "authn_digest.h"
+#endif
+#ifdef AUTHN_BEARER
+#include "authn_bearer.h"
+#endif
+#ifdef AUTHN_OAUTH2
+#include "authn_oauth2.h"
+#endif
 #include "authz_simple.h"
 #include "authz_file.h"
 #include "authz_unix.h"
 #include "authz_sqlite.h"
+#include "authz_jwt.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -75,17 +86,10 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
+static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info);
 
 static const char str_auth[] = "auth";
 static const char str_cachecontrol[] = "Cache-Control";
-
-typedef struct authsession_s
-{
-	char *type;
-	char *user;
-	char *group;
-	char *home;
-} authsession_t;
 
 struct _mod_auth_ctx_s
 {
@@ -105,9 +109,11 @@ struct _mod_auth_s
 	int typelength;
 };
 
-const char *str_authenticate = "WWW-Authenticate";
-static const char *str_authorization = "Authorization";
-static const char *str_xtoken = "X-Token";
+const char str_authenticate[] = "WWW-Authenticate";
+const char str_authorization[] = "Authorization";
+const char str_anonymous[] = "anonymous";
+
+static const char *str_xtoken = "X-Auth-Token";
 static const char *str_xuser = "X-Remote-User";
 static const char *str_xgroup = "X-Remote-Group";
 static const char *str_xhome = "X-Remote-Home";
@@ -120,6 +126,8 @@ const char *str_authenticate_types[] =
 	"None",
 	"Basic",
 	"Digest",
+	"Bearer",
+	"oAuth2",
 };
 const char *str_authenticate_engine[] =
 {
@@ -127,6 +135,7 @@ const char *str_authenticate_engine[] =
 	"file",
 	"unix",
 	"sqlite",
+	"jwt",
 };
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE
@@ -141,6 +150,16 @@ authn_rules_t *authn_rules[] = {
 #endif
 #ifdef AUTHN_DIGEST
 	&authn_digest_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHN_BEARER
+	&authn_bearer_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHN_OAUTH2
+	&authn_oauth2_rules,
 #else
 	NULL,
 #endif
@@ -168,6 +187,11 @@ authz_rules_t *authz_rules[] = {
 #else
 	NULL,
 #endif
+#ifdef AUTHZ_JWT
+	&authz_jwt_rules,
+#else
+	NULL,
+#endif
 };
 
 void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
@@ -191,6 +215,12 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
+
+#ifdef AUTHZ_JWT
+	mod->authz->generatetoken = authz_generatejwtoken;
+#else
+	mod->authz->generatetoken = authz_generatetoken;
+#endif
 	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
 	if (mod->authz->rules == NULL)
 		err("authentication type is not availlable, change configuration");
@@ -310,14 +340,6 @@ static void _mod_auth_freectx(void *vctx)
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
 	if (ctx->info)
 	{
-		if (ctx->info->user)
-			free(ctx->info->user);
-		if (ctx->info->type)
-			free(ctx->info->type);
-		if (ctx->info->group)
-			free(ctx->info->group);
-		if (ctx->info->home)
-			free(ctx->info->home);
 		free(ctx->info);
 	}
 	free(ctx->authenticate);
@@ -359,7 +381,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
-static char *auth_generatetoken(_mod_auth_ctx_t *ctx, authsession_t *info)
+static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
 {
 	char *token = calloc(1, 36);
 	char _nonce[24];
@@ -419,22 +441,28 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = cookie_get(request, (char *)str_authorization);
+		err("cookie get %s %p",str_authorization, authorization);
 			if (authorization)
 				from = 1;
 		}
 
 		if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
+		{
+			err("authorization type: %.*s, %.*s", mod->typelength, authorization, mod->typelength, mod->type);
 			authorization = NULL;
+		}
+#ifdef AUTH_TOKEN
 		/**
 		 * The authorization may be accepted and replaced by a token.
 		 * This token is available inside the cookie.
 		 */
-		if (authorization == NULL || authorization[0] == '\0')
+		if ((authorization == NULL || authorization[0] == '\0') && mod->authz->type & AUTHZ_TOKEN_E)
 		{
 			authorization = cookie_get(request, str_xtoken);
 			if (authorization)
 				from = 2;
 		}
+#endif
 
 		if (mod->authn->ctx && authorization != NULL)
 		{
@@ -468,61 +496,79 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				{
 					const char *group = NULL;
 					const char *home = NULL;
-					if (mod->authz->rules->group)
-						group = mod->authz->rules->group(mod->authz->ctx, user);
-					if (mod->authz->rules->home)
-						home = mod->authz->rules->home(mod->authz->ctx, user);
-
 					info = calloc(1, sizeof(*info));
-					info->user = calloc(strlen(user) + 1, sizeof(char));
-					strcpy(info->user, user);
-					info->type = calloc(strlen(mod->type) + 1, sizeof(char));
-					strcpy(info->type, mod->type);
-					if (group)
+					strncpy(info->user, user, sizeof(info->user));
+					strncpy(info->type, mod->type, sizeof(info->type));
+					if (mod->authz->rules->group)
 					{
-						info->group = calloc(strlen(group) + 1, sizeof(char));
-						strcpy(info->group, group);
+						group = mod->authz->rules->group(mod->authz->ctx, user);
+						if (group)
+							strncpy(info->group, group, sizeof(info->group));
 					}
-					if (home)
+					if (mod->authz->rules->home)
 					{
-						info->home = calloc(strlen(home) + 1, sizeof(char));
-						strcpy(info->home, home);
+						home = mod->authz->rules->home(mod->authz->ctx, user);
+						if (home)
+							strncpy(info->home, home, sizeof(info->home));
 					}
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
 
+#ifdef AUTH_TOKEN
 					if (from == 0 && mod->authz->type & AUTHZ_TOKEN_E)
 					{
-							char *token = auth_generatetoken(ctx, info);
+							char *token = mod->authz->generatetoken(mod->config, info);
 							mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
-							cookie_set(response, str_xtoken, (char *)token);
+							if (mod->authz->type & AUTHZ_HEADER_E)
+								httpmessage_addheader(response, str_xtoken, (char *)token);
+							else
+								cookie_set(response, str_xtoken, (char *)token);
 							free(token);
 					}
+#endif
 					if (mod->authz->type & AUTHZ_HEADER_E)
 					{
+#ifdef AUTH_TOKEN
 						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+#endif
+						{
 							httpmessage_addheader(response, str_authorization, (char *)authorization);
-						httpmessage_addheader(response, str_xuser, user);
-						if (group)
-							httpmessage_addheader(response, str_xgroup, group);
-						if (home)
-							httpmessage_addheader(response, str_xhome, "~/");
+						}
+#if defined(AUTH_TOKEN) && defined(AUTHZ_JWT)
+						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+#endif
+						{
+							httpmessage_addheader(response, str_xuser, user);
+							if (group)
+								httpmessage_addheader(response, str_xgroup, group);
+							if (home)
+								httpmessage_addheader(response, str_xhome, "~/");
+						}
 					}
 					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
 					{
+#ifdef AUTH_TOKEN
 						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+#endif
+						{
 							cookie_set(response, str_authorization, (char *)authorization);
-						cookie_set(response, str_user, (char *)user);
-						if (group)
-							cookie_set(response, str_group, (char *)group);
-						if (home)
-							cookie_set(response, str_home, "~/");
+						}
+#if defined(AUTH_TOKEN) && defined(AUTHZ_JWT)
+						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+#endif
+						{
+							cookie_set(response, str_user, (char *)user);
+							if (group)
+								cookie_set(response, str_group, (char *)group);
+							if (home)
+								cookie_set(response, str_home, "~/");
+						}
 					}
 				}
 
 				struct passwd *result;
 
-				result = getpwnam(user);
+				result = getpwnam(info->user);
 				if (result != NULL)
 				{
 					uid_t uid;
@@ -536,7 +582,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				}
 				else
 					dbg("user not found on system");
-				warn("user \"%s\" accepted from %p", user, ctx->ctl);
+				warn("user \"%s\" accepted from %p", info->user, ctx->ctl);
 				ret = EREJECT;
 			}
 		}
