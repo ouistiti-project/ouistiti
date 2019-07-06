@@ -623,6 +623,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 		vhost->modules.clientfilter = clientfilter_config(iterator, tls);
 		vhost->modules.cgi = cgi_config(iterator, tls);
 		vhost->modules.websocket = websocket_config(iterator, tls);
+		vhost->modules.redirect = redirect_config(iterator,tls);
 	}
 	else
 	{
