@@ -95,6 +95,7 @@ static const char str_document[] = "document";
 static const char str_webstream[] = "webstream";
 static const char str_websocket[] = "websocket";
 static const char str_redirect404[] = "redirect404";
+static const char str_cors[] = "cors";
 
 #ifndef MODULES
 static const module_t *modules[] =
@@ -136,6 +137,9 @@ static const module_t *modules[] =
 	&mod_redirect404,
 	&mod_redirect,
 #endif
+#endif
+#if defined CORS
+	&mod_cors,
 	NULL
 };
 #endif
@@ -410,6 +414,8 @@ int main(int argc, char * const *argv)
 			if (server->config->modules.redirect)
 				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
 #endif
+			if (server->config->modules.cors)
+				server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
 			if (server->config->modules.auth)
 				server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
 			server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);
