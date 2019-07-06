@@ -70,6 +70,8 @@ CLIENTFILTER=y
 REDIRECT=y
 #support cookie parser
 COOKIE=y
+#support Cross-Origin Resource Sharing (CORS)
+CORS=y
 
 CERTIFICATE=n
 
