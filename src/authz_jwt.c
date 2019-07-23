@@ -79,20 +79,7 @@ int jwt_sign(const char *key, const char *input, size_t len, char *output)
 			char signature[HASH_MAX_SIZE];
 			hash_macsha256->finish(ctx, signature);
 
-			base64->encode(signature, HASH_MAX_SIZE, output, 64);
-
-			char *offset = output;
-			offset = strchr(offset, '=');
-			if (offset)
-			{
-				*offset = '\0';
-			}
-			offset = strchr(output, '/');
-			while (offset != NULL)
-			{
-				*offset = '_';
-				offset = strchr(offset, '/');
-			}
+			base64_urlencoding->encode(signature, HASH_MAX_SIZE, output, 64);
 			ret = ESUCCESS;
 		}
 	}
@@ -128,7 +115,7 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	char *token = calloc(2, length + 32);
 	char *offset = token;
 	length *= 2;
-	ret = base64->encode(theader, strlen(theader), offset, length);
+	ret = base64_urlencoding->encode(theader, strlen(theader), offset, length);
 	offset += ret;
 	length -= ret;
 
@@ -136,7 +123,7 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	offset++;
 	length--;
 
-	ret = base64->encode(ttoken, strlen(ttoken), offset, length);
+	ret = base64_urlencoding->encode(ttoken, strlen(ttoken), offset, length);
 	offset += ret;
 	length = offset - token;
 	*offset = '.';
@@ -166,7 +153,7 @@ json_t *jwt_decode_json(const char *id_token, const char *key)
 	}
 	char data[1024] = {0};
 #if 0
-	length = base64->decode(b64header, length, data, 1024);
+	length = base64_urlencoding->decode(b64header, length, data, 1024);
 	dbg("id_token header %s", data);
 	json_t *jheader = json_loadb(data, length, 0, &error);
 	if (jheader != NULL)
@@ -203,7 +190,7 @@ json_t *jwt_decode_json(const char *id_token, const char *key)
 	if (ret == ESUCCESS)
 #endif
 	{
-		length = base64->decode(b64payload, b64payloadlength, data, 1024);
+		length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
 		dbg("JWT: %s", data);
 		jpayload = json_loadb(data, length, 0, &error);
 	}
