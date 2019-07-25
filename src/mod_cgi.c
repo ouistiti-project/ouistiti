@@ -55,6 +55,8 @@
 #define dbg(...)
 #endif
 
+#define cgi_dbg(...)
+
 static char str_null[] = "";
 static char str_gatewayinterface[] = "CGI/1.1";
 static char str_contenttype[] = "Content-Type";
@@ -72,6 +74,7 @@ struct mod_cgi_ctx_s
 {
 	enum
 	{
+		STATE_SETUP,
 		STATE_START,
 		STATE_INFINISH,
 		STATE_HEADERCOMPLETE,
@@ -85,7 +88,7 @@ struct mod_cgi_ctx_s
 
 	char *cgipath;
 	char *path_info;
-	
+
 	pid_t pid;
 	int tocgi[2];
 	int fromcgi[2];
@@ -473,95 +476,66 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)arg;
 	mod_cgi_config_t *config = ctx->mod->config;
 
-	if (ctx->pid == -1)
+	if (ctx->state == STATE_SETUP)
 	{
-		warn("cgi: pid -1");
-		return EREJECT;
-	}
-
-	if (ctx->pid == 0)
-	{
-		if (ctx->path_info)
-			free(ctx->path_info);
-		ctx->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
-		char *str = ctx->path_info;
-		if (str && config->docroot && ctx->cgipath == NULL)
+		if (ctx->pid == -1)
 		{
-			int length = strlen(str);
-			length += strlen(config->docroot) + 1;
-
-			char *filepath;
-			filepath = calloc(1, length + 1);
-			snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
-
-			if (utils_searchexp(str, config->deny) == ESUCCESS &&
-				utils_searchexp(str, config->allow) != ESUCCESS)
-			{
-				dbg("cgi: %s forbidden extension", ctx->path_info);
-				free(filepath);
-				return EREJECT;
-			}
-			struct stat filestat;
-			int ret = stat(filepath, &filestat);
-			if (ret != 0)
-			{
-				dbg("cgi: %s not found", ctx->path_info);
-				free(filepath);
-				return EREJECT;
-			}
-			if (S_ISDIR(filestat.st_mode))
-			{
-				dbg("cgi: %s is directory", ctx->path_info);
-				free(filepath);
-				return EREJECT;
-			}
-			/* at least user or group may execute the CGI */
-			if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
-			{
-				httpmessage_result(response, RESULT_404);
-				warn("cgi: %s access denied", ctx->path_info);
-				free(filepath);
-				return ESUCCESS;
-			}
-			dbg("cgi: run %s", filepath);
-			ctx->cgipath = filepath;
+			warn("cgi: pid -1");
+			return EREJECT;
 		}
-		ctx->pid = _mod_cgi_fork(ctx, request);
-	}
 
-	if (ctx->state >= STATE_OUTFINISH)
-	{
-		int status;
-#if defined(RESULT_302)
-		/**
-		 * RFC 3875 : 6.2.3
-		 */
-		const char *location = httpmessage_REQUEST(response, str_location);
-		if (location != NULL && location[0] != '\0')
-			httpmessage_result(response, RESULT_302);
-#endif
-		httpmessage_parsecgi(response, NULL, 0);
-		ret = waitpid(ctx->pid, &status, WNOHANG);
-		if (ret != 0 && WIFEXITED(status))
+		if (ctx->pid == 0)
 		{
-			if (ctx->state & STATE_SHUTDOWN);
-				httpclient_shutdown(ctx->ctl);
+			if (ctx->path_info)
+				free(ctx->path_info);
+			ctx->path_info = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+			char *str = ctx->path_info;
+			if (str && config->docroot && ctx->cgipath == NULL)
+			{
+				int length = strlen(str);
+				length += strlen(config->docroot) + 1;
 
-			ctx->state = STATE_END;
-			ctx->pid = 0;
-			ret = ESUCCESS;
+				char *filepath;
+				filepath = calloc(1, length + 1);
+				snprintf(filepath, length + 1, "%s/%s", config->docroot, str);
+
+				if (utils_searchexp(str, config->deny) == ESUCCESS &&
+					utils_searchexp(str, config->allow) != ESUCCESS)
+				{
+					dbg("cgi: %s forbidden extension", ctx->path_info);
+					free(filepath);
+					return EREJECT;
+				}
+				struct stat filestat;
+				int ret = stat(filepath, &filestat);
+				if (ret != 0)
+				{
+					dbg("cgi: %s not found", ctx->path_info);
+					free(filepath);
+					return EREJECT;
+				}
+				if (S_ISDIR(filestat.st_mode))
+				{
+					dbg("cgi: %s is directory", ctx->path_info);
+					free(filepath);
+					return EREJECT;
+				}
+				/* at least user or group may execute the CGI */
+				if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
+				{
+					httpmessage_result(response, RESULT_404);
+					warn("cgi: %s access denied", ctx->path_info);
+					free(filepath);
+					return ESUCCESS;
+				}
+				dbg("cgi: run %s", filepath);
+				ctx->cgipath = filepath;
+			}
+			ctx->pid = _mod_cgi_fork(ctx, request);
+			ctx->state = STATE_START;
 		}
-		else
-			ret = ECONTINUE;
 	}
-	else if (ctx->state >= STATE_CONTENTCOMPLETE)
-	{
-		ctx->state = STATE_OUTFINISH;
-		kill(ctx->pid, SIGTERM);
-		dbg("cgi complete");
-		ret = ECONTINUE;
-	}
-	else if (ctx->tocgi[1] > 0 && ctx->state <= STATE_INFINISH)
+	else if (ctx->tocgi[1] > 0 && ctx->state == STATE_START)
 	{
 		char *input;
 		int inputlen;
@@ -579,7 +553,11 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			ctx->tocgi[1] = -1;
 		}
 	}
-	if (ctx->state >= STATE_INFINISH && ctx->state < STATE_OUTFINISH)
+	/**
+	 * when the request is complete the module must check the CGI immedialty
+	 * otherwise the client will wait more data from request
+	 */
+	if (ctx->state >= STATE_INFINISH && ctx->state < STATE_CONTENTCOMPLETE)
 	{
 		int sret;
 		fd_set rfds;
@@ -594,7 +572,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			size = read(ctx->fromcgi[0], ctx->chunk, size);
 			if (size < 1)
 			{
-				ctx->state = STATE_OUTFINISH;
+				ctx->state = STATE_CONTENTCOMPLETE;
 				ret = ECONTINUE;
 				if (size < 0)
 				{
@@ -604,8 +582,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			else
 			{
 				ctx->chunk[size] = 0;
-				//dbg("cgi: receive (%d)", size);
-				//dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
+				cgi_dbg("cgi: receive (%d)", size);
+				cgi_dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
 				/**
 				 * if content_length is not null, parcgi is able to
 				 * create the content.
@@ -613,32 +591,35 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 				 * to set the header.
 				 */
 				int rest = size;
-				while (rest > 0)
+				if (rest > 0)
 				{
 					ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
-					//dbg("cgi: parse %d data %d %d", ret, size, rest);
-					//dbg("cgi: parse %d data %d %d\n%s#", ret, size, rest, ctx->chunk);
-					if (ret != EINCOMPLETE)
+					cgi_dbg("cgi: parse %d data %d %d", ret, size, rest);
+					cgi_dbg("cgi: parse %d data %d %d\n%s#", ret, size, rest, ctx->chunk);
+					if (ret == ECONTINUE && ctx->state < STATE_HEADERCOMPLETE)
 					{
-						char *offset = ctx->chunk;
-						if (ctx->state == STATE_INFINISH)
-						{
-						}
-						else if (size > 0 && rest == 0)
-						{
-							/**
-							 * The Content-Type may be added by the CGI
-							 */
-							httpmessage_addcontent(response, "none", offset, size);
-						}
+#if defined(RESULT_302)
+						/**
+						 * RFC 3875 : 6.2.3
+						 */
+						const char *location = httpmessage_REQUEST(response, str_location);
+						if (location != NULL && location[0] != '\0')
+							httpmessage_result(response, RESULT_302);
+#endif
 						ctx->state = STATE_HEADERCOMPLETE;
 					}
 					if (ret == ESUCCESS)
 					{
 						ctx->state = STATE_CONTENTCOMPLETE;
+						//parse_cgi is complete but not this module
 					}
 				}
 			}
+			/**
+			 * the request is completed to not wait more data the module
+			 * muest returns ECONTINUE or ESUCCESS now
+			 */
+			ret = ECONTINUE;
 		}
 		else
 		{
@@ -648,8 +629,28 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			ret = ECONTINUE;
 		}
 	}
-	/* this mod returns EINCOMPLETE 
-	 * because it needs to wait the end 
+	else if (ctx->state == STATE_CONTENTCOMPLETE)
+	{
+		close(ctx->fromcgi[0]);
+		httpmessage_parsecgi(response, NULL, 0);
+		ret = ECONTINUE;
+		ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
+	}
+	else if ((ctx->state & STATE_OUTFINISH) == STATE_OUTFINISH)
+	{
+		long long length;
+		ret = httpmessage_content(response, NULL, &length);
+		dbg("content len %d %lld", ret, length);
+		if (ret == 0)
+			ctx->state = STATE_END | STATE_SHUTDOWN;
+		ret = ECONTINUE;
+	}
+	else if ((ctx->state & STATE_END) == STATE_END)
+	{
+		ret = ESUCCESS;
+	}
+	/* this mod returns EINCOMPLETE
+	 * because it needs to wait the end
 	 * to know the length of the content */
 	return ret;
 }
