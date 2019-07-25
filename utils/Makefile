@@ -15,6 +15,7 @@ httpparser_LIBS+=httpserver
 httpparser_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 httpparser_CFLAGS-$(DEBUG)+=-g -DDEBUG
 httpparser_LDFLAGS+=-pthread
+httpparser_LDFLAGS+=-L$(libdir)
 
 hostbin-$(HOST_UTILS)+=ouipasswd
 ouipasswd_SOURCES+=ouipasswd.c
@@ -46,7 +47,7 @@ ouistiti_ca.conf: ca.conf index serial ouistiti_ca.crt
 			| sed 's/%SERIAL%/.\/serial/' > $@
 
 ouistiti_srv.csr ouistiti_srv.key:
-	$(Q)openssl req -newkey rsa:1024 -nodes -out $(@:%.key=%.csr) -keyout $(@:%.csr=%.key) -subj "/CN=$(SERVER)/" 
+	$(Q)openssl req -newkey rsa:1024 -nodes -out $(@:%.key=%.csr) -keyout $(@:%.csr=%.key) -subj "/CN=$(SERVER)/"
 
 ouistiti_srv.crt: ouistiti_srv.csr ouistiti_ca.conf
 	$(Q)openssl ca -batch -config ouistiti_ca.conf -notext -in $< -out $@
