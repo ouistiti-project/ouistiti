@@ -35,6 +35,8 @@
 #include "httpserver/httpserver.h"
 #define CHUNKSIZE 64
 
+const httpclient_ops_t *tlsclient_ops = NULL;
+
 #define HEADER 0x01
 #define CONTENT 0x02
 #define END 0x04
