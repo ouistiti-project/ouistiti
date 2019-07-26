@@ -33,6 +33,14 @@ extern "C"
 {
 #endif
 
+#define SECURITY_FRAME			0x0001
+#define SECURITY_OTHERORIGIN	0x0002
+#define SECURITY_CACHE			0x0004
+typedef struct mod_security_s
+{
+	int options;
+} mod_security_t;
+
 extern const module_t mod_server;
 void *mod_server_create(http_server_t *server, char *vhost, void *config);
 void mod_server_destroy(void *data);

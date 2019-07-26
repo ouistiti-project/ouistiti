@@ -391,7 +391,7 @@ static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
 		*(int *)(_nonce + i * 4) = random();
 	}
 	int ret = 0;
-	ret = base64->encode(_nonce, 24, token, 36);
+	ret = base64_urlencoding->encode(_nonce, 24, token, 36);
 	return token;
 }
 

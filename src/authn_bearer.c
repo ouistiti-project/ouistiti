@@ -84,9 +84,10 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 	}
 	else if (config->token_ep != NULL && config->token_ep[0] != '\0')
 	{
-		const char *scheme = httpmessage_REQUEST(request, "scheme");
-		const char *host = httpmessage_REQUEST(request, "host");
-		const char *port = httpmessage_SERVER(request, "port");
+		http_server_t *server = httpclient_server(httpmessage_client(request));
+		const char *scheme = httpserver_INFO(server, "scheme");
+		const char *host = httpserver_INFO(server, "host");
+		const char *port = httpserver_INFO(server, "port");
 		const char *portseparator = "";
 		if (port[0] != '\0')
 			portseparator = ":";

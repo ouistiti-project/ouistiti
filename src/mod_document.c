@@ -127,31 +127,31 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 
 		const char *docroot = NULL;
 		const char *other = "";
+		if (private->path_info[0] == '~')
+		{
+			url = private->path_info + 1;
 #ifdef DOCUMENTHOME
 #ifdef AUTH
-		if (config->options & DOCUMENT_HOME)
-		{
-			if (private->path_info[0] == '~')
+			if (config->options & DOCUMENT_HOME)
 			{
-				url = private->path_info + 1;
 				const char *home = auth_info(request, "home");
 				if (home != NULL)
 					docroot = home;
 			}
-		} else
+			else
 #endif
-		if (private->path_info[0] == '~' && config->dochome != NULL)
-		{
-			docroot = config->dochome;
-			url = private->path_info + 1;
-#ifdef AUTH
-			if (url[0] == '/')
+			if (config->dochome != NULL)
 			{
-				other = auth_info(request, "user");
+				docroot = config->dochome;
+#ifdef AUTH
+				if (url[0] == '/')
+				{
+					other = auth_info(request, "user");
+				}
 			}
 #endif
-		}
 #endif
+		}
 		if (docroot == NULL)
 			docroot = config->docroot;
 		private->filepath = utils_buildpath(docroot, other, url, "", &filestat);

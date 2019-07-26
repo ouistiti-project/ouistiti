@@ -1,5 +1,5 @@
 DESC="test a request on CGI script with all variables"
 CONFIG=test3.conf
-TESTREQUEST=test14_rq.txt
+TESTREQUEST=test46_rq.txt
 TESTCODE=200
-TESTCONTENTLEN=513
+TESTCONTENTLEN=534
