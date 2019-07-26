@@ -186,7 +186,7 @@ static int oauth2_authresp_connector(void *arg, http_message_t *request, http_me
 				snprintf(basic, 164, "%s:%s", config->client_id, config->client_passwd);
 				strcpy(authorization, "Basic ");
 				int length = strlen(basic) * 1.5 + 5;
-				base64->encode(basic, strlen(basic), authorization + strlen(authorization), length - 1);
+				base64_urlencoding->encode(basic, strlen(basic), authorization + strlen(authorization), length - 1);
 				httpmessage_addheader(request2, str_authorization, authorization);
 
 				response2 = httpmessage_create();
