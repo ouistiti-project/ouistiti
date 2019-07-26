@@ -54,12 +54,58 @@ typedef struct _mod_server_s _mod_server_t;
 struct _mod_server_s
 {
 	void *vhost;
+	mod_security_t *config;
 };
 
 static int server_connector(void *arg, http_message_t *request, http_message_t *response)
 {
+	_mod_server_t *mod = (_mod_server_t *)arg;
+	mod_security_t *config = mod->config;
 	int ret = EREJECT;
+	int options = 0;
+
 	httpmessage_addheader(response, "Server", httpmessage_SERVER(request, "software"));
+	if (config)
+	{
+		options = config->options;
+	}
+	if (!(options & SECURITY_FRAME))
+	{
+		httpmessage_addheader(response, "X-Frame-Options", "DENY");
+	}
+	if (!(options & SECURITY_CACHE))
+	{
+		httpmessage_addheader(response, "Cache-Control", "nocache;max-age=0");
+	}
+	if (!(options & SECURITY_OTHERORIGIN))
+	{
+		if (options & SECURITY_FRAME)
+			httpmessage_addheader(response, "X-Frame-Options", "SAMEORIGIN");
+
+#ifndef SECURITY_UNCHECKORIGIN
+		const char *referer = httpmessage_REQUEST(request, "Referer");
+		if (referer != NULL)
+		{
+			const char *host = httpmessage_REQUEST(request, "Host");
+			const char *refererhost = strstr(referer, "://");
+			if (refererhost == NULL)
+				refererhost = referer;
+			char *end = strchr(refererhost, '/');
+			int len;
+			if (end == NULL)
+				len = strlen(refererhost);
+			else
+				len = end - refererhost;
+			if ((strlen(host) != len) || strncmp(refererhost, host, len))
+			{
+				httpmessage_result(response, RESULT_403);
+				ret = ESUCCESS;
+			}
+		}
+#else
+# warning "request origin is not check"
+#endif
+	}
 	return ret;
 }
 
@@ -67,7 +113,7 @@ static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *
 {
 	_mod_server_t *mod = (_mod_server_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, server_connector, NULL, str_server);
+	httpclient_addconnector(ctl, mod->vhost, server_connector, arg, str_server);
 
 	return mod;
 }
@@ -77,6 +123,7 @@ void *mod_server_create(http_server_t *server, char *vhost, void *config)
 	_mod_server_t *mod = calloc(1, sizeof(*mod));
 
 	mod->vhost = vhost;
+	mod->config = config;
 	httpserver_addmod(server, _mod_server_getctx, NULL, mod, str_server);
 
 	return mod;
