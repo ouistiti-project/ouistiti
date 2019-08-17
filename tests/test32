@@ -1,4 +1,4 @@
-DESC="test to access to test.myextention file"
+DESC="test to access to test.myextention file (empty file)"
 CONFIG=test1.conf
 TESTREQUEST=test32_rq.txt
-TESTCODE=200
+TESTCODE=204
