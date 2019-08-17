@@ -55,6 +55,8 @@
 
 typedef struct _document_connector_s document_connector_t;
 
+#define MAX_NAMELENGTH (CONTENTCHUNK / 2)
+
 #define DIRLISTING_HEADER "\
 {\
 \"method\":\"GET\",\
@@ -62,7 +64,7 @@ typedef struct _document_connector_s document_connector_t;
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
-#define DIRLISTING_LINE "{\"name\":\"%s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%s\"},"
+#define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%s\"},"
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
 #define DIRLISTING_FOOTER "\
 {}]}"
@@ -137,7 +139,9 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		{
 			if (ent->d_name[0] != '.')
 			{
-				int length = strlen(ent->d_name);
+				unsigned int length = strlen(ent->d_name);
+				if (length > MAX_NAMELENGTH)
+					warn("dirlisting: %s file name length too long", ent->d_name);
 				struct stat filestat;
 				stat(ent->d_name, &filestat);
 				size_t size = filestat.st_size;
@@ -155,7 +159,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 				length += strlen(mime);
 				length += 4 + 2 + 4;
 				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-				snprintf(data, DIRLISTING_LINE_LENGTH + length, DIRLISTING_LINE, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
+				snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
 				httpmessage_addcontent(response, NULL, data, -1);
 				free(data);
 			}
