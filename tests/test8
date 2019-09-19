@@ -1,4 +1,4 @@
-DESC="test a request on a file out of the root documents '/test/../index.html'"
+DESC="test a request with path backward '/test/../index.html'"
 CONFIG=test1.conf
 TESTREQUEST=test8_rq.txt
 TESTCODE=200

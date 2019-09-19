@@ -1,4 +1,4 @@
-DESC="test a request with a good Basic authentication"
+DESC="test a request with a good Basic authentication (simple credential storage)"
 CONFIG=test2.conf
 TESTREQUEST=test12_rq.txt
 TESTCODE=200
