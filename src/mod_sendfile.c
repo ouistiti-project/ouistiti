@@ -100,11 +100,4 @@ int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 /**
  * this method is replaced by the transfer type selector in config
  */
-/**
- * mod_send is defined into mod_static_file.c too.
- * This is a redifinition to overload the previous version.
- * Then this library must be load before libmod_static_file.so
- * This may be done during the binary link or with LD_PRELOAD
- */
-// int mod_send(static_file_connector_t *private, http_message_t *response) __attribute__ ((weak, alias ("mod_send_sendfile")));
 
