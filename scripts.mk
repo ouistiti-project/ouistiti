@@ -51,18 +51,13 @@ endif
 
 # CONFIG could define LD CC or/and CFLAGS
 # CONFIG must be included before "Commands for build and link"
-VERSIONFILE=version
+VERSIONFILE?=version
 DEFCONFIG?=$(srcdir)defconfig
-ifneq ($(wildcard $(DEFCONFIG)),)
-include $(DEFCONFIG)
-CONFIGFILE+=$(DEFCONFIG)
-endif
-
 
 CONFIG?=.config
 ifneq ($(wildcard $(builddir)$(CONFIG)),)
 include $(builddir)$(CONFIG)
-CONFIGFILE+=$(buidldir)$(CONFIG)
+CONFIGFILE=$(buidldir)$(CONFIG)
 $(eval NOCONFIGS:=$(shell awk '/^# .* is not set/{print $$2}' $(builddir)$(CONFIG)))
 $(foreach config,$(NOCONFIGS),$(eval $(config)=n) )
 endif
@@ -70,7 +65,7 @@ endif
 CONFIGURE_STATUS:=.config.cache
 ifneq ($(wildcard $(builddir)$(CONFIGURE_STATUS)),)
 include $(builddir)$(CONFIGURE_STATUS)
-CONFIGFILE+=$(buidldir)$(CONFIGURE_STATUS)
+CONFIGFILE=$(buidldir)$(CONFIGURE_STATUS)
 endif
 
 ifneq ($(file),)
@@ -139,14 +134,16 @@ TARGETAR:=$(AR)
 TARGETRANLIB:=$(RANLIB)
 
 CCVERSION:=$(shell $(TARGETCC) -v 2>&1)
-ifneq ($(dirname $(TARGETCC)),)
-TARGETPREFIX=
-elifneq ($(CROSS_COMPILE),)
-ifeq ($(findstring $(CROSS_COMPILE),$(TARGETCC)),)
-TARGETPREFIX=$(CROSS_COMPILE:%-=%)-
-endif
+ifneq ($(dir $(TARGETCC)),./)
+	TARGETPREFIX=
 else
-TARGETPREFIX=
+	ifneq ($(CROSS_COMPILE),)
+		ifeq ($(findstring $(CROSS_COMPILE),$(TARGETCC)),)
+			TARGETPREFIX=$(CROSS_COMPILE:%-=%)-
+		endif
+	else
+		TARGETPREFIX=
+	endif
 endif
 TARGETCC:=$(TARGETPREFIX)$(TARGETCC)
 TARGETLD:=$(TARGETPREFIX)$(LD)
@@ -158,16 +155,20 @@ TARGETRANLIB:=$(TARGETPREFIX)$(RANLIB)
 ARCH?=$(shell LANG=C $(TARGETCC) -v 2>&1 | $(GREP) Target | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
 libsuffix=$(findstring 64,$(ARCH))
 
+ifneq ($(PREFIX),)
+prefix:=$(PREFIX)
+endif
 prefix?=/usr/local
 prefix:=$(prefix:"%"=%)
+exec_prefix?=$(prefix)
 program_prefix?=
 library_prefix?=lib
-bindir?=$(prefix)/bin
+bindir?=$(exec_prefix)/bin
 bindir:=$(bindir:"%"=%)
-sbindir?=$(prefix)/sbin
+sbindir?=$(exec_prefix)/sbin
 sbindir:=$(sbindir:"%"=%)
-libdir?=$(word 1,$(wildcard $(prefix)/lib$(libsuffix) $(prefix)/lib))
-libdir:=$(if $(libdir), $(libdir),$(prefix)/lib)
+libdir?=$(word 1,$(wildcard $(exec_prefix)/lib$(libsuffix) $(exec_prefix)/lib))
+libdir:=$(if $(libdir), $(libdir),$(exec_prefix)/lib)
 libdir:=$(libdir:"%"=%)
 sysconfdir?=$(prefix)/etc
 sysconfdir:=$(sysconfdir:"%"=%)
@@ -175,6 +176,7 @@ includedir?=$(prefix)/include
 includedir:=$(includedir:"%"=%)
 datadir?=$(prefix)/share/$(package:"%"=%)
 datadir:=$(datadir:"%"=%)
+pkgdatadir?=$(datadir:"%"=%)
 pkglibdir?=$(libdir)/$(package:"%"=%)
 pkglibdir:=$(pkglibdir:"%"=%)
 
@@ -215,13 +217,17 @@ endif
 endif
 
 ifneq ($(obj),)
-CFLAGS+=-I$(obj)
-CXXFLAGS+=-I$(obj)
-LDFLAGS+=-L$(obj)
+INTERN_CFLAGS+=-I$(obj)
+INTERN_CXXFLAGS+=-I$(obj)
+INTERN_LDFLAGS+=-L$(obj)
 endif
 ifneq ($(src),)
-CFLAGS+=-I$(src)
-CXXFLAGS+=-I$(src)
+INTERN_CFLAGS+=-I$(src)
+INTERN_CXXFLAGS+=-I$(src)
+endif
+INTERN_CFLAGS+=-include $(builddir)$(VERSIONFILE:%=%.h)
+ifneq ($(wildcard $(builddir)config.h),)
+INTERN_CFLAGS+=-include $(builddir)config.h
 endif
 
 export package version prefix bindir sbindir libdir includedir datadir pkglibdir srcdir builddir sysconfdir
@@ -246,9 +252,16 @@ $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LIBRARY+=$($(s:%.cpp=%)_LIBRARY)) ))
 
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CFLAGS+=$($(t)_CFLAGS-y)))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CXXFLAGS+=$($(t)_CXXFLAGS-y)))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LDFLAGS+=$($(t)_LDFLAGS-y)))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LIBS+=$($(t)_LIBS-y)))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LIBRARY+=$($(t)_LIBRARY-y)))
+
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CFLAGS+=$(INTERN_CFLAGS)))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LDFLAGS+=$(INTERN_LDFLAGS)))
+
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CFLAGS+=$(SYSROOT_CFLAGS)))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LDFLAGS+=$(SYSROOT_LDFLAGS)))
 
 # LIBRARY contains libraries name to check
 # The name may terminate with {<version>} informations like LIBRARY+=usb{1.0}
@@ -311,7 +324,6 @@ targets+=$(lib-dynamic-target)
 targets+=$(modules-target)
 targets+=$(lib-static-target)
 targets+=$(bin-target)
-targets+=$(data-y)
 
 ifneq ($(CROSS_COMPILE),)
 DESTDIR?=$(sysroot:"%"=%)
@@ -347,16 +359,16 @@ action:=_build
 build:=$(action) -f $(srcdir)$(makemore) file
 .DEFAULT_GOAL:=_entry
 .PHONY:_entry _build _install _clean _distclean _check
-_entry: default_action
+_entry: _configbuild _versionbuild default_action
 
 _info:
 	@:
 
 _hostbuild: $(if $(strip $(hostslib-y) $(hostbin-y)), $(hostobj) $(hostslib-target) $(hostbin-target))
-_configbuild: $(obj) $(if $(wildcard $(builddir)$(CONFIG)),$(join $(builddir),$(CONFIG:.%=%.h)))
+_configbuild: $(obj) $(if $(wildcard $(CONFIGFILE)),$(join $(builddir),config.h))
 _versionbuild: $(if $(package) $(version), $(join $(builddir),$(VERSIONFILE:%=%.h)))
 
-_build: _info $(download-target) $(gitclone-target) $(objdir) $(subdir-project) $(subdir-target) _hostbuild $(targets)
+_build: _info $(download-target) $(gitclone-target) $(objdir) $(subdir-project) $(subdir-target) _hostbuild $(data-y) $(targets)
 	@:
 
 _install: action:=_install
@@ -382,30 +394,31 @@ _check: action:=_check
 _check: build:=$(action) -s -f $(srcdir)$(makemore) file
 _check: $(subdir-target) $(LIBRARY) $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY))
 
+PHONY:clean distclean install check default_action pc all
 clean: action:=_clean
 clean: build:=$(action) -f $(srcdir)$(makemore) file
-clean: $(.DEFAULT_GOAL)
+clean: default_action
 
 distclean: action:=_distclean
 distclean: build:=$(action) -f $(srcdir)$(makemore) file
-distclean: $(.DEFAULT_GOAL)
+distclean: default_action
 distclean:
 	$(Q)$(call cmd,clean_dir,$(wildcard $(buildpath:%=%/)host))
 	$(Q)$(call cmd,clean_dir,$(wildcard $(gitclone-target)))
 	$(Q)$(call cmd,clean,$(wildcard $(download-target)))
-	$(Q)$(call cmd,clean,$(wildcard $(obj)$(CONFIG)))
-	$(Q)$(call cmd,clean,$(wildcard $(join $(obj),$(CONFIG:.%=%.h))))
-	$(Q)$(call cmd,clean,$(wildcard $(join $(obj),$(VERSIONFILE:%=%.h))))
+	$(Q)$(call cmd,clean,$(wildcard $(builddir)$(CONFIG)))
+	$(Q)$(call cmd,clean,$(wildcard $(join $(builddir),$(CONFIG:.%=%.h))))
+	$(Q)$(call cmd,clean,$(wildcard $(join $(builddir),$(VERSIONFILE:%=%.h))))
 
 install: action:=_install
 install: build:=$(action) -f $(srcdir)$(makemore) file
-install: $(.DEFAULT_GOAL)
+install: _configbuild _versionbuild default_action
 
 check: action:=_check
 check: build:=$(action) -s -f $(srcdir)$(makemore) file
 check: $(.DEFAULT_GOAL)
 
-default_action: _info _configbuild _versionbuild
+default_action: _info
 	$(Q)$(MAKE) $(build)=$(file)
 	@:
 
@@ -414,35 +427,61 @@ pc: $(builddir)$(package:%=%.pc)
 all: default_action
 
 PHONY: menuconfig gconfig xconfig config oldconfig
-menuconfig gconfig xconfig: $(builddir)$(CONFIG)
-	$(EDITOR) $(obj)$(CONFIG)
+menuconfig gconfig xconfig config:
+	$(EDITOR) $(builddir)$(CONFIG)
 
-%_defconfig:
+
+defconfig: $(builddir)$(CONFIG).old cleanconfig FORCE
 	@echo "  "DEFCONFIG $*
-	$(eval DEFCONFIG:=$(wildcard $(srcdir)/configs/$@ $(srcdir)/$@))
-	@$(if $(DEFCONFIG),$(GREP) -v "^#" $(DEFCONFIG) > $(obj)$(CONFIG))
+	@$(if $(DEFCONFIG),$(GREP) -v "^#" $(DEFCONFIG) > $(builddir)$(CONFIG))
 
-oldconfig: $(builddir)$(CONFIG).old
-	@$(eval CONFIGS=$(shell $(GREP) -v "^#" $(DEFCONFIG) | $(AWK) -F= 't$$1 != t {print $$1}'))
-	@$(foreach config,$(CONFIGS),$(if $($(config)),,$(eval $(config)=n)))
-	$(foreach config,$(CONFIGS),$(shell printf "$(config)=$($(config))\n" >> $(builddir)$(CONFIG)))
+%_defconfig: $(builddir)$(CONFIG).old cleanconfig FORCE
+	@echo "  "DEFCONFIG $*
+	$(if $(firstword $(wildcard $@ $(srcdir)/configs/$@ $(srcdir)/$@)),,$(error $*_defconfig not found))
+	$(eval DEFCONFIG:=$(firstword $(wildcard $@ $(srcdir)/configs/$@ $(srcdir)/$@)))
+	@$(if $(DEFCONFIG),$(GREP) -v "^#" $(DEFCONFIG) > $(builddir)$(CONFIG))
+
+CONFIGS:=$(shell cat $(DEFCONFIG) | sed 's/\"/\\\"/g' | grep -v '^\#' | awk -F= 't$$1 != t {print $$1}' )
+oldconfig: $(DEFCONFIG) FORCE
+	@$(eval CONFIGS=$(foreach config,$(CONFIGS),$(if $($(config)),,$(config))))
+	@$(if $(CONFIGS),cat $(DEFCONFIG) | grep $(addprefix -e ,$(CONFIGS)), echo "") >> $(builddir)$(CONFIG)
+
+cleanconfig: $(if $(wildcard $(builddir)$(CONFIG)),distclean)
 
 $(builddir)$(CONFIG).old: $(wildcard $(builddir)$(CONFIG))
 	@$(if $<,mv $< $@)
 
-$(builddir)$(CONFIG:.%=%.h): $(builddir)$(CONFIG)
-	@echo "  "CONFIG $*
-	@$(GREP) -v "^#" $< | $(AWK) -F= 't$$1 != t {print "#define "$$1" "$$2}' > $@
+$(builddir)$(CONFIG):
+	$(warning "Configure the project first")
+	$(warning "  make <...>_defconfig")
+	$(warning "  make defconfig")
+	$(warning "  make config")
+	$(error  )
 
-$(builddir)$(VERSIONFILE:%=%.h):
+$(builddir)config.h: $(CONFIGFILE) $(builddir)$(CONFIG)
+	@echo "  "CONFIG $*
+	@echo '#ifndef __CONFIG_H__' > $@
+	@echo '#define __CONFIG_H__' >> $@
+	@echo '' >> $@
+	@$(GREP) -v "^#" $< | $(AWK) -F= 't$$1 != t {if ($$2 != "n") print "#define "toupper($$1)" "$$2}' >> $@
+	@echo '' >> $@
+	@$(if $(pkglibdir), sed -i -e "/\\<PKGLIBDIR\\>/d" $@; echo '#define PKGLIBDIR "'$(pkglibdir)'"' >> $@)
+	@$(if $(datadir), sed -i -e "/\\<DATADIR\\>/d" $@; echo '#define DATADIR "'$(datadir)'"' >> $@)
+	@$(if $(pkgdatadir), sed -i -e "/\\<PKG_DATADIR\\>/d" $@; echo '#define PKG_DATADIR "'$(pkgdatadir)'"' >> $@)
+	@$(if $(sysconfdir), sed -i -e "/\\<SYSCONFDIR\\>/d" $@; echo '#define SYSCONFDIR "'$(sysconfdir)'"' >> $@)
+	@echo '#endif' >> $@
+
+$(builddir)$(VERSIONFILE:%=%.h): $(builddir)$(CONFIG)
 	@echo "  "VERSION $*
 	@echo '#ifndef __VERSION_H__' > $@
 	@echo '#define __VERSION_H__' >> $@
+	@echo '' >> $@
 	@$(if $(version), echo '#define VERSION "'$(version)'"' >> $@)
 	@$(if $(package), echo '#define PACKAGE "'$(package)'"' >> $@)
-	@$(if $(pkglibdir), echo '#define PKGLIBDIR "'$(pkglibdir)'"' >> $@)
-	@$(if $(datadir), echo '#define DATADIR "'$(datadir)'"' >> $@)
-	@$(if $(sysconfdir), echo '#define SYSCONFDIR "'$(sysconfdir)'"' >> $@)
+	@$(if $(version), echo '#define PACKAGE_VERSION "'$(version)'"' >> $@)
+	@$(if $(package), echo '#define PACKAGE_NAME "'$(package)'"' >> $@)
+	@$(if $(package), echo '#define PACKAGE_TARNAME "'$(subst " ","_",$(package))'"' >> $@)
+	@$(if $(package), echo '#define PACKAGE_STRING "'$(package) $(version)'"' >> $@)
 	@echo '#endif' >> $@
 
 ##
@@ -492,8 +531,8 @@ quiet_cmd_check_lib=CHECK $*
 define cmd_check_lib
 	$(RM) $(TMPDIR)/$(TESTFILE:%=%.c) $(TMPDIR)/$(TESTFILE)
 	echo "int main(){}" > $(TMPDIR)/$(TESTFILE:%=%.c)
-	$(TARGETCC) -c -o $(TMPDIR)/$(TESTFILE:%=%.o) $(TMPDIR)/$(TESTFILE:%=%.c) $(CFLAGS) > /dev/null 2>&1
-	$(TARGETLD) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.o) $(LDFLAGS) $(addprefix -l, $2) > /dev/null 2>&1
+	$(TARGETCC) -c -o $(TMPDIR)/$(TESTFILE:%=%.o) $(TMPDIR)/$(TESTFILE:%=%.c) $(INTERN_CFLAGS) $(CFLAGS) > /dev/null 2>&1
+	$(TARGETLD) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.o) $(INTERN_LDFLAGS) $(LDFLAGS) $(addprefix -l, $2) > /dev/null 2>&1
 endef
 
 checkoption:=--exact-version
