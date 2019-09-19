@@ -70,15 +70,34 @@ else
 fi
 
 
+echo $DESC
+echo "******************************"
+cat ${TESTDIR}conf/${CONFIG}
+echo "******************************"
 if [ -n "$DEBUG" ]; then
 	if [ -n "$CURLPARAM" ]; then
 		$CURL $CURLOUT -f -s -S $CURLPARAM
 	fi
 	if [ -n "$TESTREQUEST" ]; then
+		cat ${TESTDIR}$TESTREQUEST
+		echo "******************************"
+		echo
 		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT
 	fi
 	if [ -n "$CMDREQUEST" ]; then
+		$CMDREQUEST
+		echo "******************************"
+		echo
 		$CMDREQUEST | $TESTCLIENT
+	fi
+	echo "******************************"
+	echo $DESC
+	echo "expected result  $TESTCODE"
+	if [ -n $TESTHEADERLEN ]; then
+		echo "expected header  $TESTHEADERLEN"
+	fi
+	if [ -n $TESTCONTENTLEN ]; then
+		echo "expected content $TESTCONTENTLEN"
 	fi
 else
 	if [ -n "$CURLPARAM" ]; then
@@ -95,8 +114,6 @@ else
 	rescode=$(echo $result | ${AWK} '{print $1}')
 	resheaderlen=$(echo $result | ${AWK} '{print $2}')
 	rescontentlen=$(echo $result | ${AWK} '{print $3}')
-
-	echo ""
 
 	ERR=0
 	if [ -n "$TESTCODE" -a x$rescode != x$TESTCODE ]; then
