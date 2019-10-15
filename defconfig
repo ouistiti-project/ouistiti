@@ -57,6 +57,7 @@ WEBSOCKET_RT=n
 WS_ECHO=y
 WS_CHAT=y
 WS_JSONRPC=y
+WS_SYSLOGD=y
 #support of Virtual Hosting
 VHOSTS=y
 #support of request method check
@@ -77,7 +78,7 @@ CORS=y
 
 CERTIFICATE=n
 
-HOST_UTILS=n
+HOST_UTILS=y
 
 prefix=/usr
 #bindir=
