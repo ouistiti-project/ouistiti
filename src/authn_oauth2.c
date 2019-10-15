@@ -47,6 +47,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 #ifdef TLS
 const httpclient_ops_t *tlsclient_ops;
 #endif
@@ -246,14 +248,14 @@ static int oauth2_authresp_connector(void *arg, http_message_t *request, http_me
 					if (json_acctoken != NULL && json_is_string(json_acctoken))
 					{
 						access_token = json_string_value(json_acctoken);
-						dbg("oAuth2 access_token: %s", access_token);
+						auth_dbg("oAuth2 access_token: %s", access_token);
 					}
 					json_t *json_idtoken = json_object_get(json_authtokens, "id_token");
 					if (json_idtoken != NULL && json_is_string(json_idtoken))
 					{
 						const char *id_token = json_string_value(json_idtoken);
 						authinfo = jwt_decode(id_token, config->client_passwd);
-						dbg("oAuth2 id_token: %s", id_token);
+						auth_dbg("oAuth2 id_token: %s", id_token);
 						if (authinfo != NULL)
 						{
 							mod->authz->rules->adduser(mod->authz->ctx, authinfo);
@@ -271,7 +273,7 @@ static int oauth2_authresp_connector(void *arg, http_message_t *request, http_me
 					if (json_expire != NULL && json_is_integer(json_expire))
 					{
 						expires_in = json_integer_value(json_expire);
-						dbg("oAuth2 access_token expire in: %ds", expires_in);
+						auth_dbg("oAuth2 access_token expire in: %ds", expires_in);
 					}
 				}
 			}

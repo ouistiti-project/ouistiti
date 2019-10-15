@@ -57,6 +57,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 //#define FILE_MMAP
 #define MAXLENGTH 255
 
@@ -154,7 +156,7 @@ json_t *jwt_decode_json(const char *id_token, const char *key)
 	char data[1024] = {0};
 #if 0
 	length = base64_urlencoding->decode(b64header, length, data, 1024);
-	dbg("id_token header %s", data);
+	auth_dbg("id_token header %s", data);
 	json_t *jheader = json_loadb(data, length, 0, &error);
 	if (jheader != NULL)
 	{
@@ -191,7 +193,7 @@ json_t *jwt_decode_json(const char *id_token, const char *key)
 #endif
 	{
 		length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
-		dbg("JWT: %s", data);
+		auth_dbg("JWT: %s", data);
 		jpayload = json_loadb(data, length, 0, &error);
 	}
 	return jpayload;

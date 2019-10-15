@@ -44,6 +44,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 #define MAX_TOKEN 123
 
 typedef struct authn_bearer_s authn_bearer_t;
