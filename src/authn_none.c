@@ -51,6 +51,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 typedef struct authn_none_s authn_none_t;
 struct authn_none_s
 {
