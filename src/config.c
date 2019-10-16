@@ -285,18 +285,6 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			}
 		}
 #endif
-#ifdef AUTHZ_JWT
-		/**
-		 * defautl configuration
-		 */
-		if (auth->authz_config == NULL)
-		{
-			authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
-			authz_config->key = auth->secret;
-			auth->authz_type |= AUTHZ_JWT_E;
-			auth->authz_config = authz_config;
-	}
-#endif
 
 		char *type = NULL;
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
@@ -348,7 +336,20 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			if (authn_config->token_ep == NULL)
 				config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->token_ep);
 			auth->authn_config = authn_config;
+#ifdef AUTHZ_JWT
+			/**
+			 * defautl configuration
+			 */
+			if (auth->authz_config == NULL)
+			{
+				authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
+				authz_config->key = auth->secret;
+				auth->authz_type |= AUTHZ_JWT_E;
+				auth->authz_config = authz_config;
+			}
+#endif
 		}
+
 #endif
 #ifdef AUTHN_OAUTH2
 		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_OAUTH2_E], 6))

@@ -51,6 +51,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 //#define FILE_MMAP
 #define MAXLENGTH 255
 

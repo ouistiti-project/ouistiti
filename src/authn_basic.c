@@ -43,6 +43,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 typedef struct authn_basic_s authn_basic_t;
 struct authn_basic_s
 {
@@ -105,7 +107,7 @@ static const char *authn_basic_check(void *arg, const char *method, const char *
 		*passwd = 0;
 		passwd++;
 	}
-
+	auth_dbg("auth basic check: %s %s", user, passwd);
 	return mod->authz->rules->check(mod->authz->ctx, user, passwd, string);
 }
 

@@ -75,6 +75,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 #ifndef RESULT_401
 #error mod_auth require RESULT_401
 #endif
@@ -203,12 +205,6 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	if (!config)
 		return NULL;
 
-	if ((config->authz_type & AUTHZ_TOKEN_E) &&  (authz_rules[config->authz_type & AUTHZ_TYPE_MASK])->join == NULL)
-	{
-		err("Please use other authz module (sqlite) to enable token");
-		config->authz_type &= ~AUTHZ_TOKEN_E;
-	}
-
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 	mod->vhost = vhost;
@@ -217,9 +213,19 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	mod->authz->type = config->authz_type;
 
 #ifdef AUTHZ_JWT
+	/**
+	 * jwt token contains user information
+	 * it is useless to "join" the token to the user.
+	 */
 	mod->authz->generatetoken = authz_generatejwtoken;
 #else
-	mod->authz->generatetoken = authz_generatetoken;
+	if ((config->authz_type & AUTHZ_TOKEN_E) &&  (authz_rules[config->authz_type & AUTHZ_TYPE_MASK])->join == NULL)
+	{
+		err("Please use other authz module (sqlite) to enable token");
+		config->authz_type &= ~AUTHZ_TOKEN_E;
+	}
+	else
+		mod->authz->generatetoken = authz_generatetoken;
 #endif
 	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
 	if (mod->authz->rules == NULL)
@@ -441,7 +447,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = cookie_get(request, (char *)str_authorization);
-		err("cookie get %s %p",str_authorization, authorization);
+			err("cookie get %s %p",str_authorization, authorization);
 			if (authorization)
 				from = 1;
 		}
@@ -581,7 +587,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					setegid(result->pw_gid);
 				}
 				else
-					dbg("user not found on system");
+					auth_dbg("user not found on system");
 				warn("user \"%s\" accepted from %p", info->user, ctx->ctl);
 				ret = EREJECT;
 			}
@@ -610,7 +616,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 		if (ret == ESUCCESS)
 		{
-			dbg("auth challenge failed");
+			auth_dbg("auth challenge failed");
 			const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
 			{

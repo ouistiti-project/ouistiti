@@ -11,6 +11,11 @@ export MAXCHUNKS_URI=4
 LIBHTTPSERVER_DIR?=libhttpserver
 export LIBHTTPSERVER_DIR
 
+download-$(LIBHTTPSERVER_DL)+=libhttpserver
+libhttpserver_SOURCE=libhttpserver
+libhttpserver_SITE=https://github.com/ouistiti-project/libhttpserver.git
+libhttpserver_SITE_METHOD=git
+
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
 subdir-y+=$(LIBHTTPSERVER_DIR)
 endif

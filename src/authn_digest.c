@@ -43,6 +43,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 typedef struct authn_digest_s authn_digest_t;
 struct authn_digest_s
 {

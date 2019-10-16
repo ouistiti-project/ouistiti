@@ -52,6 +52,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 #ifdef DEBUG
 #define SQLITE3_CHECK(ret, value, sql) \
 	if (ret != SQLITE_OK) {\
