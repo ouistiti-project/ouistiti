@@ -119,28 +119,21 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 
 	if (config->options & REDIRECT_HSTS)
 	{
-#if 1
 		httpmessage_addheader(response, "Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-#else
 		const char *scheme = str_https;
-		if (scheme != NULL)
-		{
-			const char *scheme = httpserver_INFO(mod->server, "scheme");
-			const char *host = httpserver_INFO(mod->server, "host");
-			const char *port = httpserver_INFO(mod->server, "port");
-			const char *path = httpserver_INFO(mod->server, "uri");
-			const char *portseparator = "";
-			if (port[0] != '\0')
-				portseparator = ":";
+		const char *host = httpserver_INFO(mod->server, "host");
+		const char *port = httpserver_INFO(mod->server, "port");
+		const char *path = httpserver_INFO(mod->server, "uri");
+		const char *portseparator = "";
+		if (port[0] != '\0')
+			portseparator = ":";
 
-			char location[1024];
-			snprintf(location, 1024, "%s://%s%s%s/%s",
-						scheme, host, portseparator, port, path);
-			httpmessage_addheader(response, str_location, location);
-			httpmessage_result(response, RESULT_301);
-			return ESUCCESS;
-		}
-#endif
+		char location[1024];
+		snprintf(location, 1024, "%s://%s%s%s/%s",
+					scheme, host, portseparator, port, path);
+		httpmessage_addheader(response, str_location, location);
+		httpmessage_result(response, RESULT_301);
+		return ESUCCESS;
 	}
 	if (config->options & REDIRECT_GENERATE204)
 	{

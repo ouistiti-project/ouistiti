@@ -36,6 +36,7 @@ extern "C"
 #define SECURITY_FRAME			0x0001
 #define SECURITY_OTHERORIGIN	0x0002
 #define SECURITY_CACHE			0x0004
+#define SECURITY_CONTENTTYPE	0x0008
 typedef struct mod_security_s
 {
 	int options;
