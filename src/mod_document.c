@@ -148,8 +148,8 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 				{
 					other = auth_info(request, "user");
 				}
-			}
 #endif
+			}
 #endif
 		}
 		if (docroot == NULL)

@@ -75,21 +75,29 @@ static int server_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	if (!(options & SECURITY_CACHE))
 	{
-		httpmessage_addheader(response, "Cache-Control", "nocache;max-age=0");
+		httpmessage_addheader(response, "Cache-Control", "no-cache,no-store,max-age=0,must-revalidate");
+		httpmessage_addheader(response, "Pragma", "no-cache");
+		httpmessage_addheader(response, "Expires", "0");
+	}
+	if (!(options & SECURITY_CONTENTTYPE))
+	{
+		httpmessage_addheader(response, "X-Content-Type-Options", "nosniff");
 	}
 	if (!(options & SECURITY_OTHERORIGIN))
 	{
 		if (options & SECURITY_FRAME)
 			httpmessage_addheader(response, "X-Frame-Options", "SAMEORIGIN");
 
+		httpmessage_addheader(response, "Referrer-Policy", "origin-when-cross-origin");
+
 #ifndef SECURITY_UNCHECKORIGIN
-		const char *referer = httpmessage_REQUEST(request, "Referer");
-		if (referer != NULL)
+		const char *origin = httpmessage_REQUEST(request, "Origin");
+		if (origin != NULL)
 		{
-			const char *host = httpmessage_REQUEST(request, "Host");
-			const char *refererhost = strstr(referer, "://");
+			const char *host = httpmessage_SERVER(request, "hostname");
+			const char *refererhost = strstr(origin, "://");
 			if (refererhost == NULL)
-				refererhost = referer;
+				refererhost = origin;
 			char *end = strchr(refererhost, '/');
 			int len;
 			if (end == NULL)
