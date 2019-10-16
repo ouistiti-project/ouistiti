@@ -205,12 +205,6 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	if (!config)
 		return NULL;
 
-	if ((config->authz_type & AUTHZ_TOKEN_E) &&  (authz_rules[config->authz_type & AUTHZ_TYPE_MASK])->join == NULL)
-	{
-		err("Please use other authz module (sqlite) to enable token");
-		config->authz_type &= ~AUTHZ_TOKEN_E;
-	}
-
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 	mod->vhost = vhost;
@@ -219,9 +213,19 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	mod->authz->type = config->authz_type;
 
 #ifdef AUTHZ_JWT
+	/**
+	 * jwt token contains user information
+	 * it is useless to "join" the token to the user.
+	 */
 	mod->authz->generatetoken = authz_generatejwtoken;
 #else
-	mod->authz->generatetoken = authz_generatetoken;
+	if ((config->authz_type & AUTHZ_TOKEN_E) &&  (authz_rules[config->authz_type & AUTHZ_TYPE_MASK])->join == NULL)
+	{
+		err("Please use other authz module (sqlite) to enable token");
+		config->authz_type &= ~AUTHZ_TOKEN_E;
+	}
+	else
+		mod->authz->generatetoken = authz_generatetoken;
 #endif
 	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
 	if (mod->authz->rules == NULL)
@@ -443,7 +447,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (authorization == NULL || authorization[0] == '\0')
 		{
 			authorization = cookie_get(request, (char *)str_authorization);
-		err("cookie get %s %p",str_authorization, authorization);
+			err("cookie get %s %p",str_authorization, authorization);
 			if (authorization)
 				from = 1;
 		}
