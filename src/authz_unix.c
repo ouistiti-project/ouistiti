@@ -52,6 +52,8 @@
 #define dbg(...)
 #endif
 
+#define auth_dbg(...)
+
 //#define FILE_MMAP
 #define MAXLENGTH 255
 
@@ -133,12 +135,12 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		}
 		else
 		{
-			dbg("authz unix: passwd error");
+			auth_dbg("authz unix: passwd error");
 		}
 	}
 	else
 	{
-		dbg("authz unix: user %s not found", user);
+		auth_dbg("authz unix: user %s not found", user);
 	}
 	return ret;
 }

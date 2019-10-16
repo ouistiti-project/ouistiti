@@ -91,8 +91,14 @@ while [ "${1}" != "" ]; do
 		--libdir*)
 			libdir=$(argument ${1})
 			;;
+		--pkglibdir*)
+			pkglibdir=$(argument ${1})
+			;;
 		--datadir*)
 			datadir=$(argument ${1})
+			;;
+		--pkgdatadir*)
+			pkgdatadir=$(argument ${1})
 			;;
 		--sysconfdir*)
 			sysconfdir=$(argument ${1})
@@ -178,6 +184,18 @@ fi
 if [ -n "$sysconfdir" ]; then
 	echo "sysconfdir="$sysconfdir"" >> ${builddir}$out
 	printf " sysconfdir:\t$sysconfdir\n"
+fi
+if [ -n "$datadir" ]; then
+	echo "datadir="$datadir"" >> ${builddir}$out
+	printf " datadir:\t$datadir\n"
+fi
+if [ -n "$pkgdatadir" ]; then
+	echo "pkgdatadir="$pkgdatadir"" >> ${builddir}$out
+	printf " pkgdatadir:\t$pkgdatadir\n"
+fi
+if [ -n "$pkglibdir" ]; then
+	echo "pkglibdir="$pkglibdir"" >> ${builddir}$out
+	printf " pkglibdir:\t$pkglibdir\n"
 fi
 if [ -n "$SYSROOT" ]; then
 	echo "SYSROOT=$SYSROOT" >> ${builddir}$out
