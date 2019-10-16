@@ -309,13 +309,6 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			mime = utils_getmime(private->filepath);
 			lseek(private->fd, private->offset, SEEK_SET);
 			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
-			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
-			{
-				close(private->fd);
-				private->fd = 0;
-				document_close(private);
-				return ESUCCESS;
-			}
 			dbg("document: send %llu bytes", private->size);
 			mod->transfer = mod_send_read;
 #ifdef DEBUG
@@ -371,25 +364,18 @@ int mod_send_read(document_connector_t *private, http_message_t *response)
 	int ret = 0, size, chunksize;
 
 	char content[CONTENTCHUNK];
-	do
+	chunksize = CONTENTCHUNK - 1;
+	size = read(private->fd, content, chunksize);
+	if (size > 0)
 	{
-		chunksize = ((private->size - ret) < CONTENTCHUNK)? (private->size - ret) : CONTENTCHUNK - 1;
-		size = read(private->fd, content, chunksize);
-		if (size > 0)
-		{
-			ret += size;
-			content[size] = 0;
-			size = httpmessage_appendcontent(response, content, size);
-			if ((private->size - ret) == 0)
-				break;
-		}
-		else
-		{
-			if (ret == 0)
-				ret = -1;
-			break;
-		}
-	} while (chunksize < size);
+		ret = size;
+		content[size] = 0;
+		size = httpmessage_addcontent(response, NULL, content, size);
+	}
+	else if (ret == 0)
+	{
+		ret = ESUCCESS;
+	}
 	return ret;
 }
 
