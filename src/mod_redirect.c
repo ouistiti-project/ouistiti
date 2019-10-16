@@ -178,6 +178,26 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 					free(uri);
 					return ESUCCESS;
 				}
+				else
+				{
+					const char *search = httpmessage_REQUEST(request, "query");
+					char *redirect = NULL;
+					if (search)
+						redirect = strstr(search, "redirect_uri=");
+					if (redirect != NULL)
+					{
+						int result = mod->result;
+						redirect += 13;
+						httpmessage_addheader(response, str_location, redirect);
+						if (link->options & REDIRECT_PERMANENTLY)
+							result = RESULT_301;
+						else if (link->options & REDIRECT_TEMPORARY)
+							result = RESULT_307;
+						httpmessage_result(response, result);
+						free(uri);
+						return ESUCCESS;
+					}
+				}
 			}
 			if (link->options & REDIRECT_ERROR)
 			{
