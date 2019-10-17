@@ -130,13 +130,13 @@ static int _change_passwd(int id, const char *passwd, json_t **result, void *use
 	if (ret == SQLITE_DONE)
 	{
 		json_t *value = json_string("password changed");
-		json_object_set(*result, "message", value);		
+		json_object_set(*result, "message", value);
 	}
 	else
 	{
 		_db_error(ret);
 		json_decref(*result);
-		*result = jsonrpc_error_object(ret, "password rejected", json_string("password rejected"));
+		*result = jsonrpc_error_object(ret, "password rejected", json_string(sqlite3_errmsg(db)));
 	}
 	sqlite3_finalize(statement);
 }
@@ -164,13 +164,13 @@ static int _remove_user(int id, json_t **result, void *userdata)
 	if (ret == SQLITE_DONE)
 	{
 		json_t *value = json_string("user removed");
-		json_object_set(*result, "message", value);		
+		json_object_set(*result, "message", value);
 	}
 	else
 	{
 		_db_error(ret);
 		json_decref(*result);
-		*result = jsonrpc_error_object(ret, "access rejected", json_string("acess rejected"));
+		*result = jsonrpc_error_object(ret, "access rejected", json_string(sqlite3_errmsg(db)));
 	}
 	sqlite3_finalize(statement);
 }
@@ -180,7 +180,7 @@ static int _searchuser(const char *user, const char *passwd, json_t **result, vo
 	jsonauth_ctx_t *ctx = (jsonauth_ctx_t *)userdata;
 	sqlite3 *db = ctx->db;
 	int ret;
-	const char *query[] = 
+	const char *query[] =
 	{
 		"select ROWID from users where name=@USER and passwd=@PASSWD",
 		"select users.ROWID, passwd, groups.name as \"group\", home from users inner join groups on groups.id=users.groupid where users.name=@USER;",
@@ -473,7 +473,7 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 			else
 			{
 				json_decref(*result);
-				*result = jsonrpc_error_object(ret, "internal error", json_string("internal error"));
+				*result = jsonrpc_error_object(ret, "internal error", json_string(sqlite3_errmsg(db)));
 			}
 		}
 		else
