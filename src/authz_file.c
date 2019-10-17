@@ -110,6 +110,7 @@ void *authz_file_create(void *arg)
 #else
 		ctx->user = calloc(1, MAXLENGTH + 1);
 #endif
+	warn("auth: authentication file storage on %s", config->path);
 	return ctx;
 }
 
