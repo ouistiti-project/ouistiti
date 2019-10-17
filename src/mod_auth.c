@@ -212,6 +212,15 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
 
+	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
+	if (mod->authz->rules == NULL)
+	{
+		err("authentication storage not set, change configuration");
+		free(mod->authz);
+		free(mod);
+		return NULL;
+	}
+
 #ifdef AUTHZ_JWT
 	/**
 	 * jwt token contains user information
@@ -227,9 +236,6 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	else
 		mod->authz->generatetoken = authz_generatetoken;
 #endif
-	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
-	if (mod->authz->rules == NULL)
-		err("authentication type is not availlable, change configuration");
 
 	mod->authz->ctx = mod->authz->rules->create(config->authz_config);
 	if (mod->authz->ctx == NULL)
