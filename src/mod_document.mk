@@ -4,6 +4,7 @@ slib-y+=mod_document
 mod_document_SOURCES+=mod_document.c
 mod_document_CFLAGS+=-DSTATIC_FILE
 mod_document_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
+mod_document_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 mod_document_CFLAGS-$(MODULES)+=-DMODULES
 mod_document_CFLAGS-$(AUTH)+=-DAUTH
 
