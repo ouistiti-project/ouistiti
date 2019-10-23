@@ -470,7 +470,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		 */
 		if ((authorization == NULL || authorization[0] == '\0') && mod->authz->type & AUTHZ_TOKEN_E)
 		{
-			authorization = cookie_get(request, str_xtoken);
+			if (mod->authz->type & AUTHZ_HEADER_E)
+			{
+				authorization = httpmessage_REQUEST(request, str_xtoken);
+			}
+			else
+			{
+				authorization = cookie_get(request, str_xtoken);
+			}
 			if (authorization)
 				from = 2;
 		}
@@ -526,22 +533,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
 
-#ifdef AUTH_TOKEN
-					if (from == 0 && mod->authz->type & AUTHZ_TOKEN_E)
-					{
-							char *token = mod->authz->generatetoken(mod->config, info);
-							mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
-							if (mod->authz->type & AUTHZ_HEADER_E)
-								httpmessage_addheader(response, str_xtoken, (char *)token);
-							else
-								cookie_set(response, str_xtoken, (char *)token);
-							free(token);
-					}
-#endif
 					if (mod->authz->type & AUTHZ_HEADER_E)
 					{
 #ifdef AUTH_TOKEN
-						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+						if (mod->authz->type & AUTHZ_TOKEN_E)
+						{
+								char *token = mod->authz->generatetoken(mod->config, info);
+								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
+								httpmessage_addheader(response, str_xtoken, (char *)token);
+								free(token);
+						}
+						else
 #endif
 						{
 							httpmessage_addheader(response, str_authorization, (char *)authorization);
@@ -559,8 +561,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
 					{
+						dbg("cookie");
 #ifdef AUTH_TOKEN
-						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+						if (mod->authz->type & AUTHZ_TOKEN_E)
+						{
+						dbg("token");
+								char *token = mod->authz->generatetoken(mod->config, info);
+								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
+								cookie_set(response, str_xtoken, (char *)token);
+								free(token);
+						}
+						else
 #endif
 						{
 							cookie_set(response, str_authorization, (char *)authorization);
