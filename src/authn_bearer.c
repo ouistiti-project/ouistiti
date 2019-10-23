@@ -117,6 +117,8 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 	{
 		return str_anonymous;
 	}
+	if (!strncmp(string, "Bearer ", 7))
+		string += 7;
 	return mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 }
 
