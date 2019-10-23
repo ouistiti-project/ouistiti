@@ -181,6 +181,16 @@ static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int t
 #endif
 
 #ifdef AUTH
+#ifdef MODULES
+const char *str_authenticate_types[] =
+{
+	"None",
+	"Basic",
+	"Digest",
+	"Bearer",
+	"oAuth2",
+};
+#endif
 static const char *str_realm = "ouistiti";
 static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 {
