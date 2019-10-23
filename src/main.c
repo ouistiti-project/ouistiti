@@ -248,7 +248,7 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 #else
 	char file[512];
 	snprintf(file, 511, PKGLIBDIR"/mod_%s.so", name);
-	void *dh = dlopen(file, RTLD_LAZY);
+	void *dh = dlopen(file, RTLD_LAZY | RTLD_GLOBAL);
 	if (dh != NULL)
 	{
 		module_t *module = dlsym(dh, "mod_info");
