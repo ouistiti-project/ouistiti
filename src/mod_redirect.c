@@ -57,7 +57,7 @@ static void *_mod_redirect_getctx(void *arg, http_client_t *ctl, struct sockaddr
 static void _mod_redirect_freectx(void *vctx);
 static int _mod_redirect_connector(void *arg, http_message_t *request, http_message_t *response);
 
-const char str_redirect[] = "redirect";
+static const char str_redirect[] = "redirect";
 #ifndef __STR_HTTPS
 static const char str_https[] = "https";
 #endif
@@ -188,6 +188,9 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 					{
 						int result = mod->result;
 						redirect += 13;
+						char *end = strchr(redirect, '&');
+						if (end != NULL)
+							*end = '\0';
 						httpmessage_addheader(response, str_location, redirect);
 						if (link->options & REDIRECT_PERMANENTLY)
 							result = RESULT_301;
