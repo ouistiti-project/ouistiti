@@ -19,8 +19,9 @@ httpparser_LDFLAGS+=-pthread
 
 hostbin-$(HOST_UTILS)+=ouipasswd
 ouipasswd_SOURCES+=ouipasswd.c
-ouipasswd_CFLAGS-$(MBEDTLS)+=-DMBEDTLS
-ouipasswd_LIBS-$(MBEDTLS)+=mbedcrypto
+ouipasswd_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
+ouipasswd_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
+ouipasswd_LIBS+=hash_mod
 ouipasswd_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 sysconf-${FILE_CONFIG}+=ouistiti.conf
