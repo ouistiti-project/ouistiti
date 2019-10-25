@@ -242,6 +242,7 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 		{
 			mod = modules[i]->create(server, NULL, config);
 			*destroy = modules[i]->destroy;
+			break;
 		}
 		i++;
 	}
