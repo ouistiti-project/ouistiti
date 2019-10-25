@@ -351,10 +351,12 @@ int main(int argc, char **argv)
 			case 'w':
 				options |= OPT_WEBSOCKET;
 			break;
+#ifdef MBEDTLS
 			case 't':
 				port = 443;
 				net = &tls;
 			break;
+#endif
 		}
 	} while(opt != -1);
 #endif
@@ -428,7 +430,7 @@ int main(int argc, char **argv)
 					}
 					else if (contentlength)
 					{
-						
+
 						/// send content
 						usleep(50);
 						ret = net->send(sock, buffer + headerlength, contentlength);
