@@ -32,63 +32,9 @@
 #include <unistd.h>
 #define HAVE_GETOPT
 
-#include "../version.h"
+#include "httpserver/hash.h"
 
 #define PACKAGEVERSION PACKAGE "/" VERSION
-
-#if defined(MBEDTLS)
-# include <mbedtls/base64.h>
-# define BASE64_encode(in, inlen, out, outlen) \
-	do { \
-		size_t cnt = 0; \
-		mbedtls_base64_encode(out, outlen, &cnt, in, inlen); \
-	}while(0)
-# define BASE64_decode(in, inlen, out, outlen) \
-	do { \
-		size_t cnt = 0; \
-		mbedtls_base64_decode(out, outlen, &cnt, in, inlen); \
-	}while(0)
-#else
-# include "b64/cencode.h"
-# define BASE64_encode(in, inlen, out, outlen) \
-	do { \
-		base64_encodestate state; \
-		base64_init_encodestate(&state); \
-		int cnt = base64_encode_block(in, inlen, out, &state); \
-		cnt = base64_encode_blockend(out + cnt, &state); \
-		out[cnt - 1] = '\0'; \
-	}while(0)
-#endif
-
-#if defined(MBEDTLS)
-# include <mbedtls/md5.h>
-# define MD5_ctx mbedtls_md5_context
-# define MD5_init(pctx) \
-	do { \
-		mbedtls_md5_init(pctx); \
-		mbedtls_md5_starts(pctx); \
-	} while(0)
-# define MD5_update(pctx, in, len) \
-	mbedtls_md5_update(pctx, in, len)
-# define MD5_finish(out, pctx) \
-	do { \
-		mbedtls_md5_finish((pctx), out); \
-		mbedtls_md5_free((pctx)); \
-	} while(0)
-#elif defined (MD5_RONRIVEST)
-# include "../utils/md5-c/global.h"
-# include "../utils/md5-c/md5.h"
-# define MD5_ctx MD5_CTX
-# define MD5_init MD5Init
-# define MD5_update MD5Update
-# define MD5_finish MD5Final
-#else
-# include "../utils/md5/md5.h"
-# define MD5_ctx md5_state_t
-# define MD5_init md5_init
-# define MD5_update md5_append
-# define MD5_finish(out, pctx) md5_finish(pctx, out)
-#endif
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -103,32 +49,32 @@ int method_digest(const char *user, const char *passwd, const char *realm, char 
 	int len = 0;
 	if (len > outlen)
 		return -1;
-	len  += sprintf(out + len, user);
+	len  += sprintf(out + len, "%.*s", 32, user);
 	if (len > outlen)
 		return -1;
 	len  += sprintf(out + len, ":");
 	if (len > outlen)
 		return -1;
-	len  += sprintf(out + len, realm);
+	len  += sprintf(out + len, "%.*s", 32, realm);
 	if (len > outlen)
 		return -1;
 	len  += sprintf(out + len, ":");
 	if (len > outlen)
 		return -1;
-	len  += sprintf(out + len, passwd);
+	len  += sprintf(out + len, "%.*s", 32, passwd);
 	if (len > outlen)
 		return -1;
 	return len;
 }
-int crypt_ouimd5(char *string, char *out, int outlen)
+int crypt_password(char *string, char *out, int outlen, const hash_t *hash)
 {
-	char md5passwd[16];
-	MD5_ctx ctx;
-	MD5_init(&ctx);
-	MD5_update(&ctx, string, strlen(string));
-	MD5_finish(md5passwd, &ctx);
+	char md5passwd[64];
+	void * ctx = hash->init();
+	hash->update(ctx, string, strlen(string));
+	hash->finish(ctx, md5passwd);
+
 	char b64passwd[25];
-	BASE64_encode(md5passwd, 16, out, outlen);
+	base64->encode(md5passwd, hash->size, out, outlen);
 
 	return strlen(out);
 }
@@ -155,7 +101,8 @@ void display_help(char * const *argv)
 int main(int argc, char * const *argv)
 {
 	int ret = -1;
-	int mode = DIGEST|MD5;
+	int mode = DIGEST;
+	const hash_t *hash = NULL;
 	const char *realm = NULL;
 	const char *user = NULL;
 	char *passwd = NULL;
@@ -198,12 +145,22 @@ int main(int argc, char * const *argv)
 				home = optarg;
 			break;
 			case 'A':
-				if (!strcmp(optarg, "MD5"))
-					mode |= MD5;
+				mode &= ~MD5;
 				if (!strcmp(optarg, "SHA-256"))
+				{
+					hash = hash_sha256;
 					mode |= SHA256;
-				if (!strcmp(optarg, "SHA-512"))
+				}
+				else if (!strcmp(optarg, "SHA-512"))
+				{
+					hash = hash_sha512;
 					mode |= SHA512;
+				}
+				else if (!strcmp(optarg, "MD5"))
+				{
+					hash = hash_md5;
+					mode |= SHA512;
+				}
 			break;
 		}
 	} while(opt != -1);
@@ -213,10 +170,10 @@ int main(int argc, char * const *argv)
 	{
 		if (passwd == NULL)
 		{
-			printf("Enter a new password: ");
+			printf("Enter a new password (8 > 32: ");
 			int i;
-			passwd = calloc(256, sizeof(char));
-			for(i = 0; i < 256; i++)
+			passwd = calloc(33, sizeof(char));
+			for(i = 0; i < 32; i++)
 			{
 				char c;
 				read(0, &c, 1);
@@ -225,8 +182,8 @@ int main(int argc, char * const *argv)
 				passwd[i] = c;
 			}
 			printf("Enter again the new password: ");
-			char *passwdagain = calloc(256, sizeof(char));
-			for(i = 0; i < 256; i++)
+			char passwdagain[33];
+			for(i = 0; i < sizeof(passwdagain); i++)
 			{
 				char c;
 				read(0, &c, 1);
@@ -234,44 +191,37 @@ int main(int argc, char * const *argv)
 					break;
 				passwdagain[i] = c;
 			}
+			passwdagain[i] = 0;
 			if (strcmp(passwd, passwdagain))
 			{
 				free(passwd);
-				free(passwdagain);
 				printf("Password not corresponding\n");
 				exit(-1);
 			}
-			free(passwdagain);
 		}
 
-		char *output = calloc(256, sizeof(char));
+		char *output = calloc(100, sizeof(char));
 		if (mode & DIGEST)
 		{
-			method_digest(user, passwd, realm, output, 256);
+			method_digest(user, passwd, realm, output, 100);
 		}
-		char cryptpasswd[64];
-		switch (mode & 0xFF)
-		{
-			case MD5:
-				ret = crypt_ouimd5(output, cryptpasswd, 64);
-			break;
-			case SHA256:
-				ret = crypt_ouimd5(output, cryptpasswd, 64);
-			break;
-			case SHA512:
-				ret = crypt_ouimd5(output, cryptpasswd, 64);
-			break;
-		}
+		else
+			output = passwd;
+		char cryptpasswd[256];
+		if (hash != NULL)
+			ret = crypt_password(output, cryptpasswd, 256, hash);
+		else
+			base64->encode(output, strlen(output), cryptpasswd, 256);
 		printf("%s:", user);
 		if (mode & DIGEST && realm != NULL)
 		{
-			printf("$a%d$realm=%s$", mode & 0xFF, realm);
+			printf("$a%d$realm=%.*s$", mode & 0xFF, 32, realm);
 		}
 		else if (mode & BASIC)
 		{
 			printf("$a%d$$", mode & 0xFF);
 		}
-		printf(cryptpasswd);
+		printf("%s", cryptpasswd);
 		if (group)
 			printf(":%s",group);
 		if (group  && home)
