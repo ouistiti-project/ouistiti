@@ -220,9 +220,10 @@ INTERN_CFLAGS+=-I.
 INTERN_CXXFLAGS+=-I.
 INTERN_LDFLAGS+=-L.
 ifneq ($(obj),)
-INTERN_CFLAGS+=-I$(obj)
-INTERN_CXXFLAGS+=-I$(obj)
 INTERN_LDFLAGS+=-L$(obj)
+endif
+ifneq ($(hostobj),)
+INTERN_LDFLAGS+=-L$(hostobj)
 endif
 ifneq ($(src),)
 INTERN_CFLAGS+=-I$(src)
@@ -262,9 +263,6 @@ $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(ev
 
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CFLAGS+=$(INTERN_CFLAGS)))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LDFLAGS+=$(INTERN_LDFLAGS)))
-
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(eval $(t)_CFLAGS+=$(SYSROOT_CFLAGS)))
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(eval $(t)_LDFLAGS+=$(SYSROOT_LDFLAGS)))
 
 # LIBRARY contains libraries name to check
 # The name may terminate with {<version>} informations like LIBRARY+=usb{1.0}
@@ -322,6 +320,8 @@ $(foreach dl,$(download-y),$(if $(findstring git,$($(dl)_SITE_METHOD)),$(eval gi
 
 objdir:=$(sort $(dir $(target-objs)))
 
+hostobjdir:=$(sort $(dir $(target-hostobjs)))
+
 targets:=
 targets+=$(lib-dynamic-target)
 targets+=$(modules-target)
@@ -361,17 +361,21 @@ install+=$(sbin-install)
 action:=_build
 build:=$(action) -f $(srcdir)$(makemore) file
 .DEFAULT_GOAL:=_entry
-.PHONY:_entry _build _install _clean _distclean _check
+.PHONY:_entry _build _install _clean _distclean _check _hostbuild
 _entry: _configbuild _versionbuild default_action
 
 _info:
 	@:
 
-_hostbuild: $(if $(strip $(hostslib-y) $(hostbin-y)), $(hostobj) $(hostslib-target) $(hostbin-target))
+_hostbuild: action:=_hostbuild
+_hostbuild: build:=$(action) -f $(srcdir)$(makemore) file
+_hostbuild: _info $(subdir-target) $(hostobjdir) $(hostslib-target) $(hostbin-target)
+	@:
+
 _configbuild: $(obj) $(if $(wildcard $(CONFIGFILE)),$(join $(builddir),config.h))
 _versionbuild: $(if $(package) $(version), $(join $(builddir),$(VERSIONFILE:%=%.h)))
 
-_build: _info $(download-target) $(gitclone-target) $(objdir) $(subdir-project) $(subdir-target) _hostbuild $(data-y) $(targets)
+_build: _info $(download-target) $(gitclone-target) $(objdir) $(subdir-project) $(subdir-target) $(data-y) $(targets)
 	@:
 
 _install: action:=_install
@@ -420,6 +424,10 @@ install: _configbuild _versionbuild default_action
 check: action:=_check
 check: build:=$(action) -s -f $(srcdir)$(makemore) file
 check: $(.DEFAULT_GOAL)
+
+hosttools: action:=_hostbuild
+hosttools: build:=$(action) -f $(srcdir)$(makemore) file
+hosttools: default_action
 
 default_action: _info
 	$(Q)$(MAKE) $(build)=$(file)
@@ -547,7 +555,7 @@ cmd_check2_lib=$(if $(findstring $(3:%-=%), $3),$(if $(findstring $(3:-%=%), $3)
 # build rules
 ##
 .SECONDEXPANSION:
-$(hostobj) $(objdir) $(buildpath):
+$(hostobjdir) $(objdir) $(buildpath):
 	$(Q)mkdir -p $@
 
 $(obj)%.tab.c:%.y
@@ -682,7 +690,7 @@ endef
 
 quiet_cmd_gitclone=CLONE $*
 define cmd_gitclone
-	git clone $(URL) $(VERSION) $(OUTPUT)
+	$(if $(wildcard $(OUTPUT)),,git clone --depth 1 $(URL) $(VERSION) $(OUTPUT))
 endef
 
 $(DL)/:
@@ -693,12 +701,12 @@ $(download-target): %: $(DL)/
 	$(eval DL=$(realpath $(DL)))
 	$(eval OUTPUT=$(DL)/$($*_SOURCE))
 	@$(call cmd,download)
-	@$(if $(findstring .zip, $($*_SOURCE)),unzip -o -d $(srcdir)/$* $(OUTPUT))
-	@$(if $(findstring .tar.gz, $($*_SOURCE)),tar -xzf $(OUTPUT) -C $(srcdir)/$*)
+	@$(if $(findstring .zip, $($*_SOURCE)),unzip -o -d $(cwdir)/$* $(OUTPUT))
+	@$(if $(findstring .tar.gz, $($*_SOURCE)),tar -xzf $(OUTPUT) -C $(cwdir)/$*)
 
 $(gitclone-target): %:
-	$(eval URL=$($*_SITE)/$($*_SOURCE))
-	$(eval OUTPUT=$(srcdir)/$*)
+	$(eval URL=$($*_SITE))
+	$(eval OUTPUT=$(cwdir)/$*)
 	$(eval VERSION=$(if $($*_VERSION),-b $($*_VERSION)))
 	@$(call cmd,gitclone)
 
