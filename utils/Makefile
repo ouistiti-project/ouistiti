@@ -21,6 +21,9 @@ ouipasswd_SOURCES+=ouipasswd.c
 ouipasswd_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 ouipasswd_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 ouipasswd_LIBS+=hash_mod
+ouipasswd_LIBS-$(MBEDTLS)+=mbedcrypto
+ouipasswd_LIBS-$(OPENSSL)+=crypto
+ouipasswd_LIBS-$(WOLFSSL)+=wolfssl
 ouipasswd_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 sysconf-${FILE_CONFIG}+=ouistiti.conf
