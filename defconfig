@@ -11,9 +11,6 @@ MAX_SERVERS=4
 
 #LIBHTTPSERVER configuration
 LIBHTTPSERVER_DIR=libhttpserver/
-LIBB64_DIR=$(LIBHTTPSERVER_DIR)libb64
-LIBMD5_DIR=$(LIBHTTPSERVER_DIR)md5-c
-LIBSHA1_DIR=$(LIBHTTPSERVER_DIR)libsha1
 #multi threads server may run with "fork" or "pthread"
 #if mono thread only one server may run
 VTHREAD=y
