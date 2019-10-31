@@ -202,6 +202,10 @@ static int oauth2_authresp_connector(void *arg, http_message_t *request, http_me
 				http_server_t *server = httpclient_server(mod->clt);
 				const char *scheme = httpserver_INFO(server, "scheme");
 				const char *host = httpserver_INFO(server, "host");
+				if (host == NULL)
+				{
+					host = httpmessage_SERVER(request, "addr");
+				}
 				const char *port = httpserver_INFO(server, "port");
 				const char *portseparator = "";
 				if (port[0] != '\0')
