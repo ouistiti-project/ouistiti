@@ -98,6 +98,23 @@ static const char str_redirect[] = "redirect";
 static const char str_redirect404[] = "redirect404";
 static const char str_cors[] = "cors";
 
+const char *auth_info(http_message_t *request, const char *key)
+{
+	const authsession_t *info = NULL;
+	info = httpmessage_SESSION(request, str_auth, NULL);
+	const char *value = NULL;
+
+	if (info && !strcmp(key, "user"))
+		value = (const char *)info->user;
+	if (info && !strcmp(key, "group"))
+		value = (const char *)info->group;
+	if (info && !strcmp(key, "type"))
+		value = (const char *)info->type;
+	if (info && !strcmp(key, "home"))
+		value = (const char *)info->home;
+	return value;
+}
+
 #ifndef MODULES
 static const module_t *modules[] =
 {

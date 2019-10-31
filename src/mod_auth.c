@@ -679,23 +679,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	return ret;
 }
 
-const char *auth_info(http_message_t *request, const char *key)
-{
-	const authsession_t *info = NULL;
-	info = httpmessage_SESSION(request, str_auth, NULL);
-	const char *value = NULL;
-
-	if (info && !strcmp(key, "user"))
-		value = (const char *)info->user;
-	if (info && !strcmp(key, "group"))
-		value = (const char *)info->group;
-	if (info && !strcmp(key, "type"))
-		value = (const char *)info->type;
-	if (info && !strcmp(key, "home"))
-		value = (const char *)info->home;
-	return value;
-}
-
 const module_t mod_auth =
 {
 	.name = str_auth,
