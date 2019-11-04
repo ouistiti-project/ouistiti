@@ -62,12 +62,12 @@ static const char str_redirect[] = "redirect";
 static const char str_https[] = "https";
 #endif
 static const char str_wss[] = "wss";
+static const char str_upgrade_insec_req[] = "Upgrade-Insecure-Requests";
 
 struct _mod_redirect_s
 {
 	mod_redirect_t	*config;
 	char *vhost;
-	http_server_t *server;
 	int result;
 };
 
@@ -81,7 +81,6 @@ void *mod_redirect_create(http_server_t *server, char *vhost, mod_redirect_t *co
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 	mod->vhost = vhost;
-	mod->server = server;
 	if (config->options & REDIRECT_PERMANENTLY)
 		mod->result = RESULT_301;
 	else if (config->options & REDIRECT_TEMPORARY)
@@ -120,20 +119,29 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 	if (config->options & REDIRECT_HSTS)
 	{
 		httpmessage_addheader(response, "Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-		const char *scheme = str_https;
-		const char *host = httpserver_INFO(mod->server, "host");
-		const char *port = httpserver_INFO(mod->server, "port");
-		const char *path = httpserver_INFO(mod->server, "uri");
-		const char *portseparator = "";
-		if (port[0] != '\0')
-			portseparator = ":";
+		const char *scheme = httpmessage_REQUEST(request, "scheme");
+		if (strcmp(scheme, str_https))
+		{
+			scheme = str_https;
+			const char *host = httpmessage_SERVER(request, "host");
+			const char *port = httpmessage_SERVER(request, "port");
+			const char *path = httpmessage_REQUEST(request, "uri");
+			const char *portseparator = "";
+			if (port[0] != '\0')
+				portseparator = ":";
 
-		char location[1024];
-		snprintf(location, 1024, "%s://%s%s%s/%s",
-					scheme, host, portseparator, port, path);
-		httpmessage_addheader(response, str_location, location);
-		httpmessage_result(response, RESULT_301);
-		return ESUCCESS;
+			const char *upgrade = httpmessage_REQUEST(request, str_upgrade_insec_req);
+			if (!strcmp(upgrade, "1"))
+			{
+				char location[1024];
+				snprintf(location, 1024, "%s://%s%s%s/%s",
+							scheme, host, portseparator, port, path);
+				httpmessage_addheader(response, str_location, location);
+				httpmessage_addheader(response, "Vary", str_upgrade_insec_req);
+				httpmessage_result(response, RESULT_307);
+			}
+			return ESUCCESS;
+		}
 	}
 	if (config->options & REDIRECT_GENERATE204)
 	{
