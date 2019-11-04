@@ -54,7 +54,7 @@ typedef struct mod_redirect_s
 	mod_redirect_link_t *links;
 } mod_redirect_t;
 
-extern const char str_redirect[];
+
 extern const module_t mod_redirect;
 void *mod_redirect_create(http_server_t *server, char *vhost, mod_redirect_t *modconfig);
 void mod_redirect_destroy(void *mod);

@@ -212,6 +212,15 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
 
+	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
+	if (mod->authz->rules == NULL)
+	{
+		err("authentication storage not set, change configuration");
+		free(mod->authz);
+		free(mod);
+		return NULL;
+	}
+
 #ifdef AUTHZ_JWT
 	/**
 	 * jwt token contains user information
@@ -227,9 +236,6 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 	else
 		mod->authz->generatetoken = authz_generatetoken;
 #endif
-	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
-	if (mod->authz->rules == NULL)
-		err("authentication type is not availlable, change configuration");
 
 	mod->authz->ctx = mod->authz->rules->create(config->authz_config);
 	if (mod->authz->ctx == NULL)
@@ -464,7 +470,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		 */
 		if ((authorization == NULL || authorization[0] == '\0') && mod->authz->type & AUTHZ_TOKEN_E)
 		{
-			authorization = cookie_get(request, str_xtoken);
+			if (mod->authz->type & AUTHZ_HEADER_E)
+			{
+				authorization = httpmessage_REQUEST(request, str_xtoken);
+			}
+			else
+			{
+				authorization = cookie_get(request, str_xtoken);
+			}
 			if (authorization)
 				from = 2;
 		}
@@ -520,22 +533,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
 
-#ifdef AUTH_TOKEN
-					if (from == 0 && mod->authz->type & AUTHZ_TOKEN_E)
-					{
-							char *token = mod->authz->generatetoken(mod->config, info);
-							mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
-							if (mod->authz->type & AUTHZ_HEADER_E)
-								httpmessage_addheader(response, str_xtoken, (char *)token);
-							else
-								cookie_set(response, str_xtoken, (char *)token);
-							free(token);
-					}
-#endif
 					if (mod->authz->type & AUTHZ_HEADER_E)
 					{
 #ifdef AUTH_TOKEN
-						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+						if (mod->authz->type & AUTHZ_TOKEN_E)
+						{
+								char *token = mod->authz->generatetoken(mod->config, info);
+								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
+								httpmessage_addheader(response, str_xtoken, (char *)token);
+								free(token);
+						}
+						else
 #endif
 						{
 							httpmessage_addheader(response, str_authorization, (char *)authorization);
@@ -553,8 +561,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
 					{
+						dbg("cookie");
 #ifdef AUTH_TOKEN
-						if (!(mod->authz->type & AUTHZ_TOKEN_E))
+						if (mod->authz->type & AUTHZ_TOKEN_E)
+						{
+						dbg("token");
+								char *token = mod->authz->generatetoken(mod->config, info);
+								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
+								cookie_set(response, str_xtoken, (char *)token);
+								free(token);
+						}
+						else
 #endif
 						{
 							cookie_set(response, str_authorization, (char *)authorization);
@@ -660,23 +677,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	free(uri);
 	return ret;
-}
-
-const char *auth_info(http_message_t *request, const char *key)
-{
-	const authsession_t *info = NULL;
-	info = httpmessage_SESSION(request, str_auth, NULL);
-	const char *value = NULL;
-
-	if (info && !strcmp(key, "user"))
-		value = (const char *)info->user;
-	if (info && !strcmp(key, "group"))
-		value = (const char *)info->group;
-	if (info && !strcmp(key, "type"))
-		value = (const char *)info->type;
-	if (info && !strcmp(key, "home"))
-		value = (const char *)info->home;
-	return value;
 }
 
 const module_t mod_auth =

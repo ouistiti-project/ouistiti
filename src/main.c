@@ -94,8 +94,26 @@ static const char str_cgi[] = "cgi";
 static const char str_document[] = "document";
 static const char str_webstream[] = "webstream";
 static const char str_websocket[] = "websocket";
+static const char str_redirect[] = "redirect";
 static const char str_redirect404[] = "redirect404";
 static const char str_cors[] = "cors";
+
+const char *auth_info(http_message_t *request, const char *key)
+{
+	const authsession_t *info = NULL;
+	info = httpmessage_SESSION(request, str_auth, NULL);
+	const char *value = NULL;
+
+	if (info && !strcmp(key, "user"))
+		value = (const char *)info->user;
+	if (info && !strcmp(key, "group"))
+		value = (const char *)info->group;
+	if (info && !strcmp(key, "type"))
+		value = (const char *)info->type;
+	if (info && !strcmp(key, "home"))
+		value = (const char *)info->home;
+	return value;
+}
 
 #ifndef MODULES
 static const module_t *modules[] =
@@ -103,7 +121,7 @@ static const module_t *modules[] =
 #if defined TLS
 	&mod_tls,
 #endif
-#if defined VHOSTS
+#if defined VHOSTS_DEPRECATED
 	&mod_vhost,
 #endif
 #if defined CLIENTFILTER
@@ -137,10 +155,10 @@ static const module_t *modules[] =
 	&mod_redirect404,
 	&mod_redirect,
 #endif
-#endif
 #if defined CORS
 	&mod_cors,
 	NULL
+#endif
 };
 #endif
 
@@ -241,13 +259,14 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 		{
 			mod = modules[i]->create(server, NULL, config);
 			*destroy = modules[i]->destroy;
+			break;
 		}
 		i++;
 	}
 #else
 	char file[512];
 	snprintf(file, 511, PKGLIBDIR"/mod_%s.so", name);
-	void *dh = dlopen(file, RTLD_LAZY);
+	void *dh = dlopen(file, RTLD_LAZY | RTLD_GLOBAL);
 	if (dh != NULL)
 	{
 		module_t *module = dlsym(dh, "mod_info");
@@ -410,14 +429,14 @@ int main(int argc, char * const *argv)
 			if (server->config->modules.clientfilter)
 				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
 			server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
-#if defined(REDIRECT)
-			if (server->config->modules.redirect)
-				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
-#endif
 			if (server->config->modules.cors)
 				server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
 			if (server->config->modules.auth)
 				server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
+#if defined(REDIRECT)
+			if (server->config->modules.redirect)
+				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
+#endif
 			server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);
 			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)

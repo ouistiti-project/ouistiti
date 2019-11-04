@@ -122,6 +122,7 @@ static void *authz_sqlite_create(void *arg)
 		err("auth: database not found %s", config->dbname);
 		return NULL;
 	}
+	dbg("auth: authentication DB storage on %s", config->dbname);
 	/** empty the session table */
 	sqlite3_stmt *statement;
 	const char *sql = "delete from session;";
