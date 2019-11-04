@@ -89,6 +89,10 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 		http_server_t *server = httpclient_server(httpmessage_client(request));
 		const char *scheme = httpserver_INFO(server, "scheme");
 		const char *host = httpserver_INFO(server, "host");
+		if (host == NULL)
+		{
+			host = httpmessage_SERVER(request, "addr");
+		}
 		const char *port = httpserver_INFO(server, "port");
 		const char *portseparator = "";
 		if (port[0] != '\0')
@@ -97,6 +101,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 		snprintf(location, 256, "%s?redirect_uri=%s://%s%s%s/%s",
 			config->token_ep,
 			scheme, host, portseparator, port, uri);
+		dbg("auth: redirection to %s", location);
 		httpmessage_addheader(response, (char *)str_location, location);
 		httpmessage_result(response, RESULT_302);
 	}
@@ -117,6 +122,8 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 	{
 		return str_anonymous;
 	}
+	if (!strncmp(string, "Bearer ", 7))
+		string += 7;
 	return mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 }
 

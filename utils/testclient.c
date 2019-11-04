@@ -274,9 +274,10 @@ void *direct_connect(const char *serveraddr, const int port)
 	return (void *)sock;
 }
 
-int direct_send(void *sock, const void *buf, size_t len)
+int direct_send(void *arg, const void *buf, size_t len)
 {
-	return send((int)sock, buf, len, MSG_NOSIGNAL);
+	int sock = (int)arg;
+	return send(sock, buf, len, MSG_NOSIGNAL);
 }
 
 int direct_recv(void *arg, void *buf, size_t len)
@@ -306,9 +307,10 @@ int direct_recv(void *arg, void *buf, size_t len)
 	return ret;
 }
 
-void direct_close(void *sock)
+void direct_close(void *arg)
 {
-	close((int)sock);
+	int sock = (int)arg;
+	close(sock);
 }
 
 net_api_t direct =
@@ -351,10 +353,12 @@ int main(int argc, char **argv)
 			case 'w':
 				options |= OPT_WEBSOCKET;
 			break;
+#ifdef MBEDTLS
 			case 't':
 				port = 443;
 				net = &tls;
 			break;
+#endif
 		}
 	} while(opt != -1);
 #endif
@@ -428,7 +432,7 @@ int main(int argc, char **argv)
 					}
 					else if (contentlength)
 					{
-						
+
 						/// send content
 						usleep(50);
 						ret = net->send(sock, buffer + headerlength, contentlength);
