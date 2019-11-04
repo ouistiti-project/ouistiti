@@ -1,0 +1,89 @@
+#select FILE_CONFIG to use a configuration file
+#or modify src/config.h
+FILE_CONFIG=y
+#select SHARED or STATIC
+#STATIC build only one binary
+SHARED=n
+STATIC=y
+MODULES=n
+#select the maximum of host to manage (host/port and virtual)
+MAX_SERVERS=4
+
+#LIBHTTPSERVER configuration
+LIBHTTPSERVER_DIR=libhttpserver/
+#multi threads server may run with "fork" or "pthread"
+#if mono thread only one server may run
+VTHREAD=n
+VTHREAD_TYPE=fork
+
+#modules selection:
+
+#LIBHTTPSERVER modules configuration
+#support HTTPS connection and hash functions
+MBEDTLS=y
+WOLFSSL=n
+OPENSSL=n
+LIBB64=y
+#support of static documents
+SECURITY_UNCHECKORIGIN=y
+DOCUMENT=y
+DOCUMENTREST=n
+SENDFILE=y
+DIRLISTING=y
+RANGEREQUEST=n
+DOCUMENTHOME=y
+#support CGI/1.1
+CGI=y
+#support Authentification Basic
+AUTH=y
+AUTH_TOKEN=n
+AUTHN_NONE=n
+AUTHN_BASIC=y
+AUTHN_DIGEST=n
+AUTHN_BEARER=n
+AUTHN_OAUTH2=n
+HTTPCLIENT_FEATURES=n
+AUTHZ_SIMPLE=y
+AUTHZ_FILE=y
+AUTHZ_UNIX=n
+AUTHZ_SQLITE=n
+AUTHZ_JWT=n
+#support of the websocket
+WEBSOCKET=y
+WEBSOCKET_RT=n
+WS_ECHO=n
+WS_CHAT=n
+WS_JSONRPC=n
+WS_SYSLOGD=n
+#support of Virtual Hosting
+VHOSTS=n
+#support of request method check
+METHODLOCK=y
+#add Server Software name into the headers
+SERVERHEADER=y
+#support of the HTTP streaming
+WEBSTREAM=n
+UDPGW=n
+#support of client address filter
+CLIENTFILTER=n
+#support the redirection
+REDIRECT=y
+#support cookie parser
+COOKIE=y
+#support Cross-Origin Resource Sharing (CORS)
+CORS=y
+
+CERTIFICATE=n
+
+HOST_UTILS=n
+
+prefix=/usr
+#bindir=
+#sbindir=
+#includedir=
+libdir=/usr/lib/ouistiti
+pkglibdir=/usr/lib/ouistiti
+sysconfdir=/etc/ouistiti
+
+#sysroot=
+#CROSS_COMPILER=
