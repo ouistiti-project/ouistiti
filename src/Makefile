@@ -23,6 +23,7 @@ $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
 $(TARGET)_LIBS+=httpserver
+$(TARGET)_LIBS+=ouiutils
 
 $(TARGET)_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 $(TARGET)_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
@@ -62,10 +63,8 @@ $(TARGET)_LIBS-$(COOKIE)+=mod_cookie
 $(TARGET)_LIBS-$(CORS)+=mod_cors
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
-$(TARGET)_LIBS-$(WEBSOCKET)+=hash_mod
-$(TARGET)_LIBS-$(DOCUMENT)+=utils_mod
-$(TARGET)_LIBS-$(CGI)+=utils_mod
-$(TARGET)_LIBS-$(AUTH)+=hash_mod
+$(TARGET)_LIBS-$(WEBSOCKET)+=ouihash
+$(TARGET)_LIBS-$(AUTH)+=ouihash
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl
