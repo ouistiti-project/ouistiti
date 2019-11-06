@@ -45,6 +45,8 @@
 #include "httpserver/utils.h"
 #include "mod_cors.h"
 
+#define CLIENT_CONNECTOR
+
 extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);
 extern int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request);
 
@@ -68,12 +70,6 @@ struct _mod_cors_s
 	socket_t socket;
 };
 
-struct _mod_cors_ctx_s
-{
-	_mod_cors_t *mod;
-	http_client_t *ctl;
-};
-
 static const char str_cors[] = "cors";
 static const char str_options[] = "OPTIONS";
 #ifdef DOCUMENTREST
@@ -83,7 +79,7 @@ static const char str_options[] = "OPTIONS";
 #define RESTMETHODS	""
 #endif
 
-static const char str_methodslist[] = 
+static const char str_methodslist[] =
 				"GET, " \
 				"POST, " \
 				"HEAD, " \
@@ -94,8 +90,7 @@ static const char str_methodslist[] =
 static int cors_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	_mod_cors_ctx_t *ctx = (_mod_cors_ctx_t *)arg;
-	_mod_cors_t *mod = ctx->mod;
+	_mod_cors_t *mod = (_mod_cors_t *)arg;
 	mod_cors_t *config = (mod_cors_t *)mod->config;
 
 	const char *origin = httpmessage_REQUEST(request, "Origin");
@@ -130,24 +125,21 @@ static int cors_connector(void *arg, http_message_t *request, http_message_t *re
 	return ret;
 }
 
+#ifdef CLIENT_CONNECTOR
 static void *_mod_cors_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	_mod_cors_t *mod = (_mod_cors_t *)arg;
 
-	_mod_cors_ctx_t *ctx = calloc(1, sizeof(*ctx));
-	ctx->mod = mod;
-	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, cors_connector, ctx, str_cors);
+	httpclient_addconnector(ctl, mod->vhost, cors_connector, mod, str_cors);
 
-	return ctx;
+	return mod;
 }
 
 static void _mod_cors_freectx(void *arg)
 {
-	_mod_cors_ctx_t *ctx = (_mod_cors_ctx_t *)arg;
-
-	free(ctx);
+	_mod_cors_t *ctx = (_mod_cors_t *)arg;
 }
+#endif
 
 void *mod_cors_create(http_server_t *server, char *vhost, mod_cors_t *config)
 {
@@ -156,9 +148,12 @@ void *mod_cors_create(http_server_t *server, char *vhost, mod_cors_t *config)
 	mod->vhost = vhost;
 	mod->config = config;
 
-	dbg("CORS available");
 	httpserver_addmethod(server, str_options, 1);
+#ifdef CLIENT_CONNECTOR
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
+#else
+	httpserver_addconnector(server, vhost, cors_connector, mod);
+#endif
 	return mod;
 }
 
