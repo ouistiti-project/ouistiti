@@ -373,7 +373,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		char *a2 = authn_digest_computing->a2(mod->hash, method, uri, NULL);
 		char *digest = authn_digest_computing->digest(mod->hash, a1, nonce, nc, cnonce, qop, a2);
 
-		//warn("Digest %s", digest);
+		auth_dbg("Digest %s", digest);
 		if (digest && !strcmp(digest, response))
 		{
 			user_ret = (char *)user;
