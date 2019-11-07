@@ -145,8 +145,12 @@ int main(int argc, char * const *argv)
 				home = optarg;
 			break;
 			case 'A':
-				mode &= ~MD5;
-				if (!strcmp(optarg, "SHA-256"))
+				if (!strcmp(optarg, "MD5"))
+				{
+					hash = hash_md5;
+					mode |= MD5;
+				}
+				else if (!strcmp(optarg, "SHA-256"))
 				{
 					hash = hash_sha256;
 					mode |= SHA256;
@@ -154,11 +158,6 @@ int main(int argc, char * const *argv)
 				else if (!strcmp(optarg, "SHA-512"))
 				{
 					hash = hash_sha512;
-					mode |= SHA512;
-				}
-				else if (!strcmp(optarg, "MD5"))
-				{
-					hash = hash_md5;
 					mode |= SHA512;
 				}
 			break;
@@ -209,9 +208,13 @@ int main(int argc, char * const *argv)
 			output = passwd;
 		char cryptpasswd[256];
 		if (hash != NULL)
+		{
 			ret = crypt_password(output, cryptpasswd, 256, hash);
+		}
 		else
+		{
 			base64->encode(output, strlen(output), cryptpasswd, 256);
+		}
 		printf("%s:", user);
 		if (mode & DIGEST && realm != NULL)
 		{
