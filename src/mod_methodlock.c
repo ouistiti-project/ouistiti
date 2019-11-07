@@ -58,9 +58,9 @@ struct _mod_methodlock_s
 	char *unlock_groups;
 };
 
-static int methodlock_connector(void *arg, http_message_t *request, http_message_t *response)
+static int methodlock_connector(void **arg, http_message_t *request, http_message_t *response)
 {
-	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
+	_mod_methodlock_t *mod = (_mod_methodlock_t *)*arg;
 	int ret;
 
 	const char *method = httpmessage_REQUEST(request, "method");
