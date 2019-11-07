@@ -173,8 +173,11 @@ int main(int argc, char **argv)
 	{
 		struct passwd *user = NULL;
 		user = getpwnam(username);
-		setgid(user->pw_gid);
-		setuid(user->pw_uid);
+		if (user != NULL)
+		{
+			setgid(user->pw_gid);
+			setuid(user->pw_uid);
+		}
 	}
 
 	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);

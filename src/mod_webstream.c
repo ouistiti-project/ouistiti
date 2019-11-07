@@ -98,10 +98,10 @@ static int _checkname(_mod_webstream_ctx_t *ctx, char *pathname)
 	return ESUCCESS;
 }
 
-static int webstream_connector(void *arg, http_message_t *request, http_message_t *response)
+static int webstream_connector(void **arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	_mod_webstream_ctx_t *ctx = (_mod_webstream_ctx_t *)arg;
+	_mod_webstream_ctx_t *ctx = (_mod_webstream_ctx_t *)*arg;
 	_mod_webstream_t *mod = ctx->mod;
 	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 
