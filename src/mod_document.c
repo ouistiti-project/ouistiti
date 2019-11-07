@@ -105,10 +105,10 @@ static int document_checkname(document_connector_t *private, http_message_t *res
 	return ESUCCESS;
 }
 
-static int document_connector(void *arg, http_message_t *request, http_message_t *response)
+static int document_connector(void **arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	document_connector_t *private = (document_connector_t *)arg;
+	document_connector_t *private = (document_connector_t *)*arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 	if (private->fd == 0)
@@ -261,9 +261,9 @@ static int document_connector(void *arg, http_message_t *request, http_message_t
 	return EREJECT;
 }
 
-int getfile_connector(void *arg, http_message_t *request, http_message_t *response)
+int getfile_connector(void **arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)arg;
+	document_connector_t *private = (document_connector_t *)*arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
@@ -379,9 +379,9 @@ int mod_send_read(document_connector_t *private, http_message_t *response)
 	return ret;
 }
 
-static int transfer_connector(void *arg, http_message_t *request, http_message_t *response)
+static int transfer_connector(void **arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)arg;
+	document_connector_t *private = (document_connector_t *)*arg;
 	if (private->func)
 		return private->func(arg, request, response);
 	return EREJECT;

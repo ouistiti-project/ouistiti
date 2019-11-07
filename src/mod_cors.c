@@ -87,10 +87,10 @@ static const char str_methodslist[] =
 				RESTMETHODS \
 				"";
 
-static int cors_connector(void *arg, http_message_t *request, http_message_t *response)
+static int cors_connector(void **arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	_mod_cors_t *mod = (_mod_cors_t *)arg;
+	_mod_cors_t *mod = (_mod_cors_t *)*arg;
 	mod_cors_t *config = (mod_cors_t *)mod->config;
 
 	const char *origin = httpmessage_REQUEST(request, "Origin");
