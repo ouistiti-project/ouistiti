@@ -94,16 +94,16 @@ struct _document_connector_s
  * specific connectors
  */
 #ifdef RANGEREQUEST
-int range_connector(void *arg, http_message_t *request, http_message_t *response);
+int range_connector(void **arg, http_message_t *request, http_message_t *response);
 #endif
 #ifdef DIRLISTING
-int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
+int dirlisting_connector(void **arg, http_message_t *request, http_message_t *response);
 #endif
-int getfile_connector(void *arg, http_message_t *request, http_message_t *response);
+int getfile_connector(void **arg, http_message_t *request, http_message_t *response);
 #ifdef DOCUMENTREST
-int putfile_connector(void *arg, http_message_t *request, http_message_t *response);
-int postfile_connector(void *arg, http_message_t *request, http_message_t *response);
-int deletefile_connector(void *arg, http_message_t *request, http_message_t *response);
+int putfile_connector(void **arg, http_message_t *request, http_message_t *response);
+int postfile_connector(void **arg, http_message_t *request, http_message_t *response);
+int deletefile_connector(void **arg, http_message_t *request, http_message_t *response);
 #endif
 
 int document_close(document_connector_t *private);

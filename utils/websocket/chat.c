@@ -132,12 +132,12 @@ int chat(user_t *user, char *buffer, int length)
 			strncpy(user->identity->name, identity, sizeof(user->identity->name));
 			if (i > 0)
 			{
-				
+
 				if (length > 27)
 					length = 27;
 				sprintf(user->identity->name + length, "%03hd", i);
 			}
-				
+
 			char resp[40];
 			sprintf(resp, "WSWelcome %s", user->identity->name);
 			privatemsg(user, resp, strlen(resp));
@@ -146,7 +146,7 @@ int chat(user_t *user, char *buffer, int length)
 	else if (!strncmp(buffer,"WSPrivate ", 10))
 	{
 		char *identity = buffer + 10;
-		
+
 		buffer += 10;
 		length -= 10;
 		while ((*buffer != '\n') && (*buffer != ' ') && (length > 0))
@@ -283,8 +283,11 @@ int main(int argc, char **argv)
 	{
 		struct passwd *user = NULL;
 		user = getpwnam(username);
-		setgid(user->pw_gid);
-		setuid(user->pw_uid);
+		if (user != NULL)
+		{
+			setgid(user->pw_gid);
+			setuid(user->pw_uid);
+		}
 	}
 
 	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);
@@ -334,7 +337,7 @@ int main(int argc, char **argv)
 							user->next = first_user;
 							if (first_user)
 								first_user->prev = user;
-							first_user = user;	
+							first_user = user;
 							if (addr.ss_family == AF_INET)
 							{
 								struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr;
@@ -343,7 +346,7 @@ int main(int argc, char **argv)
 							else
 								warn("chat: new connection");
 							/*
-							char *buffer = calloc(1, strlen(str_hello) + 1);	
+							char *buffer = calloc(1, strlen(str_hello) + 1);
 							sprintf(buffer, str_hello, newsock);
 							privatemsg(user, buffer, strlen(buffer));
 							free(buffer);
@@ -386,7 +389,7 @@ int main(int argc, char **argv)
 						}
 						user = user->next;
 					}
-				
+
 				}
 			} while(newsock > 0);
 		}

@@ -78,10 +78,10 @@ static const char *_sizeunit[] = {
 	"GB",
 	"TB",
 };
-int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
+int dirlisting_connector(void **arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	document_connector_t *private = (document_connector_t *)arg;
+	document_connector_t *private = (document_connector_t *)*arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
@@ -92,6 +92,10 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		if (private->dir)
 		{
 			dbg("dirlisting: open /%s", private->filepath);
+			/**
+			 * The content-length of dirlisting is unknown.
+			 * Set the content-type first without content-length.
+			 */
 			httpmessage_addcontent(response, (char*)utils_getmime(".json"), NULL, -1);
 			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
 			{
@@ -105,11 +109,6 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 				int length = strlen(private->path_info);
 				char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
 				snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, private->path_info);
-				/**
-				 * The content-length of dirlisting is unknown.
-				 * Set the content-type first without content-length.
-				 */
-				httpmessage_addcontent(response, (char*)utils_getmime(".json"), NULL, -1);
 				httpmessage_appendcontent(response, data, strlen(data));
 				free(data);
 				ret = ECONTINUE;
@@ -130,7 +129,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		 * We must close the socket to advertise the client.
 		 */
 		dbg("dirlisting: socket shutdown");
-		httpclient_shutdown(private->ctl);
+		httpclient_shutdown(httpmessage_client(request));
 		closedir(private->dir);
 		private->dir = NULL;
 		document_close(private);
