@@ -561,11 +561,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
 					{
-						dbg("cookie");
 #ifdef AUTH_TOKEN
 						if (mod->authz->type & AUTHZ_TOKEN_E)
 						{
-						dbg("token");
 								char *token = mod->authz->generatetoken(mod->config, info);
 								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
 								cookie_set(response, str_xtoken, (char *)token);
@@ -589,22 +587,22 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					}
 				}
 
-				struct passwd *result;
-
-				result = getpwnam(info->user);
-				if (result != NULL)
+				if (mod->authz->type & AUTHZ_UNIX_E)
 				{
-					uid_t uid;
-					uid = getuid();
-					//only "saved set-uid", "uid" and "euid" may be set
-					//first step: set the "saved set-uid" (root)
-					seteuid(uid);
-					//second step: set the new "euid"
-					seteuid(result->pw_uid);
-					setegid(result->pw_gid);
+					struct passwd *result;
+					result = getpwnam(info->user);
+					if (result != NULL)
+					{
+						uid_t uid;
+						uid = getuid();
+						//only "saved set-uid", "uid" and "euid" may be set
+						//first step: set the "saved set-uid" (root)
+						seteuid(uid);
+						//second step: set the new "euid"
+						seteuid(result->pw_uid);
+						setegid(result->pw_gid);
+					}
 				}
-				else
-					auth_dbg("user not found on system");
 				warn("user \"%s\" accepted from %p", info->user, ctx->ctl);
 				ret = EREJECT;
 			}
