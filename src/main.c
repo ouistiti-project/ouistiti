@@ -84,7 +84,7 @@ extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_me
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
 static const char str_tls[] = "tls";
-static const char str_vhost[] = "vhost";
+static const char str_vhosts[] = "vhosts";
 static const char str_clientfilter[] = "clientfilter";
 static const char str_cookie[] = "cookie";
 static const char str_auth[] = "auth";
@@ -122,7 +122,7 @@ static const module_t *modules[] =
 	&mod_tls,
 #endif
 #if defined VHOSTS_DEPRECATED
-	&mod_vhost,
+	&mod_vhosts,
 #endif
 #if defined CLIENTFILTER
 	&mod_clientfilter,
@@ -248,7 +248,7 @@ static void _setpidfile(char *pidfile)
 	}
 }
 
-void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
+static void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
 {
 	void *mod = NULL;
 #ifndef MODULES
@@ -418,16 +418,16 @@ int main(int argc, char * const *argv)
 			 */
 			if (server->config->tls)
 				server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j++].destroy);
-			for (i = 0; i < (MAX_SERVERS - 1); i++)
-			{
-				if (server->config->vhosts[i])
-					server->modules[j].config = loadmodule(str_vhost, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
-			}
 			/**
 			 * clientfilter must be at the beginning to stop the connection if necessary
 			 */
 			if (server->config->modules.clientfilter)
 				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
+			for (i = 0; i < (MAX_SERVERS - 1); i++)
+			{
+				if (server->config->vhosts[i])
+					server->modules[j].config = loadmodule(str_vhosts, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
+			}
 			server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cors)
 				server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
