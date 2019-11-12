@@ -227,7 +227,7 @@ int putfile_connector(void **arg, http_message_t *request, http_message_t *respo
 
 			value.tv_sec = stop.tv_sec - private->start.tv_sec;
 			value.tv_nsec = stop.tv_nsec - private->start.tv_nsec;
-			dbg("document: (%llu bytes) %ld:%3ld", private->datasize, value.tv_sec, value.tv_nsec/1000000);
+			dbg("document: (%llu bytes) time %ld:%03ld", private->datasize, value.tv_sec, value.tv_nsec/1000000);
 #endif
 			warn("document: %s uploaded", private->filepath);
 			if (private->fd)
