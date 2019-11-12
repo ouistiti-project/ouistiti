@@ -64,7 +64,6 @@ typedef int (*socket_t)(mod_webstream_t *config, char *filepath);
 struct _mod_webstream_s
 {
 	mod_webstream_t *config;
-	void *vhost;
 	socket_t socket;
 };
 
@@ -166,7 +165,7 @@ static void *_mod_webstream_getctx(void *arg, http_client_t *ctl, struct sockadd
 	_mod_webstream_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, webstream_connector, ctx, str_webstream);
+	httpclient_addconnector(ctl, webstream_connector, ctx, str_webstream);
 
 	return ctx;
 }
@@ -195,11 +194,10 @@ static void _mod_webstream_freectx(void *arg)
 	free(ctx);
 }
 
-void *mod_webstream_create(http_server_t *server, char *vhost, mod_webstream_t *config)
+void *mod_webstream_create(http_server_t *server, mod_webstream_t *config)
 {
 	_mod_webstream_t *mod = calloc(1, sizeof(*mod));
 
-	mod->vhost = vhost;
 	mod->config = config;
 
 	httpserver_addmod(server, _mod_webstream_getctx, _mod_webstream_freectx, mod, str_webstream);

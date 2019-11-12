@@ -96,10 +96,9 @@ struct _mod_cgi_s
 {
 	http_server_t *server;
 	mod_cgi_config_t *config;
-	char *vhost;
 };
 
-void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig)
+void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
 {
 	_mod_cgi_t *mod;
 
@@ -108,7 +107,6 @@ void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modco
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = modconfig;
-	mod->vhost = vhost;
 	mod->server = server;
 	if (modconfig->timeout == 0)
 		modconfig->timeout = 3;
@@ -134,7 +132,7 @@ static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *add
 	if (mod->config->chunksize == 0)
 		mod->config->chunksize = 64;
 	ctx->chunk = malloc(mod->config->chunksize + 1);
-	httpclient_addconnector(ctl, mod->vhost, _cgi_connector, ctx, str_cgi);
+	httpclient_addconnector(ctl, _cgi_connector, ctx, str_cgi);
 
 	return ctx;
 }

@@ -53,7 +53,6 @@ typedef struct _mod_server_s _mod_server_t;
 
 struct _mod_server_s
 {
-	void *vhost;
 	mod_security_t *config;
 };
 
@@ -121,16 +120,15 @@ static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *
 {
 	_mod_server_t *mod = (_mod_server_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, server_connector, arg, str_server);
+	httpclient_addconnector(ctl, server_connector, arg, str_server);
 
 	return mod;
 }
 
-void *mod_server_create(http_server_t *server, char *vhost, void *config)
+void *mod_server_create(http_server_t *server, void *config)
 {
 	_mod_server_t *mod = calloc(1, sizeof(*mod));
 
-	mod->vhost = vhost;
 	mod->config = config;
 	httpserver_addmod(server, _mod_server_getctx, NULL, mod, str_server);
 

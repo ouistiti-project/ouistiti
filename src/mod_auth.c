@@ -104,7 +104,6 @@ struct _mod_auth_ctx_s
 struct _mod_auth_s
 {
 	mod_auth_t	*config;
-	char *vhost;
 	const char *type;
 	authn_t *authn;
 	authz_t *authz;
@@ -196,7 +195,7 @@ authz_rules_t *authz_rules[] = {
 #endif
 };
 
-void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
+void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
 
@@ -207,7 +206,6 @@ void *mod_auth_create(http_server_t *server, char *vhost, mod_auth_t *config)
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
-	mod->vhost = vhost;
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz_type;
@@ -336,8 +334,8 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	ctx->ctl = ctl;
 
 	if (mod->authz->type & AUTHZ_HOME_E)
-		httpclient_addconnector(ctl, mod->vhost, _home_connector, ctx, str_auth);
-	httpclient_addconnector(ctl, mod->vhost, _authn_connector, ctx, str_auth);
+		httpclient_addconnector(ctl, _home_connector, ctx, str_auth);
+	httpclient_addconnector(ctl, _authn_connector, ctx, str_auth);
 	/**
 	 * authn may require prioritary connector and it has to be added after this one
 	 */

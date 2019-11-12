@@ -54,7 +54,6 @@ typedef struct _mod_methodlock_s _mod_methodlock_t;
 
 struct _mod_methodlock_s
 {
-	void *vhost;
 	char *unlock_groups;
 };
 
@@ -131,16 +130,15 @@ static void *_mod_methodlock_getctx(void *arg, http_client_t *ctl, struct sockad
 {
 	_mod_methodlock_t *mod = (_mod_methodlock_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, methodlock_connector, mod, str_methodlock);
+	httpclient_addconnector(ctl, methodlock_connector, mod, str_methodlock);
 
 	return arg;
 }
 
-void *mod_methodlock_create(http_server_t *server, char *vhost, void *config)
+void *mod_methodlock_create(http_server_t *server, void *config)
 {
 	_mod_methodlock_t *mod = calloc(1, sizeof(*mod));
 
-	mod->vhost = vhost;
 	mod->unlock_groups = config;
 	httpserver_addmod(server, _mod_methodlock_getctx, NULL, mod, str_methodlock);
 

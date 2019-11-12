@@ -189,7 +189,7 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx, str_dirlisting);
+	httpclient_addconnector(ctl, dirlisting_connector, ctx, str_dirlisting);
 
 	return ctx;
 }
@@ -205,7 +205,7 @@ static void _mod_dirlisting_freectx(void *vctx)
 	free(ctx);
 }
 
-void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_document_t *config)
+void *mod_dirlisting_create(http_server_t *server, mod_document_t *config)
 {
 	_mod_document_mod_t *mod = calloc(1, sizeof(*mod));
 
@@ -213,7 +213,6 @@ void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_document_t *
 		return NULL;
 
 	mod->config = config;
-	mod->vhost = vhost;
 	httpserver_addmod(server, _mod_dirlisting_getctx, _mod_dirlisting_freectx, mod, str_dirlisting);
 
 	return mod;

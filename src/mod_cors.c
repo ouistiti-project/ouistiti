@@ -66,7 +66,6 @@ typedef int (*socket_t)(mod_cors_t *config, char *filepath);
 struct _mod_cors_s
 {
 	mod_cors_t *config;
-	void *vhost;
 	socket_t socket;
 };
 
@@ -130,7 +129,7 @@ static void *_mod_cors_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 {
 	_mod_cors_t *mod = (_mod_cors_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, cors_connector, mod, str_cors);
+	httpclient_addconnector(ctl, cors_connector, mod, str_cors);
 
 	return mod;
 }
@@ -141,18 +140,17 @@ static void _mod_cors_freectx(void *arg)
 }
 #endif
 
-void *mod_cors_create(http_server_t *server, char *vhost, mod_cors_t *config)
+void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 {
 	_mod_cors_t *mod = calloc(1, sizeof(*mod));
 
-	mod->vhost = vhost;
 	mod->config = config;
 
 	httpserver_addmethod(server, str_options, 1);
 #ifdef CLIENT_CONNECTOR
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
 #else
-	httpserver_addconnector(server, vhost, cors_connector, mod);
+	httpserver_addconnector(server, cors_connector, mod);
 #endif
 	return mod;
 }

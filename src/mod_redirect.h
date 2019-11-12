@@ -37,7 +37,7 @@ extern "C"
 typedef struct mod_redirect_link_s mod_redirect_link_t;
 struct mod_redirect_link_s
 {
-	char *origin;
+	const char *origin;
 	char *destination;
 	int options;
 	mod_redirect_link_t *next;
@@ -56,8 +56,6 @@ typedef struct mod_redirect_s
 
 
 extern const module_t mod_redirect;
-void *mod_redirect_create(http_server_t *server, char *vhost, mod_redirect_t *modconfig);
-void mod_redirect_destroy(void *mod);
 
 #ifdef __cplusplus
 }

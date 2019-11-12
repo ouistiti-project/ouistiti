@@ -257,7 +257,7 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 	{
 		if (!strcmp(modules[i]->name, name))
 		{
-			mod = modules[i]->create(server, NULL, config);
+			mod = modules[i]->create(server, config);
 			*destroy = modules[i]->destroy;
 			break;
 		}
@@ -272,7 +272,7 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 		module_t *module = dlsym(dh, "mod_info");
 		if (module && !strcmp(module->name, name))
 		{
-			mod = module->create(server, NULL, config);
+			mod = module->create(server, config);
 			*destroy = module->destroy;
 			dbg("module %s loaded", name);
 		}
