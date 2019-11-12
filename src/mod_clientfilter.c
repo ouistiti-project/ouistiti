@@ -57,14 +57,13 @@ static const char str_clientfilter[] = "clientfilter";
 struct _mod_clientfilter_s
 {
 	mod_clientfilter_t	*config;
-	char *vhost;
 	http_client_t *ctl;
 };
 
 static const char *str_wilcard = "*";
 static const char *str_empty = "";
 
-void *mod_clientfilter_create(http_server_t *server, char *vhost, mod_clientfilter_t *config)
+void *mod_clientfilter_create(http_server_t *server, mod_clientfilter_t *config)
 {
 	_mod_clientfilter_t *mod;
 
@@ -73,7 +72,6 @@ void *mod_clientfilter_create(http_server_t *server, char *vhost, mod_clientfilt
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
-	mod->vhost = vhost;
 
 	httpserver_addmod(server, _mod_clientfilter_getctx, _mod_clientfilter_freectx, mod, str_clientfilter);
 	return mod;

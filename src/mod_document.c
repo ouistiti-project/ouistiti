@@ -395,13 +395,12 @@ static void *_mod_document_getctx(void *arg, http_client_t *ctl, struct sockaddr
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-
-	httpclient_addconnector(ctl, mod->vhost, transfer_connector, ctx, str_document);
+	httpclient_addconnector(ctl, transfer_connector, ctx, str_document);
 #ifdef RANGEREQUEST
 	if (config->options & DOCUMENT_RANGE)
-		httpclient_addconnector(ctl, mod->vhost, range_connector, ctx, str_document);
+		httpclient_addconnector(ctl, range_connector, ctx, str_document);
 #endif
-	httpclient_addconnector(ctl, mod->vhost, document_connector, ctx, str_document);
+	httpclient_addconnector(ctl, document_connector, ctx, str_document);
 
 	return ctx;
 }
@@ -414,7 +413,7 @@ static void _mod_document_freectx(void *vctx)
 	free(ctx);
 }
 
-void *mod_document_create(http_server_t *server, char *vhost, mod_document_t *config)
+void *mod_document_create(http_server_t *server, mod_document_t *config)
 {
 	if (!config)
 	{
@@ -424,7 +423,6 @@ void *mod_document_create(http_server_t *server, char *vhost, mod_document_t *co
 	_mod_document_mod_t *mod = calloc(1, sizeof(*mod));
 
 	mod->config = config;
-	mod->vhost = vhost;
 	httpserver_addmod(server, _mod_document_getctx, _mod_document_freectx, mod, str_document);
 #ifdef DOCUMENTREST
 	if (config->options & DOCUMENT_REST)

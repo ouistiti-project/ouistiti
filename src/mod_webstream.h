@@ -46,8 +46,6 @@ struct mod_webstream_s
 };
 
 extern const module_t mod_webstream;
-void *mod_webstream_create(http_server_t *server, char *vhost, mod_webstream_t *config);
-void mod_webstream_destroy(void *data);
 
 #ifdef __cplusplus
 }

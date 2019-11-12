@@ -52,8 +52,6 @@ typedef struct mod_document_s
 } mod_document_t;
 
 extern const module_t mod_document;
-void *mod_document_create(http_server_t *server, char *vhost, mod_document_t *config);
-void mod_document_destroy(void *data);
 
 /**
  * interface to change the data transfer function

@@ -41,8 +41,6 @@ typedef struct mod_clientfilter_s
 } mod_clientfilter_t;
 
 extern const module_t mod_clientfilter;
-void *mod_clientfilter_create(http_server_t *server, char *vhost, mod_clientfilter_t *modconfig);
-void mod_clientfilter_destroy(void *mod);
 
 #ifdef __cplusplus
 }
