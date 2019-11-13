@@ -37,6 +37,7 @@
 #include <arpa/inet.h>
 #include <sched.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -156,14 +157,14 @@ int main(int argc, char **argv)
 							user->next = first_user;
 							if (first_user)
 								first_user->prev = user;
-							first_user = user;	
+							first_user = user;
 							if (addr.ss_family == AF_INET)
 							{
 								struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr;
 								warn("echo: new connection from %s %p", inet_ntoa(addr_in->sin_addr), user);
 							}
 							/*
-							char *buffer = calloc(1, strlen(str_hello) + 1);	
+							char *buffer = calloc(1, strlen(str_hello) + 1);
 							sprintf(buffer, str_hello, newsock);
 							privatemsg(user, buffer, strlen(buffer));
 							free(buffer);

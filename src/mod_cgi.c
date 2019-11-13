@@ -64,7 +64,7 @@ typedef struct mod_cgi_ctx_s mod_cgi_ctx_t;
 
 static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 static void _mod_cgi_freectx(void *vctx);
-static int _cgi_connector(void **arg, http_message_t *request, http_message_t *response);
+static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response);
 
 struct mod_cgi_ctx_s
 {
@@ -210,10 +210,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return pid;
 }
 
-static int _cgi_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EINCOMPLETE;
-	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)*arg;
+	mod_cgi_ctx_t *ctx = (mod_cgi_ctx_t *)arg;
 	mod_cgi_config_t *config = ctx->mod->config;
 
 	if (ctx->state == STATE_SETUP)

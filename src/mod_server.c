@@ -56,9 +56,9 @@ struct _mod_server_s
 	mod_security_t *config;
 };
 
-static int server_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _server_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	_mod_server_t *mod = (_mod_server_t *)*arg;
+	_mod_server_t *mod = (_mod_server_t *)arg;
 	mod_security_t *config = mod->config;
 	int ret = EREJECT;
 	int options = 0;
@@ -120,7 +120,7 @@ static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *
 {
 	_mod_server_t *mod = (_mod_server_t *)arg;
 
-	httpclient_addconnector(ctl, server_connector, arg, str_server);
+	httpclient_addconnector(ctl, _server_connector, arg, str_server);
 
 	return mod;
 }

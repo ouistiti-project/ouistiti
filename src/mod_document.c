@@ -105,10 +105,10 @@ static int document_checkname(document_connector_t *private, http_message_t *res
 	return ESUCCESS;
 }
 
-static int document_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _document_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	document_connector_t *private = (document_connector_t *)*arg;
+	document_connector_t *private = (document_connector_t *)arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 	if (private->fd == 0)
@@ -261,9 +261,9 @@ static int document_connector(void **arg, http_message_t *request, http_message_
 	return EREJECT;
 }
 
-int getfile_connector(void **arg, http_message_t *request, http_message_t *response)
+int getfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)*arg;
+	document_connector_t *private = (document_connector_t *)arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
@@ -369,7 +369,6 @@ int mod_send_read(document_connector_t *private, http_message_t *response)
 	 * the size may be different of the real size file
 	 */
 	chunksize = (CONTENTCHUNK > private->size)?private->size:CONTENTCHUNK;
-
 	size = read(private->fd, content, chunksize);
 	if (size > 0)
 	{
@@ -384,9 +383,9 @@ int mod_send_read(document_connector_t *private, http_message_t *response)
 	return ret;
 }
 
-static int transfer_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _transfer_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)*arg;
+	document_connector_t *private = (document_connector_t *)arg;
 	if (private->func)
 		return private->func(arg, request, response);
 	return EREJECT;
@@ -400,12 +399,12 @@ static void *_mod_document_getctx(void *arg, http_client_t *ctl, struct sockaddr
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, transfer_connector, ctx, str_document);
+	httpclient_addconnector(ctl, _transfer_connector, ctx, str_document);
 #ifdef RANGEREQUEST
 	if (config->options & DOCUMENT_RANGE)
 		httpclient_addconnector(ctl, range_connector, ctx, str_document);
 #endif
-	httpclient_addconnector(ctl, document_connector, ctx, str_document);
+	httpclient_addconnector(ctl, _document_connector, ctx, str_document);
 
 	return ctx;
 }
