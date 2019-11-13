@@ -80,7 +80,7 @@ static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct socka
 {
 	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
 
-	httpclient_addconnector(ctl, _mod_redirect404_connector, arg, str_redirect404);
+	httpclient_addconnector(ctl, _mod_redirect404_connector, arg, CONNECTOR_ERROR, str_redirect404);
 	return mod;
 }
 

@@ -197,7 +197,7 @@ static void *_mod_vhost_getctx(void *arg, http_client_t *ctl, struct sockaddr *a
 {
 	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
 
-	httpclient_addconnector(ctl, _vhost_connector, arg, str_vhosts);
+	httpclient_addconnector(ctl, _vhost_connector, arg, CONNECTOR_FILTER, str_vhosts);
 
 	return mod;
 }

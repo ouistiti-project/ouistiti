@@ -165,7 +165,7 @@ static void *_mod_webstream_getctx(void *arg, http_client_t *ctl, struct sockadd
 	_mod_webstream_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, _webstream_connector, ctx, str_webstream);
+	httpclient_addconnector(ctl, _webstream_connector, ctx, CONNECTOR_DOCUMENT, str_webstream);
 
 	return ctx;
 }

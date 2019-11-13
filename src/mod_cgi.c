@@ -132,7 +132,7 @@ static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *add
 	if (mod->config->chunksize == 0)
 		mod->config->chunksize = 64;
 	ctx->chunk = malloc(mod->config->chunksize + 1);
-	httpclient_addconnector(ctl, _cgi_connector, ctx, str_cgi);
+	httpclient_addconnector(ctl, _cgi_connector, ctx, CONNECTOR_DOCUMENT, str_cgi);
 
 	return ctx;
 }
