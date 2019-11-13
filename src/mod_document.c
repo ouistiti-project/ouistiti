@@ -399,12 +399,12 @@ static void *_mod_document_getctx(void *arg, http_client_t *ctl, struct sockaddr
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, _transfer_connector, ctx, str_document);
+	httpclient_addconnector(ctl, _transfer_connector, ctx, CONNECTOR_DOCUMENT, str_document);
 #ifdef RANGEREQUEST
 	if (config->options & DOCUMENT_RANGE)
-		httpclient_addconnector(ctl, range_connector, ctx, str_document);
+		httpclient_addconnector(ctl, range_connector, ctx, CONNECTOR_DOCUMENT, str_document);
 #endif
-	httpclient_addconnector(ctl, _document_connector, ctx, str_document);
+	httpclient_addconnector(ctl, _document_connector, ctx, CONNECTOR_DOCUMENT, str_document);
 
 	return ctx;
 }

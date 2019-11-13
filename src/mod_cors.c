@@ -129,7 +129,7 @@ static void *_mod_cors_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 {
 	_mod_cors_t *mod = (_mod_cors_t *)arg;
 
-	httpclient_addconnector(ctl, _cors_connector, mod, str_cors);
+	httpclient_addconnector(ctl, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
 
 	return mod;
 }
@@ -150,7 +150,7 @@ void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 #ifdef CLIENT_CONNECTOR
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
 #else
-	httpserver_addconnector(server, _cors_connector, mod);
+	httpserver_addconnector(server, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
 #endif
 	return mod;
 }

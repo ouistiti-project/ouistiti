@@ -192,7 +192,7 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, dirlisting_connector, ctx, str_dirlisting);
+	httpclient_addconnector(ctl, dirlisting_connector, ctx, CONNECTOR_DOCUMENT, str_dirlisting);
 
 	return ctx;
 }

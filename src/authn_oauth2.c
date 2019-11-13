@@ -384,7 +384,7 @@ static int authn_oauth2_setup(void *arg, http_client_t *clt, struct sockaddr *ad
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 
 	mod->clt = clt;
-	httpclient_addconnector(clt, _oauth2_authresp_connector, mod, str_oauth2);
+	httpclient_addconnector(clt, _oauth2_authresp_connector, mod, CONNECTOR_AUTH, str_oauth2);
 	return ESUCCESS;
 }
 

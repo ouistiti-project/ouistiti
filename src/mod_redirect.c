@@ -101,7 +101,7 @@ static void *_mod_redirect_getctx(void *arg, http_client_t *ctl, struct sockaddr
 	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
 	mod_redirect_t *config = mod->config;
 
-	httpclient_addconnector(ctl, _mod_redirect_connector, arg, str_redirect);
+	httpclient_addconnector(ctl, _mod_redirect_connector, arg, CONNECTOR_DOCFILTER, str_redirect);
 	return mod;
 }
 

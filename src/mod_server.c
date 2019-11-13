@@ -120,7 +120,7 @@ static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *
 {
 	_mod_server_t *mod = (_mod_server_t *)arg;
 
-	httpclient_addconnector(ctl, _server_connector, arg, str_server);
+	httpclient_addconnector(ctl, _server_connector, arg, CONNECTOR_FILTER, str_server);
 
 	return mod;
 }
