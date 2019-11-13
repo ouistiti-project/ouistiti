@@ -71,7 +71,7 @@ typedef struct _document_connector_s document_connector_t;
 
 int mod_send(document_connector_t *private, http_message_t *response);
 
-int document_close(document_connector_t *private)
+int document_close(document_connector_t *private, http_message_t *request)
 {
 	if (private->filepath)
 		free(private->filepath);
@@ -82,6 +82,8 @@ int document_close(document_connector_t *private)
 	private->fd = 0;
 	private->func = NULL;
 	private->dir = NULL;
+	httpmessage_private(request, NULL);
+	free(private);
 }
 
 static int document_checkname(document_connector_t *private, http_message_t *response)
@@ -108,11 +110,16 @@ static int document_checkname(document_connector_t *private, http_message_t *res
 static int _document_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	document_connector_t *private = (document_connector_t *)arg;
-	_mod_document_mod_t *mod = private->mod;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
-	if (private->fd == 0)
+	if (private == 0)
 	{
+		private = calloc(1, sizeof(*private));
+		httpmessage_private(request, private);
+
+		private->mod = mod;
+		private->ctl = httpmessage_client(request);
 		private->size = 0;
 		private->offset = 0;
 		struct stat filestat;
@@ -157,7 +164,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 			if (docroot == NULL)
 			{
 				httpmessage_result(response, RESULT_403);
-				document_close(private);
+				document_close(private, request);
 				return  EREJECT;
 			}
 		}
@@ -180,13 +187,13 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		if (private->filepath == NULL)
 		{
 			dbg("document: %s not exist", private->path_info);
-			document_close(private);
+			document_close(private, request);
 			return  EREJECT;
 		}
 		else if (document_checkname(private, response) == EREJECT)
 		{
 			httpmessage_result(response, RESULT_403);
-			document_close(private);
+			document_close(private, request);
 			return  EREJECT;
 		}
 
@@ -202,7 +209,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 				httpmessage_addheader(response, str_location, location);
 				httpmessage_result(response, RESULT_301);
 				free(location);
-				document_close(private);
+				document_close(private, request);
 				return ESUCCESS;
 			}
 			else
@@ -230,7 +237,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 					httpmessage_addheader(response, str_location, location);
 					httpmessage_result(response, RESULT_301);
 					free(indexpath);
-					document_close(private);
+					document_close(private, request);
 					return ESUCCESS;
 #else
 					free(private->filepath);
@@ -241,7 +248,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 				else
 				{
 					dbg("document: %s is directory", private->path_info);
-					document_close(private);
+					document_close(private, request);
 					return EREJECT;
 				}
 			}
@@ -266,14 +273,14 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #endif
 	}
 	if (private->func == NULL)
-		document_close(private);
+		document_close(private, request);
 	return EREJECT;
 }
 
 int getfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)arg;
-	_mod_document_mod_t *mod = private->mod;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
 	if (private->type & DOCUMENT_DIRLISTING || private->filepath == NULL)
@@ -290,7 +297,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 #endif
 		if (private->fd > 0)
 			close(private->fd);
-		document_close(private);
+		document_close(private, request);
 		return ESUCCESS;
 	}
 	if (private->fd == 0)
@@ -309,7 +316,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				httpmessage_result(response, RESULT_400);
 #endif
 			err("document open %s %s", private->filepath, strerror(errno));
-			document_close(private);
+			document_close(private, request);
 			return ESUCCESS;
 		}
 		else
@@ -340,7 +347,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				return EINCOMPLETE;
 			err("document: send %s (%d,%s)", private->filepath, ret, strerror(errno));
 			close(private->fd);
-			document_close(private);
+			document_close(private, request);
 			/**
 			 * it is too late to set an error here
 			 */
@@ -361,7 +368,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 #endif
 			warn("document: send %s", private->filepath);
 			close(private->fd);
-			document_close(private);
+			document_close(private, request);
 			return ESUCCESS;
 		}
 	}
@@ -394,36 +401,10 @@ int mod_send_read(document_connector_t *private, http_message_t *response)
 
 static int _transfer_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)arg;
-	if (private->func)
+	document_connector_t *private = (document_connector_t *)httpmessage_private(request, NULL);
+	if (private && private->func)
 		return private->func(arg, request, response);
 	return EREJECT;
-}
-
-static void *_mod_document_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
-{
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	mod_document_t *config = mod->config;
-	document_connector_t *ctx = calloc(1, sizeof(*ctx));
-
-	ctx->mod = mod;
-	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, _transfer_connector, ctx, CONNECTOR_DOCUMENT, str_document);
-#ifdef RANGEREQUEST
-	if (config->options & DOCUMENT_RANGE)
-		httpclient_addconnector(ctl, range_connector, ctx, CONNECTOR_DOCUMENT, str_document);
-#endif
-	httpclient_addconnector(ctl, _document_connector, ctx, CONNECTOR_DOCUMENT, str_document);
-
-	return ctx;
-}
-
-static void _mod_document_freectx(void *vctx)
-{
-	document_connector_t *ctx = vctx;
-	if (ctx->path_info)
-		free(ctx->path_info);
-	free(ctx);
 }
 
 void *mod_document_create(http_server_t *server, mod_document_t *config)
@@ -436,7 +417,13 @@ void *mod_document_create(http_server_t *server, mod_document_t *config)
 	_mod_document_mod_t *mod = calloc(1, sizeof(*mod));
 
 	mod->config = config;
-	httpserver_addmod(server, _mod_document_getctx, _mod_document_freectx, mod, str_document);
+	httpserver_addconnector(server, _document_connector, mod, CONNECTOR_DOCUMENT, str_document);
+#ifdef RANGEREQUEST
+	if (config->options & DOCUMENT_RANGE)
+		httpserver_addconnector(server, range_connector, mod, CONNECTOR_DOCUMENT, str_document);
+#endif
+	httpserver_addconnector(server, _transfer_connector, mod, CONNECTOR_DOCUMENT, str_document);
+
 #ifdef DOCUMENTREST
 	if (config->options & DOCUMENT_REST)
 	{

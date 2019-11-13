@@ -51,8 +51,9 @@
 
 int range_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)arg;
-	if (private->type & DOCUMENT_DIRLISTING || private->filepath == NULL)
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
+	if (private == NULL || private->type & DOCUMENT_DIRLISTING || private->filepath == NULL)
 		return EREJECT;
 
 	int filesize = private->size;
@@ -96,14 +97,14 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 	}
 	httpmessage_addheader(response, "Accept-Ranges", "bytes");
 	return EREJECT;
+
 notsatisfiable:
-	free(private->filepath);
-	private->filepath = NULL;
-	free(private->path_info);
-	private->path_info = NULL;
-	char buffer[256];
-	snprintf(buffer, 256, "bytes */%d", filesize);
-	httpmessage_addheader(response, "Content-Range", buffer);
-	httpmessage_result(response, RESULT_416);
+	{
+		char buffer[256];
+		snprintf(buffer, 256, "bytes */%d", filesize);
+		httpmessage_addheader(response, "Content-Range", buffer);
+		httpmessage_result(response, RESULT_416);
+		document_close(private, request);
+	}
 	return ESUCCESS;
 }

@@ -84,8 +84,8 @@ static const char *_sizeunit[] = {
 int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	document_connector_t *private = (document_connector_t *)arg;
-	_mod_document_mod_t *mod = private->mod;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
 	if (private->dir == NULL)
@@ -104,7 +104,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 			{
 				closedir(private->dir);
 				private->dir = NULL;
-				document_close(private);
+				document_close(private, request);
 				ret = ESUCCESS;
 			}
 			else
@@ -120,7 +120,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		else
 		{
 			warn("dirlisting: directory not open %s %s", private->filepath, strerror(errno));
-			document_close(private);
+			document_close(private, request);
 			httpmessage_result(response, RESULT_400);
 			ret = ESUCCESS;
 		}
@@ -135,7 +135,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		httpclient_shutdown(httpmessage_client(request));
 		closedir(private->dir);
 		private->dir = NULL;
-		document_close(private);
+		document_close(private, request);
 		ret = ESUCCESS;
 	}
 	else
