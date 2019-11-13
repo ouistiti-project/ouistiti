@@ -16,6 +16,10 @@ esac
 shift
 done
 
+TESTDIR=$(dirname $TEST)/
+SRCDIR=$TESTDIR../src/
+PWD=$(pwd)
+
 . $TEST
 
 TARGET=ouistiti
@@ -24,9 +28,6 @@ AWK=awk
 SED=sed
 WC=wc
 CURL=curl
-TESTDIR=$(dirname $TEST)/
-SRCDIR=$TESTDIR../src/
-PWD=$(pwd)
 USER=$(ls -l ${SRCDIR}/${TARGET} | ${AWK} '{print $3}')
 TESTCLIENT="./host/utils/testclient"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
