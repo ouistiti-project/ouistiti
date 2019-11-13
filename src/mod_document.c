@@ -143,14 +143,23 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 			if (config->dochome != NULL)
 			{
 				docroot = config->dochome;
+				const char *home = auth_info(request, "home");
+				if (home != NULL)
+					other = home;
 #ifdef AUTH
-				if (url[0] == '/')
+				else if (url[0] == '/')
 				{
 					other = auth_info(request, "user");
 				}
 #endif
 			}
 #endif
+			if (docroot == NULL)
+			{
+				httpmessage_result(response, RESULT_403);
+				document_close(private);
+				return  EREJECT;
+			}
 		}
 		if (docroot == NULL)
 			docroot = config->docroot;
