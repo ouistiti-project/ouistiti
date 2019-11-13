@@ -78,10 +78,13 @@ static const char *_sizeunit[] = {
 	"GB",
 	"TB",
 };
-int dirlisting_connector(void **arg, http_message_t *request, http_message_t *response)
+/**
+ * this function is used by mod_document and has NOT to be static
+ */
+int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	document_connector_t *private = (document_connector_t *)*arg;
+	document_connector_t *private = (document_connector_t *)arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 

@@ -51,7 +51,7 @@ typedef struct _mod_redirect404_s _mod_redirect404_t;
 
 static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 static void _mod_redirect404_freectx(void *vctx);
-static int _mod_redirect404_connector(void **arg, http_message_t *request, http_message_t *response);
+static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response);
 
 static const char str_redirect404[] = "redirect404";
 
@@ -88,9 +88,9 @@ static void _mod_redirect404_freectx(void *vctx)
 {
 }
 
-static int _mod_redirect404_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	_mod_redirect404_t *mod = (_mod_redirect404_t *)*arg;
+	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
 	httpmessage_result(response, RESULT_404);
 	return EREJECT;
 }

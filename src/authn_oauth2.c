@@ -29,6 +29,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #include <jansson.h>
 
@@ -144,10 +145,10 @@ size_t _json_load(void *buffer, size_t buflen, void *data)
 	return size;
 }
 
-static int oauth2_authresp_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	authn_oauth2_t *mod = (authn_oauth2_t *)*arg;
+	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
 
 	char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
@@ -383,7 +384,7 @@ static int authn_oauth2_setup(void *arg, http_client_t *clt, struct sockaddr *ad
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 
 	mod->clt = clt;
-	httpclient_addconnector(clt, oauth2_authresp_connector, mod, str_oauth2);
+	httpclient_addconnector(clt, _oauth2_authresp_connector, mod, str_oauth2);
 	return ESUCCESS;
 }
 

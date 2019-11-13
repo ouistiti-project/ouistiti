@@ -49,9 +49,9 @@
 #endif
 
 
-int range_connector(void **arg, http_message_t *request, http_message_t *response)
+int range_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)*arg;
+	document_connector_t *private = (document_connector_t *)arg;
 	if (private->type & DOCUMENT_DIRLISTING || private->filepath == NULL)
 		return EREJECT;
 

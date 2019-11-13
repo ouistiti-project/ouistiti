@@ -86,10 +86,10 @@ static const char str_methodslist[] =
 				RESTMETHODS \
 				"";
 
-static int cors_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _cors_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	_mod_cors_t *mod = (_mod_cors_t *)*arg;
+	_mod_cors_t *mod = (_mod_cors_t *)arg;
 	mod_cors_t *config = (mod_cors_t *)mod->config;
 
 	const char *origin = httpmessage_REQUEST(request, "Origin");
@@ -129,7 +129,7 @@ static void *_mod_cors_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 {
 	_mod_cors_t *mod = (_mod_cors_t *)arg;
 
-	httpclient_addconnector(ctl, cors_connector, mod, str_cors);
+	httpclient_addconnector(ctl, _cors_connector, mod, str_cors);
 
 	return mod;
 }
@@ -150,7 +150,7 @@ void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 #ifdef CLIENT_CONNECTOR
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
 #else
-	httpserver_addconnector(server, cors_connector, mod);
+	httpserver_addconnector(server, _cors_connector, mod);
 #endif
 	return mod;
 }

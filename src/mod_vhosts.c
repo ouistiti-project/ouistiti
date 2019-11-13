@@ -179,9 +179,9 @@ static int _loadmodule(const char *name, http_server_t *server, char *hostname, 
 #warning As ouistiti should run on embedded device, the virtual hosting is not a required feature.
 extern int _httpserver_setmod(http_server_t *server, http_client_t *client);
 extern int _httpclient_checkconnector(http_client_t *client, http_message_t *request, http_message_t *response);
-static int _vhost_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _vhost_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	_mod_vhost_t *mod = (_mod_vhost_t *)*arg;
+	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
 
 	const char *vhost = httpmessage_REQUEST(request, "host");
 	if (vhost == NULL || strcmp(vhost, mod->config->hostname))

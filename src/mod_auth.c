@@ -86,8 +86,8 @@ typedef struct _mod_auth_ctx_s _mod_auth_ctx_t;
 
 static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 static void _mod_auth_freectx(void *vctx);
-static int _home_connector(void **arg, http_message_t *request, http_message_t *response);
-static int _authn_connector(void **arg, http_message_t *request, http_message_t *response);
+static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
+static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info);
 
 static const char str_auth[] = "auth";
@@ -356,9 +356,9 @@ static void _mod_auth_freectx(void *vctx)
 	free(ctx);
 }
 
-static int _home_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)*arg;
+	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
 	int ret = EREJECT;
 	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL);
@@ -405,10 +405,10 @@ static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
 	return token;
 }
 
-static int _authn_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
-	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)*arg;
+	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	_mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
 	const char *authorization = NULL;

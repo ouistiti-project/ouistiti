@@ -70,10 +70,10 @@ static int filestorage_checkname(document_connector_t *private, http_message_t *
 	return ESUCCESS;
 }
 
-int putfile_connector(void **arg, http_message_t *request, http_message_t *response)
+int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	document_connector_t *private = (document_connector_t *)*arg;
+	document_connector_t *private = (document_connector_t *)arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
@@ -279,9 +279,9 @@ static int changename(mod_document_t *config, http_message_t *request, char *old
 	return ret;
 }
 
-int postfile_connector(void **arg, http_message_t *request, http_message_t *response)
+int postfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)*arg;
+	document_connector_t *private = (document_connector_t *)arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
@@ -324,9 +324,9 @@ int postfile_connector(void **arg, http_message_t *request, http_message_t *resp
 	return ESUCCESS;
 }
 
-int deletefile_connector(void **arg, http_message_t *request, http_message_t *response)
+int deletefile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)*arg;
+	document_connector_t *private = (document_connector_t *)arg;
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
