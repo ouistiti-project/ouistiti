@@ -87,7 +87,8 @@ void display_help(char **name)
 typedef struct net_api_s
 {
 	void *(*connect)(const char *serveraddr, const int port);
-	int (*send)(void *ssl, const void *buf, size_t len);
+	int (*fd)(void *arg);
+	int (*send)(void *arg, const void *buf, size_t len);
 	int (*recv)(void *arg, void *buf, size_t len);
 	void (*close)(void *sock);
 } net_api_t;
@@ -198,6 +199,12 @@ exit:
 	return NULL;
 }
 
+int tls_fd(void *arg)
+{
+	tls_t *tls = (tls_t *)arg;
+	return tls->server_fd.fd;
+}
+
 int tls_send(void *arg, const void *buf, size_t len)
 {
 	tls_t *tls = (tls_t *)arg;
@@ -229,11 +236,17 @@ void tls_close(void *arg)
 net_api_t tls =
 {
 	.connect = tls_connect,
+	.fd = tls_fd,
 	.send = tls_send,
 	.recv = tls_recv,
 	.close = tls_close,
 };
 #endif
+
+int direct_fd(void *arg)
+{
+	return (int)arg;
+}
 
 void *direct_connect(const char *serveraddr, const int port)
 {
@@ -315,6 +328,7 @@ void direct_close(void *arg)
 
 net_api_t direct =
 {
+	.fd = direct_fd,
 	.connect = direct_connect,
 	.send = direct_send,
 	.recv = direct_recv,
@@ -322,6 +336,7 @@ net_api_t direct =
 };
 
 #define OPT_WEBSOCKET 0x01
+#define OPT_PIPELINE 0x02
 int main(int argc, char **argv)
 {
 	int port = 80;
@@ -337,7 +352,7 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "a:p:hwt");
+		opt = getopt(argc, argv, "a:p:hwPt");
 		switch (opt)
 		{
 			case 'a':
@@ -352,6 +367,9 @@ int main(int argc, char **argv)
 			break;
 			case 'w':
 				options |= OPT_WEBSOCKET;
+			break;
+			case 'P':
+				options |= OPT_PIPELINE;
 			break;
 #ifdef MBEDTLS
 			case 't':
@@ -373,6 +391,7 @@ int main(int argc, char **argv)
 	do
 	{
 		char buffer[512];
+#if 0
 		while ((state & REQUEST_END) == 0)
 		{
 			length = 511;
@@ -500,10 +519,44 @@ int main(int argc, char **argv)
 					}
 				}
 			}
+			else if (options & OPT_PIPELINE)
+				state = CONNECTION_START;
 			else
 				state |= CONNECTION_END;
 		}
 
+#else
+		fd_set rfds;
+		FD_ZERO(&rfds);
+		if (!(state & REQUEST_END))
+			FD_SET(0, &rfds);
+		FD_SET(net->fd(sock), &rfds);
+
+		int ret;
+		ret = select(net->fd(sock) + 1, &rfds, NULL, NULL, NULL);
+		if ( ret > 0 && FD_ISSET(0, &rfds))
+		{
+			length = 512;
+			length = read(0, buffer, length);
+			if (length > 0)
+			{
+				length = net->send(sock, buffer, length);
+			}
+			else
+				state |= REQUEST_END;
+		}
+		if (ret > 0 && FD_ISSET(net->fd(sock), &rfds))
+		{
+			length = 512;
+			length = net->recv(sock, buffer, length);
+			if (length > 0)
+			{
+				length = write(1, buffer, length);
+			}
+			else
+				state |= CONNECTION_END;
+		}
+#endif
 	} while (!(state & CONNECTION_END));
 	dbg("testclient: quit");
 	net->close(sock);
