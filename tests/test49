@@ -1,0 +1,6 @@
+DESC="test two requests in pipeline"
+CONFIG=test1.conf
+TESTREQUEST=test49_rq.txt
+TESTCODE=200
+TESTHEADERLEN=108
+TESTCONTENTLEN=40
