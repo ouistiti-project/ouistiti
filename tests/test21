@@ -1,6 +1,4 @@
-DESC="test a request on regular file when a vhost exists on the same server"
-CONFIG=test5.conf
+DESC="POST request on CGI with a large content"
+CONFIG=test3.conf
 TESTREQUEST=test21_rq.txt
 TESTCODE=200
-TESTHEADERLEN=86
-TESTCONTENTLEN=40
