@@ -1,6 +1,5 @@
 #!/bin/bash
 
-read CONTENT
 
 echo "Content-Type: text/plain; charset=iso-8859-1"
 #echo "Content-Length: 700"
@@ -35,4 +34,8 @@ echo CONTENT_TYPE = $CONTENT_TYPE
 echo CONTENT_LENGTH = $CONTENT_LENGTH
 
 echo CONTENT:
+read CONTENT
+while [ -n "$CONTENT" ]; do
 echo $CONTENT
+read CONTENT
+done

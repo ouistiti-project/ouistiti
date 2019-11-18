@@ -1,4 +1,4 @@
-DESC="test two POST requests in pipeline"
+DESC=two POST requests in pipeline"
 CONFIG=test3.conf
 TESTREQUEST=test50_rq.txt
 TESTCODE=200

@@ -1,4 +1,4 @@
-DESC="test two POST requests in pipeline with big data"
+DESC="two POST requests in pipeline with big data"
 CONFIG=test3.conf
 TESTREQUEST=test51_rq.txt
 TESTCODE=200
