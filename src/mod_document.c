@@ -123,14 +123,16 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		private->size = 0;
 		private->offset = 0;
 		struct stat filestat;
-		if (private->path_info)
-			free(private->path_info);
 		const char *uri = httpmessage_REQUEST(request,"uri");
 		private->path_info = utils_urldecode(uri);
 		const char *url = private->path_info;
 
 		if (private->path_info == NULL)
+		{
+			free(private->path_info);
+			free(private);
 			return EREJECT;
+		}
 
 		const char *docroot = NULL;
 		const char *other = "";
