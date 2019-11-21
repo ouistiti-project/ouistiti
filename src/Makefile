@@ -16,13 +16,13 @@ RANGEREQUEST=n
 DOCUMENTHOME=n
 endif
 
-TARGET=ouistiti
+TARGET?=$(package)
 sbin-y+=$(TARGET)
 ifeq ($(VTHREAD_TYPE),pthread)
 $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
-$(TARGET)_LIBS+=httpserver
+$(TARGET)_LIBS+=$(LIBHTTPSERVER_NAME)
 $(TARGET)_LIBS+=ouiutils
 
 $(TARGET)_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)

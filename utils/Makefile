@@ -7,10 +7,10 @@ testclient_LIBS-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 testclient_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 ifeq ($(HTTPCLIENT_FEATURES),y)
-hostbin-$(HOST_UTILS)+=httpparser
+hostbin-$(HOST_UTILS_DEPRECATED)+=httpparser
 endif
 httpparser_SOURCES+=httpparser.c
-httpparser_LIBS+=httpserver
+httpparser_LIBS+=$(LIBHTTPSERVER_NAME)
 httpparser_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 httpparser_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 httpparser_CFLAGS-$(DEBUG)+=-g -DDEBUG
