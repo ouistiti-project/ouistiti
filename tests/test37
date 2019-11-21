@@ -2,4 +2,5 @@ LD_LIBRARY_PATH=libhttpserver/src ./host/utils/ouipasswd -u Mufasa -p "Circle Of
 DESC="test a request with bad Digest authentication"
 CONFIG=test9.conf
 TESTREQUEST=test16_rq.txt
+TESTRESPONSE=test15_rs.txt
 TESTCODE=401

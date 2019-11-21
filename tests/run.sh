@@ -20,6 +20,9 @@ TESTDIR=$(dirname $TEST)/
 SRCDIR=$TESTDIR../src/
 PWD=$(pwd)
 
+TESTRESPONSE=$(basename ${TEST})_rs.txt
+TMPRESPONSE=/tmp/ouistiti.test
+
 . $TEST
 
 TARGET=ouistiti
@@ -34,8 +37,6 @@ LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver
 if [ -z "$DEBUG" ]; then
 HTTPPARSER="./host/utils/httpparser"
 CURLOUT="-o /dev/null"
-else
-HTTPPARSER="tee /dev/null"
 fi
 
 
@@ -77,20 +78,21 @@ cat ${TESTDIR}conf/${CONFIG}
 echo "******************************"
 if [ -n "$DEBUG" ]; then
 	if [ -n "$CURLPARAM" ]; then
-		$CURL $CURLOUT -f -s -S $CURLPARAM
+		$CURL $CURLOUT -f -s -S $CURLPARAM > $TMPRESPONSE
 	fi
 	if [ -n "$TESTREQUEST" ]; then
 		cat ${TESTDIR}$TESTREQUEST
 		echo "******************************"
 		echo
-		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT
+		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT > $TMPRESPONSE
 	fi
 	if [ -n "$CMDREQUEST" ]; then
 		$CMDREQUEST
 		echo "******************************"
 		echo
-		$CMDREQUEST | $TESTCLIENT
+		$CMDREQUEST | $TESTCLIENT > $TMPRESPONSE
 	fi
+	cat $TMPRESPONSE | diff - ${TESTDIR}${TESTRESPONSE} | grep '^>'
 	echo "******************************"
 	echo $DESC
 	echo "expected result  $TESTCODE"

@@ -2,4 +2,5 @@ DESC="test Range Request with bad offset"
 CONFIG=test1.conf
 #PREPARE="nohup ./utils/websocket_echo -R /tmp -u mch"
 TESTREQUEST=test30_rq.txt
+TESTRESPONSE=test29_rs.txt
 TESTCODE=416
