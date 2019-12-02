@@ -64,6 +64,7 @@
 #include "mod_redirect404.h"
 #include "mod_redirect.h"
 #include "mod_webstream.h"
+#include "mod_tinysvcmdns.h"
 
 #if defined WEBSOCKET || defined WEBSTREAM
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
@@ -97,6 +98,7 @@ static const char str_websocket[] = "websocket";
 static const char str_redirect[] = "redirect";
 static const char str_redirect404[] = "redirect404";
 static const char str_cors[] = "cors";
+static const char str_tinysvcmdns[] = "tinysvcmdns";
 
 const char *auth_info(http_message_t *request, const char *key)
 {
@@ -157,8 +159,11 @@ static const module_t *modules[] =
 #endif
 #if defined CORS
 	&mod_cors,
-	NULL
 #endif
+#if defined TINYSVCMDNS
+	&mod_tinysvcmdns,
+#endif
+	NULL
 };
 #endif
 
@@ -413,6 +418,7 @@ int main(int argc, char * const *argv)
 		if (server->server)
 		{
 			int j = 0;
+			server->modules[j].config = loadmodule(str_tinysvcmdns, server->server, NULL, &server->modules[j++].destroy);
 			/**
 			 * TLS must be first to free the connection after all others modules
 			 */
