@@ -69,6 +69,8 @@ $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=crypt
 $(TARGET)_LIBRARY-$(AUTHZ_JWT)+=jansson
 $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
 
+$(TARGET)_LIBRARY-$(TINYSVCMDNS)+=tinysvcmdns
+
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=websocket
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouihash
@@ -92,3 +94,4 @@ subdir-$(REDIRECT)+=mod_redirect404.mk
 subdir-$(REDIRECT)+=mod_redirect.mk
 subdir-$(WEBSTREAM)+=mod_webstream.mk
 subdir-$(CORS)+=mod_cors.mk
+subdir-$(TINYSVCMDNS)+=mod_tinysvcmdns.mk
