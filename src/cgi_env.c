@@ -36,6 +36,17 @@
 #include "mod_cgi.h"
 #include "mod_auth.h"
 
+#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#ifdef DEBUG
+#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#else
+#define warn(...)
+#define dbg(...)
+#endif
+
+#define cgi_dbg(...)
+
 static char str_null[] = "";
 static char str_gatewayinterface[] = "CGI/1.1";
 static char str_contenttype[] = "Content-Type";

@@ -70,11 +70,11 @@ static int filestorage_checkname(document_connector_t *private, http_message_t *
 	return ESUCCESS;
 }
 
-int putfile_connector(void **arg, http_message_t *request, http_message_t *response)
+int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	document_connector_t *private = (document_connector_t *)*arg;
-	_mod_document_mod_t *mod = private->mod;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
 	if (private->fd == 0)
@@ -101,7 +101,7 @@ int putfile_connector(void **arg, http_message_t *request, http_message_t *respo
 				httpmessage_appendcontent(response, "OK\"}", -1);
 			}
 			ret = ESUCCESS;
-			document_close(private);
+			document_close(private, request);
 
 		}
 		else
@@ -164,7 +164,7 @@ int putfile_connector(void **arg, http_message_t *request, http_message_t *respo
 #endif
 				ret = ESUCCESS;
 				private->fd = 0;
-				document_close(private);
+				document_close(private, request);
 			}
 		}
 	}
@@ -227,7 +227,7 @@ int putfile_connector(void **arg, http_message_t *request, http_message_t *respo
 
 			value.tv_sec = stop.tv_sec - private->start.tv_sec;
 			value.tv_nsec = stop.tv_nsec - private->start.tv_nsec;
-			dbg("document: (%llu bytes) %ld:%3ld", private->datasize, value.tv_sec, value.tv_nsec/1000000);
+			dbg("document: (%llu bytes) time %ld:%03ld", private->datasize, value.tv_sec, value.tv_nsec/1000000);
 #endif
 			warn("document: %s uploaded", private->filepath);
 			if (private->fd)
@@ -241,7 +241,7 @@ int putfile_connector(void **arg, http_message_t *request, http_message_t *respo
 			}
 			private->fd = 0;
 			ret = ESUCCESS;
-			document_close(private);
+			document_close(private, request);
 		}
 	}
 	return ret;
@@ -279,10 +279,10 @@ static int changename(mod_document_t *config, http_message_t *request, char *old
 	return ret;
 }
 
-int postfile_connector(void **arg, http_message_t *request, http_message_t *response)
+int postfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)*arg;
-	_mod_document_mod_t *mod = private->mod;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
 	char *result = (char *)str_KO;
@@ -320,14 +320,14 @@ int postfile_connector(void **arg, http_message_t *request, http_message_t *resp
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 	httpmessage_appendcontent(response, result, -1);
 	httpmessage_appendcontent(response, "\"}", 2);
-	document_close(private);
+	document_close(private, request);
 	return ESUCCESS;
 }
 
-int deletefile_connector(void **arg, http_message_t *request, http_message_t *response)
+int deletefile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)*arg;
-	_mod_document_mod_t *mod = private->mod;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
 	httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"name\":\"", -1);
@@ -355,6 +355,6 @@ int deletefile_connector(void **arg, http_message_t *request, http_message_t *re
 		warn("remove file : %s", private->filepath);
 		httpmessage_appendcontent(response, "OK\"}", -1);
 	}
-	document_close(private);
+	document_close(private, request);
 	return ESUCCESS;
 }

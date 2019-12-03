@@ -56,7 +56,7 @@ WS_CHAT=y
 WS_JSONRPC=y
 WS_SYSLOGD=y
 #support of Virtual Hosting
-VHOSTS=y
+VHOSTS=n
 #support of request method check
 METHODLOCK=y
 #add Server Software name into the headers
@@ -72,6 +72,8 @@ REDIRECT=y
 COOKIE=y
 #support Cross-Origin Resource Sharing (CORS)
 CORS=y
+#support of mDNS
+TINYSVCMDNS=y
 
 CERTIFICATE=n
 

@@ -46,8 +46,6 @@ typedef struct mod_cgi_config_s
 } mod_cgi_config_t;
 
 extern const module_t mod_cgi;
-void *mod_cgi_create(http_server_t *server, char *vhost, mod_cgi_config_t *modconfig);
-void mod_cgi_destroy(void *mod);
 
 char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi_path);
 

@@ -78,11 +78,14 @@ static const char *_sizeunit[] = {
 	"GB",
 	"TB",
 };
-int dirlisting_connector(void **arg, http_message_t *request, http_message_t *response)
+/**
+ * this function is used by mod_document and has NOT to be static
+ */
+int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	document_connector_t *private = (document_connector_t *)*arg;
-	_mod_document_mod_t *mod = private->mod;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
 	if (private->dir == NULL)
@@ -101,7 +104,7 @@ int dirlisting_connector(void **arg, http_message_t *request, http_message_t *re
 			{
 				closedir(private->dir);
 				private->dir = NULL;
-				document_close(private);
+				document_close(private, request);
 				ret = ESUCCESS;
 			}
 			else
@@ -117,7 +120,7 @@ int dirlisting_connector(void **arg, http_message_t *request, http_message_t *re
 		else
 		{
 			warn("dirlisting: directory not open %s %s", private->filepath, strerror(errno));
-			document_close(private);
+			document_close(private, request);
 			httpmessage_result(response, RESULT_400);
 			ret = ESUCCESS;
 		}
@@ -132,7 +135,7 @@ int dirlisting_connector(void **arg, http_message_t *request, http_message_t *re
 		httpclient_shutdown(httpmessage_client(request));
 		closedir(private->dir);
 		private->dir = NULL;
-		document_close(private);
+		document_close(private, request);
 		ret = ESUCCESS;
 	}
 	else
@@ -189,7 +192,7 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 
 	ctx->mod = mod;
 	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, mod->vhost, dirlisting_connector, ctx, str_dirlisting);
+	httpclient_addconnector(ctl, dirlisting_connector, ctx, CONNECTOR_DOCUMENT, str_dirlisting);
 
 	return ctx;
 }
@@ -205,7 +208,7 @@ static void _mod_dirlisting_freectx(void *vctx)
 	free(ctx);
 }
 
-void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_document_t *config)
+void *mod_dirlisting_create(http_server_t *server, mod_document_t *config)
 {
 	_mod_document_mod_t *mod = calloc(1, sizeof(*mod));
 
@@ -213,7 +216,6 @@ void *mod_dirlisting_create(http_server_t *server, char *vhost, mod_document_t *
 		return NULL;
 
 	mod->config = config;
-	mod->vhost = vhost;
 	httpserver_addmod(server, _mod_dirlisting_getctx, _mod_dirlisting_freectx, mod, str_dirlisting);
 
 	return mod;

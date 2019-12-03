@@ -1,4 +1,4 @@
-DESC="test a response with sendfile module"
+DESC="GET request a big file with sendfile module"
 CONFIG=test7.conf
 
 FILE="data.html"
@@ -9,6 +9,7 @@ FILEDATA=$FILEDATA$FILEDATA
 done
 
 TESTREQUEST=test3_rq.txt
+TESTRESPONSE=test3_rs.txt
 TESTCODE=200
 TESTHEADERLEN=108
 TESTCONTENTLEN=40

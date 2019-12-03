@@ -1,3 +1,4 @@
 DESC="test bad data"
 CONFIG=test9.conf
 CMDREQUEST="printf \"GET\x20/\x20HTTP/1.1\r\nHost:\x20test\r\nBeurk\x18\r\n\r\n\x0c\x02\x82\n\r\x21\" && sleep 1 && printf \"\x21\x83\""
+TESTCODE=405

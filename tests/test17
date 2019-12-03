@@ -1,4 +1,5 @@
 DESC="test a request with good Digest authentication"
 CONFIG=test4.conf
 TESTREQUEST=test17_rq.txt
+TESTRESPONSE=test5_rs.txt
 TESTCODE=404

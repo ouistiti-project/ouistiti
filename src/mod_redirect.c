@@ -55,7 +55,7 @@ typedef struct _mod_redirect_s _mod_redirect_t;
 
 static void *_mod_redirect_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 static void _mod_redirect_freectx(void *vctx);
-static int _mod_redirect_connector(void **arg, http_message_t *request, http_message_t *response);
+static int _mod_redirect_connector(void *arg, http_message_t *request, http_message_t *response);
 
 static const char str_redirect[] = "redirect";
 #ifndef __STR_HTTPS
@@ -67,11 +67,10 @@ static const char str_upgrade_insec_req[] = "Upgrade-Insecure-Requests";
 struct _mod_redirect_s
 {
 	mod_redirect_t	*config;
-	char *vhost;
 	int result;
 };
 
-void *mod_redirect_create(http_server_t *server, char *vhost, mod_redirect_t *config)
+void *mod_redirect_create(http_server_t *server, mod_redirect_t *config)
 {
 	_mod_redirect_t *mod;
 
@@ -80,7 +79,6 @@ void *mod_redirect_create(http_server_t *server, char *vhost, mod_redirect_t *co
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
-	mod->vhost = vhost;
 	if (config->options & REDIRECT_PERMANENTLY)
 		mod->result = RESULT_301;
 	else if (config->options & REDIRECT_TEMPORARY)
@@ -103,7 +101,7 @@ static void *_mod_redirect_getctx(void *arg, http_client_t *ctl, struct sockaddr
 	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
 	mod_redirect_t *config = mod->config;
 
-	httpclient_addconnector(ctl, mod->vhost, _mod_redirect_connector, arg, str_redirect);
+	httpclient_addconnector(ctl, _mod_redirect_connector, arg, CONNECTOR_DOCFILTER, str_redirect);
 	return mod;
 }
 
@@ -111,9 +109,9 @@ static void _mod_redirect_freectx(void *vctx)
 {
 }
 
-static int _mod_redirect_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _mod_redirect_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	_mod_redirect_t *mod = (_mod_redirect_t *)*arg;
+	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
 	mod_redirect_t *config = mod->config;
 
 	if (config->options & REDIRECT_HSTS)

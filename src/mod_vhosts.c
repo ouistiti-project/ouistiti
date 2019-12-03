@@ -53,10 +53,6 @@
 #include "mod_methodlock.h"
 #include "mod_server.h"
 
-#if defined WEBSOCKET
-extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
-#endif
-
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
@@ -65,7 +61,7 @@ extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_me
 #define dbg(...)
 #endif
 
-static const char str_vhost[] = "vhost";
+static const char str_vhosts[] = "vhosts";
 
 typedef struct _mod_vhost_s _mod_vhost_t;
 
@@ -78,6 +74,7 @@ typedef struct _module_s
 struct _mod_vhost_s
 {
 	mod_vhost_t	*config;
+	http_server_t *vserver;
 	_module_t mod_document;
 	_module_t mod_dirlisting;
 	_module_t mod_cgi;
@@ -135,7 +132,7 @@ static const module_t *modules[] =
 };
 #endif
 
-int loadmodule(const char *name, http_server_t *server, char *hostname, void *config, _module_t *module)
+static int _loadmodule(const char *name, http_server_t *server, char *hostname, void *config, _module_t *module)
 {
 	int ret = -1;
 	void *mod = NULL;
@@ -146,7 +143,7 @@ int loadmodule(const char *name, http_server_t *server, char *hostname, void *co
 		if (!strcmp(modules[i]->name, name))
 		{
 			module->ops = modules[i];
-			module->ctx = module->create(server, hostname, config);
+			module->ctx = module->create(server, config);
 			ret = 0;
 			break;
 		}
@@ -161,7 +158,7 @@ int loadmodule(const char *name, http_server_t *server, char *hostname, void *co
 		module->ops = dlsym(dh, "mod_info");
 		if (module->ops && !strcmp(module->ops->name, name))
 		{
-			module->ctx = module->ops->create(server, hostname, config);
+			module->ctx = module->ops->create(server, config);
 			dbg("module %s loaded", name);
 			ret = 0;
 		}
@@ -178,7 +175,34 @@ int loadmodule(const char *name, http_server_t *server, char *hostname, void *co
 	return ret;
 }
 
-void *mod_vhost_create(http_server_t *server, char *unused, mod_vhost_t *config)
+#warning libhttpserver must be modified to remove the static declaration of the following functions
+#warning As ouistiti should run on embedded device, the virtual hosting is not a required feature.
+extern int _httpserver_setmod(http_server_t *server, http_client_t *client);
+extern int _httpclient_checkconnector(http_client_t *client, http_message_t *request, http_message_t *response);
+static int _vhost_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
+
+	const char *vhost = httpmessage_REQUEST(request, "host");
+	if (vhost == NULL || strcmp(vhost, mod->config->hostname))
+		return EREJECT;
+
+	http_client_t *clt = httpmessage_client(request);
+	_httpserver_setmod(mod->vserver, clt);
+	int ret = _httpclient_checkconnector(httpmessage_client(request), request, response);
+	return ret;
+}
+
+static void *_mod_vhost_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+{
+	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
+
+	httpclient_addconnector(ctl, _vhost_connector, arg, CONNECTOR_FILTER, str_vhosts);
+
+	return mod;
+}
+
+static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 {
 	_mod_vhost_t *mod;
 
@@ -188,51 +212,51 @@ void *mod_vhost_create(http_server_t *server, char *unused, mod_vhost_t *config)
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 
+	httpserver_addmod(server, _mod_vhost_getctx, NULL, mod, str_vhosts);
+	mod->vserver = httpserver_dup(server);
+
 	dbg("create vhost for %s", config->hostname);
-#if defined CLIENTFILTER
-	if (config->modules.clientfilter)
-	{
-		loadmodule("client_filter", server, config->hostname, config->modules.clientfilter, &mod->mod_clientfilter);
-	}
-#endif
 #if defined AUTH
 	if (config->modules.auth)
 	{
-		loadmodule("auth", server, config->hostname, config->modules.clientfilter, &mod->mod_auth);
+		_loadmodule("auth", mod->vserver, config->hostname, config->modules.auth, &mod->mod_auth);
 	}
 #endif
-#if defined SERVERHEADER
-	loadmodule("server", server, config->hostname, NULL, &mod->mod_server);
+#if 0 && defined METHODLOCK
+	_loadmodule("methodlock", mod->vserver, config->hostname, NULL, &mod->mod_auth);
+#endif
+#if defined REDIRECT
+	if (config->modules.redirect)
+	{
+		_loadmodule("redirect", mod->vserver, config->hostname, config->modules.redirect, &mod->mod_redirect);
+	}
 #endif
 #if defined WEBSTREAM
 	if (config->modules.webstream)
 	{
-		loadmodule("webstream", server, config->hostname, config->modules.webstream, &mod->mod_webstream);
+		_loadmodule("webstream", mod->vserver, config->hostname, config->modules.webstream, &mod->mod_webstream);
 	}
 #endif
 #if defined WEBSOCKET
 	if (config->modules.websocket)
 	{
-#if defined WEBSOCKET_RT
-		if (config->websocket->mode && strstr(config->websocket->mode, "realtime"))
-			config->websocket->run = ouistiti_websocket_run;
-#endif
-		loadmodule("websocket", server, config->hostname, config->modules.websocket, &mod->mod_websocket);
+		_loadmodule("websocket", mod->vserver, config->hostname, config->modules.websocket, &mod->mod_websocket);
 	}
 #endif
 #if defined CGI
 	if (config->modules.cgi)
-		loadmodule("cgi", server, config->hostname, config->modules.cgi, &mod->mod_cgi);
+		_loadmodule("cgi", mod->vserver, config->hostname, config->modules.cgi, &mod->mod_cgi);
 #endif
 #if defined DOCUMENT
 	if (config->modules.document)
-		loadmodule("document", server, config->hostname, config->modules.document, &mod->mod_document);
+	{
+		_loadmodule("document", mod->vserver, config->hostname, config->modules.document, &mod->mod_document);
+	}
 #endif
 #if defined REDIRECT
 	if (config->modules.redirect)
 	{
-		loadmodule("redirect404", server, config->hostname, NULL, &mod->mod_redirect404);
-		loadmodule("redirect", server, config->hostname, config->modules.redirect, &mod->mod_redirect);
+		_loadmodule("redirect404", mod->vserver, config->hostname, NULL, &mod->mod_redirect404);
 	}
 #endif
 
@@ -242,6 +266,10 @@ void *mod_vhost_create(http_server_t *server, char *unused, mod_vhost_t *config)
 void mod_vhost_destroy(void *arg)
 {
 	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
+#if defined REDIRECT
+	if (mod->mod_redirect404.ops)
+		mod->mod_redirect404.ops->destroy(mod->mod_redirect404.ctx);
+#endif
 #if defined DOCUMENT
 	if (mod->mod_document.ops)
 		mod->mod_document.ops->destroy(mod->mod_document.ctx);
@@ -250,27 +278,31 @@ void mod_vhost_destroy(void *arg)
 	if (mod->mod_cgi.ops)
 		mod->mod_cgi.ops->destroy(mod->mod_cgi.ctx);
 #endif
+#if defined WEBSTREAM
+	if (mod->mod_webstream.ops)
+		mod->mod_webstream.ops->destroy(mod->mod_webstream.ctx);
+#endif
+#if defined WEBSOCKET
+	if (mod->mod_websocket.ops)
+		mod->mod_websocket.ops->destroy(mod->mod_websocket.ctx);
+#endif
+#if defined REDIRECT
+	if (mod->mod_redirect.ops)
+		mod->mod_redirect.ops->destroy(mod->mod_redirect.ctx);
+#endif
 #if defined AUTH
 	if (mod->mod_auth.ops)
 		mod->mod_auth.ops->destroy(mod->mod_auth.ctx);
 #endif
-#if defined METHODLOCK
-	if (mod->mod_methodlock.ops)
-		mod->mod_methodlock.ops->destroy(mod->mod_methodlock.ctx);
-#endif
-#if defined SERVERHEADER
-	if (mod->mod_server.ops)
-		mod->mod_server.ops->destroy(mod->mod_server.ctx);
-#endif
 	free(mod);
 }
 
-const module_t mod_vhost =
+const module_t mod_vhosts =
 {
-	.name = str_vhost,
+	.name = str_vhosts,
 	.create = (module_create_t)mod_vhost_create,
 	.destroy = mod_vhost_destroy
 };
 #ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_vhost")));
+extern module_t mod_info __attribute__ ((weak, alias ("mod_vhosts")));
 #endif

@@ -1,7 +1,10 @@
 POST /test.cgi HTTP/1.1
 HOST: 127.0.0.1
-Content-Type: text/plain
+Connection: Keep-Alive
 Content-Length:15
 
 Hello world
+
+GET /index.cgi HTTP/1.1
+HOST: 127.0.0.1
 

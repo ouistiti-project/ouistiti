@@ -16,13 +16,13 @@ RANGEREQUEST=n
 DOCUMENTHOME=n
 endif
 
-TARGET=ouistiti
+TARGET?=$(package)
 sbin-y+=$(TARGET)
 ifeq ($(VTHREAD_TYPE),pthread)
 $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
-$(TARGET)_LIBS+=httpserver
+$(TARGET)_LIBS+=$(LIBHTTPSERVER_NAME)
 $(TARGET)_LIBS+=ouiutils
 
 $(TARGET)_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
@@ -30,9 +30,6 @@ $(TARGET)_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
-$(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
-$(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl
-$(TARGET)_LIBRARY-$(OPENSSL)+=ssl crypto
 
 $(TARGET)_LIBS-$(MODULES)+=dl
 
@@ -61,17 +58,23 @@ $(TARGET)_LIBS-$(REDIRECT)+=mod_redirect
 $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
 $(TARGET)_LIBS-$(COOKIE)+=mod_cookie
 $(TARGET)_LIBS-$(CORS)+=mod_cors
-endif
-$(TARGET)_LIBS-$(WEBSOCKET)+=websocket
-$(TARGET)_LIBS-$(WEBSOCKET)+=ouihash
-$(TARGET)_LIBS-$(AUTH)+=ouihash
+$(TARGET)_LIBS-$(TINYSVCMDNS)+=mod_tinysvcmdns
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl
+$(TARGET)_LIBRARY-$(OPENSSL)+=ssl crypto
+
 $(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3 pthread dl m
 $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=crypt
 $(TARGET)_LIBRARY-$(AUTHZ_JWT)+=jansson
 $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
+
+$(TARGET)_LIBRARY-$(TINYSVCMDNS)+=tinysvcmdns
+
+endif
+$(TARGET)_LIBS-$(WEBSOCKET)+=websocket
+$(TARGET)_LIBS-$(WEBSOCKET)+=ouihash
+$(TARGET)_LIBS-$(AUTH)+=ouihash
 
 $(TARGET)_CFLAGS-$(MBEDTLS)+=-DTLS
 $(TARGET)_CFLAGS-$(WOLFSSL)+=-DTLS
@@ -91,3 +94,4 @@ subdir-$(REDIRECT)+=mod_redirect404.mk
 subdir-$(REDIRECT)+=mod_redirect.mk
 subdir-$(WEBSTREAM)+=mod_webstream.mk
 subdir-$(CORS)+=mod_cors.mk
+subdir-$(TINYSVCMDNS)+=mod_tinysvcmdns.mk

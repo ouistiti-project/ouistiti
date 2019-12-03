@@ -1,3 +1,4 @@
+PREPARE="rm -f ${TESTDIR}/htdocs/dirlisting/test19.txt"
 DESC="test a PUT request with good authentication"
 CONFIG=test4.conf
 TESTREQUEST=test19_rq.txt

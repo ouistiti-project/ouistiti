@@ -51,21 +51,20 @@ typedef struct _mod_redirect404_s _mod_redirect404_t;
 
 static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 static void _mod_redirect404_freectx(void *vctx);
-static int _mod_redirect404_connector(void **arg, http_message_t *request, http_message_t *response);
+static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response);
 
 static const char str_redirect404[] = "redirect404";
 
 struct _mod_redirect404_s
 {
-	char *vhost;
+	char *nothing;
 };
 
-void *mod_redirect404_create(http_server_t *server, char *vhost, mod_redirect404_t *config)
+void *mod_redirect404_create(http_server_t *server, mod_redirect404_t *config)
 {
 	_mod_redirect404_t *mod;
 
 	mod = calloc(1, sizeof(*mod));
-	mod->vhost = vhost;
 
 	httpserver_addmod(server, _mod_redirect404_getctx, _mod_redirect404_freectx, mod, str_redirect404);
 	return mod;
@@ -81,7 +80,7 @@ static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct socka
 {
 	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
 
-	httpclient_addconnector(ctl, mod->vhost, _mod_redirect404_connector, arg, str_redirect404);
+	httpclient_addconnector(ctl, _mod_redirect404_connector, arg, CONNECTOR_ERROR, str_redirect404);
 	return mod;
 }
 
@@ -89,9 +88,9 @@ static void _mod_redirect404_freectx(void *vctx)
 {
 }
 
-static int _mod_redirect404_connector(void **arg, http_message_t *request, http_message_t *response)
+static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	_mod_redirect404_t *mod = (_mod_redirect404_t *)*arg;
+	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
 	httpmessage_result(response, RESULT_404);
 	return EREJECT;
 }
