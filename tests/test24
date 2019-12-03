@@ -1,4 +1,4 @@
-DESC="test automatic relocation on directory without /"
+DESC="relocation from directory to index.html"
 CONFIG=test1.conf
 TESTREQUEST=test24_rq.txt
 TESTCODE=301

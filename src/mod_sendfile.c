@@ -56,6 +56,10 @@ int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 {
 	int ret, size;
 
+	/**
+	 * check the size for the rnage support
+	 * the size may be different of the real size file
+	 */
 	size = (private->size < CONTENTSIZE)? private->size : CONTENTSIZE;
 #ifdef HAVE_SIGACTION
 	sigset_t sigset;
@@ -69,7 +73,7 @@ int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 
 	do
 	{
-		ret = httpclient_wait(private->ctl, 1);
+		ret = httpclient_wait(httpmessage_client(response), 1);
 	}
 	while (ret == EINCOMPLETE);
 	if (ret > 0)

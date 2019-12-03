@@ -1,7 +1,7 @@
 include scripts.mk
 
 package=ouistiti
-version=2.1
+version=2.2
 
 #libhttpserver has to be static in all configuration
 export SLIB_HTTPSERVER=y
@@ -17,8 +17,11 @@ LIBHTTPSERVER_DIR?=libhttpserver
 export LIBHTTPSERVER_DIR
 
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
+LIBHTTPSERVER_NAME?=$(package)
 subdir-y+=$(LIBHTTPSERVER_DIR)
 endif
+LIBHTTPSERVER_NAME?=httpserver
+export LIBHTTPSERVER_NAME
 
 ifeq ($(LIBHTTPSERVER_CFLAGS), )
 

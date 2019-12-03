@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_webstream.h: webstream server module
+ * mod_tinysvcmdns.h: webstream server module
  * this file is part of https://github.com/ouistiti-project/libhttpserver
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -26,26 +26,21 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_WEBSTREAM_H__
-#define __MOD_WEBSTREAM_H__
+#ifndef __MOD_TINYSVCMDNS_H__
+#define __MOD_TINYSVCMDNS_H__
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#define WEBSOCKET_REALTIME 0x01
-
-typedef struct mod_webstream_s mod_webstream_t;
-struct mod_webstream_s
+typedef struct mod_tinysvcmdns_s mod_tinysvcmdns_t;
+struct mod_tinysvcmdns_s
 {
-	char *docroot;
-	char *allow;
-	char *deny;
-	int options;
+	char *origin;
 };
 
-extern const module_t mod_webstream;
+extern const module_t mod_tinysvcmdns;
 
 #ifdef __cplusplus
 }

@@ -41,8 +41,6 @@ struct mod_cors_s
 };
 
 extern const module_t mod_cors;
-void *mod_cors_create(http_server_t *server, char *vhost, mod_cors_t *config);
-void mod_cors_destroy(void *data);
 
 #ifdef __cplusplus
 }

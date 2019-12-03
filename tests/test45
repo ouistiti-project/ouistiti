@@ -1,5 +1,5 @@
-DESC="test to access to user s $HOME directory"
+DESC="test to access to user s $HOME directory with bad credentials"
 CONFIG=test11.conf
 TESTREQUEST=test45_rq.txt
-TESTCODE=200
-TESTCONTENTLEN=40
+TESTRESPONSE=test31_rs.txt
+TESTCODE=403

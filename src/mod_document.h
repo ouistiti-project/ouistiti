@@ -52,8 +52,6 @@ typedef struct mod_document_s
 } mod_document_t;
 
 extern const module_t mod_document;
-void *mod_document_create(http_server_t *server, char *vhost, mod_document_t *config);
-void mod_document_destroy(void *data);
 
 /**
  * interface to change the data transfer function
@@ -94,19 +92,19 @@ struct _document_connector_s
  * specific connectors
  */
 #ifdef RANGEREQUEST
-int range_connector(void **arg, http_message_t *request, http_message_t *response);
+int range_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
 #ifdef DIRLISTING
-int dirlisting_connector(void **arg, http_message_t *request, http_message_t *response);
+int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
-int getfile_connector(void **arg, http_message_t *request, http_message_t *response);
+int getfile_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifdef DOCUMENTREST
-int putfile_connector(void **arg, http_message_t *request, http_message_t *response);
-int postfile_connector(void **arg, http_message_t *request, http_message_t *response);
-int deletefile_connector(void **arg, http_message_t *request, http_message_t *response);
+int putfile_connector(void *arg, http_message_t *request, http_message_t *response);
+int postfile_connector(void *arg, http_message_t *request, http_message_t *response);
+int deletefile_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
 
-int document_close(document_connector_t *private);
+int document_close(document_connector_t *private, http_message_t *request);
 
 #ifdef __cplusplus
 }

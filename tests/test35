@@ -1,4 +1,4 @@
-./host/utils/ouipasswd -u test -p test -R "welcome to ouistiti" > tests/conf/passwd
+LD_LIBRARY_PATH=libhttpserver/src ./host/utils/ouipasswd -u test -p test -R "welcome to ouistiti" -A MD5 > tests/conf/passwd
 DESC="test a request with a bad Basic authentication"
 CONFIG=test8.conf
 TESTREQUEST=test11_rq.txt

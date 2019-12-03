@@ -72,6 +72,8 @@ REDIRECT=y
 COOKIE=y
 #support Cross-Origin Resource Sharing (CORS)
 CORS=y
+#support of mDNS
+TINYSVCMDNS=y
 
 CERTIFICATE=n
 

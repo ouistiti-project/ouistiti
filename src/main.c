@@ -64,6 +64,7 @@
 #include "mod_redirect404.h"
 #include "mod_redirect.h"
 #include "mod_webstream.h"
+#include "mod_tinysvcmdns.h"
 
 #if defined WEBSOCKET || defined WEBSTREAM
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
@@ -84,7 +85,7 @@ extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_me
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
 static const char str_tls[] = "tls";
-static const char str_vhost[] = "vhost";
+static const char str_vhosts[] = "vhosts";
 static const char str_clientfilter[] = "clientfilter";
 static const char str_cookie[] = "cookie";
 static const char str_auth[] = "auth";
@@ -97,6 +98,7 @@ static const char str_websocket[] = "websocket";
 static const char str_redirect[] = "redirect";
 static const char str_redirect404[] = "redirect404";
 static const char str_cors[] = "cors";
+static const char str_tinysvcmdns[] = "tinysvcmdns";
 
 const char *auth_info(http_message_t *request, const char *key)
 {
@@ -122,7 +124,7 @@ static const module_t *modules[] =
 	&mod_tls,
 #endif
 #if defined VHOSTS_DEPRECATED
-	&mod_vhost,
+	&mod_vhosts,
 #endif
 #if defined CLIENTFILTER
 	&mod_clientfilter,
@@ -157,8 +159,11 @@ static const module_t *modules[] =
 #endif
 #if defined CORS
 	&mod_cors,
-	NULL
 #endif
+#if defined TINYSVCMDNS
+	&mod_tinysvcmdns,
+#endif
+	NULL
 };
 #endif
 
@@ -248,7 +253,7 @@ static void _setpidfile(char *pidfile)
 	}
 }
 
-void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
+static void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
 {
 	void *mod = NULL;
 #ifndef MODULES
@@ -257,7 +262,7 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 	{
 		if (!strcmp(modules[i]->name, name))
 		{
-			mod = modules[i]->create(server, NULL, config);
+			mod = modules[i]->create(server, config);
 			*destroy = modules[i]->destroy;
 			break;
 		}
@@ -272,7 +277,7 @@ void *loadmodule(const char *name, http_server_t *server, void *config, void (**
 		module_t *module = dlsym(dh, "mod_info");
 		if (module && !strcmp(module->name, name))
 		{
-			mod = module->create(server, NULL, config);
+			mod = module->create(server, config);
 			*destroy = module->destroy;
 			dbg("module %s loaded", name);
 		}
@@ -413,21 +418,22 @@ int main(int argc, char * const *argv)
 		if (server->server)
 		{
 			int j = 0;
+			server->modules[j].config = loadmodule(str_tinysvcmdns, server->server, NULL, &server->modules[j++].destroy);
 			/**
 			 * TLS must be first to free the connection after all others modules
 			 */
 			if (server->config->tls)
 				server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j++].destroy);
-			for (i = 0; i < (MAX_SERVERS - 1); i++)
-			{
-				if (server->config->vhosts[i])
-					server->modules[j].config = loadmodule(str_vhost, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
-			}
 			/**
 			 * clientfilter must be at the beginning to stop the connection if necessary
 			 */
 			if (server->config->modules.clientfilter)
 				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
+			for (i = 0; i < (MAX_SERVERS - 1); i++)
+			{
+				if (server->config->vhosts[i])
+					server->modules[j].config = loadmodule(str_vhosts, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
+			}
 			server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cors)
 				server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
