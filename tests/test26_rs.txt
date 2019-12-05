@@ -1,0 +1,8 @@
+HTTP/1.1 206 Partial Content
+Content-Range: bytes 0-14/40
+Accept-Ranges: bytes
+Content-Type: text/html
+Content-Length: 15
+
+<html>
+	<body>
