@@ -1,12 +1,12 @@
 # Introduction
 
-Ouistiti needs some configuration for the servers and the modules.  
+Ouistiti needs some configuration for the servers and the modules.
 Each my be configure in static header file (src/config.h) or dynamicly
 with a file format defined by [libconfig](http://www.hyperrealm.com/libconfig/) library.
 
 This chapter introduce the libconfig format, refer to the config.h file to use the static mode.
 
-Each information is defined as 
+Each information is defined as
 
     information		key=value;
     key			string
@@ -29,7 +29,7 @@ Ouistiti application needs the following entries:
 ### "user" :
 define the user to set for the main processus. Ouistiti must
 be start with rights of "root", after to create the sockets server,
-it is more secure to change the user of all process used by Ouistiti.  
+it is more secure to change the user of all process used by Ouistiti.
 To use the Unix' authentication the server must be root too, then
 in this case, "user" must be set with "root". The authentication will
 change the user. The default user is "root", but Ouistiti will request
@@ -45,16 +45,17 @@ main process id. This value is optional.
 
 ### "mimetypes" :
 
-define a table of objects :  
+define a table of objects :
    * "ext" : define a list of extensions file
    * "mime" : define the mime value affected to the extensions.
 
 ### "[servers](#servers)" :
-define a table of servers. Each is an object describing 
+define a table of servers. Each is an object describing
 the socket server and the modules to use during a client connection.
 
-Examples:
+#### Examples:
 
+```config
 	user="www-data";
 	log-file="/var/log/ouistiti.log";
 	pid-file="/var/run/ouistiti.pid";
@@ -63,6 +64,7 @@ Examples:
 			mime = "audio/mp3";
 		});
 	servers = ({...});
+```
 
 ## servers
 
@@ -98,9 +100,10 @@ the maximum number of clients at the same time connected
     - "HTTP/0.9"
     - "HTTP/1.0"
     - "HTTP/1.1"
- 
-Example:
- 
+
+#### Example:
+
+```config
 	{
 	  user="www-data";
 	  log-file="/var/log/ouistiti.log";
@@ -113,16 +116,18 @@ Example:
 	    keepalivetimeout=5;
 	    });
 	}
+```
 
 ## modules
- 
-Each module may have is own configuration. 
- 
+
+Each module may have is own configuration.
+
 ### "auth" :
 [mod_auth](mod_auth.md) allows to set the users and their password for restricted access.
 
-Example :
+#### Example :
 
+```config
 	auth = {
 		type="Digest";
 		algorithm="SHA-256";
@@ -130,21 +135,25 @@ Example :
 		dbname="/etc/ouistiti/passwd.db";
 		options="cookie";
 	};
+```
 
 ### "websocket" :
 [mod_websocket](mod_websocket.md) allows to use a location of websocket servers.
 
-Example :
+#### Example :
 
+```config
 	websocket = {
 		docroot="/var/run/websocket";
 	};
+```
 
 ### "tls" :
 [mod_{mbedtls|wolfssl|openssl] allows to set a SSL/TLS connection and its certificates files.
 
-Example:
+#### Example:
 
+```config
 	servers = ({
 	  hostname = "www.ouistiti.net";
 	  port=443;
@@ -155,12 +164,14 @@ Example:
 	    dhmfile = "/etc/ouistiti/ouistiti_dhparam.key";
 	  };
 	});
+```
 
 ### "document" :
 [mod_document](mod_document.md) allows to GET files from a root directory.
 
-Example:
+#### Example:
 
+```config
 	servers = ({
 	    hostname="ouistiti.net";
 	    port=80;
@@ -171,4 +182,5 @@ Example:
 			options = "dirlisting,sendfile,range,rest";
 		};
 	});
+```
 

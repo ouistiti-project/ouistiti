@@ -272,7 +272,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 #ifdef DEBUG
 			static int length = 0;
 			length += inputlen;
-			dbg("cgi: %d %d rest %d", inputlen, length,rest);
+			dbg("cgi: %d %d rest %lld", inputlen, length, rest);
 			cgi_dbg("cgi: %d input %s", length,input);
 #endif
 			write(ctx->tocgi[1], input, inputlen);
