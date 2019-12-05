@@ -84,8 +84,8 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 		return NULL;
 
 	int port = atoi(httpserver_INFO(server, "port"));
-	const char *scheme = httpserver_INFO(server, "schme");
-	if (scheme == NULL)
+	const char *scheme = httpserver_INFO(server, "scheme");
+	if (scheme == NULL || scheme[0] == '\0')
 		scheme = "http";
 	const char *typeformat = "_%s._tcp.local";
 	mod->type = calloc(1, strlen(typeformat) - 2 + strlen(scheme) + 1);
@@ -126,17 +126,6 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 #ifdef IPV6
 		else if (ifa_main->ifa_addr && ifa_main->ifa_addr->sa_family == AF_INET6)
 		{
-			if (mod->svr[j] == NULL)
-				mod->svr[j] = mdnsd_start();
-			if (svr[j] == NULL) {
-				err("%s: mdnsd_start() error\n", str_tinysvcmdns);
-				return NULL;
-			}
-
-			mdnsd_set_hostname_v6(mod->svr[j], hostname, ((struct sockaddr_in6 *)ifa_main->ifa_addr)->sin6_addr); // TTL should be 120 seconds
-
-			mdnsd_register_svc(mod->svr[j],;
-			j++;
 		}
 #endif
 	}
