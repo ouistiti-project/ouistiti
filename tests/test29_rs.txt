@@ -1,0 +1,7 @@
+HTTP/1.1 416 Range Not Satisfiable
+Content-Range: bytes */40
+Content-Type: text/plain
+Content-Length: 28
+
+ 416 Range Not Satisfiable
+

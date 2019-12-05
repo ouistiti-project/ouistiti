@@ -1,0 +1,7 @@
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Basic realm="ouistiti"
+Content-Type: text/plain
+Content-Length: 19
+
+ 401 Unauthorized
+
