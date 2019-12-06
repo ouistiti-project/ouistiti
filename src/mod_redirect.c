@@ -86,27 +86,22 @@ void *mod_redirect_create(http_server_t *server, mod_redirect_t *config)
 	else
 		mod->result = RESULT_302;
 
-	httpserver_addmod(server, _mod_redirect_getctx, _mod_redirect_freectx, mod, str_redirect);
+	httpserver_addconnector(server, _mod_redirect_connector, mod, CONNECTOR_DOCFILTER, str_redirect);
+	httpserver_addconnector(server, _mod_redirect_connector, mod, CONNECTOR_ERROR, str_redirect);
 	return mod;
 }
 
 void mod_redirect_destroy(void *arg)
 {
 	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
-	free(mod);
-}
-
-static void *_mod_redirect_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
-{
-	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
 	mod_redirect_t *config = mod->config;
-
-	httpclient_addconnector(ctl, _mod_redirect_connector, arg, CONNECTOR_DOCFILTER, str_redirect);
-	return mod;
-}
-
-static void _mod_redirect_freectx(void *vctx)
-{
+	mod_redirect_link_t *link = config->links;
+	while (link != NULL)
+	{
+		free(link->origin);
+		link = link->next;
+	}
+	free(mod);
 }
 
 static int _mod_redirect_connector(void *arg, http_message_t *request, http_message_t *response)
@@ -159,7 +154,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 		{
 			return EREJECT;
 		}
-		//const char *uri = httpmessage_REQUEST(request, "uri");
+
 		mod_redirect_link_t *link = config->links;
 		while (link != NULL)
 		{
