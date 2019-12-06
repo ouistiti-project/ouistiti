@@ -120,7 +120,7 @@ servers={
 #ifdef STATIC_CONFIG
 ouistiticonfig_t g_ouistiticonfig =
 {
-	.user = "apache",
+	.user = "www-data",
 	.servers =
 	{
 		&(serverconfig_t) {
@@ -130,7 +130,8 @@ ouistiticonfig_t g_ouistiticonfig =
 				.port = 80,
 				.addr = NULL,
 				.keepalive = 10,
-				.version = HTTP11
+				.maxclients = 10,
+				.version = HTTP11,
 			},
 		.tls = NULL,
 		.modules = {
@@ -155,6 +156,7 @@ ouistiticonfig_t g_ouistiticonfig =
 				.addr = NULL,
 				.keepalive = 10,
 				.version = HTTP11,
+				.maxclients = 10,
 			},
 		.tls =
 			&(mod_tls_t) {
@@ -166,7 +168,7 @@ ouistiticonfig_t g_ouistiticonfig =
 		.modules = {
 			.document =
 				&(mod_document_t) {
-					.docroot = "/srv/www/htdocs",
+					.docroot = "/srv/wwwS/htdocs",
 					.allow = ".html,.htm,.css,.js,.txt",
 					.deny = ".htaccess,.php"
 				},
