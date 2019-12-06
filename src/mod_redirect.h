@@ -37,8 +37,8 @@ extern "C"
 typedef struct mod_redirect_link_s mod_redirect_link_t;
 struct mod_redirect_link_s
 {
-	const char *origin;
-	char *destination;
+	char *origin;
+	const char *destination;
 	int options;
 	mod_redirect_link_t *next;
 };

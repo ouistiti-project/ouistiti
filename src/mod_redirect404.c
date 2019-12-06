@@ -62,35 +62,17 @@ struct _mod_redirect404_s
 
 void *mod_redirect404_create(http_server_t *server, mod_redirect404_t *config)
 {
-	_mod_redirect404_t *mod;
-
-	mod = calloc(1, sizeof(*mod));
-
-	httpserver_addmod(server, _mod_redirect404_getctx, _mod_redirect404_freectx, mod, str_redirect404);
-	return mod;
+	httpserver_addconnector(server, _mod_redirect404_connector, config, CONNECTOR_ERROR, str_redirect404);
+	return config;
 }
 
 void mod_redirect404_destroy(void *arg)
-{
-	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
-	free(mod);
-}
-
-static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
-{
-	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
-
-	httpclient_addconnector(ctl, _mod_redirect404_connector, arg, CONNECTOR_ERROR, str_redirect404);
-	return mod;
-}
-
-static void _mod_redirect404_freectx(void *vctx)
 {
 }
 
 static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	_mod_redirect404_t *mod = (_mod_redirect404_t *)arg;
+	mod_redirect404_t *conf = (mod_redirect404_t *)arg;
 	httpmessage_result(response, RESULT_404);
 	return EREJECT;
 }

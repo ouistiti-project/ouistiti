@@ -439,10 +439,9 @@ int main(int argc, char * const *argv)
 				server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
 			if (server->config->modules.auth)
 				server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
-#if defined(REDIRECT)
+			server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.redirect)
 				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
-#endif
 			server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);
 			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
 			if (server->config->modules.cgi)
@@ -462,13 +461,6 @@ int main(int argc, char * const *argv)
 			}
 			if (server->config->modules.document)
 				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
-#if defined(REDIRECT)
-			if (server->config->modules.redirect)
-			{
-				server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j++].destroy);
-				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
-			}
-#endif
 			server->modules[j].config = NULL;
 		}
 		server = server->next;

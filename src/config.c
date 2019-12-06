@@ -584,19 +584,38 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 			int i;
 			for (i = 0; i < count; i++)
 			{
-				char *origin = NULL;
-				char *destination = NULL;
 				config_setting_t *iterator = config_setting_get_elem(configlinks, i);
 				if (iterator)
 				{
-					config_setting_lookup_string(iterator, "origin", (const char **)&origin);
+					char *destination = NULL;
+					const char *origin = NULL;
+
 					config_setting_lookup_string(iterator, "options", (const char **)&mode);
+					int options = redirect_mode(mode);
+
+					static char origin_error[4];
+					config_setting_t *originset = config_setting_lookup(iterator, "origin");
+					if (config_setting_is_number(originset))
+					{
+						int value;
+						value = config_setting_get_int(originset);
+						snprintf(origin_error, 4, "%.3d", value);
+						origin = origin_error;
+						config_setting_set_string(originset, origin_error);
+						//originset = config_setting_lookup(iterator, "origin");
+						if (value == 204)
+							options |= REDIRECT_GENERATE204;
+						else
+							options |= REDIRECT_ERROR;
+					}
+					else
+						origin = config_setting_get_string(originset);
 					config_setting_lookup_string(iterator, "destination", (const char **)&destination);
 					if (origin != NULL)
 					{
 						mod_redirect_link_t *link = calloc(1, sizeof(*link));
-						link->origin = origin;
-						link->options = redirect_mode(mode);
+						link->origin = strdup(origin);
+						link->options = options;
 						link->destination = destination;
 						link->next = conf->links;
 						conf->links = link;
