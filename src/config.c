@@ -57,6 +57,8 @@
 # define dbg(...)
 #endif
 
+char str_hostname[HOST_NAME_MAX + 6];
+
 static config_t configfile;
 static char *logfile = NULL;
 static int logfd = 0;
@@ -693,6 +695,9 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 	int ret;
 	ouistiticonfig_t *ouistiticonfig = NULL;
 
+	gethostname(str_hostname, HOST_NAME_MAX);
+	strcat(str_hostname, ".local");
+
 	config_init(&configfile);
 	dbg("config file: %s", filepath);
 	ret = config_read_file(&configfile, filepath);
@@ -751,12 +756,18 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					serverconfig_t *config = ouistiticonfig->servers[i];
 
 					config->server = calloc(1, sizeof(*config->server));
-
-					config_setting_lookup_string(iterator, "hostname", (const char **)&config->server->hostname);
-					if (config->server->hostname && strchr(config->server->hostname, '.') == NULL)
+					char *hostname = NULL;
+					config_setting_lookup_string(iterator, "hostname", (const char **)&hostname);
+					if (hostname && strchr(hostname, '.') == NULL)
 					{
 						err("hostname must contain the domain");
 					}
+					else
+					{
+						hostname = str_hostname;
+					}
+					warn("hostname %s", hostname);
+					config->server->hostname = hostname;
 					config->server->port = 80;
 					config_setting_lookup_int(iterator, "port", &config->server->port);
 					config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
