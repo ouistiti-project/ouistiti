@@ -136,7 +136,7 @@ static int _change_passwd(int id, const char *passwd, json_t **result, void *use
 	{
 		_db_error(ret);
 		json_decref(*result);
-		*result = jsonrpc_error_object(ret, "password rejected", json_string("password rejected"));
+		*result = jsonrpc_error_object(ret, "password rejected", json_string(sqlite3_errmsg(db)));
 	}
 	sqlite3_finalize(statement);
 }
@@ -170,7 +170,7 @@ static int _remove_user(int id, json_t **result, void *userdata)
 	{
 		_db_error(ret);
 		json_decref(*result);
-		*result = jsonrpc_error_object(ret, "access rejected", json_string("acess rejected"));
+		*result = jsonrpc_error_object(ret, "access rejected", json_string(sqlite3_errmsg(db)));
 	}
 	sqlite3_finalize(statement);
 }
@@ -412,6 +412,7 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 				if (index > 0)
 				{
 					ret = sqlite3_bind_text(statement, index, json_string_value(value), -1, SQLITE_STATIC);
+					dbg("user %s", json_string_value(value));
 				}
 				prepare |= 0x0001;
 			}
@@ -424,6 +425,7 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 					char b64passwd[3 + 50];
 					_compute_passwd(passwd, b64passwd, 3 + 50);
 					ret = sqlite3_bind_text(statement, index, b64passwd, -1, SQLITE_STATIC);
+					dbg("passwd %s", b64passwd);
 				}
 				prepare |= 0x0002;
 			}
@@ -433,6 +435,7 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 				if (index > 0)
 				{
 					ret = sqlite3_bind_text(statement, index, json_string_value(value), -1, SQLITE_STATIC);
+					dbg("home %s", json_string_value(value));
 				}
 				prepare |= 0x0004;
 			}
@@ -461,6 +464,7 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 		if (index > 0)
 		{
 			ret = sqlite3_bind_int(statement, index, groupid);
+					dbg("groupid %d", groupid);
 		}
 		if (ret == 0)
 		{
@@ -472,8 +476,9 @@ static int method_adduser(json_t *json_params, json_t **result, void *userdata)
 			}
 			else
 			{
+				err("error %d %s", ret, sqlite3_errmsg(db));
 				json_decref(*result);
-				*result = jsonrpc_error_object(ret, "internal error", json_string("internal error"));
+				*result = jsonrpc_error_object(ret, "internal error", json_string(sqlite3_errmsg(db)));
 			}
 		}
 		else

@@ -109,6 +109,7 @@ void *authz_sqlite_create(void *arg)
 		err("auth: database not found %s", config->dbname);
 		return NULL;
 	}
+	dbg("auth: authentication DB storage on %s", config->dbname);
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->db = db;
@@ -226,6 +227,7 @@ int authz_sqlite_check(void *arg, char *user, char *passwd)
 				{
 					checkpasswd++;
 				}
+				dbg("auth: check %s to %s", b64passwd, checkpasswd);
 				if (!strcmp(b64passwd, checkpasswd))
 					ret = 1;
 			}
