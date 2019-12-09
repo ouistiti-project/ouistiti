@@ -1,1 +1,13 @@
+title: Ouistiti
 theme: jekyll-theme-tactile
+url: "https://ouistiti-project.github.io"
+baseurl: "/ouistiti"
+
+github_profile: "https://github.com/ouistiti-project"
+
+markdown: kramdown
+gems:
+  - jekyll-feed
+  - jekyll-paginate
+  - jekyll-seo-tag
+  - jekyll-sitemap
