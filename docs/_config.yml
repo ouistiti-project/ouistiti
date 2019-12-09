@@ -1,8 +1,12 @@
 title: Ouistiti
 theme: jekyll-theme-tactile
+show_downloads: true
 url: "https://ouistiti-project.github.io"
 baseurl: "/ouistiti"
 
+github:
+  public: true
+  is_project_page: true
 github_profile: "https://github.com/ouistiti-project"
 
 markdown: kramdown
