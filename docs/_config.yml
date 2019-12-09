@@ -7,6 +7,8 @@ baseurl: "/ouistiti"
 github:
   public: true
   is_project_page: true
+  repository_url: "https://github.com/ouistiti-project/ouistiti"
+  tar_url: "https://github.com/ouistiti-project/ouistiti/archive/ouistiti-latest.tar.gz"
 github_profile: "https://github.com/ouistiti-project"
 
 markdown: kramdown
