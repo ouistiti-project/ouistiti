@@ -185,7 +185,7 @@ struct authn_digest_computing_s
 	char *(*a2)(const hash_t * hash, const char *method, const char *uri, const char *entity);
 };
 
-static char *authn_digest_digest(const hash_t * hash, char *a1, const const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2)
+static char *authn_digest_digest(const hash_t * hash, char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2)
 {
 	if (a1 && a2)
 	{
@@ -363,11 +363,15 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	{
 		passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
 	}
-	if (strcmp(url, uri))
+	if (uri == NULL)
+	{
+		warn("auth: uri is unset");
+	}
+	else if (strcmp(url, uri))
 	{
 		warn("try connection on %s with authorization on %s", url, uri);
 	}
-	if (passwd && authn_digest_computing)
+	if (response && passwd && authn_digest_computing)
 	{
 		char *a1 = authn_digest_computing->a1(mod->hash, user, realm, passwd);
 		char *a2 = authn_digest_computing->a2(mod->hash, method, uri, NULL);
