@@ -109,7 +109,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			if (private->size > private->offset)
 			{
 				char range[20];
-				sprintf(range, "bytes %ld/*", (long)private->size);
+				snprintf(range, 20, "bytes %.9ld/*", (long)private->size);
 				httpmessage_addheader(response, "Content-Range", range);
 			}
 			else
