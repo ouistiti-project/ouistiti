@@ -239,6 +239,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 					httpmessage_addheader(response, str_location, location);
 					httpmessage_result(response, RESULT_301);
 					free(indexpath);
+					free(location);
 					document_close(private, request);
 					return ESUCCESS;
 #else
