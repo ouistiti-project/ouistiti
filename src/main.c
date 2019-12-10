@@ -390,8 +390,12 @@ int main(int argc, char * const *argv)
 #endif
 	if (serverid < 0)
 	{
-		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL && i < MAX_SERVERS; i++, it = ouistiticonfig->servers[i])
+		for (i = 0; i < MAX_SERVERS; i++)
 		{
+			it = ouistiticonfig->servers[i];
+			if (it == NULL)
+				break;
+
 			server = calloc(1, sizeof(*server));
 			server->config = it;
 
@@ -488,7 +492,7 @@ int main(int argc, char * const *argv)
 
 	while(run != 'q')
 	{
-		if (first->server || httpserver_run(first->server) == ESUCCESS)
+		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
 			break;
 	}
 
