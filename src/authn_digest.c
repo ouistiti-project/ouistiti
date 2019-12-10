@@ -169,7 +169,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	if (mod->hash != hash_md5)
 	{
 		int len = strlen(mod->challenge);
-		snprintf(mod->challenge + len, 256 - len, " algorithm=\%s\"", mod->hash->name);
+		snprintf(mod->challenge + len, 256 - len, " algorithm=\"%s\"", mod->hash->name);
 	}
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
 	httpmessage_keepalive(response);
