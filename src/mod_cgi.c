@@ -289,7 +289,11 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	 * when the request is complete the module must check the CGI immedialty
 	 * otherwise the client will wait more data from request
 	 */
-	if ((ctx->state & STATE_MASK) >= STATE_INFINISH && (ctx->state & STATE_MASK) < STATE_CONTENTCOMPLETE)
+	if (ctx == NULL)
+	{
+		return EREJECT;
+	}
+	else if ((ctx->state & STATE_MASK) >= STATE_INFINISH && (ctx->state & STATE_MASK) < STATE_CONTENTCOMPLETE)
 	{
 		int sret;
 		fd_set rfds;
