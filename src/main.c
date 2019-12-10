@@ -329,12 +329,10 @@ int main(int argc, char * const *argv)
 			break;
 			case 'h':
 				display_help(argv);
-				return -1;
-			break;
+			return -1;
 			case 'V':
 				printf("%s\n",PACKAGEVERSION);
-				return -1;
-			break;
+			return -1;
 			case 'D':
 				daemonize = 1;
 			break;
@@ -375,7 +373,7 @@ int main(int argc, char * const *argv)
 
 #ifdef HAVE_PWD
 	uid_t   pw_uid = -1;
-	gid_t   pw_gid;
+	gid_t   pw_gid = -1;
 	if (ouistiticonfig->user)
 	{
 		struct passwd *result;
@@ -392,7 +390,7 @@ int main(int argc, char * const *argv)
 #endif
 	if (serverid < 0)
 	{
-		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
+		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL && i < MAX_SERVERS; i++, it = ouistiticonfig->servers[i])
 		{
 			server = calloc(1, sizeof(*server));
 			server->config = it;
@@ -467,7 +465,7 @@ int main(int argc, char * const *argv)
 	}
 
 #ifdef HAVE_PWD
-	if (pw_uid > 0)
+	if (pw_uid > 0 && pw_gid > 0)
 	{
 		setegid(pw_gid);
 		if (seteuid(pw_uid))
@@ -490,7 +488,7 @@ int main(int argc, char * const *argv)
 
 	while(run != 'q')
 	{
-		if (httpserver_run(first->server) == ESUCCESS)
+		if (first->server || httpserver_run(first->server) == ESUCCESS)
 			break;
 	}
 
