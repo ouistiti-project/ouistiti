@@ -696,7 +696,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 	ouistiticonfig_t *ouistiticonfig = NULL;
 
 	gethostname(str_hostname, HOST_NAME_MAX);
-	strcat(str_hostname, ".local");
+	strncat(str_hostname, ".local", 5);
 
 	config_init(&configfile);
 	dbg("config file: %s", filepath);
