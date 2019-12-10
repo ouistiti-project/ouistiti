@@ -88,8 +88,9 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 	if (scheme == NULL || scheme[0] == '\0')
 		scheme = "http";
 	const char *typeformat = "_%s._tcp.local";
-	mod->type = calloc(1, strlen(typeformat) - 2 + strlen(scheme) + 1);
-	sprintf(mod->type, typeformat, scheme);
+	int length = strlen(typeformat) - 2 + strlen(scheme);
+	mod->type = calloc(1, length + 1);
+	snprintf(mod->type, length + 1, typeformat, scheme);
 
 	struct ifaddrs *ifa_list;
 	struct ifaddrs *ifa_main;
