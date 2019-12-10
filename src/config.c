@@ -887,17 +887,6 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 		if (config)
 		{
 			_modulesconfig_destroy(&config->modules);
-			int j;
-			for (j = 0; j < MAX_SERVERS; j++)
-			{
-				if (config->vhosts[j])
-				{
-					_modulesconfig_destroy(&config->vhosts[j]->modules);
-					free(config->vhosts[j]);
-				}
-				else
-					break;
-			}
 			if (config->tls)
 				free(config->tls);
 			free(config->server);
