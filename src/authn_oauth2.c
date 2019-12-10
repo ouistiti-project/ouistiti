@@ -187,7 +187,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 				char authorization[256] = {0};
 				char basic[164];
 				snprintf(basic, 164, "%s:%s", config->client_id, config->client_passwd);
-				strcpy(authorization, "Basic ");
+				strncpy(authorization, "Basic ", 256);
 				int length = strlen(basic) * 1.5 + 5;
 				base64_urlencoding->encode(basic, strlen(basic), authorization + strlen(authorization), length - 1);
 				httpmessage_addheader(request2, str_authorization, authorization);
@@ -271,7 +271,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 					{
 						authsession_t authinfo = {0};
 						strncpy(authinfo.user, json_string_value(json_username), sizeof(authinfo.user));
-						strcpy(authinfo.group, "users");
+						strncpy(authinfo.group, "users", sizeof(authinfo.group));
 						mod->authz->rules->adduser(mod->authz->ctx, &authinfo);
 					}
 					json_t *json_expire = json_object_get(json_authtokens, "expires_in");

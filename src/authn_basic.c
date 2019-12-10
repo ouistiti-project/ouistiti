@@ -62,20 +62,22 @@ static void *authn_basic_create(authn_t *authn, authz_t *authz, void *arg)
 	mod->config = (authn_basic_config_t *)arg;
 	if (mod->config->realm)
 	{
-		mod->challenge = calloc(1, sizeof(format)
+		int length = sizeof(format)
 							+ sizeof(format_realm) - 4
-							+ strlen(mod->config->realm) + 1);
+							+ strlen(mod->config->realm) + 1;
+		mod->challenge = calloc(1, length);
 		if (mod->challenge)
-			sprintf(mod->challenge, format_realm, format, mod->config->realm);
+			snprintf(mod->challenge, length, format_realm, format, mod->config->realm);
 	}
 	else
 	{
 #ifdef HAVE_STRDUP
 		mod->challenge = strdup(format);
 #else
-		mod->challenge = calloc(1, sizeof(format) + 1);
+		int length = sizeof(format) + 1;
+		mod->challenge = calloc(1, length);
 		if (mod->challenge)
-			strcpy(mod->challenge, format);
+			strncpy(mod->challenge, format, length);
 #endif
 	}
 
