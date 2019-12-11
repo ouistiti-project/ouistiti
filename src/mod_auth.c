@@ -531,57 +531,41 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					ctx->info = info;
 					httpmessage_SESSION(request, str_auth, info);
 
-					if (mod->authz->type & AUTHZ_HEADER_E)
-					{
 #ifdef AUTH_TOKEN
-						if (mod->authz->type & AUTHZ_TOKEN_E)
+					if (mod->authz->type & AUTHZ_TOKEN_E)
+					{
+						char *token = mod->authz->generatetoken(mod->config, info);
+						if (mod->authz->rules->join)
+							mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
+						if (mod->authz->type & AUTHZ_HEADER_E)
 						{
-								char *token = mod->authz->generatetoken(mod->config, info);
-								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
-								httpmessage_addheader(response, str_xtoken, (char *)token);
-								free(token);
-						}
-						else
-#endif
-						{
-							httpmessage_addheader(response, str_authorization, (char *)authorization);
-						}
-#if defined(AUTH_TOKEN) && defined(AUTHZ_JWT)
-						if (!(mod->authz->type & AUTHZ_TOKEN_E))
-#endif
-						{
+							httpmessage_addheader(response, str_xtoken, (char *)token);
 							httpmessage_addheader(response, str_xuser, user);
 							if (group)
 								httpmessage_addheader(response, str_xgroup, group);
 							if (home)
 								httpmessage_addheader(response, str_xhome, "~/");
 						}
-					}
-					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
-					{
-#ifdef AUTH_TOKEN
-						if (mod->authz->type & AUTHZ_TOKEN_E)
+						if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
 						{
-								char *token = mod->authz->generatetoken(mod->config, info);
-								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
-								cookie_set(response, str_xtoken, (char *)token);
-								free(token);
-						}
-						else
-#endif
-						{
-							cookie_set(response, str_authorization, (char *)authorization);
-						}
-#if defined(AUTH_TOKEN) && defined(AUTHZ_JWT)
-						if (!(mod->authz->type & AUTHZ_TOKEN_E))
-#endif
-						{
+							cookie_set(response, str_xtoken, (char *)token);
 							cookie_set(response, str_user, (char *)user);
 							if (group)
 								cookie_set(response, str_group, (char *)group);
 							if (home)
 								cookie_set(response, str_home, "~/");
 						}
+						free(token);
+					}
+					else
+#endif
+					if (mod->authz->type & AUTHZ_HEADER_E)
+					{
+						httpmessage_addheader(response, str_authorization, (char *)authorization);
+					}
+					else if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
+					{
+						cookie_set(response, str_authorization, (char *)authorization);
 					}
 				}
 

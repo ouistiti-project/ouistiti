@@ -72,7 +72,7 @@ struct authz_jwt_s
 int jwt_sign(const char *key, const char *input, size_t len, char *output)
 {
 	int ret = EREJECT;
-	if (hash_macsha256 != NULL)
+	if (hash_macsha256 != NULL && key != NULL)
 	{
 		void *ctx = hash_macsha256->initkey(key, strlen(key));
 		if (ctx)
@@ -84,6 +84,11 @@ int jwt_sign(const char *key, const char *input, size_t len, char *output)
 			base64_urlencoding->encode(signature, HASH_MAX_SIZE, output, 64);
 			ret = ESUCCESS;
 		}
+	}
+	else
+	{
+		err("auth: set secret in configuration");
+		output[0] = '\0';
 	}
 	return ret;
 }
