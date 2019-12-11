@@ -1,7 +1,7 @@
 user="%USER%";
 servers= ({
 		hostname = "www.ouistiti.net";
-		port = 80;
+		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
 		websocket = {
