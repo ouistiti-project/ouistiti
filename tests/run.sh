@@ -1,6 +1,7 @@
 #!/bin/sh
 
 CONTINUE=0
+GCOV=0
 while [ -n "$1" ]; do
 case $1 in
 	-D)
@@ -8,6 +9,9 @@ case $1 in
 		;;
 	-C)
 		CONTINUE=1
+		;;
+	-GCOV)
+		GCOV=1
 		;;
 	*)
 		TEST=$1
@@ -60,11 +64,13 @@ if [ -n "$DEBUG" ]; then
 	echo ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG}
 fi
 
-${SRCDIR}${TARGET} -s 1 -f ${TESTDIR}conf/${CONFIG} &
-PID=$!
-echo "${TARGET} started with pid ${PID}"
-sleep 1
-
+if [ $CONTINUE -eq 0 -o ! -x ${TESTDIR}run.pid ]; then
+	${SRCDIR}${TARGET} -s 1 -f ${TESTDIR}conf/${CONFIG} &
+	PID=$!
+	echo "${TARGET} started with pid ${PID}"
+	echo ${PID} > ${TESTDIR}run.pid
+	sleep 1
+fi
 
 if [ -n "$DEBUG" ]; then
 	echo "******************************"
@@ -132,5 +138,13 @@ else
 	fi
 fi
 if [ $CONTINUE -eq 0 ]; then
+	PID=$(cat ${TESTDIR}run.pid)
+	rm ${TESTDIR}run.pid
+	if [ ${GCOV} -eq 1 ]; then
+		sleep 1
+		lcov --directory . -c -o rapport.info
+		genhtml -o ./rapport -t "couverture de code des tests" rapport.info
+		firefox ./rapport/index.html
+	fi
 	kill $PID 2> /dev/null
 fi
