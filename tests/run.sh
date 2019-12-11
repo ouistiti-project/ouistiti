@@ -17,7 +17,7 @@ shift
 done
 
 TESTDIR=$(dirname $TEST)/
-SRCDIR=$TESTDIR../src/
+SRCDIR=src/
 PWD=$(pwd)
 
 TESTRESPONSE=$(basename ${TEST})_rs.txt
@@ -32,7 +32,7 @@ SED=sed
 WC=wc
 CURL=curl
 USER=$(ls -l ${SRCDIR}/${TARGET} | ${AWK} '{print $3}')
-TESTCLIENT="./host/utils/testclient"
+TESTCLIENT="./host/utils/testclient -p 8080"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
 if [ -z "$DEBUG" ]; then
 HTTPPARSER="./host/utils/httpparser"
@@ -60,16 +60,10 @@ if [ -n "$DEBUG" ]; then
 	echo ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG}
 fi
 
-WHOAMI=$(whoami)
-if [ -n $WHOAMI -a x$WHOAMI = xroot ]; then
-	${SRCDIR}${TARGET} -s 1 -f ${TESTDIR}conf/${CONFIG} &
-	PID=$!
-
-	echo "${TARGET} started with pid ${PID}"
-	sleep 2
-else
-	echo "${TARGET} must be running or relaunch as root"
-fi
+${SRCDIR}${TARGET} -s 1 -f ${TESTDIR}conf/${CONFIG} &
+PID=$!
+echo "${TARGET} started with pid ${PID}"
+sleep 1
 
 
 if [ -n "$DEBUG" ]; then
