@@ -8,6 +8,7 @@ servers= ({
 		auth = {
 			type="Basic";
 			file="%PWD%/tests/conf/passwd";
+			options="token,header,cookie";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
