@@ -57,7 +57,7 @@
 # define dbg(...)
 #endif
 
-char str_hostname[HOST_NAME_MAX + 6];
+char str_hostname[HOST_NAME_MAX + 7];
 
 static config_t configfile;
 static char *logfile = NULL;
@@ -696,7 +696,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 	ouistiticonfig_t *ouistiticonfig = NULL;
 
 	gethostname(str_hostname, HOST_NAME_MAX);
-	strncat(str_hostname, ".local", 5);
+	strncat(str_hostname, ".local", 6);
 
 	config_init(&configfile);
 	dbg("config file: %s", filepath);
