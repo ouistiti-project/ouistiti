@@ -119,7 +119,7 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 	authn_bearer_t *mod = (authn_bearer_t *)arg;
 	authn_bearer_config_t *config = mod->config;
 
-	if (!strcmp(uri, config->token_ep))
+	if (config->token_ep && !strcmp(uri, config->token_ep))
 	{
 		return str_anonymous;
 	}
