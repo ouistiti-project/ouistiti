@@ -13,6 +13,9 @@ case $1 in
 	-GCOV)
 		GCOV=1
 		;;
+	-I)
+		INFO=1
+		;;
 	*)
 		TEST=$1
 		;;
@@ -38,8 +41,7 @@ CURL=curl
 USER=$(ls -l ${SRCDIR}/${TARGET} | ${AWK} '{print $3}')
 TESTCLIENT="./host/utils/testclient -p 8080"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
-if [ -z "$DEBUG" ]; then
-HTTPPARSER="./host/utils/httpparser"
+if [ -z "$INFO" ]; then
 CURLOUT="-o /dev/null"
 fi
 
@@ -60,7 +62,7 @@ if [ -n "$PREPARE" ]; then
 	$PREPARE
 fi
 
-if [ -n "$DEBUG" ]; then
+if [ -n "$INFO" ]; then
 	echo ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG}
 fi
 
@@ -72,7 +74,7 @@ if [ $CONTINUE -eq 0 -o ! -x ${TESTDIR}run.pid ]; then
 	sleep 1
 fi
 
-if [ -n "$DEBUG" ]; then
+if [ -n "$INFO" ]; then
 	echo "******************************"
 	cat ${TESTDIR}conf/${CONFIG}
 fi
@@ -81,7 +83,7 @@ if [ -n "$CURLPARAM" ]; then
 	$CURL $CURLOUT -f -s -S $CURLPARAM > $TMPRESPONSE
 fi
 if [ -n "$TESTREQUEST" ]; then
-	if [ -n "$DEBUG" ]; then
+	if [ -n "$INFO" ]; then
 		cat ${TESTDIR}$TESTREQUEST
 		echo "******************************"
 		echo
@@ -89,14 +91,14 @@ if [ -n "$TESTREQUEST" ]; then
 	cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT > $TMPRESPONSE
 fi
 if [ -n "$CMDREQUEST" ]; then
-	if [ -n "$DEBUG" ]; then
+	if [ -n "$INFO" ]; then
 		$CMDREQUEST
 		echo "******************************"
 		echo
 	fi
 	$CMDREQUEST | $TESTCLIENT > $TMPRESPONSE
 fi
-if [ -n "$DEBUG" ]; then
+if [ -n "$INFO" ]; then
 	cat $TMPRESPONSE
 	echo "******************************"
 	echo $DESC
