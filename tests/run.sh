@@ -16,6 +16,13 @@ case $1 in
 	-I)
 		INFO=1
 		;;
+	-h)
+		printf "$0 <-I> <-D> <-C> <-GCOV> test/test[09]*\n"
+		printf "\t-I    display information about test and the response\n"
+		printf "\t-C    leave ouistiti running for the next test\n"
+		printf "\t-GCOV run lcov to display the code coverage\n"
+		exit 1
+		;;
 	*)
 		TEST=$1
 		;;
