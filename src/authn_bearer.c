@@ -81,11 +81,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 	snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
 	httpmessage_addheader(response, str_authenticate, authenticate);
 
-	if (!utils_searchexp(uri, config->token_ep))
-	{
-		ret = EREJECT;
-	}
-	else if (config->token_ep != NULL && config->token_ep[0] != '\0')
+	if (config->token_ep != NULL && config->token_ep[0] != '\0')
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
 		const char *scheme = httpserver_INFO(server, "scheme");
@@ -119,10 +115,6 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 	authn_bearer_t *mod = (authn_bearer_t *)arg;
 	authn_bearer_config_t *config = mod->config;
 
-	if (config->token_ep && !strcmp(uri, config->token_ep))
-	{
-		return str_anonymous;
-	}
 	if (!strncmp(string, "Bearer ", 7))
 		string += 7;
 	return mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
