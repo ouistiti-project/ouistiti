@@ -74,7 +74,9 @@ if [ -n "$INFO" ]; then
 fi
 
 if [ $CONTINUE -eq 0 -o ! -x ${TESTDIR}run.pid ]; then
-	${SRCDIR}${TARGET} -s 1 -f ${TESTDIR}conf/${CONFIG} &
+	if [ -z $DEBUG ]; then
+		${SRCDIR}${TARGET} -s 1 -f ${TESTDIR}conf/${CONFIG} &
+	fi
 	PID=$!
 	echo "${TARGET} started with pid ${PID}"
 	echo ${PID} > ${TESTDIR}run.pid
