@@ -7,8 +7,8 @@ servers= ({
 		version="HTTP11";
 		auth = {
 			type="Basic";
-			user="test";
-			passwd="test";
+			user="foo";
+			passwd="bar";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
