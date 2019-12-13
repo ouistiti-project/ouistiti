@@ -7,6 +7,7 @@ servers= ({
 		unlock_groups="user";
 		auth = {
 			type = "Basic";
+			options = "header,home";
 			user = "test";
 			passwd = "test";
 			group = "user";

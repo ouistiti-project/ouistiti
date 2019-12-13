@@ -12,6 +12,7 @@ servers= ({
 			user="Mufasa";
 			group="superuser";
 			passwd="Circle Of Life";
+			algorithm = "SHA-256";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
