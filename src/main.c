@@ -293,15 +293,140 @@ static void *loadmodule(const char *name, http_server_t *server, void *config, v
 	return mod;
 }
 
+static server_t *main_set(ouistiticonfig_t *config, int serverid)
+{
+	server_t *first = NULL;
+	int i;
+	for (i = 0; i < MAX_SERVERS; i++)
+	{
+		serverconfig_t *it;
+
+		it = config->servers[i];
+		if (it == NULL)
+			break;
+		if (serverid > -1 && serverid != i)
+			continue;
+
+		http_server_t *httpserver = httpserver_create(it->server);
+		if (httpserver == NULL)
+			continue;
+
+		server_t *server;
+
+		server = calloc(1, sizeof(*server));
+		server->config = it;
+
+		server->server = httpserver;
+		server->next = first;
+		first = server;
+	}
+	return first;
+}
+
+static int main_setmodules(server_t *server)
+{
+	while (server != NULL)
+	{
+		if (server->server)
+		{
+			int j = 0;
+			server->modules[j].config = loadmodule(str_tinysvcmdns, server->server, NULL, &server->modules[j++].destroy);
+			/**
+			 * TLS must be first to free the connection after all others modules
+			 */
+			if (server->config->tls)
+				server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j++].destroy);
+			/**
+			 * clientfilter must be at the beginning to stop the connection if necessary
+			 */
+			if (server->config->modules.clientfilter)
+				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
+
+			int i;
+			for (i = 0; i < (MAX_SERVERS - 1); i++)
+			{
+				if (server->config->vhosts[i])
+					server->modules[j].config = loadmodule(str_vhosts, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
+			}
+			server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
+			if (server->config->modules.cors)
+				server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
+			if (server->config->modules.auth)
+				server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j++].destroy);
+			if (server->config->modules.redirect)
+				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
+			if (server->config->modules.cgi)
+				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
+			if (server->config->modules.webstream)
+				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
+			if (server->config->modules.websocket)
+			{
+#ifdef WEBSOCKET_RT
+				if (((mod_websocket_t*)server->config->modules.websocket)->options & WEBSOCKET_REALTIME)
+				{
+					((mod_websocket_t*)server->config->modules.websocket)->run = ouistiti_websocket_run;
+					warn("server %p runs realtime websocket!", server->server);
+				}
+#endif
+				server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j++].destroy);
+			}
+			if (server->config->modules.document)
+				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
+			server->modules[j].config = NULL;
+		}
+		server = server->next;
+	}
+	return 0;
+}
+
+static int main_run(server_t *first)
+{
+	server_t *server = first;
+	/**
+	 * connection must be after the owner change
+	 */
+	while (server != NULL)
+	{
+		httpserver_connect(server->server);
+		server = server->next;
+	}
+
+	while(run != 'q')
+	{
+		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
+			break;
+	}
+
+	kill(0, SIGPIPE);
+
+	server = first;
+	while (server != NULL)
+	{
+		server_t *next = server->next;
+		int j = 0;
+		while (server->modules[j].config)
+		{
+			if (server->modules[j].destroy)
+				server->modules[j].destroy(server->modules[j].config);
+			j++;
+		}
+		httpserver_disconnect(server->server);
+		httpserver_destroy(server->server);
+		free(server);
+		server = next;
+	}
+	return 0;
+}
+
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
-	server_t *server;
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
 	char *pidfile = NULL;
-	serverconfig_t *it;
-	int i;
 	int daemonize = 0;
 	int serverid = -1;
 
@@ -393,78 +518,9 @@ int main(int argc, char * const *argv)
 		pw_gid = result->pw_gid;
 	}
 #endif
-	for (i = 0; i < MAX_SERVERS; i++)
-	{
-		it = ouistiticonfig->servers[i];
-		if (it == NULL)
-			break;
-		if (serverid > -1 && serverid != i)
-			continue;
+	first = main_set(ouistiticonfig, serverid);
 
-		http_server_t *httpserver = httpserver_create(it->server);
-		if (httpserver == NULL)
-			continue;
-		server = calloc(1, sizeof(*server));
-		server->config = it;
-
-		server->server = httpserver;
-		server->next = first;
-		first = server;
-	}
-	server = first;
-
-	while (server != NULL)
-	{
-		if (server->server)
-		{
-			int j = 0;
-			server->modules[j].config = loadmodule(str_tinysvcmdns, server->server, NULL, &server->modules[j++].destroy);
-			/**
-			 * TLS must be first to free the connection after all others modules
-			 */
-			if (server->config->tls)
-				server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j++].destroy);
-			/**
-			 * clientfilter must be at the beginning to stop the connection if necessary
-			 */
-			if (server->config->modules.clientfilter)
-				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
-			for (i = 0; i < (MAX_SERVERS - 1); i++)
-			{
-				if (server->config->vhosts[i])
-					server->modules[j].config = loadmodule(str_vhosts, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
-			}
-			server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
-			if (server->config->modules.cors)
-				server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
-			if (server->config->modules.auth)
-				server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
-			server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j++].destroy);
-			if (server->config->modules.redirect)
-				server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
-			server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);
-			server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
-			if (server->config->modules.cgi)
-				server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
-			if (server->config->modules.webstream)
-				server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
-			if (server->config->modules.websocket)
-			{
-#ifdef WEBSOCKET_RT
-				if (((mod_websocket_t*)server->config->modules.websocket)->options & WEBSOCKET_REALTIME)
-				{
-					((mod_websocket_t*)server->config->modules.websocket)->run = ouistiti_websocket_run;
-					warn("server %p runs realtime websocket!", server->server);
-				}
-#endif
-				server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j++].destroy);
-			}
-			if (server->config->modules.document)
-				server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
-			server->modules[j].config = NULL;
-		}
-		server = server->next;
-	}
+	main_setmodules(first);
 
 #ifdef HAVE_PWD
 	if (pw_uid > 0 && pw_gid > 0)
@@ -474,41 +530,9 @@ int main(int argc, char * const *argv)
 			err("Error: start server as root");
 	}
 #endif
-	server = first;
 
-	/**
-	 * connection must be after the owner change
-	 */
-	while (server != NULL)
-	{
-		httpserver_connect(server->server);
-		server = server->next;
-	}
+	main_run(first);
 
-	while(run != 'q')
-	{
-		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
-			break;
-	}
-
-	kill(0, SIGPIPE);
-
-	server = first;
-	while (server != NULL)
-	{
-		server_t *next = server->next;
-		int j = 0;
-		while (server->modules[j].config)
-		{
-			if (server->modules[j].destroy)
-				server->modules[j].destroy(server->modules[j].config);
-			j++;
-		}
-		httpserver_disconnect(server->server);
-		httpserver_destroy(server->server);
-		free(server);
-		server = next;
-	}
 #ifdef FILE_CONFIG
 	ouistiticonfig_destroy(ouistiticonfig);
 #endif
