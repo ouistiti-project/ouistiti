@@ -10,6 +10,7 @@ servers= ({
 			dbname="%PWD%/tests/conf/passwd.db";
 			options = "token,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
+			signin = "trust/signin.html";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";

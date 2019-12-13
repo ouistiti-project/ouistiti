@@ -1,4 +1,4 @@
-DESC="Auth Basic from database: no password"
+DESC="Auth Basic from database: good password"
 CONFIG=test12.conf
 TESTREQUEST=test12_rq.txt
 TESTCODE=200
