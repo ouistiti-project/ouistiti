@@ -216,7 +216,6 @@ static void handler(int sig)
 		}
 		server = server->next;
 	}
-	kill(0, SIGPIPE);
 }
 
 static void _setpidfile(char *pidfile)
@@ -366,9 +365,15 @@ int main(int argc, char * const *argv)
 	action.sa_sigaction = handler;
 	sigaction(SIGTERM, &action, NULL);
 	sigaction(SIGINT, &action, NULL);
+
+	struct sigaction unaction;
+	unaction.sa_handler = SIG_IGN;
+	sigaction(SIGPIPE, &action, NULL);
 #else
 	signal(SIGTERM, handler);
 	signal(SIGINT, handler);
+
+	signal(SIGPIPE, SIG_IGN);
 #endif
 
 #ifdef HAVE_PWD
@@ -496,6 +501,8 @@ int main(int argc, char * const *argv)
 			break;
 	}
 
+	kill(0, SIGPIPE);
+
 	server = first;
 	while (server != NULL)
 	{
@@ -515,5 +522,6 @@ int main(int argc, char * const *argv)
 #ifdef FILE_CONFIG
 	ouistiticonfig_destroy(ouistiticonfig);
 #endif
+	warn("good bye");
 	return 0;
 }
