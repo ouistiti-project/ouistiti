@@ -393,29 +393,22 @@ int main(int argc, char * const *argv)
 		pw_gid = result->pw_gid;
 	}
 #endif
-	if (serverid < 0)
+	for (i = 0; i < MAX_SERVERS; i++)
 	{
-		for (i = 0; i < MAX_SERVERS; i++)
-		{
-			it = ouistiticonfig->servers[i];
-			if (it == NULL)
-				break;
+		it = ouistiticonfig->servers[i];
+		if (it == NULL)
+			break;
+		if (serverid > -1 && serverid != i)
+			continue;
 
-			server = calloc(1, sizeof(*server));
-			server->config = it;
-
-			server->server = httpserver_create(server->config->server);
-			server->next = first;
-			first = server;
-		}
-	}
-	else
-	{
+		http_server_t *httpserver = httpserver_create(it->server);
+		if (httpserver == NULL)
+			continue;
 		server = calloc(1, sizeof(*server));
-		server->config = ouistiticonfig->servers[serverid];
+		server->config = it;
 
-		server->server = httpserver_create(server->config->server);
-		server->next = NULL;
+		server->server = httpserver;
+		server->next = first;
 		first = server;
 	}
 	server = first;
@@ -488,10 +481,7 @@ int main(int argc, char * const *argv)
 	 */
 	while (server != NULL)
 	{
-		if (server->server)
-		{
-			httpserver_connect(server->server);
-		}
+		httpserver_connect(server->server);
 		server = server->next;
 	}
 
