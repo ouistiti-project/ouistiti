@@ -50,6 +50,7 @@ typedef struct authsession_s
 	char group[32];
 	char home[PATH_MAX];
 	char *urlspace;
+	char *token;
 } authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
