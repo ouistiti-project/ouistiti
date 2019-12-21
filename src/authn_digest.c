@@ -169,7 +169,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	if (mod->hash != hash_md5)
 	{
 		int len = strlen(mod->challenge);
-		snprintf(mod->challenge + len, 256 - len, " algorithm=\"%s\"", mod->hash->name);
+		snprintf(mod->challenge + len, 256 - len, ",algorithm=\"%s\"", mod->hash->name);
 	}
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
 	httpmessage_keepalive(response);
@@ -299,7 +299,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	const char *cnonce = str_empty;
 	const char *nc = NULL;
 	const char *opaque = str_empty;
-	const char *algorithm = hash_md5->name;
+	const char *algorithm = NULL;
 	const char *response = NULL;
 	int length, i;
 
@@ -345,15 +345,10 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		mod->stale %= 5;
 		warn("auth: nonce is corrupted");
 	}
-	else if (strcmp(algorithm, mod->hash->name))
+	else if (algorithm == NULL || strcmp(algorithm, mod->hash->name))
 	{
-		warn("auth: algorithm is bad");
-#ifdef AUTH_DOWNGRADE
+		warn("auth: algorithm is bad %s/%s", algorithm, mod->hash->name);
 		mod->hash = hash_md5;
-#else
-		mod->stale++;
-		mod->stale %= 5;
-#endif
 	}
 	else if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
 	{
