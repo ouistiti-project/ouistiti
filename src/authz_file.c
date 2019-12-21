@@ -252,9 +252,12 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 				{
 					checkpasswd++;
 				}
+				dbg("auth: check %s %s", b64passwd, checkpasswd);
 				if (!strcmp(b64passwd, checkpasswd))
 					ret = 1;
 			}
+			else
+				err("auth: %.3s not supported change password encryption", checkpasswd);
 		}
 		else
 		{
@@ -262,6 +265,8 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 				ret = 1;
 		}
 	}
+	else
+		err("auth: user %s not found in file", user);
 	return ret;
 }
 
