@@ -252,7 +252,7 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 				{
 					checkpasswd++;
 				}
-				dbg("auth: check %s %s", b64passwd, checkpasswd);
+				auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
 				if (!strcmp(b64passwd, checkpasswd))
 					ret = 1;
 			}
