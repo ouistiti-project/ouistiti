@@ -163,7 +163,8 @@ static const char *authz_file_passwd(void *arg, const char *user)
 	FILE *file = fopen(config->path, "r");
 	while(file && !feof(file))
 	{
-		fgets(ctx->user, MAXLENGTH, file);
+		if (fgets(ctx->user, MAXLENGTH, file) == NULL)
+			break;
 		char *end = strchr(ctx->user, '\n');
 		if (end)
 			*end = '\0';

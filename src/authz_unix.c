@@ -95,9 +95,11 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		/* get the shadow password if possible */
 		uid_t uid;
 		uid = geteuid();
-		seteuid(0);
+		if (seteuid(0) < 0)
+			warn("not enought rights to change user to root");
 		struct spwd *spasswd = getspnam(pw->pw_name);
-		seteuid(uid);
+		if (seteuid(uid) < 0)
+			warn("not enought rights to change user");
 		if (spasswd && spasswd->sp_pwdp) {
 			cryptpasswd = spasswd->sp_pwdp;
 		}

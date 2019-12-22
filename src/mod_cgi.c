@@ -138,8 +138,10 @@ static void _cgi_freectx(mod_cgi_ctx_t *ctx)
 
 static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_message_t *request)
 {
-	pipe(ctx->tocgi);
-	pipe(ctx->fromcgi);
+	if (pipe(ctx->tocgi) < 0)
+		return EREJECT;
+	if (pipe(ctx->fromcgi))
+		return EREJECT;
 	pid_t pid = fork();
 	if (pid)
 	{
@@ -269,12 +271,15 @@ static int _cgi_request(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_messa
 	inputlen = httpmessage_content(request, &input, &rest);
 	if (inputlen > 0)
 	{
+		int len;
 #ifdef DEBUG
 		static int length = 0;
 		length += inputlen;
 		cgi_dbg("cgi: %d input %s", length,input);
 #endif
-		write(ctx->tocgi[1], input, inputlen);
+		len = write(ctx->tocgi[1], input, inputlen);
+		if (inputlen != len)
+			ret = EREJECT;
 	}
 	else if (rest != EINCOMPLETE)
 		ctx->state = STATE_INFINISH;

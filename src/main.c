@@ -227,7 +227,9 @@ static void _setpidfile(char *pidfile)
 #endif
 			pid = getpid();
 			length = snprintf(buffer, 32, "%d\n", pid);
-			write(pidfd, buffer, length);
+			int len = write(pidfd, buffer, length);
+			if (len != length)
+				err("pid file error %s", strerror(errno));
 			/**
 			 * the file must be open while the process is running
 			close(pidfd);
@@ -514,8 +516,9 @@ int main(int argc, char * const *argv)
 #ifdef HAVE_PWD
 	if (pw_uid > 0 && pw_gid > 0)
 	{
-		setegid(pw_gid);
-		if (seteuid(pw_uid))
+		if (setegid(pw_gid) < 0)
+			warn("not enought rights to change group");
+		if (seteuid(pw_uid) < 0)
 			err("Error: start server as root");
 	}
 #endif
