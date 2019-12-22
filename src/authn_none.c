@@ -84,9 +84,12 @@ static int authn_none_challenge(void *arg, http_message_t *request, http_message
 		//read mod_auth.c
 		uid_t uid;
 		uid = getuid();
-		seteuid(uid);
-		setegid(pw->pw_gid);
-		seteuid(pw->pw_uid);
+		if (seteuid(uid) < 0)
+			warn("not enought rights to change user");
+		if (setegid(pw->pw_gid) < 0)
+			warn("not enought rights to change group");
+		if (seteuid(pw->pw_uid) < 0)
+			warn("not enought rights to change user");
 	}
 	else
 	{
@@ -97,8 +100,10 @@ static int authn_none_challenge(void *arg, http_message_t *request, http_message
 			err("auth getpwnam error %s", strerror(errno));
 		uid_t uid;
 		uid = getuid();
-		seteuid(uid);
-		setegid(1000);
+		if (setegid(1000) < 0)
+			warn("not enought rights to change group");
+		if (seteuid(uid) < 0)
+			warn("not enought rights to change user");
 	}
 	return EREJECT;
 }

@@ -175,9 +175,13 @@ int main(int argc, char **argv)
 		user = getpwnam(username);
 		if (user != NULL)
 		{
-			setgid(user->pw_gid);
-			setuid(user->pw_uid);
+			if (setegid(user->pw_gid) < 0)
+				warn("not enought rights to change group");
+			if (seteuid(user->pw_uid) < 0)
+				warn("not enought rights to change user");
 		}
+		else
+			warn("user not found");
 	}
 
 	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);

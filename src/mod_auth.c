@@ -551,18 +551,21 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 
 		if (mod->authz->type & AUTHZ_UNIX_E)
 		{
-			struct passwd *result;
-			result = getpwnam(info->user);
-			if (result != NULL)
+			struct passwd *pw;
+			pw = getpwnam(info->user);
+			if (pw != NULL)
 			{
 				uid_t uid;
 				uid = getuid();
 				//only "saved set-uid", "uid" and "euid" may be set
 				//first step: set the "saved set-uid" (root)
-				seteuid(uid);
+				if (seteuid(uid) < 0)
+					warn("not enought rights to change user");
 				//second step: set the new "euid"
-				seteuid(result->pw_uid);
-				setegid(result->pw_gid);
+				if (setegid(pw->pw_gid) < 0)
+					warn("not enought rights to change group");
+				if (seteuid(pw->pw_uid) < 0)
+					warn("not enought rights to change user");
 			}
 		}
 		warn("user \"%s\" accepted from %p", info->user, ctx->ctl);
