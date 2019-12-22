@@ -272,7 +272,6 @@ static int _cgi_request(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_messa
 #ifdef DEBUG
 		static int length = 0;
 		length += inputlen;
-		dbg("cgi: %d %d rest %lld", inputlen, length, rest);
 		cgi_dbg("cgi: %d input %s", length,input);
 #endif
 		write(ctx->tocgi[1], input, inputlen);
