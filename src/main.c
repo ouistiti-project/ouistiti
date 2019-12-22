@@ -205,17 +205,6 @@ static void handler(int sig)
 #endif
 {
 	run = 'q';
-	server_t *server;
-	server = first;
-
-	while (server != NULL)
-	{
-		if (server->server)
-		{
-			httpserver_disconnect(server->server);
-		}
-		server = server->next;
-	}
 }
 
 static void _setpidfile(char *pidfile)
