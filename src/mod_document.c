@@ -92,6 +92,7 @@ static int document_checkname(document_connector_t *private, http_message_t *res
 	mod_document_t *config = (mod_document_t *)mod->config;
 	if (private->path_info[0] == '.')
 	{
+		warn("document: forbidden %s file %s", private->path_info, "cached");
 		return  EREJECT;
 	}
 	if (utils_searchexp(private->path_info, config->deny) == ESUCCESS)
@@ -194,7 +195,11 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		}
 		else if (document_checkname(private, response) == EREJECT)
 		{
-			httpmessage_result(response, RESULT_403);
+			/**
+			 * Another module may have the same docroot and
+			 * accept the name of the uri.
+			 * The module has not to return an error.
+			 */
 			document_close(private, request);
 			return  EREJECT;
 		}
