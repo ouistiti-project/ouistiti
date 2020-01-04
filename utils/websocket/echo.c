@@ -125,6 +125,9 @@ const char *str_username = "apache";
 #ifndef SOCKPROTOCOL
 #define SOCKPROTOCOL 0
 #endif
+
+#define TEST 1
+
 int main(int argc, char **argv)
 {
 	int ret = -1;
@@ -133,11 +136,12 @@ int main(int argc, char **argv)
 	char *proto = "echo";
 	int maxclients = 50;
 	const char *username = str_username;
+	int mode = 0;
 
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:n:R:m:h");
+		opt = getopt(argc, argv, "u:n:R:m:th");
 		switch (opt)
 		{
 			case 'R':
@@ -155,6 +159,9 @@ int main(int argc, char **argv)
 			break;
 			case 'n':
 				proto = optarg;
+			break;
+			case 't':
+				mode = TEST;
 			break;
 		}
 	} while(opt != -1);
@@ -210,10 +217,18 @@ int main(int argc, char **argv)
 				printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
 				if (newsock > 0)
 				{
-					start(echo, newsock);
+					if (mode != TEST)
+						start(echo, newsock);
+					else
+					{
+						ret = send(newsock, "hello\n", 7, MSG_DONTWAIT | MSG_NOSIGNAL);
+						close(newsock);
+						newsock = -1;
+					}
 				}
 			} while(newsock > 0);
 		}
+		close(sock);
 	}
 	if (ret)
 	{
