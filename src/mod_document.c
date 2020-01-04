@@ -207,41 +207,26 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		if (S_ISDIR(filestat.st_mode))
 		{
 			int length = strlen(private->path_info);
+
+#ifdef DIRLISTING
 			const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-#if defined(RESULT_301)
-			if (length > 0 && private->path_info[length - 1] != '/')
+			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) &&
+				(config->options & DOCUMENT_DIRLISTING))
 			{
-				char *location = calloc(1, length + 3);
-				snprintf(location, length + 3, "/%s/", private->path_info);
-				httpmessage_addheader(response, str_location, location);
-				httpmessage_result(response, RESULT_301);
-				free(location);
-				document_close(private, request);
-				return ESUCCESS;
+				private->func = dirlisting_connector;
 			}
 			else
 #endif
 			{
 				char *indexpath = utils_buildpath(docroot, url,
 												config->defaultpage, "", &filestat);
-#ifdef DIRLISTING
-				if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) ||
-					(indexpath == NULL && ((config->options & DOCUMENT_DIRLISTING) ||
-						(length > 0 && private->path_info[length - 1] != '/'))))
-				{
-					private->func = dirlisting_connector;
-					if (indexpath)
-						free(indexpath);
-				}
-				else
-#endif
 				if (indexpath)
 				{
 					dbg("document: move to %s", indexpath);
 #if defined(RESULT_301)
-					char *location = calloc(1, length + strlen(config->defaultpage) + 2);
-					snprintf(location, length + strlen(config->defaultpage) + 2,
-								"/%s%s", private->path_info, config->defaultpage);
+					char *location = calloc(1, length + strlen(config->defaultpage) + 3);
+					snprintf(location, length + strlen(config->defaultpage) + 3,
+								"/%s/%s", private->path_info, config->defaultpage);
 					httpmessage_addheader(response, str_location, location);
 					httpmessage_result(response, RESULT_301);
 					free(indexpath);
