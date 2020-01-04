@@ -774,15 +774,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		/**
 		 * check uri
 		 */
-		protect = utils_searchexp(uri, config->protect);
-		if (protect != ESUCCESS)
+		protect = utils_searchexp(uri, config->unprotect);
+		if (protect == ESUCCESS)
 		{
-			ret = EREJECT;
-		}
-		else
-		{
-			protect = utils_searchexp(uri, config->unprotect);
-			if (protect == ESUCCESS)
+			protect = utils_searchexp(uri, config->protect);
+			if (protect != ESUCCESS)
 			{
 				ret = EREJECT;
 			}
