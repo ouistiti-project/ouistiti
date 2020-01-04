@@ -56,6 +56,7 @@ struct authn_basic_s
 static void *authn_basic_create(authn_t *authn, authz_t *authz, void *arg)
 {
 	char format_realm[] = "%s realm=\"%s\"";
+	const char *format = str_authenticate_types[AUTHN_BASIC_E];
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
 	mod->authz = authz;
 	mod->config = (authn_basic_config_t *)arg;
