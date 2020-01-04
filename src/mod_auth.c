@@ -244,6 +244,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
+	mod->authn->server = server;
 	mod->authn->type = config->authn_type;
 	mod->authn->rules = authn_rules[config->authn_type];
 	if (mod->authn->rules == NULL)
@@ -582,7 +583,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
 	mod_auth_t *config = mod->config;
 
 	ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
-	if (ret == ESUCCESS)
+	if (ret == ECONTINUE)
 	{
 		auth_dbg("auth challenge failed");
 		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
@@ -625,9 +626,15 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
 				httpmessage_result(response, RESULT_302);
 			}
 		}
+		else
+		{
+			httpmessage_result(response, RESULT_401);
+		}
+		ret = ESUCCESS;
 	}
 	return ret;
 }
+
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -654,6 +661,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	uriencoded = httpmessage_REQUEST(request, "uri");
 	uri = utils_urldecode(uriencoded);
 
+	/**
+	 * The header WWW-Authenticate inside the request
+	 * allows to disconnect the user.
+	 */
 	authorization = httpmessage_REQUEST(request, (char *)str_authenticate);
 	if (authorization != NULL && authorization[0] != '\0')
 	{

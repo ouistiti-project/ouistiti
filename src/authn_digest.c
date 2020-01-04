@@ -110,7 +110,8 @@ static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 	mod->challenge = calloc(1, 256);
 	mod->hash = authn->hash;
 	authn_digest_opaque(mod, mod->opaque, sizeof(mod->opaque) - 1);
-
+	if (mod->config->realm == NULL)
+		mod->config->realm = httpserver_INFO(authn->server, "host");
 	return mod;
 }
 
@@ -173,8 +174,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	}
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
 	httpmessage_keepalive(response);
-	httpmessage_result(response, RESULT_401);
-	ret = ESUCCESS;
+	ret = ECONTINUE;
 	return ret;
 }
 

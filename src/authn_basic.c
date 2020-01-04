@@ -56,30 +56,17 @@ struct authn_basic_s
 static void *authn_basic_create(authn_t *authn, authz_t *authz, void *arg)
 {
 	char format_realm[] = "%s realm=\"%s\"";
-	const char *format = str_authenticate_types[AUTHN_BASIC_E];
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
 	mod->authz = authz;
 	mod->config = (authn_basic_config_t *)arg;
-	if (mod->config->realm)
-	{
-		int length = sizeof(format)
-							+ sizeof(format_realm) - 4
-							+ strlen(mod->config->realm) + 1;
-		mod->challenge = calloc(1, length);
-		if (mod->challenge)
-			snprintf(mod->challenge, length, format_realm, format, mod->config->realm);
-	}
-	else
-	{
-#ifdef HAVE_STRDUP
-		mod->challenge = strdup(format);
-#else
-		int length = sizeof(format) + 1;
-		mod->challenge = calloc(1, length);
-		if (mod->challenge)
-			strncpy(mod->challenge, format, length);
-#endif
-	}
+	if (mod->config->realm == NULL)
+		mod->config->realm = httpserver_INFO(authn->server, "host");
+	int length = sizeof(format)
+						+ sizeof(format_realm) - 4
+						+ strlen(mod->config->realm) + 1;
+	mod->challenge = calloc(1, length);
+	if (mod->challenge)
+		snprintf(mod->challenge, length, format_realm, format, mod->config->realm);
 
 	return mod;
 }
@@ -90,8 +77,7 @@ static int authn_basic_challenge(void *arg, http_message_t *request, http_messag
 	authn_basic_t *mod = (authn_basic_t *)arg;
 
 	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
-	httpmessage_result(response, RESULT_401);
-	ret = ESUCCESS;
+	ret = ECONTINUE;
 	return ret;
 }
 

@@ -65,13 +65,15 @@ static void *authn_bearer_create(authn_t *authn, authz_t *authz, void *arg)
 	authn_bearer_t *mod = calloc(1, sizeof(*mod));
 	mod->authz = authz;
 	mod->config = (authn_bearer_config_t *)arg;
+	if (mod->config->realm == NULL)
+		mod->config->realm = httpserver_INFO(authn->server, "host");
 
 	return mod;
 }
 
 static int authn_bearer_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
-	int ret = ESUCCESS;
+	int ret = ECONTINUE;
 	authn_bearer_t *mod = (authn_bearer_t *)arg;
 	authn_bearer_config_t *config = mod->config;
 
@@ -101,10 +103,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 		dbg("auth: redirection to %s", location);
 		httpmessage_addheader(response, (char *)str_location, location);
 		httpmessage_result(response, RESULT_302);
-	}
-	else
-	{
-		httpmessage_result(response, RESULT_401);
+		ret = ESUCCESS;
 	}
 	free(uri);
 	return ret;
