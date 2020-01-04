@@ -224,73 +224,17 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 	authz_sqlite_config_t *config = ctx->config;
 
 	const char *checkpasswd = authz_sqlite_passwd(ctx, user);
-	if (checkpasswd)
-	{
-		if (checkpasswd[0] == '$')
-		{
-			const hash_t *hash = NULL;
-			if (!strncmp(checkpasswd, "$a1", 3))
-			{
-				hash = hash_md5;
-			}
-			if (!strncmp(checkpasswd, "$a5", 3))
-			{
-				hash = hash_sha256;
-			}
-			if (!strncmp(checkpasswd, "$a6", 3))
-			{
-				hash = hash_sha512;
-			}
-			if (hash)
-			{
-				char hashpasswd[32];
-				void *ctx;
-				int length;
-
-				ctx = hash->init();
-				checkpasswd = strchr(checkpasswd + 1, '$');
-				char *realm = strstr(checkpasswd, "realm=");
-				if (realm)
-				{
-					realm += 6;
-					int length = strchr(realm, '$') - realm;
-					hash->update(&ctx, user, strlen(user));
-					hash->update(&ctx, ":", 1);
-					hash->update(&ctx, realm, length);
-					hash->update(&ctx, ":", 1);
-				}
-				hash->update(ctx, passwd, strlen(passwd));
-				hash->finish(ctx, hashpasswd);
-				char b64passwd[50];
-				base64->encode(hashpasswd, hash->size, b64passwd, 50);
-
-				checkpasswd = strrchr(checkpasswd, '$');
-				if (checkpasswd)
-				{
-					checkpasswd++;
-				}
-				if (!strcmp(b64passwd, checkpasswd))
-					ret = 1;
-			}
-			else
-				err("auth: hash %s not found", checkpasswd);
-		}
-		else
-		{
-			if (!strcmp(passwd, checkpasswd))
-				ret = 1;
-		}
-	}
+	if (checkpasswd != NULL &&
+			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)
+		return 1;
+	else
+		err("auth: user %s not found in file", user);
 	return ret;
 }
 
 static const char *authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-
-	if (user != NULL && passwd != NULL && _authz_sqlite_checkpasswd(ctx, user, passwd))
-		return user;
-	user = NULL;
 
 #ifdef AUTH_TOKEN
 	if (token != NULL)
@@ -300,9 +244,13 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 		if (user == NULL)
 			/** check unexpirable token */
 			user = _authz_sqlite_checktoken(ctx, token, 0);
+		return user;
 	}
 #endif
-	return user;
+
+	if (user != NULL && passwd != NULL && _authz_sqlite_checkpasswd(ctx, user, passwd))
+		return user;
+	return NULL;
 }
 
 #ifdef AUTH_TOKEN

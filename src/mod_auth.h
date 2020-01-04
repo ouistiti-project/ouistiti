@@ -213,6 +213,8 @@ struct mod_auth_s
 
 extern const module_t mod_auth;
 
+int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd);
+
 const char *auth_info(http_message_t *request, const char *key);
 
 #ifdef __cplusplus
