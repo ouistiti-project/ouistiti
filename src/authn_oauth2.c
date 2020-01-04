@@ -368,6 +368,8 @@ static void *authn_oauth2_create(authn_t *authn, authz_t *authz, void *config)
 	mod->config = (authn_oauth2_config_t *)config;
 	mod->authz = authz;
 	mod->state = 0;
+	if (mod->config->realm == NULL)
+		mod->config->realm = httpserver_INFO(authn->server, "host");
 
 	return mod;
 }
@@ -390,7 +392,7 @@ static int authn_oauth2_setup(void *arg, http_client_t *clt, struct sockaddr *ad
 
 static int authn_oauth2_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
-	int ret = ESUCCESS;
+	int ret = ECONTINUE;
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = mod->config;
 
@@ -426,10 +428,7 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 								scheme, host, portseparator, port, str_authresp);
 		httpmessage_addheader(response, (char *)str_location, location);
 		httpmessage_result(response, RESULT_302);
-	}
-	else
-	{
-		httpmessage_result(response, RESULT_401);
+		ret = ESUCCESS;
 	}
 	free(uri);
 	return ret;
