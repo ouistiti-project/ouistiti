@@ -8,7 +8,8 @@ servers= ({
 		auth = {
 			type="Digest";
 			file="%PWD%/tests/conf/passwd";
-			realm="testrealm@host.com";
+			realm="http-auth@example.org";
+			algorithm="SHA-256";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
