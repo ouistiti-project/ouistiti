@@ -753,7 +753,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					{
 						err("hostname must contain the domain");
 					}
-					else
+					else if (hostname == NULL)
 					{
 						hostname = str_hostname;
 					}
