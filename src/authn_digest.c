@@ -52,12 +52,11 @@ struct authn_digest_s
 	authz_t *authz;
 	const hash_t *hash;
 	char *challenge;
-	char opaque[33];
-	char nonce[35];
+	char *opaque;
+	char nonce[64];
 	int stale;
+	int encode;
 };
-
-static void authn_digest_opaque(void *arg, char *opaque, int opaquelen);
 
 static void utils_searchstring(const char **result, char *haystack, char *needle, int length)
 {
@@ -95,6 +94,8 @@ static char *utils_stringify(unsigned char *data, int len)
 	return result;
 }
 
+static char str_opaque[] = "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS";
+
 static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 {
 	if (authn->hash == NULL)
@@ -109,7 +110,10 @@ static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 	mod->authz = authz;
 	mod->challenge = calloc(1, 256);
 	mod->hash = authn->hash;
-	authn_digest_opaque(mod, mod->opaque, sizeof(mod->opaque) - 1);
+	if (mod->config->opaque == NULL)
+		mod->opaque = str_opaque;
+	else
+		mod->opaque = mod->config->opaque;
 	if (mod->config->realm == NULL)
 		mod->config->realm = httpserver_INFO(authn->server, "host");
 	return mod;
@@ -131,20 +135,12 @@ static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 		*(int *)(_nonce + i * 4) = random();
 	base64->encode(_nonce, 24, nonce, noncelen);
 #else
-	memcpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);
+	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
+	if (!strcmp(mod->opaque, str_opaque))
+		memcpy(nonce, "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", noncelen); //RFC7616
+	else
+		memcpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);  //RFC2617
 	nonce[noncelen] = 0;
-#endif
-}
-
-static void authn_digest_opaque(void *arg, char *opaque, int opaquelen)
-{
-	authn_digest_t *mod = (authn_digest_t *)arg;
-
-#ifndef DEBUG
-	base64->encode(mod->config->opaque, 22, opaque, opaquelen);
-#else
-	memcpy(opaque, "5ccc069c403ebaf9f0171e9517f40e41", opaquelen);
-	opaque[opaquelen] = 0;
 #endif
 }
 
@@ -235,23 +231,37 @@ static char *authn_digest_a1(const hash_t * hash, const char *username, const ch
 		hash->finish(ctx, A1);
 		return utils_stringify(A1, hash->size);
 	}
-	else if (!strncmp(passwd, "$a", 2))
+	else if (passwd[0] == '$')
 	{
+		int i = 1;
+		int decode = 0;
+		if (passwd[i] == 'a')
+		{
+			decode = 1;
+			i++;
+		}
+		if (passwd[i] == 'd')
+		{
+			i++;
+		}
 		int decrypt = 0;
-		if (!strcmp(hash->name, "MD5") && passwd[2] == '1')
-			decrypt = 1;
-		if (!strcmp(hash->name, "SHA-256") && passwd[2] == '5')
-			decrypt = 1;
-		if (!strcmp(hash->name, "SHA-512") && passwd[2] == '6')
+		if ( passwd[i] == hash->nameid)
 			decrypt = 1;
 		if (decrypt)
 		{
-			passwd = strrchr(passwd + 1, '$') + 1;
+			passwd = strrchr(passwd + 1, '$');
 			if (passwd)
 			{
-				char b64passwd[17];
-				base64->decode(passwd, strlen(passwd), b64passwd, 17);
-				char *a1 = utils_stringify(b64passwd, 16);
+				passwd += 1;
+				char *a1 = passwd;
+				if (decode)
+				{
+					char b64passwd[64];
+					int len = base64->decode(passwd, strlen(passwd), b64passwd, 64);
+					a1 = utils_stringify(b64passwd, len);
+				}
+				else
+					a1 = strdup(passwd);
 				return a1;
 			}
 		}
@@ -352,6 +362,8 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	}
 	else if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
 	{
+		dbg("opaque %s", opaque);
+		dbg("realm %s", realm);
 		warn("auth: opaque or realm is bad");
 	}
 	else
