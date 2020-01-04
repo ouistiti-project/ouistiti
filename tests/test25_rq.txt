@@ -5,4 +5,3 @@ Upgrade: websocket
 Sec-WebSocket-Protocol: echo
 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
 
-\x81\x85\xBF\x42\xC8\xCB\xD7\x27\xA4\xA7\xD0

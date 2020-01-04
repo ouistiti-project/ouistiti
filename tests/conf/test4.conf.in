@@ -1,18 +1,23 @@
 user="%USER%";
 servers= ({
-		hostname = "www.ouistiti.net";
+		hostname = "example.org";
 		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
 		unlock_groups="superuser,user";
 		auth = {
 			type="Digest";
-			realm="testrealm@host.com";
-			opaque="5ccc069c403ebaf9f0171e9517f40e41";
+			realm="http-auth@example.org"; #RFC7616
+			#realm="testrealm@host.com"; #RFC2617
+			opaque="FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS"; #RFC7616
+			#opaque="5ccc069c403ebaf9f0171e9517f40e41"; #RFC2617
 			user="Mufasa";
 			group="superuser";
-			passwd="Circle Of Life";
-			algorithm = "SHA-256";
+			passwd="$a5$realm=http-auth@example.org$eYfGTDDiXxt0vlP5ZrSbkPKAiqkvr5oAJiOS17R5QjI="; #RFC7616
+			#passwd="Circle of Life"; #RFC7616
+			#passwd="Circle Of Life"; #RFC2617
+			#algorithm = "MD5";
+			algorithm = "SHA-256"; #RFC7616
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";

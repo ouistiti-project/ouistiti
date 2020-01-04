@@ -1,4 +1,4 @@
-DESC="test a request to list the directory"
+DESC="test a request to the default page of a directory"
 CONFIG=test1.conf
 TESTREQUEST=test22_rq.txt
 TESTCODE=301
