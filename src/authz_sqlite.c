@@ -244,12 +244,14 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 		if (user == NULL)
 			/** check unexpirable token */
 			user = _authz_sqlite_checktoken(ctx, token, 0);
-		return user;
+		if (user != NULL)
+			return user;
 	}
 #endif
 
 	if (user != NULL && passwd != NULL && _authz_sqlite_checkpasswd(ctx, user, passwd))
 		return user;
+
 	return NULL;
 }
 
