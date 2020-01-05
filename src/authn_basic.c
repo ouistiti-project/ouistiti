@@ -87,6 +87,7 @@ static const char *authn_basic_check(void *arg, const char *method, const char *
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
 	char *passwd;
+	const char *found = NULL;
 
 	memset(user, 0, 256);
 	base64->decode(string, strlen(string), user, 256);
@@ -95,9 +96,12 @@ static const char *authn_basic_check(void *arg, const char *method, const char *
 	{
 		*passwd = 0;
 		passwd++;
+		found = mod->authz->rules->check(mod->authz->ctx, user, passwd, NULL);
 	}
+	else
+		found = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 	auth_dbg("auth basic check: %s %s", user, passwd);
-	return mod->authz->rules->check(mod->authz->ctx, user, passwd, string);
+	return found;
 }
 
 static void authn_basic_destroy(void *arg)
