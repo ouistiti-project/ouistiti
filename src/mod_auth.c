@@ -598,15 +598,6 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 			info = calloc(1, sizeof(*info));
 			strncpy(info->user, user, sizeof(info->user));
 			strncpy(info->type, mod->type, sizeof(info->type));
-#ifdef AUTH_TOKEN
-			if (mod->authz->type & AUTHZ_TOKEN_E)
-			{
-				char *token = mod->authz->generatetoken(mod->config, info);
-				if (mod->authz->rules->join)
-					mod->authz->rules->join(mod->authz->ctx, info->user, token, mod->config->expire);
-				info->token = token;
-			}
-#endif
 			if (mod->authz->rules->group)
 			{
 				group = mod->authz->rules->group(mod->authz->ctx, user);
@@ -767,6 +758,15 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		 * authorization is good
 		 */
 		httpmessage_SESSION(request, str_auth, ctx->info);
+#ifdef AUTH_TOKEN
+		if (mod->authz->type & AUTHZ_TOKEN_E)
+		{
+			char *token = mod->authz->generatetoken(mod->config, ctx->info);
+			if (mod->authz->rules->join)
+				mod->authz->rules->join(mod->authz->ctx, ctx->info->user, token, mod->config->expire);
+			ctx->info->token = token;
+		}
+#endif
 	}
 	else
 	{
