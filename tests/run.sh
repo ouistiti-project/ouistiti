@@ -148,32 +148,33 @@ do
 				ERR=4
 			fi
 		fi
-		rescode=$(cat $TMPRESPONSE | ${AWK} '/^HTTP\/1\.1 .* .*/{print $2}')
+		rescode=$(cat $TMPRESPONSE | ${AWK} '/^HTTP\/1\.1 .* .*/{print $2}' )
 		resheaderlen=$TESTHEADERLEN
 		rescontentlen=$TESTCONTENTLEN
 		#resheaderlen=$(echo $result | ${AWK} -F= 't$0 == t {print $0}' | wc -c)
 		#rescontentlen=$(echo $result | ${AWK} -F= 't$0 != t {print $0}' | wc -c)
 	fi
-	if [ -n "$TESTCODE" -a x$rescode != x$TESTCODE ]; then
-		echo "result code error $rescode instead $TESTCODE"
-		ERR=1
-		kill $PID 2> /dev/null
+	if [ -n "$TESTCODE"  ]; then
+		echo $rescode | grep $TESTCODE > /dev/null
+		if [ $? -eq 1 ]; then
+			echo "result code error $rescode instead $TESTCODE"
+			ERR=1
+		fi
 	fi
 	if [ -n "$TESTHEADERLEN" -a x$resheaderlen != x$TESTHEADERLEN ]; then
 		echo "header error received $resheaderlen instead $TESTHEADERLEN"
 		ERR=2
-		kill $PID 2> /dev/null
 	fi
 	if [ -n "$TESTCONTENTLEN" -a x$rescontentlen != x$TESTCONTENTLEN ]; then
 		echo "content error received $rescontentlen instead $TESTCONTENTLEN"
 		ERR=3
-		kill $PID 2> /dev/null
 	fi
 	if [ ! $ERR -eq 0 ]; then
 		echo "$TEST quits on error"
 		if [ -n "$NOERROR" ]; then
 			TESTERROR=${TESTERROR} $TEST
 		else
+			kill -9 $PID 2> /dev/null
 			exit $ERR
 		fi
 	else
