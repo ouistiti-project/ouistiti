@@ -225,8 +225,12 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 					dbg("document: move to %s", indexpath);
 #if defined(RESULT_301)
 					char *location = calloc(1, length + strlen(config->defaultpage) + 3);
-					snprintf(location, length + strlen(config->defaultpage) + 3,
-								"/%s/%s", private->path_info, config->defaultpage);
+					if (private->path_info[0] == '\0')
+						snprintf(location, length + strlen(config->defaultpage) + 3,
+									"/%s", config->defaultpage);
+					else
+						snprintf(location, length + strlen(config->defaultpage) + 3,
+									"/%s/%s", private->path_info, config->defaultpage);
 					httpmessage_addheader(response, str_location, location);
 					httpmessage_result(response, RESULT_301);
 					free(indexpath);
