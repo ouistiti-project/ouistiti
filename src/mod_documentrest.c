@@ -302,7 +302,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	{
 		warn("chmod %s", private->filepath);
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
-		int mod = atoi(arg);
+		int mod = strtol(arg, NULL, 8);
 		if (!chmod(private->filepath, mod))
 			result = (char *)str_OK;
 	}
