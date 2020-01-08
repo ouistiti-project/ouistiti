@@ -401,7 +401,7 @@ int mainloop(buffer_t *buffer, int options)
 int main(int argc, char **argv)
 {
 	int ret = -1;
-	int sock;
+	int sock = -1;
 	const char *root = "/var/run/ouistiti";
 	const char *proto = "stream";
 	int maxclients = 50;
@@ -486,7 +486,7 @@ int main(int argc, char **argv)
 		}
 		if (ret == 0)
 		{
-			buffer_t origin;
+			buffer_t origin = {0};
 			origin.sock = udpsocket(address, port, &origin.sourceaddress);
 
 			buffer_t* buffer = startgernerator(&origin);
