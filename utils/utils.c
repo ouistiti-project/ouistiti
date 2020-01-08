@@ -59,7 +59,7 @@ int ouistiti_recvaddr(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 	msg.msg_control = c_buffer;
 	msg.msg_controllen = sizeof(c_buffer);
 
-	ret = recvmsg(sockfd, &msg, 0);
+	ret = recvmsg(sockfd, &msg, MSG_DONTWAIT);
 	if (ret > 0)
 	{
 		if (addrlen && addr && msg.msg_iov)

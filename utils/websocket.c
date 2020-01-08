@@ -46,6 +46,11 @@
 # define dbg(...)
 #endif
 
+/**
+ * utils.c function
+ */
+extern int ouistiti_recvaddr(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+
 typedef struct _websocket_s _websocket_t;
 struct _websocket_s
 {
