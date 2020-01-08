@@ -371,7 +371,7 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 #define authz_sqlite_join NULL
 #endif
 
-#ifdef AUTHZ_SQLITE_ADDUSER
+#ifdef AUTHN_OAUTH2
 static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -476,6 +476,8 @@ authz_rules_t authz_sqlite_rules =
 	.group = authz_sqlite_group,
 	.home = authz_sqlite_home,
 	.join = authz_sqlite_join,
+#ifdef AUTHN_OAUTH2
 	.adduser = authz_sqlite_adduser,
+#endif
 	.destroy = authz_sqlite_destroy,
 };

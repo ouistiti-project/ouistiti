@@ -304,6 +304,7 @@ static int authz_jwt_join(void *arg, const char *user, const char *token, int ex
 #define authz_jwt_join NULL
 #endif
 
+#ifdef AUTHN_OAUTH2
 static int authz_jwt_adduser(void *arg, authsession_t *newuser)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
@@ -315,6 +316,7 @@ static int authz_jwt_adduser(void *arg, authsession_t *newuser)
 	}
 	return EREJECT;
 }
+#endif
 
 static void authz_jwt_destroy(void *arg)
 {
@@ -331,6 +333,8 @@ authz_rules_t authz_jwt_rules =
 	.group = authz_jwt_group,
 	.home = authz_jwt_home,
 	.join = authz_jwt_join,
+#ifdef AUTHN_OAUTH2
 	.adduser = authz_jwt_adduser,
+#endif
 	.destroy = authz_jwt_destroy,
 };
