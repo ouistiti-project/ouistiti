@@ -284,7 +284,7 @@ void *direct_connect(const char *serveraddr, const int port)
 		return NULL;
 	}
 
-	return (void *)(sock & 0x00UL);
+	return (void *)((long)sock);
 }
 
 int direct_send(void *arg, const void *buf, size_t len)
