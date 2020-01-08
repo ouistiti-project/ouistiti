@@ -59,19 +59,19 @@ int method_digest(const char *user, const char *passwd, const char *realm, char 
 	int len = 0;
 	if (len > outlen)
 		return -1;
-	len  += sprintf(out + len, "%.*s", 32, user);
+	len  += snprintf(out + len, 33, "%.*s", 32, user);
 	if (len > outlen)
 		return -1;
-	len  += sprintf(out + len, ":");
+	len  += snprintf(out + len, 2, ":");
 	if (len > outlen)
 		return -1;
-	len  += sprintf(out + len, "%.*s", 32, realm);
+	len  += snprintf(out + len, 33, "%.*s", 32, realm);
 	if (len > outlen)
 		return -1;
-	len  += sprintf(out + len, ":");
+	len  += snprintf(out + len, 2, ":");
 	if (len > outlen)
 		return -1;
-	len  += sprintf(out + len, "%.*s", 32, passwd);
+	len  += snprintf(out + len, 33, "%.*s", 32, passwd);
 	if (len > outlen)
 		return -1;
 	return len;
@@ -110,6 +110,7 @@ void display_help(char * const *argv)
 #define DIGEST 0x2000
 int main(int argc, char * const *argv)
 {
+	char _passwd[33];
 	int ret = -1;
 	int mode = BASIC;
 	const hash_t *hash = NULL;
@@ -129,11 +130,9 @@ int main(int argc, char * const *argv)
 			case 'h':
 				display_help(argv);
 				return -1;
-			break;
 			case 'V':
 				printf("%s\n",PACKAGEVERSION);
 				return -1;
-			break;
 			case 'T':
 				if (!strcmp(optarg, "Digest"))
 				{
@@ -191,7 +190,7 @@ int main(int argc, char * const *argv)
 		{
 			printf("Enter a new password (8 > 32: ");
 			int i;
-			passwd = calloc(33, sizeof(char));
+			passwd = _passwd;
 			for(i = 0; i < 32; i++)
 			{
 				char c;
@@ -217,7 +216,6 @@ int main(int argc, char * const *argv)
 			passwdagain[i] = 0;
 			if (strcmp(passwd, passwdagain))
 			{
-				free(passwd);
 				printf("Password not corresponding\n");
 				exit(-1);
 			}
