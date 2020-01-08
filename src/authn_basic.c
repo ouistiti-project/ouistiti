@@ -53,21 +53,19 @@ struct authn_basic_s
 	char *challenge;
 };
 
-static void *authn_basic_create(authn_t *authn, authz_t *authz, void *arg)
+#define FORMAT "Basic realm=\"%s\""
+static void *authn_basic_create(const authn_t *authn, authz_t *authz, void *arg)
 {
-	char format_realm[] = "%s realm=\"%s\"";
-	const char *format = str_authenticate_types[AUTHN_BASIC_E];
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
 	mod->authz = authz;
 	mod->config = (authn_basic_config_t *)arg;
 	if (mod->config->realm == NULL)
 		mod->config->realm = httpserver_INFO(authn->server, "host");
-	int length = sizeof(format)
-						+ sizeof(format_realm) - 4
-						+ strlen(mod->config->realm) + 1;
+	int length = sizeof(FORMAT) - 2
+					+ strlen(mod->config->realm) + 1;
 	mod->challenge = calloc(1, length);
 	if (mod->challenge)
-		snprintf(mod->challenge, length, format_realm, format, mod->config->realm);
+		snprintf(mod->challenge, length, FORMAT, mod->config->realm);
 
 	return mod;
 }
