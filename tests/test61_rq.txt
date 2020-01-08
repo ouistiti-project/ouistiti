@@ -1,0 +1,6 @@
+POST /test41.txt HTTP/1.1
+HOST: 127.0.0.1
+X-POST-CMD: mv
+X-POST-ARG: /test41.old
+Authorization: Basic dGVzdDp0ZXN0
+

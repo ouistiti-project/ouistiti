@@ -23,7 +23,7 @@ servers= ({
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
-			options = "rest";
+			options = "rest,dirlisting";
 		};
 	});
 
