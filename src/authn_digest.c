@@ -52,13 +52,13 @@ struct authn_digest_s
 	authz_t *authz;
 	const hash_t *hash;
 	char *challenge;
-	char *opaque;
+	const char *opaque;
 	char nonce[64];
 	int stale;
 	int encode;
 };
 
-static void utils_searchstring(const char **result, char *haystack, char *needle, int length)
+static void utils_searchstring(const char **result, const char *haystack, const char *needle, int length)
 {
 	if ((*result == NULL || *result[0] == '\0') &&
 		!strncmp(haystack, needle, length) && haystack[length] == '=')
@@ -83,7 +83,7 @@ static void utils_searchstring(const char **result, char *haystack, char *needle
 	}
 }
 
-static char *utils_stringify(unsigned char *data, int len)
+static char *utils_stringify(const unsigned char *data, int len)
 {
 	int i;
 	char *result = calloc(2, len + 1);
@@ -96,7 +96,7 @@ static char *utils_stringify(unsigned char *data, int len)
 
 static char str_opaque[] = "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS";
 
-static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
+static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *config)
 {
 	if (authn->hash == NULL)
 		return NULL;
@@ -121,20 +121,22 @@ static void *authn_digest_create(authn_t *authn, authz_t *authz, void *config)
 
 static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 {
-	authn_digest_t *mod = (authn_digest_t *)arg;
-	char _nonce[24];
-	int i;
-
 /**
  *  nonce and opaque may be B64 encoded data
  * or hexa encoded data
  */
 #ifndef DEBUG
+	(void) arg;
+	char _nonce[24];
+	int i;
+
 	srandom(time(NULL));
 	for (i = 0; i < 6; i++)
 		*(int *)(_nonce + i * 4) = random();
 	base64->encode(_nonce, 24, nonce, noncelen);
 #else
+	const authn_digest_t *mod = (authn_digest_t *)arg;
+
 	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
 	if (!strcmp(mod->opaque, str_opaque))
 		memcpy(nonce, "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", noncelen); //RFC7616
@@ -147,6 +149,9 @@ static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 static int authn_digest_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
+	(void) ctl;
+	(void) addr;
+	(void) addrsize;
 
 	mod->stale = 0;
 	authn_digest_nonce(arg, mod->nonce, sizeof(mod->nonce) - 1);
@@ -176,12 +181,12 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 
 struct authn_digest_computing_s
 {
-	char *(*digest)(const hash_t * hash, char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2);
+	char *(*digest)(const hash_t * hash, const char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, const char *a2);
 	char *(*a1)(const hash_t * hash, const char *username, const char *realm, const char *passwd);
 	char *(*a2)(const hash_t * hash, const char *method, const char *uri, const char *entity);
 };
 
-static char *authn_digest_digest(const hash_t * hash, char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, char *a2)
+static char *authn_digest_digest(const hash_t * hash, const char *a1, const char *nonce, const char *nc, const char *cnonce, const char *qop, const char *a2)
 {
 	if (a1 && a2)
 	{
@@ -253,7 +258,7 @@ static char *authn_digest_a1(const hash_t * hash, const char *username, const ch
 			if (passwd)
 			{
 				passwd += 1;
-				char *a1 = passwd;
+				char *a1 = NULL;
 				if (decode)
 				{
 					char b64passwd[64];

@@ -71,31 +71,6 @@ struct authn_oauth2_s
 	int state;
 };
 
-static void utils_searchstring(const char **result, char *haystack, char *needle, int length)
-{
-	if ((*result == NULL || *result[0] == '\0') &&
-		!strncmp(haystack, needle, length) && haystack[length] == '=')
-	{
-		char *end = NULL;
-		*result = strchr(haystack, '=') + 1;
-		if (**result == '"')
-		{
-			*result = *result + 1;
-			end = strchr(*result, '"');
-		}
-		else
-		{
-			end = (char *)*result;
-			while(*end != 0 && *end != ' ' && *end != ',')
-			{
-				end++;
-			}
-		}
-		if (end)
-			*end = 0;
-	}
-}
-
 typedef struct _mod_oauth2_ctx_s _mod_oauth2_ctx_t;
 struct _mod_oauth2_ctx_s
 {
@@ -354,7 +329,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 	return ret;
 }
 
-static void *authn_oauth2_create(authn_t *authn, authz_t *authz, void *config)
+static void *authn_oauth2_create(const authn_t *authn, authz_t *authz, void *config)
 {
 	if (authz->rules->adduser == NULL)
 	{
