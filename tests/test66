@@ -1,0 +1,6 @@
+DESC="permanently redirection on page"
+CONFIG=test15.conf
+TESTREQUEST=test66_rq.txt
+TESTCODE=301
+TESTHEADERLEN=108
+TESTCONTENTLEN=40
