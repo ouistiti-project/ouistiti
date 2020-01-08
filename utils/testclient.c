@@ -245,12 +245,12 @@ net_api_t tls =
 
 int direct_fd(void *arg)
 {
-	return (int)arg;
+	return (long)arg;
 }
 
 void *direct_connect(const char *serveraddr, const int port)
 {
-	int sock;
+	int sock = -1;
 	struct sockaddr_in saddr;
 	struct addrinfo hints;
 
@@ -284,18 +284,18 @@ void *direct_connect(const char *serveraddr, const int port)
 		return NULL;
 	}
 
-	return (void *)sock;
+	return (void *)(sock & 0x00UL);
 }
 
 int direct_send(void *arg, const void *buf, size_t len)
 {
-	int sock = (int)arg;
+	int sock = (long)arg;
 	return send(sock, buf, len, MSG_NOSIGNAL);
 }
 
 int direct_recv(void *arg, void *buf, size_t len)
 {
-	int sock = (int)arg;
+	int sock = (long)arg;
 	int flags;
 	flags = fcntl(sock, F_GETFL, 0);
 	fcntl(sock, F_SETFL, flags | O_NONBLOCK);
@@ -322,7 +322,7 @@ int direct_recv(void *arg, void *buf, size_t len)
 
 void direct_close(void *arg)
 {
-	int sock = (int)arg;
+	int sock = (long)arg;
 	close(sock);
 }
 
@@ -364,7 +364,6 @@ int main(int argc, char **argv)
 			case 'h':
 				display_help(argv);
 				return -1;
-			break;
 			case 'w':
 				options |= OPT_WEBSOCKET;
 			break;
