@@ -49,10 +49,11 @@
 #define dbg(...)
 #endif
 
-typedef int (*server_t)(int sock);
+typedef int (*server_t)(int *psock);
 
-int echo(int sock)
+int echo(int *psock)
 {
+	int sock = *psock;
 	int ret = 0;
 
 	while (sock > 0)
@@ -98,7 +99,7 @@ int start(server_t server, int newsock)
 	if (fork() == 0)
 	{
 		printf("run\n");
-		server(newsock);
+		server(&newsock);
 		exit(0);
 	}
 	sched_yield();
@@ -114,7 +115,7 @@ typedef void *(*start_routine_t)(void*);
 int start(server_t server, int newsock)
 {
 	pthread_t thread;
-	pthread_create(&thread, NULL, (start_routine_t)server, (void *)newsock);
+	pthread_create(&thread, NULL, (start_routine_t)server, (void *)&newsock);
 }
 #endif
 
@@ -149,8 +150,7 @@ int main(int argc, char **argv)
 			break;
 			case 'h':
 				help(argv);
-				return -1;
-			break;
+			return -1;
 			case 'm':
 				maxclients = atoi(optarg);
 			break;

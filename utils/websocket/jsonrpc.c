@@ -183,8 +183,7 @@ int main(int argc, char **argv)
 			break;
 			case 'h':
 				help(argv);
-				return -1;
-			break;
+			return -1;
 			case 'm':
 				maxclients = atoi(optarg);
 			break;
