@@ -371,6 +371,7 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 #define authz_sqlite_join NULL
 #endif
 
+#ifdev AUTHZ_SQLITE_ADDUSER
 static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -441,6 +442,7 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	sqlite3_finalize(statement);
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
+#endif
 
 static const char *authz_sqlite_group(void *arg, const char *user)
 {
