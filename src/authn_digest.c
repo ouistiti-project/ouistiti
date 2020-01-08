@@ -345,38 +345,47 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		}
 	}
 
+	int check = 1;
 	if (nonce == NULL)
 	{
 		warn("auth: nonce is unset");
+		check = 0;
 	}
 	else if (strcmp(nonce, mod->nonce))
 	{
 		mod->stale++;
 		mod->stale %= 5;
 		warn("auth: nonce is corrupted");
+		check = 0;
 	}
 	else if (algorithm == NULL || strcmp(algorithm, mod->hash->name))
 	{
 		warn("auth: algorithm is bad %s/%s", algorithm, mod->hash->name);
 		mod->hash = hash_md5;
+		check = 0;
 	}
 	else if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
 	{
 		dbg("opaque %s", opaque);
 		dbg("realm %s", realm);
 		warn("auth: opaque or realm is bad");
+		check = 0;
 	}
-	else
-	{
-		passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
-	}
-	if (uri == NULL)
+	else if (uri == NULL)
 	{
 		warn("auth: uri is unset");
+		check = 0;
 	}
 	else if (strcmp(url, uri))
 	{
 		warn("try connection on %s with authorization on %s", url, uri);
+		check = 0;
+	}
+#ifndef DEBUG
+	else
+#endif
+	{
+		passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
 	}
 	if (response && passwd && authn_digest_computing)
 	{
@@ -385,7 +394,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		char *digest = authn_digest_computing->digest(mod->hash, a1, nonce, nc, cnonce, qop, a2);
 
 		auth_dbg("Digest %s", digest);
-		if (digest && !strcmp(digest, response))
+		if (digest && !strcmp(digest, response) && check)
 		{
 			user_ret = (char *)user;
 		}

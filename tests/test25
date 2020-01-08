@@ -1,7 +1,7 @@
-DESC="test websocket startup"
+DESC="test websocket startup in direct mode"
 CONFIG=test6.conf
-#PREPARE="./utils/websocket_echo -R /tmp -u $USER -d"
+#PREPARE="LD_PRELOAD=./utils/libouistiti_web.so ./utils/websocket_echo -R /tmp -u $USER -t"
 #CLEAN="killall -9 websocket_echo"
-TEST25DATA="$(cat ${TESTDIR}test25_rq.txt)"
-TESTREQUEST=test25_rq.txt
+TESTREQUEST=test24_rq.txt
+TESTRESPONSE=test24_rs.txt
 TESTCODE=101

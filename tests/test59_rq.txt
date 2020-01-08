@@ -1,0 +1,4 @@
+DELETE /dirlisting/test19.txt HTTP/1.1
+HOST: 127.0.0.1
+Authorization: Digest username="Mufasa", algorithm="SHA-256", realm="http-auth@example.org", nonce="7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", nc=00000001, uri="/dirlisting/test19.txt", qop=auth, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="efee8bdbb3c18f46d3e00051baa1cf71af0df4bb45e6eab3b794cab08278e40c", opaque="FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS"
+

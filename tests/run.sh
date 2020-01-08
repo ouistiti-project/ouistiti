@@ -6,6 +6,7 @@ PWD=$(pwd)
 
 CONTINUE=0
 GCOV=0
+ALL=0
 while [ -n "$1" ]; do
 case $1 in
 	-D)
@@ -21,7 +22,8 @@ case $1 in
 		INFO=1
 		;;
 	-A)
-		TESTS=$(find $TESTDIR -name test*[0-9])
+		ALL=1
+		TESTS=$(find $TESTDIR -maxdepth 1 -name test*[0-9])
 		;;
 	-N)
 		NOERROR=1
@@ -178,7 +180,7 @@ do
 			exit $ERR
 		fi
 	else
-		echo "test $1 complete"
+		echo "$TEST completed"
 		echo "status        : $TESTCODE"
 		if [ x"$TESTHEADERLEN" != x ]; then
 			echo "header  length: $TESTHEADERLEN"
@@ -190,15 +192,20 @@ do
 	if [ $CONTINUE -eq 0 ]; then
 		PID=$(cat ${TESTDIR}run.pid)
 		rm ${TESTDIR}run.pid
-		if [ ${GCOV} -eq 1 ]; then
-			sleep 1
-			lcov --directory . -c -o rapport.info
-			genhtml -o ./rapport -t "couverture de code des tests" rapport.info
-			firefox ./rapport/index.html
-		fi
 		killall -9 $(echo $TARGET | ${AWK} '{print $1}')
 		sleep 1
 		#kill -9 $PID 2> /dev/null
 	fi
 done
 echo $TESTERROR
+
+if [ ${ALL} -eq 1 ]; then
+	./src/ouistiti -h
+	./src/ouistiti -V
+fi
+if [ ${GCOV} -eq 1 ]; then
+	sleep 1
+	lcov --directory . -c -o rapport.info
+	genhtml -o ./rapport -t "couverture de code des tests" rapport.info
+	firefox ./rapport/index.html
+fi
