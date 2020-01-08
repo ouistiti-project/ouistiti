@@ -277,9 +277,11 @@ ifeq ($(G),1)
 CFLAGS+=$(GCOV_CFLAGS)
 LDFLAGS+=$(GCOV_LDFLAGS)
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LIBS+=$(GCOV_LIBS)))
-target-gcov:=$(target-objs:%.o=%.gcov)
-endif
+CFLAGS+=-O0
+else
 CFLAGS+=-O2
+endif
+gcov-target:=$(target-objs:%.o=%.gcov)
 
 $(foreach t,$(slib-y) $(lib-y),$(eval include-y+=$($(t)_HEADERS)))
 
@@ -391,10 +393,15 @@ _hostbuild: build:=$(action) -f $(srcdir)$(makemore) file
 _hostbuild: _info $(subdir-target) $(hostobjdir) $(hostslib-target) $(hostbin-target)
 	@:
 
+_gcov: action:=_gcov
+_gcov: build:=$(action) -f $(srcdir)$(makemore) file
+_gcov: _info $(subdir-target) $(gcov-target)
+	@:
+
 _configbuild: $(obj) $(if $(wildcard $(CONFIGFILE)),$(join $(builddir),config.h))
 _versionbuild: $(if $(package) $(version), $(join $(builddir),$(VERSIONFILE:%=%.h)))
 
-_build: _info $(download-target) $(gitclone-target) $(objdir) $(subdir-project) $(subdir-target) $(data-y) $(targets) $(target-gcov)
+_build: _info $(download-target) $(gitclone-target) $(objdir) $(subdir-project) $(subdir-target) $(data-y) $(targets)
 	@:
 
 _install: action:=_install
@@ -405,6 +412,7 @@ _install: _info $(install) $(dev-install-y) $(subdir-target)
 _clean: action:=_clean
 _clean: build:=$(action) -f $(srcdir)$(makemore) file
 _clean: $(subdir-target) _clean_objs
+	$(Q)$(call cmd,clean,$(wildcard $(gcov-target)))
 	$(Q)$(call cmd,clean,$(wildcard $(targets)))
 	$(Q)$(call cmd,clean,$(wildcard $(hostslib-target) $(hostbin-target)))
 
@@ -447,6 +455,10 @@ check: $(.DEFAULT_GOAL)
 hosttools: action:=_hostbuild
 hosttools: build:=$(action) -f $(srcdir)$(makemore) file
 hosttools: default_action
+
+gcov: action:=_gcov
+gcov: build:=$(action) -f $(srcdir)$(makemore) file
+gcov: default_action
 
 default_action: _info
 	$(Q)$(MAKE) $(build)=$(file)
@@ -531,8 +543,8 @@ quiet_cmd_as_o_s=AS $*
  cmd_as_o_s=$(TARGETAS) $(ASFLAGS) $($*_CFLAGS) $(SYSROOT_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_c=CC $*
  cmd_cc_o_c=$(TARGETCC) $(CFLAGS) $($*_CFLAGS) $(SYSROOT_CFLAGS) -c -o $@ $<
-quiet_cc_gcov_o=GCOV $*
- cmd_cc_gcov_o=$(TARGETGCOV) -p $*.c
+quiet_cc_gcov_c=GCOV $*
+ cmd_cc_gcov_c=$(TARGETGCOV) -p $<
 quiet_cmd_cc_o_cpp=CXX $*
  cmd_cc_o_cpp=$(TARGETCXX) $(CXXFLAGS) $(CFLAGS) $($*_CXXFLAGS) $($*_CFLAGS) $(SYSROOT_CFLAGS) -c -o $@ $<
 quiet_cmd_moc_hpp=QTMOC $*
@@ -591,8 +603,8 @@ $(obj)%.o:%.c
 $(obj)%.o:%.cpp
 	@$(call cmd,cc_o_cpp)
 
-$(obj)%.gcov:$(obj)%.o
-	@$(call cmd,cc_gcov_o)
+$(obj)%.gcov:%.c
+	@$(call cmd,cc_gcov_c)
 
 $(obj)%.moc.cpp:$(obj)%.ui.hpp
 $(obj)%.moc.cpp:%.hpp
