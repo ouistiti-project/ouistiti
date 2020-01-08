@@ -459,10 +459,10 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 			if (checkpasswd)
 			{
 				checkpasswd++;
+				auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
+				if (!strcmp(b64passwd, checkpasswd))
+					ret = ESUCCESS;
 			}
-			auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
-			if (!strcmp(b64passwd, checkpasswd))
-				ret = ESUCCESS;
 		}
 		else
 			err("auth: %.3s not supported change password encryption", checkpasswd);
