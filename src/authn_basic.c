@@ -73,9 +73,10 @@ static void *authn_basic_create(const authn_t *authn, authz_t *authz, void *arg)
 static int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret;
-	authn_basic_t *mod = (authn_basic_t *)arg;
+	const authn_basic_t *mod = (authn_basic_t *)arg;
+	(void) request;
 
-	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
+	httpmessage_addheader(response, str_authenticate, mod->challenge);
 	ret = ECONTINUE;
 	return ret;
 }
@@ -83,9 +84,11 @@ static int authn_basic_challenge(void *arg, http_message_t *request, http_messag
 static char user[256] = {0};
 static const char *authn_basic_check(void *arg, const char *method, const char *uri, char *string)
 {
-	authn_basic_t *mod = (authn_basic_t *)arg;
+	const authn_basic_t *mod = (authn_basic_t *)arg;
 	char *passwd;
 	const char *found = NULL;
+	(void) method;
+	(void) uri;
 
 	memset(user, 0, 256);
 	base64->decode(string, strlen(string), user, 256);

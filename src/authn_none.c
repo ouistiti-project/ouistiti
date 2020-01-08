@@ -61,7 +61,7 @@ struct authn_none_s
 	char *challenge;
 };
 
-static void *authn_none_create(authn_t *authn, authz_t *authz, void *arg)
+static void *authn_none_create(const authn_t *authn, authz_t *authz, void *arg)
 {
 	authn_none_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_none_config_t *)arg;
