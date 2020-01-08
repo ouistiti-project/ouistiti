@@ -1,5 +1,5 @@
 HTTP/1.1 200 OK
 Content-Type: text/json
-Content-Length: 65
+Content-Length: 54
 
-{"method":"DELETE","name":"dirlisting/test19.txt","result":"OK"}
+{"method":"DELETE","name":"test41.txt","result":"OK"}

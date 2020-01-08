@@ -1,5 +1,5 @@
 HTTP/1.1 200 OK
 Content-Type: text/json
-Content-Length: 62
+Content-Length: 48
 
-{"method":"PUT","result":"OK","name":"dirlisting/test19.txt"}
+{"method":"PUT","name":"newdir/","result":"OK"}

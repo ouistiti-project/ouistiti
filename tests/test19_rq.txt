@@ -1,6 +1,4 @@
-PUT /dirlisting/test19.txt HTTP/1.1
+PUT /newdir/ HTTP/1.1
 HOST: 127.0.0.1
-Authorization: Digest username="Mufasa", algorithm="SHA-256", realm="http-auth@example.org", nonce="7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", nc=00000001, uri="/dirlisting/test19.txt", qop=auth, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="da9c5e69cb9c6149e2dd657fb5d64a7e3ff5dd7e67aeb1b64428eaaa612482a7", opaque="FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS"
-Content-Length: 15
+Authorization: Digest username="Mufasa", algorithm="SHA-256", realm="http-auth@example.org", nonce="7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", nc=00000001, uri="/newdir/", qop=auth, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="b44a2a16287d3b6be6249b5c51af7e5c346af01ff24a139fd262bc0bd29dee0c", opaque="FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS"
 
-PUT file test19

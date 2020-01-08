@@ -1,0 +1,5 @@
+DELETE /newdir/ HTTP/1.1
+HOST: 127.0.0.1
+X-Requested-With: XMLHttpRequest
+Authorization: Digest username="Mufasa", algorithm="SHA-256", realm="http-auth@example.org", nonce="7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", nc=00000001, uri="/newdir/", qop=auth, cnonce="f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ", response="dc0b02910a1a302427226f9eaf535a3bb7e34144b8ce5bbf44293524f9f30ae3", opaque="FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS"
+
