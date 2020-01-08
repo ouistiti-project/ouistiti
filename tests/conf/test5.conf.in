@@ -4,19 +4,9 @@ servers= ({
 		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
-		document = {
-			docroot = "%PWD%/tests/htdocs";
-			allow = ".html,.htm,.css,.js,.txt,*";
-			deny = ".htaccess,.php";
+		websocket = {
+			docroot = "/tmp";
+			deny = "*";
+			allow = "echo";
 		};
-		vhosts = ({
-			hostname="test";
-			document = {
-				docroot = "%PWD%/tests/htdocs/vhost";
-				allow = ".html,.htm,.css,.js,.txt,*";
-				deny = ".htaccess,.php";
-			};
-		});
 	});
-
-
