@@ -716,7 +716,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 		{
 			int count = config_setting_length(configmimes);
 			int i;
-			for (i = 0; i < count && i < MAXSERVERS; i++)
+			for (i = 0; i < count && i < MAX_SERVERS; i++)
 			{
 				char *ext = NULL;
 				char *mime = NULL;
