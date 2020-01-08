@@ -451,6 +451,8 @@ int main(int argc, char * const *argv)
 			case 'D':
 				daemonize = 1;
 			break;
+			default:
+			break;
 		}
 	} while(opt != -1);
 #endif
