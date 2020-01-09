@@ -64,7 +64,10 @@ static void utils_searchstring(const char **result, const char *haystack, const 
 		!strncmp(haystack, needle, length) && haystack[length] == '=')
 	{
 		char *end = NULL;
-		*result = strchr(haystack, '=') + 1;
+		*result = strchr(haystack, '=');
+		if (*result == NULL)
+			return;
+		*result += 1;
 		if (**result == '"')
 		{
 			*result = *result + 1;
