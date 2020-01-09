@@ -1,0 +1,6 @@
+DESC="temporary redirection on page"
+CONFIG=test15.conf
+TESTREQUEST=test71_rq.txt
+TESTCODE=307
+TESTHEADERLEN=108
+TESTCONTENTLEN=40
