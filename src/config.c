@@ -582,6 +582,7 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 				{
 					char *destination = NULL;
 					const char *origin = NULL;
+					char *mode = NULL;
 
 					config_setting_lookup_string(iterator, "options", (const char **)&mode);
 					int options = redirect_mode(mode);
