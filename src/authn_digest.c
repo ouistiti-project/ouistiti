@@ -45,6 +45,8 @@
 
 #define auth_dbg(...)
 
+#define MAXNONCE 64
+
 typedef struct authn_digest_s authn_digest_t;
 struct authn_digest_s
 {
@@ -53,7 +55,7 @@ struct authn_digest_s
 	const hash_t *hash;
 	char *challenge;
 	const char *opaque;
-	char nonce[64];
+	char nonce[MAXNONCE];
 	int stale;
 	int encode;
 };
@@ -142,10 +144,9 @@ static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 
 	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
 	if (!strcmp(mod->opaque, str_opaque))
-		memcpy(nonce, "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", noncelen); //RFC7616
+		strncpy(nonce, "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", noncelen); //RFC7616
 	else
-		memcpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);  //RFC2617
-	nonce[noncelen] = 0;
+		strncpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);  //RFC2617
 #endif
 }
 
@@ -157,7 +158,7 @@ static int authn_digest_setup(void *arg, http_client_t *ctl, struct sockaddr *ad
 	(void) addrsize;
 
 	mod->stale = 0;
-	authn_digest_nonce(arg, mod->nonce, sizeof(mod->nonce) - 1);
+	authn_digest_nonce(arg, mod->nonce, MAXNONCE);
 }
 
 static int authn_digest_challenge(void *arg, http_message_t *request, http_message_t *response)
