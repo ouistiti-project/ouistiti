@@ -57,3 +57,4 @@ export LIBHTTPSERVER_CFLAGS
 
 subdir-y+=utils
 subdir-y+=src
+subdir-y+=staging
