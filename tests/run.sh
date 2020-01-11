@@ -204,7 +204,7 @@ if [ ${ALL} -eq 1 ]; then
 	./src/ouistiti -V
 fi
 if [ ${GCOV} -eq 1 ]; then
-	sleep 1
+	make DEBUG=y gcov
 	lcov --directory . -c -o rapport.info
 	genhtml -o ./rapport -t "couverture de code des tests" rapport.info
 	firefox ./rapport/index.html
