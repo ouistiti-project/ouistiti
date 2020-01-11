@@ -18,8 +18,6 @@ SCHEME = http
 URI = /test.cgi?data=y
 QUERY_STRING = data=y
 HTTP_ACCEPT = 
-PATH_INFO = /home/mch/Projects/ouistiti/tests/htdocs//test.cgi
-PATH_TRANSLATED = /home/mch/Projects/ouistiti/tests/htdocs//test.cgi
 SCRIPT_NAME = test.cgi
 USER =
 AUTH_TYPE =
