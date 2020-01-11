@@ -305,7 +305,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 
 	if (mod != NULL && (!config->protect || config->protect[0] == '\0'))
 	{
-		config->protect = (char *)str_wilcard;
+		config->protect = str_wilcard;
 	}
 	return mod;
 }
@@ -498,7 +498,7 @@ static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t 
 	 */
 	if (authorization == NULL || authorization[0] == '\0')
 	{
-		authorization = httpmessage_REQUEST(request, (char *)str_authorization);
+		authorization = httpmessage_REQUEST(request, str_authorization);
 	}
 	/**
 	 * to send the authorization header only once, the "cookie"
@@ -507,7 +507,7 @@ static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t 
 	 */
 	if (authorization == NULL || authorization[0] == '\0')
 	{
-		authorization = cookie_get(request, (char *)str_authorization);
+		authorization = cookie_get(request, str_authorization);
 		err("cookie get %s %p",str_authorization, authorization);
 	}
 
@@ -550,7 +550,7 @@ static int _authn_setauthorization(_mod_auth_ctx_t *ctx, const char *authorizati
 	else
 #endif
 	if (authorization != NULL)
-		httpmessage_set(response, str_authorization, (char *)authorization);
+		httpmessage_set(response, str_authorization, authorization);
 	httpmessage_set(response, str_xuser, info->user);
 	if (info->group)
 		httpmessage_set(response, str_xgroup, info->group);
@@ -568,12 +568,12 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
-	char *authentication = strchr(authorization, ' ');
+	const char *authentication = strchr(authorization, ' ');
 
 	if (authentication)
 		authentication++;
 	else
-		authentication = (char *)authorization;
+		authentication = authorization;
 	/**
 	 * The current authentication is made by the client (the browser).
 	 * In this case the client compute the autorization for each file to download.
@@ -736,7 +736,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	 * The header WWW-Authenticate inside the request
 	 * allows to disconnect the user.
 	 */
-	authorization = httpmessage_REQUEST(request, (char *)str_authenticate);
+	authorization = httpmessage_REQUEST(request, str_authenticate);
 	if (authorization != NULL && authorization[0] != '\0')
 	{
 		ret = ESUCCESS;

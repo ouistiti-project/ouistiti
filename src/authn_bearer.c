@@ -106,7 +106,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 	return ret;
 }
 
-static const char *authn_bearer_check(void *arg, const char *method, const char *uri, char *string)
+static const char *authn_bearer_check(void *arg, const char *method, const char *uri, const char *string)
 {
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
 	(void) method;

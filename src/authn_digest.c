@@ -305,7 +305,7 @@ static struct authn_digest_computing_s authn_digest_md5_computing =
 static struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
 
 static char *str_empty = "";
-static const char *authn_digest_check(void *arg, const char *method, const char *url, char *string)
+static const char *authn_digest_check(void *arg, const char *method, const char *url, const char *string)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 	const char *passwd = NULL;
@@ -394,7 +394,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	else
 #endif
 	{
-		passwd = mod->authz->rules->passwd(mod->authz->ctx, (char *)user);
+		passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 	}
 	if (response && passwd && authn_digest_computing)
 	{
@@ -405,7 +405,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		auth_dbg("Digest %s", digest);
 		if (digest && !strcmp(digest, response) && check)
 		{
-			user_ret = (char *)user;
+			user_ret = user;
 		}
 		free (a1);
 		free (a2);
