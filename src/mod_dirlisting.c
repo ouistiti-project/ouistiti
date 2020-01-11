@@ -99,7 +99,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 			 * The content-length of dirlisting is unknown.
 			 * Set the content-type first without content-length.
 			 */
-			httpmessage_addcontent(response, (char*)utils_getmime(".json"), NULL, -1);
+			httpmessage_addcontent(response, utils_getmime(".json"), NULL, -1);
 			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
 			{
 				closedir(private->dir);

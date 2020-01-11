@@ -82,7 +82,7 @@ static int authn_basic_challenge(void *arg, http_message_t *request, http_messag
 }
 
 static char user[256] = {0};
-static const char *authn_basic_check(void *arg, const char *method, const char *uri, char *string)
+static const char *authn_basic_check(void *arg, const char *method, const char *uri, const char *string)
 {
 	const authn_basic_t *mod = (authn_basic_t *)arg;
 	char *passwd;

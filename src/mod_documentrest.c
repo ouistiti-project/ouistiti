@@ -285,7 +285,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
-	char *result = (char *)str_KO;
+	const char *result = str_KO;
 	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
 	if (cmd == NULL || cmd[0] == '\0')
 	{
@@ -296,7 +296,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 		warn("move %s", private->filepath);
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (!changename(config, request, private->filepath, arg, rename))
-			result = (char *)str_OK;
+			result = str_OK;
 	}
 	else if (cmd && !strcmp("chmod", cmd))
 	{
@@ -304,7 +304,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		int mod = strtol(arg, NULL, 8);
 		if (!chmod(private->filepath, mod))
-			result = (char *)str_OK;
+			result = str_OK;
 	}
 #ifdef HAVE_SYMLINK
 	else if (cmd && !strcmp("ln", cmd))

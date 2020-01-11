@@ -409,7 +409,7 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 	return ret;
 }
 
-static const char *authn_oauth2_check(void *arg, const char *method, const char *uri, char *string)
+static const char *authn_oauth2_check(void *arg, const char *method, const char *uri, const char *string)
 {
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = mod->config;

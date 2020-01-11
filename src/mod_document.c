@@ -322,7 +322,7 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			const char *mime = NULL;
 			mime = utils_getmime(private->filepath);
 			lseek(private->fd, private->offset, SEEK_SET);
-			httpmessage_addcontent(response, (char *)mime, NULL, private->size);
+			httpmessage_addcontent(response, mime, NULL, private->size);
 			dbg("document: send %llu bytes", private->size);
 			mod->transfer = mod_send_read;
 #ifdef DEBUG
