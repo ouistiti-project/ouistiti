@@ -1,4 +1,4 @@
 HTTP/1.1 200 OK
 Content-Type: text/json
 
-{"method":"GET","result":"OK","name":"dirlisting/","content":[{"name":"test_file_with_a_very_long_name ","size":"0 B","type":8,"mime":"application/octet-stream"},{"name":"test19.txt","size":"15 B","type":8,"mime":"application/octet-stream"},{"name":"test2","size":"0 B","type":8,"mime":"application/octet-stream"},{"name":"test","size":"0 B","type":8,"mime":"application/octet-stream"},{}]}
+{"method":"GET","result":"OK","name":"dirlisting","content":[{"name":"test_file_with_a_very_long_name ","size":"0 B","type":8,"mime":"application/octet-stream"},{"name":"test2","size":"0 B","type":8,"mime":"application/octet-stream"},{"name":"test","size":"0 B","type":8,"mime":"application/octet-stream"},{"name":"index.html","size":"40 B","type":8,"mime":"text/html"},{}]}

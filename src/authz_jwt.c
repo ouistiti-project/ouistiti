@@ -72,7 +72,7 @@ struct authz_jwt_s
 int jwt_sign(const char *key, const char *input, size_t len, char *output)
 {
 	int ret = EREJECT;
-	if (hash_macsha256 != NULL)
+	if (hash_macsha256 != NULL && key != NULL)
 	{
 		void *ctx = hash_macsha256->initkey(key, strlen(key));
 		if (ctx)
@@ -84,6 +84,11 @@ int jwt_sign(const char *key, const char *input, size_t len, char *output)
 			base64_urlencoding->encode(signature, HASH_MAX_SIZE, output, 64);
 			ret = ESUCCESS;
 		}
+	}
+	else
+	{
+		err("auth: set secret in configuration");
+		output[0] = '\0';
 	}
 	return ret;
 }
@@ -299,6 +304,7 @@ static int authz_jwt_join(void *arg, const char *user, const char *token, int ex
 #define authz_jwt_join NULL
 #endif
 
+#ifdef AUTHN_OAUTH2
 static int authz_jwt_adduser(void *arg, authsession_t *newuser)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
@@ -310,6 +316,7 @@ static int authz_jwt_adduser(void *arg, authsession_t *newuser)
 	}
 	return EREJECT;
 }
+#endif
 
 static void authz_jwt_destroy(void *arg)
 {
@@ -326,6 +333,8 @@ authz_rules_t authz_jwt_rules =
 	.group = authz_jwt_group,
 	.home = authz_jwt_home,
 	.join = authz_jwt_join,
+#ifdef AUTHN_OAUTH2
 	.adduser = authz_jwt_adduser,
+#endif
 	.destroy = authz_jwt_destroy,
 };

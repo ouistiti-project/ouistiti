@@ -53,25 +53,21 @@ static void *authz_simple_create(void *config)
 
 static const char *authz_simple_passwd(void *arg,const  char *user)
 {
-	authz_simple_t *config = (authz_simple_t *)arg;
-	if (!strcmp(user, config->user))
-		return config->passwd;
+	authz_simple_t *ctx = (authz_simple_t *)arg;
+	if (!strcmp(user, ctx->user))
+		return ctx->passwd;
 	return NULL;
-}
-
-static int _authz_simple_checkpasswd(authz_simple_t *config, const char *user, const char *passwd)
-{
-	if (!strcmp(user, config->user)  && config->passwd && !strcmp(passwd, config->passwd))
-		return 1;
-	return 0;
 }
 
 static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	authz_simple_t *ctx = (authz_simple_t *)arg;
 
-	if (user != NULL && passwd != NULL && _authz_simple_checkpasswd(ctx, user, passwd))
-		return user;
+	if (user != NULL && passwd != NULL && !strcmp(user, ctx->user) && ctx->passwd)
+	{
+		if (authz_checkpasswd(passwd, ctx->user, NULL,  ctx->passwd) == ESUCCESS)
+			return user;
+	}
 	return NULL;
 }
 

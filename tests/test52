@@ -1,0 +1,6 @@
+DESC="Auth Basic from database: no password"
+CONFIG=test12.conf
+TESTREQUEST=test4_rq.txt
+TESTCODE=302
+TESTHEADERLEN=
+TESTCONTENTLEN=

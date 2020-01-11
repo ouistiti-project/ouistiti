@@ -49,10 +49,11 @@
 #define dbg(...)
 #endif
 
-typedef int (*server_t)(int sock);
+typedef int (*server_t)(int *psock);
 
-int echo(int sock)
+int echo(int *psock)
 {
+	int sock = *psock;
 	int ret = 0;
 
 	while (sock > 0)
@@ -98,7 +99,7 @@ int start(server_t server, int newsock)
 	if (fork() == 0)
 	{
 		printf("run\n");
-		server(newsock);
+		server(&newsock);
 		exit(0);
 	}
 	sched_yield();
@@ -114,7 +115,7 @@ typedef void *(*start_routine_t)(void*);
 int start(server_t server, int newsock)
 {
 	pthread_t thread;
-	pthread_create(&thread, NULL, (start_routine_t)server, (void *)newsock);
+	pthread_create(&thread, NULL, (start_routine_t)server, (void *)&newsock);
 }
 #endif
 
@@ -125,6 +126,9 @@ const char *str_username = "apache";
 #ifndef SOCKPROTOCOL
 #define SOCKPROTOCOL 0
 #endif
+
+#define TEST 1
+
 int main(int argc, char **argv)
 {
 	int ret = -1;
@@ -133,11 +137,12 @@ int main(int argc, char **argv)
 	char *proto = "echo";
 	int maxclients = 50;
 	const char *username = str_username;
+	int mode = 0;
 
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:n:R:m:h");
+		opt = getopt(argc, argv, "u:n:R:m:th");
 		switch (opt)
 		{
 			case 'R':
@@ -145,8 +150,7 @@ int main(int argc, char **argv)
 			break;
 			case 'h':
 				help(argv);
-				return -1;
-			break;
+			return -1;
 			case 'm':
 				maxclients = atoi(optarg);
 			break;
@@ -155,6 +159,9 @@ int main(int argc, char **argv)
 			break;
 			case 'n':
 				proto = optarg;
+			break;
+			case 't':
+				mode = TEST;
 			break;
 		}
 	} while(opt != -1);
@@ -175,9 +182,13 @@ int main(int argc, char **argv)
 		user = getpwnam(username);
 		if (user != NULL)
 		{
-			setgid(user->pw_gid);
-			setuid(user->pw_uid);
+			if (setegid(user->pw_gid) < 0)
+				warn("not enought rights to change group");
+			if (seteuid(user->pw_uid) < 0)
+				warn("not enought rights to change user");
 		}
+		else
+			warn("user not found");
 	}
 
 	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);
@@ -206,10 +217,18 @@ int main(int argc, char **argv)
 				printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
 				if (newsock > 0)
 				{
-					start(echo, newsock);
+					if (mode != TEST)
+						start(echo, newsock);
+					else
+					{
+						ret = send(newsock, "hello\n", 7, MSG_DONTWAIT | MSG_NOSIGNAL);
+						close(newsock);
+						newsock = -1;
+					}
 				}
 			} while(newsock > 0);
 		}
+		close(sock);
 	}
 	if (ret)
 	{

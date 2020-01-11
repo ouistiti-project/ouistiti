@@ -1,0 +1,21 @@
+user="%USER%";
+servers= ({
+		hostname = "www.ouistiti.net";
+		addr="127.0.0.1";
+		port = 8080;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		auth = {
+			type="Bearer";
+			options = "token,cookie";
+			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
+			token_ep = "https://auth.ouistiti.net:8080/token";
+		};
+		document = {
+			docroot = "%PWD%/tests/htdocs";
+			allow = ".html,.htm,.css,.js,.txt,*";
+			deny = ".htaccess,.php";
+		};
+	});
+
+

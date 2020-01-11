@@ -1,6 +1,3 @@
-HTTP/1.1 403 Forbidden
-Content-Type: text/plain
-Content-Length: 16
+HTTP/1.1 404 File Not Found
 
- 403 Forbidden
-
+ 404 File Not Found

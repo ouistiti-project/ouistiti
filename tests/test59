@@ -1,0 +1,5 @@
+PREPARE="touch ${TESTDIR}/htdocs/test41.txt"
+DESC="test a DELETE request with good authentication"
+CONFIG=test4.conf
+TESTREQUEST=test59_rq.txt
+TESTCODE=200

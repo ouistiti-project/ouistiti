@@ -5,55 +5,23 @@ CGI/1.0 test script report:
 
 argc is 0. argv is .
 
-SERVER_SOFTWARE = ouistiti/2.1
+SERVER_SOFTWARE = ouistiti/2.2
 GATEWAY_INTERFACE = CGI/1.1
 SERVER_PROTOCOL = HTTP/1.1
 SERVER_NAME = www.ouistiti.net
 SERVER_ADDR = 127.0.0.1
-SERVER_PORT = 80
+SERVER_PORT = 8080
 REMOTE_HOST =
 REMOTE_ADDR = 127.0.0.1
 REQUEST_METHOD = POST
 SCHEME = http
-URI = /test.cgi
-QUERY_STRING =
-HTTP_ACCEPT =
-PATH_INFO = /home/mch/Projects/ouistiti/tests/htdocs//test.cgi
-PATH_TRANSLATED = /home/mch/Projects/ouistiti/tests/htdocs//test.cgi
+URI = /test.cgi?hello
+QUERY_STRING = hello
+HTTP_ACCEPT = 
 SCRIPT_NAME = test.cgi
 USER =
 AUTH_TYPE =
 CONTENT_TYPE = text/raw
 CONTENT_LENGTH = 2232
 CONTENT:
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
-Hello world Hello world Hello world Hello world Hello world Hello Word
 Hello world Hello world Hello world Hello world Hello world Hello Word

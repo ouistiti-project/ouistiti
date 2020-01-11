@@ -1,0 +1,21 @@
+user="%USER%";
+servers= ({
+		hostname = "ouistiti.local";
+		port = 8080;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		document = {
+			docroot = "%PWD%/tests/htdocs";
+			allow = ".html,.*htm*,.css,.js,.txt,*";
+			deny = ".htaccess,.cgi,.php";
+			options = "dirlisting,range,rest";
+		};
+		redirect = {
+			options = "hsts";
+		};
+		clientfilter = {
+			deny = "192.168.123.125";
+		};
+	});
+
+

@@ -125,7 +125,7 @@ stream_t *startstream(int sock, buffer_t *origin)
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-	
+
 	pthread_create(&stream->thread, &attr, runstream, stream);
 	return stream;
 }
@@ -178,7 +178,7 @@ buffer_t *startgernerator(buffer_t *origin)
 
 		pthread_attr_init(&attr);
 		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-		
+
 		pthread_create(&thread, &attr, rungenerator, origin);
 	}
 	return origin;
@@ -219,13 +219,13 @@ int multicast(buffer_t *buffer, int resume)
 				if (resume)
 				{
 					// JOIN multicast group on default interface
-					ret = setsockopt(buffer->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, 
+					ret = setsockopt(buffer->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
 						(const void *)&imreq, sizeof(struct ip_mreq));
 				}
 				else
 				{
 					// JOIN multicast group on default interface
-					ret = setsockopt(buffer->sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, 
+					ret = setsockopt(buffer->sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
 						(const void *)&imreq, sizeof(struct ip_mreq));
 				}
 			}
@@ -245,13 +245,13 @@ int multicast(buffer_t *buffer, int resume)
 				if (resume)
 				{
 					// JOIN multicast group on default interface
-					ret = setsockopt(buffer->sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, 
+					ret = setsockopt(buffer->sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP,
 						(const void *)&imreq, sizeof(struct ipv6_mreq));
 				}
 				else
 				{
 					// JOIN multicast group on default interface
-					ret = setsockopt(buffer->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, 
+					ret = setsockopt(buffer->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP,
 						(const void *)&imreq, sizeof(struct ipv6_mreq));
 				}
 			}
@@ -401,7 +401,7 @@ int mainloop(buffer_t *buffer, int options)
 int main(int argc, char **argv)
 {
 	int ret = -1;
-	int sock;
+	int sock = -1;
 	const char *root = "/var/run/ouistiti";
 	const char *proto = "stream";
 	int maxclients = 50;
@@ -458,8 +458,15 @@ int main(int argc, char **argv)
 	{
 		struct passwd *user = NULL;
 		user = getpwnam(username);
-		setgid(user->pw_gid);
-		setuid(user->pw_uid);
+		if (user != NULL)
+		{
+			if (setegid(user->pw_gid) < 0)
+				warn("not enought rights to change group");
+			if (seteuid(user->pw_uid) < 0)
+				warn("not enought rights to change user");
+		}
+		else
+			warn("user not found");
 	}
 
 	sock = socket(PF_UNIX, SOCK_STREAM, 0);
@@ -479,11 +486,11 @@ int main(int argc, char **argv)
 		}
 		if (ret == 0)
 		{
-			buffer_t origin;
+			buffer_t origin = {0};
 			origin.sock = udpsocket(address, port, &origin.sourceaddress);
-			
+
 			buffer_t* buffer = startgernerator(&origin);
-			
+
 			if (buffer)
 			{
 				mainloop(buffer, options);

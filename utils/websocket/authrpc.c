@@ -78,6 +78,8 @@ static void _db_error(int ret)
 
 static int _compute_passwd(const char *input, char *output, int outlen)
 {
+	if (input == NULL)
+		return -1;
 	const hash_t *hash = NULL;
 	hash = hash_sha256;
 
@@ -98,6 +100,7 @@ static int _compute_passwd(const char *input, char *output, int outlen)
 	{
 		strncpy(output, input, outlen);
 	}
+	return 0;
 }
 
 static int _change_passwd(int id, const char *passwd, json_t **result, void *userdata)
@@ -322,7 +325,7 @@ static int method_passwd(json_t *json_params, json_t **result, void *userdata)
 				*result = jsonrpc_error_object(ret, "user or password not found", json_string("user or password not found"));
 			}
 		}
-		else if (strcmp(new,confirm))
+		else if (new && confirm && strcmp(new,confirm))
 		{
 			json_decref(*result);
 			*result = jsonrpc_error_object(ret, "confirm new password", json_string("confirm new password"));

@@ -59,7 +59,7 @@ static void hello(int sock, const char *id, const char *nickname, const char *co
 	int length = 0;
 	length += strlen(id) + strlen(id) + strlen(nickname) + strlen(color) + 96;
 	char *buffer = calloc(1, length);
-	length = snprintf(buffer,length, "{\"type\":\"hello\",\"id\":\"%s\",\"data\":{\"id\":\"%s\",\"nickname\":\"%s\",\"color\":\"%s\"}}", id, id, nickname, color); 
+	length = snprintf(buffer,length, "{\"type\":\"hello\",\"id\":\"%s\",\"data\":{\"id\":\"%s\",\"nickname\":\"%s\",\"color\":\"%s\"}}", id, id, nickname, color);
 	send(sock, buffer, length, MSG_NOSIGNAL);
 	warn("send %s", buffer);
 	free(buffer);
@@ -70,7 +70,7 @@ static void welcome(int sock, const char *id, const char *nickname, const char *
 	int length = 0;
 	length += strlen(id) + strlen(id) + strlen(nickname) + strlen(color) + 96;
 	char *buffer = calloc(1, length);
-	length = snprintf(buffer,length, "{\"type\":\"welcome\",\"id\":\"%s\",\"data\":{\"id\":\"%s\",\"nickname\":\"%s\",\"color\":\"%s\"}}", id, id, nickname, color); 
+	length = snprintf(buffer,length, "{\"type\":\"welcome\",\"id\":\"%s\",\"data\":{\"id\":\"%s\",\"nickname\":\"%s\",\"color\":\"%s\"}}", id, id, nickname, color);
 	send(sock, buffer, length, MSG_NOSIGNAL);
 	warn("send %s", buffer);
 	free(buffer);
@@ -81,7 +81,7 @@ static void goodbye(int sock, const char *id, const char *nickname, const char *
 	int length = 0;
 	length += strlen(id) + strlen(id) + strlen(nickname) + strlen(color) + 96;
 	char *buffer = calloc(1, length);
-	length = snprintf(buffer,length, "{\"type\":\"goodbye\",\"id\":\"%s\",\"data\":{\"id\":\"%s\",\"nickname\":\"%s\",\"color\":\"%s\"}}", id, id, nickname, color); 
+	length = snprintf(buffer,length, "{\"type\":\"goodbye\",\"id\":\"%s\",\"data\":{\"id\":\"%s\",\"nickname\":\"%s\",\"color\":\"%s\"}}", id, id, nickname, color);
 	send(sock, buffer, length, MSG_NOSIGNAL);
 	warn("send %s", buffer);
 	free(buffer);
@@ -97,7 +97,7 @@ static void handler(int sig)
 #endif
 {
 	run = 0;
-	
+
 }
 
 #define WS_MSG 0x01
@@ -131,8 +131,7 @@ int main(int argc, char **argv)
 			break;
 			case 'h':
 				help(argv);
-				return -1;
-			break;
+			return -1;
 			case 'm':
 				maxclients = atoi(optarg);
 			break;
@@ -157,8 +156,15 @@ int main(int argc, char **argv)
 	{
 		struct passwd *user = NULL;
 		user = getpwnam(username);
-		setgid(user->pw_gid);
-		setuid(user->pw_uid);
+		if (user != NULL)
+		{
+			if (setegid(user->pw_gid) < 0)
+				warn("not enought rights to change group");
+			if (seteuid(user->pw_uid) < 0)
+				warn("not enought rights to change user");
+		}
+		else
+			warn("user not found");
 	}
 
 #ifdef HAVE_SIGACTION
@@ -279,7 +285,7 @@ int main(int argc, char **argv)
 							{
 								length += strlen(color) + 71;
 								char *buffer = calloc(1, length);
-								length = snprintf(buffer,length, "{\"type\":\"message\",\"id\":\"%s\",\"data\":\"%s\",\"color\":\"%s\"}", id, message, color); 
+								length = snprintf(buffer,length, "{\"type\":\"message\",\"id\":\"%s\",\"data\":\"%s\",\"color\":\"%s\"}", id, message, color);
 								send(sock, buffer, length, MSG_NOSIGNAL);
 								free(buffer);
 							}

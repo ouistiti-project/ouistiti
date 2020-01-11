@@ -46,6 +46,11 @@
 # define dbg(...)
 #endif
 
+/**
+ * utils.c function
+ */
+extern int ouistiti_recvaddr(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+
 typedef struct _websocket_s _websocket_t;
 struct _websocket_s
 {
@@ -92,30 +97,42 @@ websocket_t wsconfig = {
 	.onping = websocket_pong,
 };
 
+void _websocket_free(int sockfd)
+{
+	_websocket_t *client = _webclient_first;
+	_websocket_t *prev = _webclient_first;
+	while (client && client->sock != sockfd)
+	{
+		prev = client;
+		client = client->next;
+	}
+	if (client)
+	{
+		if (client != _webclient_first)
+			prev->next = client->next;
+		else
+			_webclient_first = client->next;
+		free(client);
+	}
+}
+
 int socket(int domain, int type, int protocol)
 {
 	int sock = -1;
-	int websocket_domain = AF_WEBSOCKET;
 
-	if (domain == websocket_domain)
+	if (domain == AF_UNIX && type == SOCK_STREAM)
 	{
-		if (type == SOCK_STREAM)
+		if (protocol == WS_TEXT)
 		{
-			if (protocol == WS_TEXT)
-			{
-				wsconfig.type = WS_TEXT;
-			}
-			sock = std_socket(AF_UNIX, SOCK_STREAM, 0);
+			wsconfig.type = WS_TEXT;
+		}
+		sock = std_socket(AF_UNIX, SOCK_STREAM, 0);
 
-			_websocket_t *socket = calloc(1, sizeof(*socket));
-			socket->sock = sock;
-			socket->next = _websocket_first;
-			_websocket_first = socket;
-		}
-		else
-		{
-			domain = AF_UNIX;
-		}
+		_websocket_t *socket = calloc(1, sizeof(*socket));
+		socket->sock = sock;
+		socket->next = _websocket_first;
+		_websocket_first = socket;
+		fprintf(stderr, "new websocket\n");
 	}
 	if (sock == -1)
 		sock = std_socket(domain, type, protocol);
@@ -144,17 +161,28 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 		ret = std_accept(sockfd, NULL, NULL);
 		if (ret > 0)
 		{
-			ret = ouistiti_recvaddr(ret, addr, addrlen);
-		}
-		if (ret > 0)
-		{
-			_websocket_t *client = calloc(1, sizeof(*client));
-			client->sock = ret;
-			client->next = _webclient_first;
-			_webclient_first = client;
+			int clientsock = ouistiti_recvaddr(ret, addr, addrlen);
+
+			if (clientsock > 0)
+			{
+				_websocket_t *client = calloc(1, sizeof(*client));
+				client->sock = clientsock;
+				client->next = _webclient_first;
+				_webclient_first = client;
+				ret = clientsock;
+			}
+			else
+			{
+				/**
+				 * remove the socket from list this one doesn't support
+				 * websocket protocol
+				 */
+				_websocket_free(sockfd);
+			}
 		}
 		return ret;
 	}
+
 	return std_accept(sockfd, addr, addrlen);
 }
 
@@ -253,23 +281,7 @@ ssize_t read(int sockfd, void *buf, size_t len)
 
 int close(int sockfd)
 {
-	_websocket_t *client = _webclient_first;
-	_websocket_t *prev = _webclient_first;
-	while (client && client->sock != sockfd)
-	{
-		prev = client;
-		client = client->next;
-	}
-	if (client)
-	{
-		if (client != _webclient_first)
-			prev->next = client->next;
-		else
-			_webclient_first = client->next;
-		free(client);
-		std_close(sockfd);
-		return 0;
-	}
+	_websocket_free(sockfd);
 	return std_close(sockfd);
 }
 

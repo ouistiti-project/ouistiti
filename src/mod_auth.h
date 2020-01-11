@@ -50,6 +50,7 @@ typedef struct authsession_s
 	char group[32];
 	char home[PATH_MAX];
 	char *urlspace;
+	char *token;
 } authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
@@ -162,7 +163,7 @@ struct authn_oauth2_config_s
 };
 
 typedef struct authn_s authn_t;
-typedef void *(*authn_rule_create_t)(authn_t *authn, authz_t *authz, void *config);
+typedef void *(*authn_rule_create_t)(const authn_t *authn, authz_t *authz, void *config);
 typedef int (*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);
 typedef const char *(*authn_rule_check_t)(void *arg, const char *method, const char *uri, char *string);
@@ -193,6 +194,7 @@ struct authn_s
 	authn_rules_t *rules;
 	authn_type_t type;
 	const hash_t *hash;
+	http_server_t *server;
 };
 
 struct mod_auth_s
@@ -210,6 +212,8 @@ struct mod_auth_s
 };
 
 extern const module_t mod_auth;
+
+int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd);
 
 const char *auth_info(http_message_t *request, const char *key);
 
