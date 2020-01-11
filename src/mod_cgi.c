@@ -138,8 +138,10 @@ static void _cgi_freectx(mod_cgi_ctx_t *ctx)
 
 static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_message_t *request)
 {
-	pipe(ctx->tocgi);
-	pipe(ctx->fromcgi);
+	if (pipe(ctx->tocgi) < 0)
+		return EREJECT;
+	if (pipe(ctx->fromcgi))
+		return EREJECT;
 	pid_t pid = fork();
 	if (pid)
 	{
@@ -209,6 +211,158 @@ static int document_checkname(const char *path_info, mod_cgi_config_t *config)
 	return ESUCCESS;
 }
 
+static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_message_t *response)
+{
+	int ret = EREJECT;
+	char *url = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+	if (url && config->docroot)
+	{
+		if (document_checkname(url, config) != ESUCCESS)
+		{
+			dbg("cgi: %s forbidden extension", url);
+			free(url);
+			return EREJECT;
+		}
+
+		const char *other = "";
+		char *filepath;
+		struct stat filestat;
+		filepath = utils_buildpath(config->docroot, other, url, "", &filestat);
+
+		if (S_ISDIR(filestat.st_mode))
+		{
+			dbg("cgi: %s is directory", url);
+			free(url);
+			free(filepath);
+			return EREJECT;
+		}
+		/* at least user or group may execute the CGI */
+		if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
+		{
+			httpmessage_result(response, RESULT_403);
+			warn("cgi: %s access denied", url);
+			free(url);
+			free(filepath);
+			return ESUCCESS;
+		}
+
+		mod_cgi_ctx_t *ctx;
+		dbg("cgi: run %s", filepath);
+		ctx = calloc(1, sizeof(*ctx));
+		ctx->cgipath = filepath;
+		ctx->pid = _mod_cgi_fork(ctx, config, request);
+		ctx->state = STATE_START;
+		if (config->chunksize == 0)
+			config->chunksize = 64;
+		ctx->chunk = malloc(config->chunksize + 1);
+		free(url);
+		httpmessage_private(request, ctx);
+		ret = EINCOMPLETE;
+	}
+	return ret;
+}
+
+static int _cgi_request(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_message_t *request)
+{
+	int ret = ECONTINUE;
+	char *input;
+	int inputlen;
+	unsigned long long rest;
+	inputlen = httpmessage_content(request, &input, &rest);
+	if (inputlen > 0)
+	{
+		int len;
+#ifdef DEBUG
+		static int length = 0;
+		length += inputlen;
+		cgi_dbg("cgi: %d input %s", length,input);
+#endif
+		len = write(ctx->tocgi[1], input, inputlen);
+		if (inputlen != len)
+			ret = EREJECT;
+	}
+	else if (rest != EINCOMPLETE)
+		ctx->state = STATE_INFINISH;
+	if (ctx->state == STATE_INFINISH)
+	{
+		close(ctx->tocgi[1]);
+		ctx->tocgi[1] = -1;
+	}
+	return ret;
+}
+
+static int _cgi_response(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_message_t *response)
+{
+	int ret = ECONTINUE;
+	int sret;
+	fd_set rfds;
+	struct timeval timeout = { config->timeout,0 };
+
+	FD_ZERO(&rfds);
+	FD_SET(ctx->fromcgi[0], &rfds);
+	sret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &timeout);
+	if (sret > 0 && FD_ISSET(ctx->fromcgi[0], &rfds))
+	{
+		int size = config->chunksize;
+		size = read(ctx->fromcgi[0], ctx->chunk, size);
+		if (size < 1)
+		{
+			ctx->state = STATE_CONTENTCOMPLETE;
+			ret = ECONTINUE;
+			if (size < 0)
+			{
+				err("cgi read %s", strerror(errno));
+			}
+		}
+		else
+		{
+			ctx->chunk[size] = 0;
+			cgi_dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
+			/**
+			 * if content_length is not null, parcgi is able to
+			 * create the content.
+			 * But the cgi know the length at the end, is too late
+			 * to set the header.
+			 */
+			int rest = size;
+			if (rest > 0)
+			{
+				ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
+				cgi_dbg("cgi: parse %d data %d %d\n%s#", ret, size, rest, ctx->chunk);
+				if (ret == ECONTINUE && ctx->state < STATE_HEADERCOMPLETE)
+				{
+#if defined(RESULT_302)
+					/**
+					 * RFC 3875 : 6.2.3
+					 */
+					const char *location = httpmessage_REQUEST(response, str_location);
+					if (location != NULL && location[0] != '\0')
+						httpmessage_result(response, RESULT_302);
+#endif
+					ctx->state = STATE_HEADERCOMPLETE;
+				}
+				if (ret == ESUCCESS)
+				{
+					ctx->state = STATE_CONTENTCOMPLETE;
+					//parse_cgi is complete but not this module
+				}
+			}
+		}
+		/**
+		 * the request is completed to not wait more data the module
+		 * must returns ECONTINUE or ESUCCESS now
+		 */
+		ret = ECONTINUE;
+	}
+	else
+	{
+		ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
+		kill(ctx->pid, SIGTERM);
+		dbg("cgi complete");
+		ret = ECONTINUE;
+	}
+	return ret;
+}
 static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EINCOMPLETE;
@@ -217,73 +371,12 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 
 	if (ctx == NULL)
 	{
-		char *url = utils_urldecode(httpmessage_REQUEST(request,"uri"));
-		if (url && config->docroot)
-		{
-			if (document_checkname(url, config) != ESUCCESS)
-			{
-				dbg("cgi: %s forbidden extension", url);
-				free(url);
-				return EREJECT;
-			}
-
-			const char *other = "";
-			char *filepath;
-			struct stat filestat;
-			filepath = utils_buildpath(config->docroot, other, url, "", &filestat);
-
-			if (S_ISDIR(filestat.st_mode))
-			{
-				dbg("cgi: %s is directory", url);
-				free(url);
-				free(filepath);
-				return EREJECT;
-			}
-			/* at least user or group may execute the CGI */
-			if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
-			{
-				httpmessage_result(response, RESULT_404);
-				warn("cgi: %s access denied", url);
-				free(url);
-				free(filepath);
-				return ESUCCESS;
-			}
-
-			dbg("cgi: run %s", filepath);
-			ctx = calloc(1, sizeof(*ctx));
-			ctx->cgipath = filepath;
-			ctx->pid = _mod_cgi_fork(ctx, config, request);
-			ctx->state = STATE_START;
-			if (config->chunksize == 0)
-				config->chunksize = 64;
-			ctx->chunk = malloc(config->chunksize + 1);
-			free(url);
-			httpmessage_private(request, ctx);
-		}
+		ret = _cgi_start(config, request, response);
+		return ret;
 	}
 	else if (ctx->tocgi[1] > 0 && ctx->state == STATE_START)
 	{
-		char *input;
-		int inputlen;
-		unsigned long long rest;
-		inputlen = httpmessage_content(request, &input, &rest);
-		if (inputlen > 0)
-		{
-#ifdef DEBUG
-			static int length = 0;
-			length += inputlen;
-			dbg("cgi: %d %d rest %lld", inputlen, length, rest);
-			cgi_dbg("cgi: %d input %s", length,input);
-#endif
-			write(ctx->tocgi[1], input, inputlen);
-		}
-		else if (rest != EINCOMPLETE)
-			ctx->state = STATE_INFINISH;
-		if (ctx->state == STATE_INFINISH)
-		{
-			close(ctx->tocgi[1]);
-			ctx->tocgi[1] = -1;
-		}
+		_cgi_request(ctx, config, request);
 	}
 	/**
 	 * when the request is complete the module must check the CGI immedialty
@@ -291,73 +384,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	 */
 	if ((ctx->state & STATE_MASK) >= STATE_INFINISH && (ctx->state & STATE_MASK) < STATE_CONTENTCOMPLETE)
 	{
-		int sret;
-		fd_set rfds;
-		struct timeval timeout = { config->timeout,0 };
-
-		FD_ZERO(&rfds);
-		FD_SET(ctx->fromcgi[0], &rfds);
-		sret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &timeout);
-		if (sret > 0 && FD_ISSET(ctx->fromcgi[0], &rfds))
-		{
-			int size = config->chunksize;
-			size = read(ctx->fromcgi[0], ctx->chunk, size);
-			if (size < 1)
-			{
-				ctx->state = STATE_CONTENTCOMPLETE;
-				ret = ECONTINUE;
-				if (size < 0)
-				{
-					err("cgi read %s", strerror(errno));
-				}
-			}
-			else
-			{
-				ctx->chunk[size] = 0;
-				cgi_dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
-				/**
-				 * if content_length is not null, parcgi is able to
-				 * create the content.
-				 * But the cgi know the length at the end, is too late
-				 * to set the header.
-				 */
-				int rest = size;
-				if (rest > 0)
-				{
-					ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
-					cgi_dbg("cgi: parse %d data %d %d\n%s#", ret, size, rest, ctx->chunk);
-					if (ret == ECONTINUE && ctx->state < STATE_HEADERCOMPLETE)
-					{
-#if defined(RESULT_302)
-						/**
-						 * RFC 3875 : 6.2.3
-						 */
-						const char *location = httpmessage_REQUEST(response, str_location);
-						if (location != NULL && location[0] != '\0')
-							httpmessage_result(response, RESULT_302);
-#endif
-						ctx->state = STATE_HEADERCOMPLETE;
-					}
-					if (ret == ESUCCESS)
-					{
-						ctx->state = STATE_CONTENTCOMPLETE;
-						//parse_cgi is complete but not this module
-					}
-				}
-			}
-			/**
-			 * the request is completed to not wait more data the module
-			 * must returns ECONTINUE or ESUCCESS now
-			 */
-			ret = ECONTINUE;
-		}
-		else
-		{
-			ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
-			kill(ctx->pid, SIGTERM);
-			dbg("cgi complete");
-			ret = ECONTINUE;
-		}
+		ret = _cgi_response(ctx, config, response);
 	}
 	else if ((ctx->state & STATE_MASK) == STATE_CONTENTCOMPLETE)
 	{

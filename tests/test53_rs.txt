@@ -1,0 +1,13 @@
+HTTP/1.1 200 OK
+Set-Cookie: Authorization=Basic Zm9vOmJhcg==; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-User=foo; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-Group=users; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-Home=~/; Path=/; Domain=.ouistiti.net
+Content-Type: text/html
+Content-Length: 40
+
+<html>
+	<body>
+		hello
+	</body>
+</html>

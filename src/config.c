@@ -57,7 +57,7 @@
 # define dbg(...)
 #endif
 
-char str_hostname[HOST_NAME_MAX + 6];
+char str_hostname[HOST_NAME_MAX + 7];
 
 static config_t configfile;
 static char *logfile = NULL;
@@ -193,7 +193,6 @@ const char *str_authenticate_types[] =
 	"oAuth2",
 };
 #endif
-static const char *str_realm = "ouistiti";
 static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 {
 	mod_auth_t *auth = NULL;
@@ -315,8 +314,6 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			authn_basic_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_BASIC_E;
 			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-			if (authn_config->realm == NULL)
-				authn_config->realm = (char *)str_realm;
 			auth->authn_config = authn_config;
 		}
 #endif
@@ -326,8 +323,6 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			authn_digest_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_DIGEST_E;
 			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-			if (authn_config->realm == NULL)
-				authn_config->realm = (char *)str_realm;
 			config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
 			auth->authn_config = authn_config;
 		}
@@ -338,8 +333,6 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			authn_bearer_config_t *authn_config = calloc(1, sizeof(*authn_config));
 			auth->authn_type = AUTHN_BEARER_E;
 			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-			if (authn_config->realm == NULL)
-				authn_config->realm = (char *)str_realm;
 			/**
 			 * token_ep and signin are not compatible
 			 */
@@ -371,8 +364,6 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			if (authn_config->iss == NULL)
 				authn_config->iss = authn_config->realm;
 			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-			if (authn_config->realm == NULL)
-				authn_config->realm = (char *)str_realm;
 			config_setting_lookup_string(configauth, "auth_ep", (const char **)&authn_config->auth_ep);
 			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
 			authn_config->client_passwd = auth->secret;
@@ -591,6 +582,7 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 				{
 					char *destination = NULL;
 					const char *origin = NULL;
+					char *mode = NULL;
 
 					config_setting_lookup_string(iterator, "options", (const char **)&mode);
 					int options = redirect_mode(mode);
@@ -696,7 +688,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 	ouistiticonfig_t *ouistiticonfig = NULL;
 
 	gethostname(str_hostname, HOST_NAME_MAX);
-	strcat(str_hostname, ".local");
+	strncat(str_hostname, ".local", 6);
 
 	config_init(&configfile);
 	dbg("config file: %s", filepath);
@@ -725,7 +717,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 		{
 			int count = config_setting_length(configmimes);
 			int i;
-			for (i = 0; i < count && i < MAXSERVERS; i++)
+			for (i = 0; i < count && i < MAX_SERVERS; i++)
 			{
 				char *ext = NULL;
 				char *mime = NULL;
@@ -762,7 +754,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 					{
 						err("hostname must contain the domain");
 					}
-					else
+					else if (hostname == NULL)
 					{
 						hostname = str_hostname;
 					}
@@ -887,17 +879,6 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 		if (config)
 		{
 			_modulesconfig_destroy(&config->modules);
-			int j;
-			for (j = 0; j < MAX_SERVERS; j++)
-			{
-				if (config->vhosts[j])
-				{
-					_modulesconfig_destroy(&config->vhosts[j]->modules);
-					free(config->vhosts[j]);
-				}
-				else
-					break;
-			}
 			if (config->tls)
 				free(config->tls);
 			free(config->server);

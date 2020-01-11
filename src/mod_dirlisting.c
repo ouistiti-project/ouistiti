@@ -67,7 +67,7 @@ typedef struct _document_connector_s document_connector_t;
 #define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%s\"},"
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
 #define DIRLISTING_FOOTER "\
-{}]}"
+{}]}\n"
 
 static const char str_dirlisting[] = "dirlisting";
 

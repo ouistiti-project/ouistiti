@@ -2,13 +2,13 @@ user="%USER%";
 servers= ({
 		hostname = "www.ouistiti.net";
 		addr="127.0.0.1";
-		port = 80;
+		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
 		auth = {
 			type="Basic";
-			user="test";
-			passwd="test";
+			user="foo";
+			passwd="bar";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";

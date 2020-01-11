@@ -1,0 +1,6 @@
+DESC="redirection on empty page"
+CONFIG=test15.conf
+TESTREQUEST=test70_rq.txt
+TESTCODE=204
+TESTHEADERLEN=108
+TESTCONTENTLEN=40

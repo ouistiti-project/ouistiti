@@ -57,22 +57,21 @@ struct authn_bearer_s
 	http_client_t *clt;
 };
 
-static int bearer_tokenEP_connector(void *arg, http_message_t *request, http_message_t *response);
-
-static void *authn_bearer_create(authn_t *authn, authz_t *authz, void *arg)
+static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg)
 {
-	const char *format = str_authenticate_types[AUTHN_BEARER_E];
 	authn_bearer_t *mod = calloc(1, sizeof(*mod));
 	mod->authz = authz;
 	mod->config = (authn_bearer_config_t *)arg;
+	if (mod->config->realm == NULL)
+		mod->config->realm = httpserver_INFO(authn->server, "host");
 
 	return mod;
 }
 
 static int authn_bearer_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
-	int ret = ESUCCESS;
-	authn_bearer_t *mod = (authn_bearer_t *)arg;
+	int ret = ECONTINUE;
+	const authn_bearer_t *mod = (authn_bearer_t *)arg;
 	authn_bearer_config_t *config = mod->config;
 
 	const char *uriencoded = httpmessage_REQUEST(request, "uri");
@@ -81,11 +80,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 	snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
 	httpmessage_addheader(response, str_authenticate, authenticate);
 
-	if (!utils_searchexp(uri, config->token_ep))
-	{
-		ret = EREJECT;
-	}
-	else if (config->token_ep != NULL && config->token_ep[0] != '\0')
+	if (config->token_ep != NULL && config->token_ep[0] != '\0')
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
 		const char *scheme = httpserver_INFO(server, "scheme");
@@ -103,12 +98,9 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 			config->token_ep,
 			scheme, host, portseparator, port, uri);
 		dbg("auth: redirection to %s", location);
-		httpmessage_addheader(response, (char *)str_location, location);
+		httpmessage_addheader(response, str_location, location);
 		httpmessage_result(response, RESULT_302);
-	}
-	else
-	{
-		httpmessage_result(response, RESULT_401);
+		ret = ESUCCESS;
 	}
 	free(uri);
 	return ret;
@@ -116,13 +108,10 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 
 static const char *authn_bearer_check(void *arg, const char *method, const char *uri, char *string)
 {
-	authn_bearer_t *mod = (authn_bearer_t *)arg;
-	authn_bearer_config_t *config = mod->config;
+	const authn_bearer_t *mod = (authn_bearer_t *)arg;
+	(void) method;
+	(void) uri;
 
-	if (!strcmp(uri, config->token_ep))
-	{
-		return str_anonymous;
-	}
 	if (!strncmp(string, "Bearer ", 7))
 		string += 7;
 	return mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);

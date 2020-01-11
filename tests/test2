@@ -1,6 +1,5 @@
 DESC="test a request on an existing empty file"
 CONFIG=test1.conf
-CURLPARAM="http://127.0.0.1/empty.html"
-TESTCODE=200
-TESTHEADERLEN=107
+TESTREQUEST=test2_rq.txt
+TESTCODE=204
 TESTCONTENTLEN=0

@@ -1,4 +1,4 @@
-LD_LIBRARY_PATH=libhttpserver/src ./host/utils/ouipasswd -u Mufasa -p "Circle Of Life" -R "testrealm@host.com" -A MD5 > tests/conf/passwd
+LD_LIBRARY_PATH=libhttpserver/src ./host/utils/ouipasswd -u Mufasa -p "Circle of Life" -T Digest -R "http-auth@example.org" -A SHA-256 > tests/conf/passwd
 DESC="test a request with good Digest authentication"
 CONFIG=test9.conf
 TESTREQUEST=test17_rq.txt

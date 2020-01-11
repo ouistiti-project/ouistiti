@@ -1,0 +1,4 @@
+GET index.html HTTP/1.1
+HOST: 127.0.0.1
+Authorization: Bearer eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogImZvbyIsICJyb2xlcyI6ICJ1c2VycyJ9.1Jnbz2kmvgzeEB4zS55q6Yt4R_o2IaiufDpoHHhDyz0
+

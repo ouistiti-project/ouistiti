@@ -244,6 +244,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
+	mod->authn->server = server;
 	mod->authn->type = config->authn_type;
 	mod->authn->rules = authn_rules[config->authn_type];
 	if (mod->authn->rules == NULL)
@@ -350,6 +351,8 @@ static void _mod_auth_freectx(void *vctx)
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
 	if (ctx->info)
 	{
+		if (ctx->info->token)
+			free(ctx->info->token);
 		free(ctx->info);
 	}
 	free(ctx->authenticate);
@@ -379,7 +382,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 			dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)
 			char *location = calloc(1, homelength + 1 + 1);
-			sprintf(location, "%s/", home);
+			snprintf(location, homelength + 1 + 1, "%s/", home);
 			httpmessage_addheader(response, str_location, location);
 			httpmessage_result(response, RESULT_301);
 			free(location);
@@ -387,6 +390,86 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 #endif
 		}
 		free(uri);
+	}
+	return ret;
+}
+
+int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd)
+{
+	int ret = EREJECT;
+	dbg("auth: check %s %s", passwd, checkpasswd);
+	if (checkpasswd[0] == '$')
+	{
+		const hash_t *hash = NULL;
+		int i = 1;
+		int a1decode = 0;
+		if (checkpasswd[i] == 'a')
+		{
+			a1decode = 1;
+			i++;
+		}
+		if (checkpasswd[i] == '1')
+		{
+			hash = hash_md5;
+		}
+		if (checkpasswd[i] == '2')
+		{
+			hash = hash_sha1;
+		}
+		if (checkpasswd[i] == '5')
+		{
+			hash = hash_sha256;
+		}
+		if (checkpasswd[i] == '6')
+		{
+			hash = hash_sha512;
+		}
+		if (hash)
+		{
+			char hashpasswd[32];
+			void *ctx;
+			int length;
+
+			ctx = hash->init();
+			checkpasswd = strchr(checkpasswd+1, '$');
+			if (a1decode)
+			{
+				if (realm != NULL && strncmp(checkpasswd, realm, strlen(realm)))
+				{
+					err("auth: realm error in password");
+					// return ret;
+				}
+				realm = strstr(checkpasswd, "realm=");
+			}
+			if (realm)
+			{
+				realm += 6;
+				int length = strchr(realm, '$') - realm;
+				hash->update(ctx, user, strlen(user));
+				hash->update(ctx, ":", 1);
+				hash->update(ctx, realm, length);
+				hash->update(ctx, ":", 1);
+			}
+			hash->update(ctx, passwd, strlen(passwd));
+			hash->finish(ctx, hashpasswd);
+			char b64passwd[50];
+			base64->encode(hashpasswd, hash->size, b64passwd, 50);
+
+			checkpasswd = strrchr(checkpasswd, '$');
+			if (checkpasswd)
+			{
+				checkpasswd++;
+				auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
+				if (!strcmp(b64passwd, checkpasswd))
+					ret = ESUCCESS;
+			}
+		}
+		else
+			err("auth: %.3s not supported change password encryption", checkpasswd);
+	}
+	else if (!strcmp(passwd, checkpasswd))
+	{
+		ret = ESUCCESS;;
 	}
 	return ret;
 }
@@ -405,6 +488,224 @@ static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
 	return token;
 }
 
+static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t *request)
+{
+	_mod_auth_t *mod = ctx->mod;
+	const char *authorization = NULL;
+	/**
+	 * with standard authentication, the authorization code
+	 * is sended info header
+	 */
+	if (authorization == NULL || authorization[0] == '\0')
+	{
+		authorization = httpmessage_REQUEST(request, (char *)str_authorization);
+	}
+	/**
+	 * to send the authorization header only once, the "cookie"
+	 * option of the server store the authorization inside cookie.
+	 * This method allow to use little client which manage only cookie.
+	 */
+	if (authorization == NULL || authorization[0] == '\0')
+	{
+		authorization = cookie_get(request, (char *)str_authorization);
+		err("cookie get %s %p",str_authorization, authorization);
+	}
+
+	if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
+	{
+		err("authorization type: %.*s, %.*s", mod->typelength, authorization, mod->typelength, mod->type);
+		authorization = NULL;
+	}
+#ifdef AUTH_TOKEN
+	/**
+	 * The authorization may be accepted and replaced by a token.
+	 * This token is available inside the cookie.
+	 */
+	if ((authorization == NULL || authorization[0] == '\0') && mod->authz->type & AUTHZ_TOKEN_E)
+	{
+		if (mod->authz->type & AUTHZ_HEADER_E)
+		{
+			authorization = httpmessage_REQUEST(request, str_xtoken);
+		}
+		else
+		{
+			authorization = cookie_get(request, str_xtoken);
+		}
+	}
+#endif
+	return authorization;
+}
+
+typedef void (*_httpmessage_set)(http_message_t *, const char *, const char *);
+static int _authn_setauthorization(_mod_auth_ctx_t *ctx, const char *authorization,
+			authsession_t *info, _httpmessage_set httpmessage_set, http_message_t *response)
+{
+	_mod_auth_t *mod = ctx->mod;
+
+#ifdef AUTH_TOKEN
+	if (info->token)
+	{
+		httpmessage_set(response, str_xtoken, info->token);
+	}
+	else
+#endif
+	if (authorization != NULL)
+		httpmessage_set(response, str_authorization, (char *)authorization);
+	httpmessage_set(response, str_xuser, info->user);
+	if (info->group)
+		httpmessage_set(response, str_xgroup, info->group);
+	if (info->home)
+		httpmessage_set(response, str_xhome, "~/");
+	return ESUCCESS;
+}
+
+static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
+		const char *authorization,
+		const char *method,
+		const char *uri,
+		http_message_t *response)
+{
+	int ret = ECONTINUE;
+	_mod_auth_t *mod = ctx->mod;
+	mod_auth_t *config = mod->config;
+	char *authentication = strchr(authorization, ' ');
+
+	if (authentication)
+		authentication++;
+	else
+		authentication = (char *)authorization;
+	/**
+	 * The current authentication is made by the client (the browser).
+	 * In this case the client compute the autorization for each file to download.
+	 * With redirection to the login page, all files should contain the code
+	 * to compute the autorizarion. But it is impossible to do it. Then
+	 * only the method HEAD is used to login and the client must send
+	 * same autorization for all files to download.
+	 * WARNING: It is incorrect to use this method for security.
+	 * The autorization is always acceptable and it is dangerous.
+	 */
+	if (config->redirect)
+		method = str_head;
+	const char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
+	if (user != NULL)
+	{
+		authsession_t *info = NULL;
+		info = ctx->info;
+		if (info == NULL)
+		{
+			const char *group = NULL;
+			const char *home = NULL;
+			info = calloc(1, sizeof(*info));
+			strncpy(info->user, user, sizeof(info->user));
+			strncpy(info->type, mod->type, sizeof(info->type));
+			if (mod->authz->rules->group)
+			{
+				group = mod->authz->rules->group(mod->authz->ctx, user);
+				if (group)
+					strncpy(info->group, group, sizeof(info->group));
+			}
+			if (mod->authz->rules->home)
+			{
+				home = mod->authz->rules->home(mod->authz->ctx, user);
+				if (home)
+					strncpy(info->home, home, sizeof(info->home));
+			}
+			ctx->info = info;
+		}
+		if (mod->authz->type & AUTHZ_HEADER_E)
+		{
+			_authn_setauthorization(ctx, authorization, info, httpmessage_addheader, response);
+		}
+		else if (mod->authz->type & AUTHZ_COOKIE_E)
+		{
+			_authn_setauthorization(ctx, authorization, info, cookie_set, response);
+		}
+
+		if (mod->authz->type & AUTHZ_UNIX_E)
+		{
+			struct passwd *pw;
+			pw = getpwnam(info->user);
+			if (pw != NULL)
+			{
+				uid_t uid;
+				uid = getuid();
+				//only "saved set-uid", "uid" and "euid" may be set
+				//first step: set the "saved set-uid" (root)
+				if (seteuid(uid) < 0)
+					warn("not enought rights to change user");
+				//second step: set the new "euid"
+				if (setegid(pw->pw_gid) < 0)
+					warn("not enought rights to change group");
+				if (seteuid(pw->pw_uid) < 0)
+					warn("not enought rights to change user");
+			}
+		}
+		warn("user \"%s\" accepted from %p", info->user, ctx->ctl);
+		ret = EREJECT;
+	}
+	return ret;
+}
+
+static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
+				http_message_t *request, http_message_t *response)
+{
+	int ret = ECONTINUE;
+	_mod_auth_t *mod = ctx->mod;
+	mod_auth_t *config = mod->config;
+
+	ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+	if (ret == ECONTINUE)
+	{
+		auth_dbg("auth challenge failed");
+		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+		if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
+		{
+			httpmessage_result(response, RESULT_403);
+		}
+		else if (config->redirect)
+		{
+			int protect = 1;
+			/**
+			 * check the url redirection
+			 */
+			const char *redirect = strstr(config->redirect, "://");
+			if (redirect != NULL)
+			{
+				redirect += 3;
+				redirect = strchr(redirect, '/');
+			}
+			else
+				redirect = config->redirect;
+			if (redirect[0] == '/')
+				redirect++;
+			protect = utils_searchexp(uri, redirect);
+			if (protect == ESUCCESS)
+			{
+				/**
+				 * the request URI is the URL of the redirection
+				 * the authentication has to accept (this module
+				 * reject to manage the request and another module
+				 * should send response to the request0.
+				 */
+				httpmessage_result(response, RESULT_200);
+				ret = EREJECT;
+			}
+			else
+			{
+				httpmessage_addheader(response, str_location, config->redirect);
+				httpmessage_addheader(response, str_cachecontrol, "no-cache");
+				httpmessage_result(response, RESULT_302);
+			}
+		}
+		else
+		{
+			httpmessage_result(response, RESULT_401);
+		}
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -414,18 +715,27 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	const char *authorization = NULL;
 	const char *uriencoded;
 	char *uri;
-	int protect = 1;
 
 	/**
 	 * If ctx->info is set, this connection has been already authenticated.
 	 * It is useless to authenticate again.
 	 */
 	if (ctx->info != NULL)
+	{
+		if (mod->authz->type & AUTHZ_HEADER_E)
+			_authn_setauthorization(ctx, NULL, ctx->info, httpmessage_addheader, response);
+		else if (mod->authz->type & AUTHZ_COOKIE_E)
+			_authn_setauthorization(ctx, NULL, ctx->info, cookie_set, response);
 		return EREJECT;
+	}
 
 	uriencoded = httpmessage_REQUEST(request, "uri");
 	uri = utils_urldecode(uriencoded);
 
+	/**
+	 * The header WWW-Authenticate inside the request
+	 * allows to disconnect the user.
+	 */
 	authorization = httpmessage_REQUEST(request, (char *)str_authenticate);
 	if (authorization != NULL && authorization[0] != '\0')
 	{
@@ -434,242 +744,51 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret == ECONTINUE)
 	{
-		int from = 0;
-		/**
-		 * with standard authentication, the authorization code
-		 * is sended info header
-		 */
-		if (authorization == NULL || authorization[0] == '\0')
-		{
-			authorization = httpmessage_REQUEST(request, (char *)str_authorization);
-		}
-		/**
-		 * to send the authorization header only once, the "cookie"
-		 * option of the server store the authorization inside cookie.
-		 * This method allow to use little client which manage only cookie.
-		 */
-		if (authorization == NULL || authorization[0] == '\0')
-		{
-			authorization = cookie_get(request, (char *)str_authorization);
-			err("cookie get %s %p",str_authorization, authorization);
-			if (authorization)
-				from = 1;
-		}
-
-		if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
-		{
-			err("authorization type: %.*s, %.*s", mod->typelength, authorization, mod->typelength, mod->type);
-			authorization = NULL;
-		}
-#ifdef AUTH_TOKEN
-		/**
-		 * The authorization may be accepted and replaced by a token.
-		 * This token is available inside the cookie.
-		 */
-		if ((authorization == NULL || authorization[0] == '\0') && mod->authz->type & AUTHZ_TOKEN_E)
-		{
-			if (mod->authz->type & AUTHZ_HEADER_E)
-			{
-				authorization = httpmessage_REQUEST(request, str_xtoken);
-			}
-			else
-			{
-				authorization = cookie_get(request, str_xtoken);
-			}
-			if (authorization)
-				from = 2;
-		}
-#endif
-
+		authorization = _authn_getauthorization(ctx, request);
 		if (mod->authn->ctx && authorization != NULL)
 		{
-			char *authentication = strchr(authorization, ' ');
-			if (authentication)
-				authentication++;
-			else
-				authentication = (char *)authorization;
-			const char *method;
-			/**
-			 * The current authentication is made by the client (the browser).
-			 * In this case the client compute the autorization for each file to download.
-			 * With redirection to the login page, all files should contain the code
-			 * to compute the autorizarion. But it is impossible to do it. Then
-			 * only the method HEAD is used to login and the client must send
-			 * same autorization for all files to download.
-			 * WARNING: It is incorrect to use this method for security.
-			 * The autorization is always acceptable and it is dangerous.
-			 */
-			if (config->redirect)
-				method = str_head;
-			else
-				method = httpmessage_REQUEST(request, "method");
-			const char *uri = httpmessage_REQUEST(request, "uri");
-			const char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
-			if (user != NULL)
-			{
-				authsession_t *info = NULL;
-				info = ctx->info;
-				if (info == NULL)
-				{
-					const char *group = NULL;
-					const char *home = NULL;
-					info = calloc(1, sizeof(*info));
-					strncpy(info->user, user, sizeof(info->user));
-					strncpy(info->type, mod->type, sizeof(info->type));
-					if (mod->authz->rules->group)
-					{
-						group = mod->authz->rules->group(mod->authz->ctx, user);
-						if (group)
-							strncpy(info->group, group, sizeof(info->group));
-					}
-					if (mod->authz->rules->home)
-					{
-						home = mod->authz->rules->home(mod->authz->ctx, user);
-						if (home)
-							strncpy(info->home, home, sizeof(info->home));
-					}
-					ctx->info = info;
-					httpmessage_SESSION(request, str_auth, info);
-
-					if (mod->authz->type & AUTHZ_HEADER_E)
-					{
-#ifdef AUTH_TOKEN
-						if (mod->authz->type & AUTHZ_TOKEN_E)
-						{
-								char *token = mod->authz->generatetoken(mod->config, info);
-								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
-								httpmessage_addheader(response, str_xtoken, (char *)token);
-								free(token);
-						}
-						else
-#endif
-						{
-							httpmessage_addheader(response, str_authorization, (char *)authorization);
-						}
-#if defined(AUTH_TOKEN) && defined(AUTHZ_JWT)
-						if (!(mod->authz->type & AUTHZ_TOKEN_E))
-#endif
-						{
-							httpmessage_addheader(response, str_xuser, user);
-							if (group)
-								httpmessage_addheader(response, str_xgroup, group);
-							if (home)
-								httpmessage_addheader(response, str_xhome, "~/");
-						}
-					}
-					if (from == 0 && mod->authz->type & AUTHZ_COOKIE_E)
-					{
-#ifdef AUTH_TOKEN
-						if (mod->authz->type & AUTHZ_TOKEN_E)
-						{
-								char *token = mod->authz->generatetoken(mod->config, info);
-								mod->authz->rules->join(mod->authz->ctx, user, token, mod->config->expire);
-								cookie_set(response, str_xtoken, (char *)token);
-								free(token);
-						}
-						else
-#endif
-						{
-							cookie_set(response, str_authorization, (char *)authorization);
-						}
-#if defined(AUTH_TOKEN) && defined(AUTHZ_JWT)
-						if (!(mod->authz->type & AUTHZ_TOKEN_E))
-#endif
-						{
-							cookie_set(response, str_user, (char *)user);
-							if (group)
-								cookie_set(response, str_group, (char *)group);
-							if (home)
-								cookie_set(response, str_home, "~/");
-						}
-					}
-				}
-
-				if (mod->authz->type & AUTHZ_UNIX_E)
-				{
-					struct passwd *result;
-					result = getpwnam(info->user);
-					if (result != NULL)
-					{
-						uid_t uid;
-						uid = getuid();
-						//only "saved set-uid", "uid" and "euid" may be set
-						//first step: set the "saved set-uid" (root)
-						seteuid(uid);
-						//second step: set the new "euid"
-						seteuid(result->pw_uid);
-						setegid(result->pw_gid);
-					}
-				}
-				warn("user \"%s\" accepted from %p", info->user, ctx->ctl);
-				ret = EREJECT;
-			}
+			ret = _authn_checkauthorization( ctx, authorization,
+				httpmessage_REQUEST(request, "method"), uriencoded, response);
 		}
 	}
 
-	if (ret != EREJECT)
+	if (ret == EREJECT)
 	{
-		protect = utils_searchexp(uri, config->protect);
-		if (protect != ESUCCESS)
+		/**
+		 * authorization is good
+		 */
+		httpmessage_SESSION(request, str_auth, ctx->info);
+#ifdef AUTH_TOKEN
+		if (mod->authz->type & AUTHZ_TOKEN_E)
 		{
-			ret = EREJECT;
+			char *token = mod->authz->generatetoken(mod->config, ctx->info);
+			if (mod->authz->rules->join)
+				mod->authz->rules->join(mod->authz->ctx, ctx->info->user, token, mod->config->expire);
+			ctx->info->token = token;
 		}
-		else
+#endif
+	}
+	else
+	{
+		int protect = 1;
+		/**
+		 * check uri
+		 */
+		protect = utils_searchexp(uri, config->unprotect);
+		if (protect == ESUCCESS)
 		{
-			protect = utils_searchexp(uri, config->unprotect);
-			if (protect == ESUCCESS)
+			protect = utils_searchexp(uri, config->protect);
+			if (protect != ESUCCESS)
 			{
 				ret = EREJECT;
 			}
 		}
 	}
 
+
 	if (ret != EREJECT)
 	{
-		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
-		if (ret == ESUCCESS)
-		{
-			auth_dbg("auth challenge failed");
-			const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
-			{
-				httpmessage_result(response, RESULT_403);
-			}
-			else if (config->redirect)
-			{
-				/**
-				 * check the url redirection
-				 */
-				const char *redirect = strstr(config->redirect, "://");
-				if (redirect != NULL)
-				{
-					redirect += 3;
-					redirect = strchr(redirect, '/');
-				}
-				else
-					redirect = config->redirect;
-				if (redirect[0] == '/')
-					redirect++;
-				protect = utils_searchexp(uri, redirect);
-				if (protect == ESUCCESS)
-				{
-					/**
-					 * the request URI is the URL of the redirection
-					 * the authentication has to accept (this module
-					 * reject to manage the request and another module
-					 * should send response to the request0.
-					 */
-					httpmessage_result(response, RESULT_200);
-					ret = EREJECT;
-				}
-				else
-				{
-					httpmessage_addheader(response, str_location, config->redirect);
-					httpmessage_addheader(response, str_cachecontrol, "no-cache");
-					httpmessage_result(response, RESULT_302);
-				}
-			}
-		}
+		ret = _authn_challenge(ctx, uri, request, response);
 	}
 	free(uri);
 	return ret;

@@ -88,7 +88,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			if (mkdir(private->filepath, 0777) > 0)
 			{
 				err("document: directory creation not allowed %s", private->filepath);
-				httpmessage_appendcontent(response, "KO\"}", -1);
+				httpmessage_appendcontent(response, "KO\"}\n", -1);
 #if defined RESULT_405
 				httpmessage_result(response, RESULT_405);
 #else
@@ -98,7 +98,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			else
 			{
 				warn("document: directory creation %s", private->filepath);
-				httpmessage_appendcontent(response, "OK\"}", -1);
+				httpmessage_appendcontent(response, "OK\"}\n", -1);
 			}
 			ret = ESUCCESS;
 			document_close(private, request);
@@ -109,7 +109,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			if (private->size > private->offset)
 			{
 				char range[20];
-				sprintf(range, "bytes %ld/*", (long)private->size);
+				snprintf(range, 20, "bytes %.9ld/*", (long)private->size);
 				httpmessage_addheader(response, "Content-Range", range);
 			}
 			else
@@ -138,7 +138,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				ret = EINCOMPLETE;
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
 				httpmessage_appendcontent(response, private->path_info, -1);
-				httpmessage_appendcontent(response, "\"}", -1);
+				httpmessage_appendcontent(response, "\"}\n", -1);
 #ifdef DEBUG
 				clock_gettime(CLOCK_REALTIME, &private->start);
 				dbg("document transfer start: %ld:%ld", private->start.tv_sec, private->start.tv_nsec);
@@ -149,7 +149,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				err("document: file creation not allowed %s (size: %ld)", private->filepath, (long)private->size);
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
 				httpmessage_appendcontent(response, private->path_info, -1);
-				httpmessage_appendcontent(response, "\"}", -1);
+				httpmessage_appendcontent(response, "\"}\n", -1);
 				if (private->size > 0)
 #if defined RESULT_416
 					httpmessage_result(response, RESULT_416);
@@ -302,7 +302,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	{
 		warn("chmod %s", private->filepath);
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
-		int mod = atoi(arg);
+		int mod = strtol(arg, NULL, 8);
 		if (!chmod(private->filepath, mod))
 			result = (char *)str_OK;
 	}
@@ -319,7 +319,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	httpmessage_appendcontent(response, private->path_info, -1);
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 	httpmessage_appendcontent(response, result, -1);
-	httpmessage_appendcontent(response, "\"}", 2);
+	httpmessage_appendcontent(response, "\"}\n", -1);
 	document_close(private, request);
 	return ESUCCESS;
 }
@@ -343,7 +343,7 @@ int deletefile_connector(void *arg, http_message_t *request, http_message_t *res
 	if (rmfunction(private->filepath) < 0)
 	{
 		err("file removing not allowed %s", private->filepath);
-		httpmessage_appendcontent(response, "KO\"}", -1);
+		httpmessage_appendcontent(response, "KO\"}\n", -1);
 #if defined RESULT_405
 		httpmessage_result(response, RESULT_405);
 #else
@@ -353,7 +353,7 @@ int deletefile_connector(void *arg, http_message_t *request, http_message_t *res
 	else
 	{
 		warn("remove file : %s", private->filepath);
-		httpmessage_appendcontent(response, "OK\"}", -1);
+		httpmessage_appendcontent(response, "OK\"}\n", -1);
 	}
 	document_close(private, request);
 	return ESUCCESS;

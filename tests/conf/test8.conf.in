@@ -2,12 +2,14 @@ user="%USER%";
 servers= ({
 		hostname = "www.ouistiti.net";
 		addr="127.0.0.1";
-		port = 80;
+		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
 		auth = {
 			type="Basic";
 			file="%PWD%/tests/conf/passwd";
+			options="token,header,cookie";
+			realm="ouistiti";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";

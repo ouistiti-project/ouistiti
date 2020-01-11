@@ -1,3 +1,6 @@
-HTTP/1.1 301 Moved Permanently
-Location: /index.html
+HTTP/1.1 101 Switching Protocols
+Sec-WebSocket-Protocol: echo
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+Connection: Upgrade
+Upgrade: websocket
 

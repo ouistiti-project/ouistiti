@@ -205,18 +205,6 @@ static void handler(int sig)
 #endif
 {
 	run = 'q';
-	server_t *server;
-	server = first;
-
-	while (server != NULL)
-	{
-		if (server->server)
-		{
-			httpserver_disconnect(server->server);
-		}
-		server = server->next;
-	}
-	kill(0, SIGPIPE);
 }
 
 static void _setpidfile(char *pidfile)
@@ -239,7 +227,9 @@ static void _setpidfile(char *pidfile)
 #endif
 			pid = getpid();
 			length = snprintf(buffer, 32, "%d\n", pid);
-			write(pidfd, buffer, length);
+			int len = write(pidfd, buffer, length);
+			if (len != length)
+				err("pid file error %s", strerror(errno));
 			/**
 			 * the file must be open while the process is running
 			close(pidfd);
@@ -294,125 +284,38 @@ static void *loadmodule(const char *name, http_server_t *server, void *config, v
 	return mod;
 }
 
-static char servername[] = PACKAGEVERSION;
-int main(int argc, char * const *argv)
+static server_t *main_set(ouistiticonfig_t *config, int serverid)
 {
-	server_t *server;
-	char *configfile = DEFAULT_CONFIGPATH;
-	ouistiticonfig_t *ouistiticonfig;
-	char *pidfile = NULL;
-	serverconfig_t *it;
+	server_t *first = NULL;
 	int i;
-	int daemonize = 0;
-	int serverid = -1;
-
-	setbuf(stdout, NULL);
-	setbuf(stderr, NULL);
-
-	httpserver_software = servername;
-
-#ifdef HAVE_GETOPT
-	int opt;
-	do
+	for (i = 0; i < MAX_SERVERS; i++)
 	{
-		opt = getopt(argc, argv, "s:f:p:hDV");
-		switch (opt)
-		{
-			case 's':
-				serverid = atoi(optarg) - 1;
+		serverconfig_t *it;
+
+		it = config->servers[i];
+		if (it == NULL)
 			break;
-			case 'f':
-				configfile = optarg;
-			break;
-			case 'p':
-				pidfile = optarg;
-			break;
-			case 'h':
-				display_help(argv);
-				return -1;
-			break;
-			case 'V':
-				printf("%s\n",PACKAGEVERSION);
-				return -1;
-			break;
-			case 'D':
-				daemonize = 1;
-			break;
-		}
-	} while(opt != -1);
-#endif
+		if (serverid > -1 && serverid != i)
+			continue;
 
-	if (daemonize && fork() != 0)
-	{
-		return 0;
-	}
+		http_server_t *httpserver = httpserver_create(it->server);
+		if (httpserver == NULL)
+			continue;
 
-#ifndef FILE_CONFIG
-	ouistiticonfig = &g_ouistiticonfig;
-#else
-	ouistiticonfig = ouistiticonfig_create(configfile);
-#endif
+		server_t *server;
 
-	if (ouistiticonfig == NULL)
-		return -1;
-
-	if (pidfile)
-		_setpidfile(pidfile);
-	else if (ouistiticonfig->pidfile)
-		_setpidfile(ouistiticonfig->pidfile);
-
-#ifdef HAVE_SIGACTION
-	struct sigaction action;
-	action.sa_flags = SA_SIGINFO;
-	sigemptyset(&action.sa_mask);
-	action.sa_sigaction = handler;
-	sigaction(SIGTERM, &action, NULL);
-	sigaction(SIGINT, &action, NULL);
-#else
-	signal(SIGTERM, handler);
-	signal(SIGINT, handler);
-#endif
-
-#ifdef HAVE_PWD
-	uid_t   pw_uid = -1;
-	gid_t   pw_gid;
-	if (ouistiticonfig->user)
-	{
-		struct passwd *result;
-
-		result = getpwnam(ouistiticonfig->user);
-		if (result == NULL)
-		{
-			err("Error: user %s not found\n", ouistiticonfig->user);
-			return -1;
-		}
-		pw_uid = result->pw_uid;
-		pw_gid = result->pw_gid;
-	}
-#endif
-	if (serverid < 0)
-	{
-		for (i = 0, it = ouistiticonfig->servers[i]; it != NULL; i++, it = ouistiticonfig->servers[i])
-		{
-			server = calloc(1, sizeof(*server));
-			server->config = it;
-
-			server->server = httpserver_create(server->config->server);
-			server->next = first;
-			first = server;
-		}
-	}
-	else
-	{
 		server = calloc(1, sizeof(*server));
-		server->config = ouistiticonfig->servers[serverid];
+		server->config = it;
 
-		server->server = httpserver_create(server->config->server);
-		server->next = NULL;
+		server->server = httpserver;
+		server->next = first;
 		first = server;
 	}
-	server = first;
+	return first;
+}
 
+static int main_setmodules(server_t *server)
+{
 	while (server != NULL)
 	{
 		if (server->server)
@@ -429,6 +332,8 @@ int main(int argc, char * const *argv)
 			 */
 			if (server->config->modules.clientfilter)
 				server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
+
+			int i;
 			for (i = 0; i < (MAX_SERVERS - 1); i++)
 			{
 				if (server->config->vhosts[i])
@@ -465,34 +370,28 @@ int main(int argc, char * const *argv)
 		}
 		server = server->next;
 	}
+	return 0;
+}
 
-#ifdef HAVE_PWD
-	if (pw_uid > 0)
-	{
-		setegid(pw_gid);
-		if (seteuid(pw_uid))
-			err("Error: start server as root");
-	}
-#endif
-	server = first;
-
+static int main_run(server_t *first)
+{
+	server_t *server = first;
 	/**
 	 * connection must be after the owner change
 	 */
 	while (server != NULL)
 	{
-		if (server->server)
-		{
-			httpserver_connect(server->server);
-		}
+		httpserver_connect(server->server);
 		server = server->next;
 	}
 
 	while(run != 'q')
 	{
-		if (httpserver_run(first->server) == ESUCCESS)
+		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
 			break;
 	}
+
+	kill(0, SIGPIPE);
 
 	server = first;
 	while (server != NULL)
@@ -510,8 +409,127 @@ int main(int argc, char * const *argv)
 		free(server);
 		server = next;
 	}
+	return 0;
+}
+
+static char servername[] = PACKAGEVERSION;
+int main(int argc, char * const *argv)
+{
+	char *configfile = DEFAULT_CONFIGPATH;
+	ouistiticonfig_t *ouistiticonfig;
+	char *pidfile = NULL;
+	int daemonize = 0;
+	int serverid = -1;
+
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
+	httpserver_software = servername;
+
+#ifdef HAVE_GETOPT
+	int opt;
+	do
+	{
+		opt = getopt(argc, argv, "s:f:p:hDV");
+		switch (opt)
+		{
+			case 's':
+				serverid = atoi(optarg) - 1;
+			break;
+			case 'f':
+				configfile = optarg;
+			break;
+			case 'p':
+				pidfile = optarg;
+			break;
+			case 'h':
+				display_help(argv);
+			return -1;
+			case 'V':
+				printf("%s\n",PACKAGEVERSION);
+			return -1;
+			case 'D':
+				daemonize = 1;
+			break;
+			default:
+			break;
+		}
+	} while(opt != -1);
+#endif
+
+	if (daemonize && fork() != 0)
+	{
+		return 0;
+	}
+
+#ifndef FILE_CONFIG
+	ouistiticonfig = &g_ouistiticonfig;
+#else
+	ouistiticonfig = ouistiticonfig_create(configfile);
+#endif
+
+	if (ouistiticonfig == NULL)
+		return -1;
+
+	if (pidfile)
+		_setpidfile(pidfile);
+	else if (ouistiticonfig->pidfile)
+		_setpidfile(ouistiticonfig->pidfile);
+
+#ifdef HAVE_SIGACTION
+	struct sigaction action;
+	action.sa_flags = SA_SIGINFO;
+	sigemptyset(&action.sa_mask);
+	action.sa_sigaction = handler;
+	sigaction(SIGTERM, &action, NULL);
+	sigaction(SIGINT, &action, NULL);
+
+	struct sigaction unaction;
+	unaction.sa_handler = SIG_IGN;
+	sigaction(SIGPIPE, &action, NULL);
+#else
+	signal(SIGTERM, handler);
+	signal(SIGINT, handler);
+
+	signal(SIGPIPE, SIG_IGN);
+#endif
+
+#ifdef HAVE_PWD
+	uid_t   pw_uid = -1;
+	gid_t   pw_gid = -1;
+	if (ouistiticonfig->user)
+	{
+		struct passwd *result;
+
+		result = getpwnam(ouistiticonfig->user);
+		if (result == NULL)
+		{
+			err("Error: user %s not found\n", ouistiticonfig->user);
+			return -1;
+		}
+		pw_uid = result->pw_uid;
+		pw_gid = result->pw_gid;
+	}
+#endif
+	first = main_set(ouistiticonfig, serverid);
+
+	main_setmodules(first);
+
+#ifdef HAVE_PWD
+	if (pw_uid > 0 && pw_gid > 0)
+	{
+		if (setegid(pw_gid) < 0)
+			warn("not enought rights to change group");
+		if (seteuid(pw_uid) < 0)
+			err("Error: start server as root");
+	}
+#endif
+
+	main_run(first);
+
 #ifdef FILE_CONFIG
 	ouistiticonfig_destroy(ouistiticonfig);
 #endif
+	warn("good bye");
 	return 0;
 }

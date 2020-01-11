@@ -163,7 +163,8 @@ static const char *authz_file_passwd(void *arg, const char *user)
 	FILE *file = fopen(config->path, "r");
 	while(file && !feof(file))
 	{
-		fgets(ctx->user, MAXLENGTH, file);
+		if (fgets(ctx->user, MAXLENGTH, file) == NULL)
+			break;
 		char *end = strchr(ctx->user, '\n');
 		if (end)
 			*end = '\0';
@@ -207,61 +208,11 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 		warn("user %s pwd %s home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
 
 	const char *checkpasswd = authz_file_passwd(ctx, user);
-	if (checkpasswd)
-	{
-		if (checkpasswd[0] == '$')
-		{
-			const hash_t *hash = NULL;
-			if (!strncmp(checkpasswd, "$a1", 3))
-			{
-				hash = hash_md5;
-			}
-			if (!strncmp(checkpasswd, "$a5", 3))
-			{
-				hash = hash_sha256;
-			}
-			if (!strncmp(checkpasswd, "$a6", 3))
-			{
-				hash = hash_sha512;
-			}
-			if (hash)
-			{
-				char hashpasswd[32];
-				void *ctx;
-				int length;
-
-				ctx = hash->init();
-				checkpasswd = strchr(checkpasswd+1, '$');
-				char *realm = strstr(checkpasswd, "realm=");
-				if (realm)
-				{
-					realm += 6;
-					int length = strchr(realm, '$') - realm;
-					hash->update(ctx, user, strlen(user));
-					hash->update(ctx, ":", 1);
-					hash->update(ctx, realm, length);
-					hash->update(ctx, ":", 1);
-				}
-				hash->update(ctx, passwd, strlen(passwd));
-				hash->finish(ctx, hashpasswd);
-				char b64passwd[50];
-				base64->encode(hashpasswd, hash->size, b64passwd, 50);
-
-				checkpasswd = strrchr(checkpasswd, '$');
-				if (checkpasswd)
-				{
-					checkpasswd++;
-				}
-				if (!strcmp(b64passwd, checkpasswd))
-					ret = 1;
-			}
-		}
-		else
-		{
-			if (!strcmp(passwd, checkpasswd))
-				ret = 1;
-		}
-	}
+	if (checkpasswd != NULL &&
+			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)
+		return 1;
+	else
+		err("auth: user %s not found in file", user);
 	return ret;
 }
 

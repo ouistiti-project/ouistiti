@@ -71,31 +71,6 @@ struct authn_oauth2_s
 	int state;
 };
 
-static void utils_searchstring(const char **result, char *haystack, char *needle, int length)
-{
-	if ((*result == NULL || *result[0] == '\0') &&
-		!strncmp(haystack, needle, length) && haystack[length] == '=')
-	{
-		char *end = NULL;
-		*result = strchr(haystack, '=') + 1;
-		if (**result == '"')
-		{
-			*result = *result + 1;
-			end = strchr(*result, '"');
-		}
-		else
-		{
-			end = (char *)*result;
-			while(*end != 0 && *end != ' ' && *end != ',')
-			{
-				end++;
-			}
-		}
-		if (end)
-			*end = 0;
-	}
-}
-
 typedef struct _mod_oauth2_ctx_s _mod_oauth2_ctx_t;
 struct _mod_oauth2_ctx_s
 {
@@ -187,7 +162,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 				char authorization[256] = {0};
 				char basic[164];
 				snprintf(basic, 164, "%s:%s", config->client_id, config->client_passwd);
-				strcpy(authorization, "Basic ");
+				strncpy(authorization, "Basic ", 256);
 				int length = strlen(basic) * 1.5 + 5;
 				base64_urlencoding->encode(basic, strlen(basic), authorization + strlen(authorization), length - 1);
 				httpmessage_addheader(request2, str_authorization, authorization);
@@ -271,7 +246,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 					{
 						authsession_t authinfo = {0};
 						strncpy(authinfo.user, json_string_value(json_username), sizeof(authinfo.user));
-						strcpy(authinfo.group, "users");
+						strncpy(authinfo.group, "users", sizeof(authinfo.group));
 						mod->authz->rules->adduser(mod->authz->ctx, &authinfo);
 					}
 					json_t *json_expire = json_object_get(json_authtokens, "expires_in");
@@ -354,7 +329,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 	return ret;
 }
 
-static void *authn_oauth2_create(authn_t *authn, authz_t *authz, void *config)
+static void *authn_oauth2_create(const authn_t *authn, authz_t *authz, void *config)
 {
 	if (authz->rules->adduser == NULL)
 	{
@@ -368,6 +343,8 @@ static void *authn_oauth2_create(authn_t *authn, authz_t *authz, void *config)
 	mod->config = (authn_oauth2_config_t *)config;
 	mod->authz = authz;
 	mod->state = 0;
+	if (mod->config->realm == NULL)
+		mod->config->realm = httpserver_INFO(authn->server, "host");
 
 	return mod;
 }
@@ -390,7 +367,7 @@ static int authn_oauth2_setup(void *arg, http_client_t *clt, struct sockaddr *ad
 
 static int authn_oauth2_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
-	int ret = ESUCCESS;
+	int ret = ECONTINUE;
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = mod->config;
 
@@ -426,10 +403,7 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 								scheme, host, portseparator, port, str_authresp);
 		httpmessage_addheader(response, (char *)str_location, location);
 		httpmessage_result(response, RESULT_302);
-	}
-	else
-	{
-		httpmessage_result(response, RESULT_401);
+		ret = ESUCCESS;
 	}
 	free(uri);
 	return ret;

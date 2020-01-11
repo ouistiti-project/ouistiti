@@ -1,6 +1,5 @@
 DESC="test Range Request"
 CONFIG=test1.conf
-#PREPARE="nohup ./utils/websocket_echo -R /tmp -u mch"
 TESTREQUEST=test26_rq.txt
 TESTCODE=206
 TESTCONTENTLEN=15

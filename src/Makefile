@@ -28,18 +28,16 @@ $(TARGET)_LIBS+=ouiutils
 $(TARGET)_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 $(TARGET)_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 
+$(TARGET)_LDFLAGS+=-L$(srcdir)staging
+$(TARGET)_CFLAGS+=-I$(srcdir)staging
+
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
 $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 
 $(TARGET)_LIBS-$(MODULES)+=dl
 
-$(TARGET)_CFLAGS-$(WEBSOCKET_RT)+=-DWEBSOCKET_RT
 $(TARGET)_SOURCES-$(WEBSOCKET_RT)+=websocket.c
 $(TARGET)_SOURCES-$(WEBSTREAM)+=websocket.c
-
-ifneq ($(MAX_SERVERS),)
-$(TARGET)_CFLAGS+=-DMAXSERVERS=$(MAX_SERVERS)
-endif
 
 ifneq ($(MODULES),y)
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
@@ -87,11 +85,9 @@ subdir-$(CGI)+=mod_cgi.mk
 subdir-$(DOCUMENT)+=mod_document.mk
 subdir-$(AUTH)+=mod_auth.mk
 subdir-$(VHOSTS_DEPRECATED)+=mod_vhosts.mk
-subdir-$(METHODLOCK)+=mod_methodlock.mk
 subdir-$(SERVERHEADER)+=mod_server.mk
 subdir-$(CLIENTFILTER)+=mod_clientfilter.mk
 subdir-$(REDIRECT)+=mod_redirect404.mk
 subdir-$(REDIRECT)+=mod_redirect.mk
-subdir-$(WEBSTREAM)+=mod_webstream.mk
 subdir-$(CORS)+=mod_cors.mk
 subdir-$(TINYSVCMDNS)+=mod_tinysvcmdns.mk
