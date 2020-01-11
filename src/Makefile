@@ -90,4 +90,3 @@ subdir-$(CLIENTFILTER)+=mod_clientfilter.mk
 subdir-$(REDIRECT)+=mod_redirect404.mk
 subdir-$(REDIRECT)+=mod_redirect.mk
 subdir-$(CORS)+=mod_cors.mk
-subdir-$(TINYSVCMDNS)+=mod_tinysvcmdns.mk
