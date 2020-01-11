@@ -1,6 +1,6 @@
 DESC="test websocket startup in direct mode"
 CONFIG=test6.conf
-PREPARE="LD_PRELOAD=./utils/libouistiti_web.so ./utils/websocket_echo -R /tmp -u $USER -t"
+PREPARE="LD_PRELOAD=./utils/libouistiti_ws.so ./utils/websocket_echo -R /tmp -u $USER -t"
 #CLEAN="killall -9 websocket_echo"
 TESTREQUEST=test24_rq.txt
 TESTRESPONSE=test24_rs.txt
