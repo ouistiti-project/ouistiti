@@ -60,7 +60,7 @@ struct authn_digest_s
 	int encode;
 };
 
-static void utils_searchstring(const char **result, const char *haystack, const char *needle, int length)
+static void utils_searchstring(char **result, const char *haystack, const char *needle, int length)
 {
 	if ((*result == NULL || *result[0] == '\0') &&
 		!strncmp(haystack, needle, length) && haystack[length] == '=')
@@ -77,7 +77,7 @@ static void utils_searchstring(const char **result, const char *haystack, const 
 		}
 		else
 		{
-			end = (char *)*result;
+			end = *result;
 			while(*end != 0 && *end != ' ' && *end != ',')
 			{
 				end++;
@@ -177,7 +177,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 		int len = strlen(mod->challenge);
 		snprintf(mod->challenge + len, 256 - len, ",algorithm=\"%s\"", mod->hash->name);
 	}
-	httpmessage_addheader(response, (char *)str_authenticate, mod->challenge);
+	httpmessage_addheader(response, str_authenticate, mod->challenge);
 	httpmessage_keepalive(response);
 	ret = ECONTINUE;
 	return ret;
@@ -309,17 +309,17 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 	const char *passwd = NULL;
-	const char *user = str_empty;
+	char *user = str_empty;
 	const char *user_ret = NULL;
-	const char *uri = NULL;
-	const char *realm = str_empty;
-	const char *qop = NULL;
-	const char *nonce = NULL;
-	const char *cnonce = str_empty;
-	const char *nc = NULL;
-	const char *opaque = str_empty;
-	const char *algorithm = NULL;
-	const char *response = NULL;
+	char *uri = NULL;
+	char *realm = str_empty;
+	char *qop = NULL;
+	char *nonce = NULL;
+	char *cnonce = str_empty;
+	char *nc = NULL;
+	char *opaque = str_empty;
+	char *algorithm = NULL;
+	char *response = NULL;
 	int length, i;
 
 	length = strlen(string);
