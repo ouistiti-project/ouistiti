@@ -104,6 +104,63 @@ void mod_redirect_destroy(void *arg)
 	free(mod);
 }
 
+static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *request,
+									http_message_t *response, mod_redirect_link_t *link,
+									const char *status, const char *uri)
+{
+	if (utils_searchexp(uri, link->origin) == ESUCCESS)
+	{
+		if (link->destination != NULL &&
+				utils_searchexp(uri, link->destination) != ESUCCESS)
+		{
+			int result = mod->result;
+			httpmessage_addheader(response, str_location, link->destination);
+			if (link->options & REDIRECT_PERMANENTLY)
+				result = RESULT_301;
+			else if (link->options & REDIRECT_TEMPORARY)
+				result = RESULT_307;
+			httpmessage_result(response, result);
+			return ESUCCESS;
+		}
+		else if (link->options & REDIRECT_GENERATE204)
+		{
+			httpmessage_result(response, RESULT_204);
+			return ESUCCESS;
+		}
+		else
+		{
+			const char *search = httpmessage_REQUEST(request, "query");
+			char *redirect = NULL;
+			if (search)
+				redirect = strstr(search, "redirect_uri=");
+			if (redirect != NULL)
+			{
+				int result = mod->result;
+				redirect += 13;
+				char *end = strchr(redirect, '&');
+				if (end != NULL)
+					*end = '\0';
+				httpmessage_addheader(response, str_location, redirect);
+				if (link->options & REDIRECT_PERMANENTLY)
+					result = RESULT_301;
+				else if (link->options & REDIRECT_TEMPORARY)
+					result = RESULT_307;
+				httpmessage_result(response, result);
+				return ESUCCESS;
+			}
+		}
+	}
+	if (link->options & REDIRECT_ERROR && status != NULL)
+	{
+		if (!strncmp(status, link->origin, 3))
+		{
+			httpmessage_addheader(response, str_location, link->destination);
+			httpmessage_result(response, RESULT_301);
+			return ESUCCESS;
+		}
+	}
+	return ECONTINUE;
+}
 static int _mod_redirect_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
@@ -151,7 +208,8 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 	if (config->options & REDIRECT_LINK)
 	{
 		const char *status = httpmessage_REQUEST(response, "result");
-		while (*status == ' ') status++;
+		if (status != NULL)
+			while (*status == ' ') status++;
 		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
 		if (uri == NULL)
 		{
@@ -161,60 +219,11 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 		mod_redirect_link_t *link = config->links;
 		while (link != NULL)
 		{
-			if (utils_searchexp(uri, link->origin) == ESUCCESS)
+			int ret = _mod_redirect_connectorlink(mod, request, response, link, status, uri);
+			if (ret != ECONTINUE)
 			{
-				if (link->destination != NULL &&
-						utils_searchexp(uri, link->destination) != ESUCCESS)
-				{
-					int result = mod->result;
-					httpmessage_addheader(response, str_location, link->destination);
-					if (link->options & REDIRECT_PERMANENTLY)
-						result = RESULT_301;
-					else if (link->options & REDIRECT_TEMPORARY)
-						result = RESULT_307;
-					httpmessage_result(response, result);
-					free(uri);
-					return ESUCCESS;
-				}
-				else if (link->options & REDIRECT_GENERATE204)
-				{
-					httpmessage_result(response, RESULT_204);
-					free(uri);
-					return ESUCCESS;
-				}
-				else
-				{
-					const char *search = httpmessage_REQUEST(request, "query");
-					char *redirect = NULL;
-					if (search)
-						redirect = strstr(search, "redirect_uri=");
-					if (redirect != NULL)
-					{
-						int result = mod->result;
-						redirect += 13;
-						char *end = strchr(redirect, '&');
-						if (end != NULL)
-							*end = '\0';
-						httpmessage_addheader(response, str_location, redirect);
-						if (link->options & REDIRECT_PERMANENTLY)
-							result = RESULT_301;
-						else if (link->options & REDIRECT_TEMPORARY)
-							result = RESULT_307;
-						httpmessage_result(response, result);
-						free(uri);
-						return ESUCCESS;
-					}
-				}
-			}
-			if (link->options & REDIRECT_ERROR)
-			{
-				if (!strncmp(status, link->origin, 3))
-				{
-					httpmessage_addheader(response, str_location, link->destination);
-					httpmessage_result(response, RESULT_301);
-					free(uri);
-					return ESUCCESS;
-				}
+				free(uri);
+				return ret;
 			}
 			link = link->next;
 		}
