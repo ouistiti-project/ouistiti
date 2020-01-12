@@ -108,12 +108,95 @@ static int document_checkname(document_connector_t *private, http_message_t *res
 	return ESUCCESS;
 }
 
+static const char *_document_userroot(_mod_document_mod_t *mod,
+		http_message_t *request, const char *url, const char **other)
+{
+	const char *docroot = NULL;
+	mod_document_t *config = (mod_document_t *)mod->config;
+
+#ifdef DOCUMENTHOME
+	if (config->dochome != NULL)
+	{
+		docroot = config->dochome;
+#ifdef AUTH
+		if (url[0] == '/')
+		{
+			*other = auth_info(request, "user");
+		}
+#endif
+	}
+#ifdef AUTH
+	if (config->options & DOCUMENT_HOME)
+	{
+		const char *home = auth_info(request, "home");
+		if (home != NULL)
+			docroot = home;
+	}
+#endif
+#endif
+	return docroot;
+}
+
+static int _document_connectordir(_mod_document_mod_t *mod, http_message_t *request, http_message_t *response, const char *docroot, const char *url)
+{
+	document_connector_t *private = httpmessage_private(request, NULL);
+	mod_document_t *config = (mod_document_t *)mod->config;
+
+	int length = strlen(private->path_info);
+
+#ifdef DIRLISTING
+	const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+	if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) &&
+		(config->options & DOCUMENT_DIRLISTING))
+	{
+		private->func = dirlisting_connector;
+	}
+	else
+#endif
+	{
+		struct stat filestat;
+		char *indexpath = utils_buildpath(docroot, url,
+										config->defaultpage, "", &filestat);
+		if (indexpath)
+		{
+			dbg("document: move to %s", indexpath);
+#if defined(RESULT_301)
+			char *location = calloc(1, length + strlen(config->defaultpage) + 3);
+			if (private->path_info[0] == '\0')
+				snprintf(location, length + strlen(config->defaultpage) + 3,
+							"/%s", config->defaultpage);
+			else
+				snprintf(location, length + strlen(config->defaultpage) + 3,
+							"/%s/%s", private->path_info, config->defaultpage);
+			httpmessage_addheader(response, str_location, location);
+			httpmessage_result(response, RESULT_301);
+			free(indexpath);
+			free(location);
+			document_close(private, request);
+			return ESUCCESS;
+#else
+			free(private->filepath);
+			private->filepath = indexpath;
+			dbg("document: reject directory path");
+#endif
+		}
+		else
+		{
+			dbg("document: %s is directory", private->path_info);
+			document_close(private, request);
+			return EREJECT;
+		}
+	}
+	return ECONTINUE;
+}
+
 static int _document_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
+
 	if (private == 0)
 	{
 		private = calloc(1, sizeof(*private));
@@ -140,30 +223,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		if (private->path_info[0] == '~')
 		{
 			url = private->path_info + 1;
-#ifdef DOCUMENTHOME
-#ifdef AUTH
-			if (config->options & DOCUMENT_HOME)
-			{
-				const char *home = auth_info(request, "home");
-				if (home != NULL)
-					docroot = home;
-			}
-			else
-#endif
-			if (config->dochome != NULL)
-			{
-				docroot = config->dochome;
-				const char *home = auth_info(request, "home");
-				if (home != NULL)
-					other = home;
-#ifdef AUTH
-				else if (url[0] == '/')
-				{
-					other = auth_info(request, "user");
-				}
-#endif
-			}
-#endif
+			docroot = _document_userroot(mod, request, url, &other);
 			if (docroot == NULL)
 			{
 				httpmessage_result(response, RESULT_403);
@@ -206,50 +266,9 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 
 		if (S_ISDIR(filestat.st_mode))
 		{
-			int length = strlen(private->path_info);
-
-#ifdef DIRLISTING
-			const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-			if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) &&
-				(config->options & DOCUMENT_DIRLISTING))
-			{
-				private->func = dirlisting_connector;
-			}
-			else
-#endif
-			{
-				char *indexpath = utils_buildpath(docroot, url,
-												config->defaultpage, "", &filestat);
-				if (indexpath)
-				{
-					dbg("document: move to %s", indexpath);
-#if defined(RESULT_301)
-					char *location = calloc(1, length + strlen(config->defaultpage) + 3);
-					if (private->path_info[0] == '\0')
-						snprintf(location, length + strlen(config->defaultpage) + 3,
-									"/%s", config->defaultpage);
-					else
-						snprintf(location, length + strlen(config->defaultpage) + 3,
-									"/%s/%s", private->path_info, config->defaultpage);
-					httpmessage_addheader(response, str_location, location);
-					httpmessage_result(response, RESULT_301);
-					free(indexpath);
-					free(location);
-					document_close(private, request);
-					return ESUCCESS;
-#else
-					free(private->filepath);
-					private->filepath = indexpath;
-					dbg("document: reject directory path");
-#endif
-				}
-				else
-				{
-					dbg("document: %s is directory", private->path_info);
-					document_close(private, request);
-					return EREJECT;
-				}
-			}
+			int ret = _document_connectordir(mod, request, response, docroot, url);
+			if (ret != ECONTINUE)
+				return ret;
 		}
 		if (private->func == NULL)
 		{
