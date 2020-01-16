@@ -114,7 +114,7 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 		}
 
 		struct stat filestat;
-		char *filepath = utils_buildpath(config->docroot, uri, "", "", &filestat);
+		char *filepath = utils_buildpath(config->docroot, "", uri, "", &filestat);
 		if (filepath)
 		{
 			if (S_ISSOCK(filestat.st_mode))

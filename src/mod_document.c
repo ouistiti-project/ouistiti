@@ -155,8 +155,8 @@ static int _document_connectordir(_mod_document_mod_t *mod, http_message_t *requ
 #endif
 	{
 		struct stat filestat;
-		char *indexpath = utils_buildpath(docroot, url,
-										config->defaultpage, "", &filestat);
+		char *indexpath = utils_buildpath(docroot, "", url,
+										config->defaultpage, &filestat);
 		if (indexpath)
 		{
 			dbg("document: move to %s", indexpath);
