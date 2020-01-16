@@ -54,22 +54,6 @@
 static const char str_OK[] = "OK";
 static const char str_KO[] = "KO";
 
-static int filestorage_checkname(document_connector_t *private, http_message_t *response)
-{
-	_mod_document_mod_t *mod = private->mod;
-	mod_document_t *config = (mod_document_t *)mod->config;
-	if (private->path_info[0] == '.')
-	{
-		return  EREJECT;
-	}
-	if (utils_searchexp(private->path_info, config->deny) == ESUCCESS ||
-		utils_searchexp(private->path_info, config->allow) != ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	return ESUCCESS;
-}
-
 int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
