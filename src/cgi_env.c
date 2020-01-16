@@ -204,9 +204,6 @@ char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi
 	char **env = NULL;
 	int nbenvs = NBENVS;
 
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	char *query = strchr(uri,'?');
-
 	env = calloc(sizeof(char *), nbenvs + config->nbenvs + 1);
 
 	int i = 0;
@@ -245,7 +242,7 @@ char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi
 				value = httpmessage_REQUEST(request, "scheme");
 			break;
 			case REQUEST_URI:
-				value = uri;
+				value = httpmessage_REQUEST(request, "uri");
 			break;
 			case CONTENT_LENGTH:
 				value = httpmessage_REQUEST(request, "Content-Length");
@@ -254,8 +251,7 @@ char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi
 				value = httpmessage_REQUEST(request, str_contenttype);
 			break;
 			case QUERY_STRING:
-				if (query != NULL)
-					value = query + 1;
+				value = httpmessage_REQUEST(request, "query");
 			break;
 			case HTTP_ACCEPT:
 				value = httpmessage_REQUEST(request, "Accept");
