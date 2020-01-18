@@ -74,8 +74,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
 	authn_bearer_config_t *config = mod->config;
 
-	const char *uriencoded = httpmessage_REQUEST(request, "uri");
-	char *uri = utils_urldecode(uriencoded);
+	const char *uri = httpmessage_REQUEST(request, "uri");
 	char authenticate[256];
 	snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
 	httpmessage_addheader(response, str_authenticate, authenticate);
@@ -106,7 +105,6 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 		httpmessage_result(response, RESULT_302);
 		ret = ESUCCESS;
 	}
-	free(uri);
 	return ret;
 }
 

@@ -83,7 +83,7 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *mod, http_message_t 
 {
 	int ret = EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
-	const char *uri = private->path->info;
+	const char *uri = httpmessage_REQUEST(request,"uri");
 
 	if (chdir(private->filepath) != 0)
 	{

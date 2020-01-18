@@ -60,6 +60,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
+	const char *uri = httpmessage_REQUEST(request,"uri");
 
 	if (private->fd == 0)
 	{
@@ -67,7 +68,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 		if (private->filepath[length - 1] == '/')
 		{
 			httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"name\":\"", -1);
-			httpmessage_appendcontent(response, private->path_info, -1);
+			httpmessage_appendcontent(response, uri, -1);
 			httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 			if (mkdir(private->filepath, 0777) > 0)
 			{
@@ -121,7 +122,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 				}
 				ret = EINCOMPLETE;
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
-				httpmessage_appendcontent(response, private->path_info, -1);
+				httpmessage_appendcontent(response, uri, -1);
 				httpmessage_appendcontent(response, "\"}\n", -1);
 #ifdef DEBUG
 				clock_gettime(CLOCK_REALTIME, &private->start);
@@ -132,7 +133,7 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 			{
 				err("document: file creation not allowed %s (size: %ld)", private->filepath, (long)private->size);
 				httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
-				httpmessage_appendcontent(response, private->path_info, -1);
+				httpmessage_appendcontent(response, uri, -1);
 				httpmessage_appendcontent(response, "\"}\n", -1);
 				if (private->size > 0)
 #if defined RESULT_416
@@ -269,8 +270,10 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
+	const char *uri = httpmessage_REQUEST(request,"uri");
 	const char *result = str_KO;
 	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
+
 	if (cmd == NULL || cmd[0] == '\0')
 	{
 		return getfile_connector(arg, request, response);
@@ -300,11 +303,12 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	}
 #endif
 	httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"name\":\"", -1);
-	httpmessage_appendcontent(response, private->path_info, -1);
+	httpmessage_appendcontent(response, uri, -1);
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 	httpmessage_appendcontent(response, result, -1);
 	httpmessage_appendcontent(response, "\"}\n", -1);
 	document_close(private, request);
+
 	return ESUCCESS;
 }
 
@@ -314,8 +318,10 @@ int deletefile_connector(void *arg, http_message_t *request, http_message_t *res
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	mod_document_t *config = (mod_document_t *)mod->config;
 
+	const char *uri = httpmessage_REQUEST(request,"uri");
+
 	httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"name\":\"", -1);
-	httpmessage_appendcontent(response, private->path_info, -1);
+	httpmessage_appendcontent(response, uri, -1);
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
 	struct stat statistic;
 	stat(private->filepath, &statistic);

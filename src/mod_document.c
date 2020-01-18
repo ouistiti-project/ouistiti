@@ -76,9 +76,6 @@ int document_close(document_connector_t *private, http_message_t *request)
 	if (private->filepath)
 		free(private->filepath);
 	private->filepath = NULL;
-	if (private->path_info)
-		free(private->path_info);
-	private->path_info = NULL;
 	private->fd = 0;
 	private->func = NULL;
 	private->dir = NULL;
@@ -86,23 +83,26 @@ int document_close(document_connector_t *private, http_message_t *request)
 	free(private);
 }
 
-static int document_checkname(document_connector_t *private, http_message_t *response)
+static int document_checkname(document_connector_t *private, const char *uri, http_message_t *response)
 {
 	_mod_document_mod_t *mod = private->mod;
 	mod_document_t *config = (mod_document_t *)mod->config;
-	if (private->path_info[0] == '.')
+
+	if (uri[0] == '/')
+		uri++;
+	if (uri[0] == '.' && uri[1] != '/')
 	{
-		warn("document: forbidden %s file %s", private->path_info, "cached");
+		warn("document: forbidden %s file %s", uri, "cached");
 		return  EREJECT;
 	}
-	if (utils_searchexp(private->path_info, config->deny) == ESUCCESS)
+	if (utils_searchexp(uri, config->deny) == ESUCCESS)
 	{
-		warn("document: forbidden %s file %s", private->path_info, "deny");
+		warn("document: forbidden %s file %s", uri, "deny");
 		return  EREJECT;
 	}
-	if (utils_searchexp(private->path_info, config->allow) != ESUCCESS)
+	if (utils_searchexp(uri, config->allow) != ESUCCESS)
 	{
-		warn("document: forbidden %s file %s", private->path_info, "not allow");
+		warn("document: forbidden %s file %s", uri, "not allow");
 		return  EREJECT;
 	}
 	return ESUCCESS;
@@ -141,8 +141,9 @@ static int _document_connectordir(_mod_document_mod_t *mod, http_message_t *requ
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
 	mod_document_t *config = (mod_document_t *)mod->config;
+	const char *uri = httpmessage_REQUEST(request,"uri");
 
-	int length = strlen(private->path_info);
+	int length = strlen(uri);
 
 #ifdef DIRLISTING
 	const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
@@ -167,7 +168,6 @@ static int _document_connectordir(_mod_document_mod_t *mod, http_message_t *requ
 			 * Check uri is only one character.
 			 * It should be "/"
 			 */
-			const char *uri = private->path_info;
 			if ((uri[0] == '/') && (uri[1] == '\0'))
 				uri++;
 			snprintf(location, locationlength, "%s/%s", uri, config->defaultpage);
@@ -185,7 +185,7 @@ static int _document_connectordir(_mod_document_mod_t *mod, http_message_t *requ
 		}
 		else
 		{
-			dbg("document: %s is directory", private->path_info);
+			dbg("document: %s is directory", uri);
 			document_close(private, request);
 			return EREJECT;
 		}
@@ -211,21 +211,13 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		private->offset = 0;
 		struct stat filestat;
 		const char *uri = httpmessage_REQUEST(request,"uri");
-		private->path_info = utils_urldecode(uri);
-		const char *url = private->path_info;
-
-		if (private->path_info == NULL)
-		{
-			free(private->path_info);
-			free(private);
-			return EREJECT;
-		}
+		const char *url = uri;
 
 		const char *docroot = NULL;
 		const char *other = "";
-		if (private->path_info[0] == '~')
+		if (url[1] == '~')
 		{
-			url = private->path_info + 1;
+			url = uri + 2;
 			docroot = _document_userroot(mod, request, url, &other);
 			if (docroot == NULL)
 			{
@@ -252,11 +244,11 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #endif
 		if (private->filepath == NULL)
 		{
-			dbg("document: %s not exist", private->path_info);
+			dbg("document: %s not exist", uri);
 			document_close(private, request);
 			return  EREJECT;
 		}
-		else if (document_checkname(private, response) == EREJECT)
+		else if (document_checkname(private, uri, response) == EREJECT)
 		{
 			/**
 			 * Another module may have the same docroot and
