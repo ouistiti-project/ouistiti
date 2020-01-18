@@ -210,11 +210,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 		const char *status = httpmessage_REQUEST(response, "result");
 		if (status != NULL)
 			while (*status == ' ') status++;
-		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
-		if (uri == NULL)
-		{
-			return EREJECT;
-		}
+		const char *uri = httpmessage_REQUEST(request, "uri");
 
 		mod_redirect_link_t *link = config->links;
 		while (link != NULL)
@@ -222,12 +218,10 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 			int ret = _mod_redirect_connectorlink(mod, request, response, link, status, uri);
 			if (ret != ECONTINUE)
 			{
-				free(uri);
 				return ret;
 			}
 			link = link->next;
 		}
-		free(uri);
 	}
 	return EREJECT;
 }

@@ -374,7 +374,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 		const char *websocket = httpmessage_REQUEST(request, "Sec-WebSocket-Version");
 		if (websocket && websocket[0] != '\0')
 			return ret;
-		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
+		const char *uri = httpmessage_REQUEST(request, "uri");
 		int homelength = strlen(home);
 		if ((homelength > 0) &&
 			(strncmp(home + 1, uri, homelength - 1) != 0))
@@ -389,7 +389,6 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 			ret = ESUCCESS;
 #endif
 		}
-		free(uri);
 	}
 	return ret;
 }
@@ -713,8 +712,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
 	const char *authorization = NULL;
-	const char *uriencoded;
-	char *uri;
 
 	/**
 	 * If ctx->info is set, this connection has been already authenticated.
@@ -729,8 +726,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		return EREJECT;
 	}
 
-	uriencoded = httpmessage_REQUEST(request, "uri");
-	uri = utils_urldecode(uriencoded);
+	const char *uri = httpmessage_REQUEST(request, "uri");
 
 	/**
 	 * The header WWW-Authenticate inside the request
@@ -748,7 +744,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (mod->authn->ctx && authorization != NULL)
 		{
 			ret = _authn_checkauthorization( ctx, authorization,
-				httpmessage_REQUEST(request, "method"), uriencoded, response);
+				httpmessage_REQUEST(request, "method"), uri, response);
 		}
 	}
 
@@ -790,7 +786,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		ret = _authn_challenge(ctx, uri, request, response);
 	}
-	free(uri);
 	return ret;
 }
 

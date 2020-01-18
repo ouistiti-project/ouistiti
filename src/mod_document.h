@@ -75,7 +75,6 @@ struct _document_connector_s
 	_mod_document_mod_t *mod;
 	http_client_t *ctl;
 	void *previous;
-	char *path_info;
 	char *filepath;
 	int fd;
 	DIR *dir;

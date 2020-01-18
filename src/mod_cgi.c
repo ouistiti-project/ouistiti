@@ -218,13 +218,12 @@ static int document_checkname(const char *path_info, mod_cgi_config_t *config)
 static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	char *url = utils_urldecode(httpmessage_REQUEST(request,"uri"));
+	const char *url = httpmessage_REQUEST(request,"uri");
 	if (url && config->docroot)
 	{
 		if (document_checkname(url, config) != ESUCCESS)
 		{
 			dbg("cgi: %s forbidden extension", url);
-			free(url);
 			return EREJECT;
 		}
 
@@ -236,7 +235,6 @@ static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_me
 		if (S_ISDIR(filestat.st_mode))
 		{
 			dbg("cgi: %s is directory", url);
-			free(url);
 			free(filepath);
 			return EREJECT;
 		}
@@ -245,7 +243,6 @@ static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_me
 		{
 			httpmessage_result(response, RESULT_403);
 			warn("cgi: %s access denied", url);
-			free(url);
 			free(filepath);
 			return ESUCCESS;
 		}
@@ -259,7 +256,6 @@ static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_me
 		if (config->chunksize == 0)
 			config->chunksize = 64;
 		ctx->chunk = malloc(config->chunksize + 1);
-		free(url);
 		httpmessage_private(request, ctx);
 		ret = EINCOMPLETE;
 	}
