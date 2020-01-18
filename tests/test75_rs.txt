@@ -1,6 +1,10 @@
-HTTP/1.1 414 Request URI too long
-Content-Type: text/plain
-Content-Length: 27
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 59
 
- 414 Request URI too long
-
+<html>
+	<body>
+		file with space in name
+	</body>
+</html>
+
