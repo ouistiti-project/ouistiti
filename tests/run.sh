@@ -89,9 +89,13 @@ do
 	${SED} -i "s/\%PWD\%/$(echo $PWD | ${SED} 's/\//\\\//g')/g" ${TESTDIR}conf/${CONFIG}
 	${SED} -i "s/\%USER\%/$USER/g" ${TESTDIR}conf/${CONFIG}
 
-	if [ -n "$PREPARE" ]; then
-		$PREPARE &
+	if [ -n "$PREPARE_ASYNC" ]; then
+		$PREPARE_ASYNC &
 		sleep 1
+	fi
+
+	if [ -n "$PREPARE" ]; then
+		$PREPARE
 	fi
 
 	TARGET="ouistiti -s 1 -f ${TESTDIR}conf/${CONFIG}"
