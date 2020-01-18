@@ -1,5 +1,5 @@
 HTTP/1.1 200 OK
 Content-Type: text/json
-Content-Length: 51
+Content-Length: 52
 
-{"method":"DELETE","name":"newdir/","result":"OK"}
+{"method":"DELETE","name":"/newdir/","result":"OK"}

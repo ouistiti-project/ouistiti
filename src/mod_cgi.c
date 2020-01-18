@@ -181,7 +181,11 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_mess
 		dirpath = dirname(ctx->cgipath);
 		if (dirpath)
 		{
-			chdir(dirpath);
+			if (chdir(dirpath) != 0)
+			{
+				err("cgi: directory forbidden %s %s", dirpath, strerror(errno));
+				exit(0);
+			}
 		}
 		setbuf(stdout, 0);
 		sched_yield();
