@@ -1,5 +1,5 @@
 DESC="test to POST to change rights on a file"
-PREPARE="touch ${TESTDIR}/htdocs/test41.old"
+PREPARE="touch ${TESTDIR}/htdocs/test41.old; sleep 0.1"
 CONFIG=test10.conf
 TESTREQUEST=test62_rq.txt
 TESTCODE=200

@@ -1,6 +1,3 @@
-HTTP/1.1 400 Bad Request
-Content-Type: text/plain
-Content-Length: 18
+HTTP/1.1 301 Moved Permanently
+Location: /index.html
 
- 400 Bad Request
-
