@@ -161,13 +161,16 @@ static int _document_connectordir(_mod_document_mod_t *mod, http_message_t *requ
 		{
 			dbg("document: move to %s", indexpath);
 #if defined(RESULT_301)
-			char *location = calloc(1, length + strlen(config->defaultpage) + 3);
-			if (private->path_info[0] == '\0')
-				snprintf(location, length + strlen(config->defaultpage) + 3,
-							"/%s", config->defaultpage);
-			else
-				snprintf(location, length + strlen(config->defaultpage) + 3,
-							"/%s/%s", private->path_info, config->defaultpage);
+			int locationlength = length + strlen(config->defaultpage) + 3;
+			char *location = calloc(1, locationlength);
+			/**
+			 * Check uri is only one character.
+			 * It should be "/"
+			 */
+			const char *uri = private->path_info;
+			if ((uri[0] == '/') && (uri[1] == '\0'))
+				uri++;
+			snprintf(location, locationlength, "%s/%s", uri, config->defaultpage);
 			httpmessage_addheader(response, str_location, location);
 			httpmessage_result(response, RESULT_301);
 			free(indexpath);
