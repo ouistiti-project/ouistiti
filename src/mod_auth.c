@@ -123,14 +123,6 @@ static const char *str_user = "USER";
 static const char *str_group = "GROUP";
 static const char *str_home = "HOME";
 static const char *str_wilcard = "*";
-const char *str_authenticate_types[] =
-{
-	"None",
-	"Basic",
-	"Digest",
-	"Bearer",
-	"oAuth2",
-};
 const char *str_authenticate_engine[] =
 {
 	"simple",
@@ -196,6 +188,54 @@ authz_rules_t *authz_rules[] = {
 #endif
 };
 
+static int _mod_sethash(_mod_auth_t *mod, mod_auth_t *config)
+{
+	const hash_t *hash_list[] =
+	{
+		hash_md5,
+		hash_sha1,
+		hash_sha224,
+		hash_sha256,
+		hash_sha512,
+		hash_macsha256,
+	};
+
+	int ret = EREJECT;
+	if (config->algo)
+	{
+		int i;
+		static const hash_t *hash = NULL;
+		for (i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
+		{
+			hash = hash_list[i];
+			if (hash != NULL && !strcmp(config->algo, hash->name))
+			{
+				mod->authn->hash = hash;
+				ret = ESUCCESS;
+				break;
+			}
+		}
+	}
+	if (mod->authn->hash == NULL && hash_sha256)
+	{
+		mod->authn->hash = hash_sha256;
+		ret = ESUCCESS;
+	}
+
+	if (ret == EREJECT)
+	{
+		warn("auth: bad algorithm %s (%s | %s | %s | %s | %s)",
+			config->algo,
+			(hash_sha1?hash_sha1->name:""),
+			(hash_sha224?hash_sha224->name:""),
+			(hash_sha256?hash_sha256->name:""),
+			(hash_sha512?hash_sha512->name:""),
+			(hash_macsha256?hash_macsha256->name:""));
+	}
+
+	return ret;
+}
+
 void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
@@ -245,53 +285,23 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
+	mod->authn->auth = config;
 	mod->authn->server = server;
 	mod->authn->type = config->authn_type;
 	mod->authn->rules = authn_rules[config->authn_type];
 	if (mod->authn->rules == NULL)
 		err("authentication type is not availlable, change configuration");
 
-	if (config->algo)
-	{
-		if (hash_sha1 && !strcmp(config->algo, hash_sha1->name))
-		{
-			mod->authn->hash = hash_sha1;
-		}
-		else if (hash_sha224 && !strcmp(config->algo, hash_sha224->name))
-		{
-			mod->authn->hash = hash_sha224;
-		}
-		else if (hash_sha256 && !strcmp(config->algo, hash_sha256->name))
-		{
-			mod->authn->hash = hash_sha256;
-		}
-		else if (hash_sha512 && !strcmp(config->algo, hash_sha512->name))
-		{
-			mod->authn->hash = hash_sha512;
-		}
-		else
-		{
-			warn("auth: bad algorithm %s (%s | %s | %s | %s)",
-				config->algo,
-				(hash_sha1?hash_sha1->name:""),
-				(hash_sha224?hash_sha224->name:""),
-				(hash_sha256?hash_sha256->name:""),
-				(hash_sha512?hash_sha512->name:""));
-		}
-	}
-	if (mod->authn->hash == NULL && hash_md5)
-	{
-		mod->authn->hash = hash_md5;
-	}
+	_mod_sethash(mod, config);
+
 	if (mod->authn->rules && mod->authz->rules)
 	{
 		mod->authn->ctx = mod->authn->rules->create(mod->authn, mod->authz, config->authn_config);
 	}
 	if (mod->authn->ctx)
 	{
-		mod->type = str_authenticate_types[config->authn_type];
+		mod->type = config->authn_typename;
 		mod->typelength = strlen(mod->type);
-
 		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod, str_auth);
 	}
 	else

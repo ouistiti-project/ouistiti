@@ -47,6 +47,8 @@
 
 #define MAXNONCE 64
 
+static const char *str_digest;
+
 typedef struct authn_digest_s authn_digest_t;
 struct authn_digest_s
 {
@@ -110,6 +112,8 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 		err("authn Digest is not compatible with authz %s", str_authenticate_engine[authz->type&AUTHZ_TYPE_MASK]);
 		return NULL;
 	}
+	str_digest = authn->auth->authn_typename;
+
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
 	mod->authz = authz;
@@ -167,7 +171,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
 	snprintf(mod->challenge, 256, "%s realm=\"%s\",qop=\"auth\",nonce=\"%s\",opaque=\"%s\",stale=%s",
-						str_authenticate_types[AUTHN_DIGEST_E],
+						str_digest,
 						mod->config->realm,
 						mod->nonce,
 						mod->opaque,

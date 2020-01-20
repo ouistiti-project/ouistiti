@@ -183,7 +183,7 @@ static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int t
 #endif
 
 #ifdef AUTH
-const char *str_authenticate_types[] =
+static const char *str_authenticate_types[] =
 {
 	"None",
 	"Basic",
