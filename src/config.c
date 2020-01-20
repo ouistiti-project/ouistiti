@@ -682,6 +682,115 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 #define vhost_config(...) NULL
 #endif
 
+static void config_mimes(config_setting_t *configmimes)
+{
+	if (configmimes)
+	{
+		int count = config_setting_length(configmimes);
+		int i;
+		for (i = 0; i < count && i < MAX_SERVERS; i++)
+		{
+			char *ext = NULL;
+			char *mime = NULL;
+			config_setting_t *iterator = config_setting_get_elem(configmimes, i);
+			if (iterator)
+			{
+				config_setting_lookup_string(iterator, "ext", (const char **)&ext);
+				config_setting_lookup_string(iterator, "mime", (const char **)&mime);
+				if (mime != NULL && ext != NULL)
+				{
+					utils_addmime(ext, mime);
+				}
+			}
+		}
+	}
+}
+
+static serverconfig_t *config_server(config_setting_t *iterator)
+{
+	serverconfig_t *config = calloc(1, sizeof(*config));
+
+	config->server = calloc(1, sizeof(*config->server));
+	char *hostname = NULL;
+	config_setting_lookup_string(iterator, "hostname", (const char **)&hostname);
+	if (hostname && strchr(hostname, '.') == NULL)
+	{
+		err("hostname must contain the domain");
+	}
+	else if (hostname == NULL)
+	{
+		hostname = str_hostname;
+	}
+	warn("hostname %s", hostname);
+	config->server->hostname = hostname;
+	config->server->port = 80;
+	config_setting_lookup_int(iterator, "port", &config->server->port);
+	config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
+	config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
+	config->server->chunksize = DEFAULT_CHUNKSIZE;
+	config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
+	config->server->maxclients = DEFAULT_MAXCLIENTS;
+	config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
+	config->server->version = HTTP11;
+	const char *version = NULL;
+	config_setting_lookup_string(iterator, "version", &version);
+	if (version)
+	{
+		int i = 0;
+		for (i = 0; httpversion[i] != NULL; i++)
+		{
+			if (!strcmp(version,  httpversion[i]))
+			{
+				config->server->version = i;
+				break;
+			}
+		}
+	}
+	config->server->versionstr = httpversion[config->server->version];
+	return config;
+}
+
+static void config_modules(config_setting_t *iterator, serverconfig_t *config)
+{
+	config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
+	config->tls = tls_config(iterator);
+	config->modules.document = document_config(iterator,(config->tls!=NULL), "document");
+	if (config->modules.document == NULL)
+		config->modules.document = document_config(iterator,(config->tls!=NULL), "static_file");
+	if (config->modules.document == NULL)
+	{
+		config->modules.document = document_config(iterator,(config->tls!=NULL), "filestorage");
+		if (config->modules.document != NULL)
+			config->modules.document->options |= DOCUMENT_REST;
+	}
+	config->modules.auth = auth_config(iterator,(config->tls!=NULL));
+	config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
+	config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
+	config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
+	config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
+	config->modules.cors = cors_config(iterator,(config->tls!=NULL));
+	config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
+#ifdef VHOSTS
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
+#else
+	config_setting_t *configvhosts = config_setting_lookup(iterator, "vhosts");
+#endif
+	if (configvhosts)
+	{
+		int count = config_setting_length(configvhosts);
+		int j;
+
+		for (j = 0; j < count && (j + i) < MAX_SERVERS; j++)
+		{
+			config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
+			config->vhosts[j] = vhost_config(iterator,(config->tls!=NULL));
+		}
+	}
+#endif
+}
+
+
 ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 {
 	int ret;
@@ -713,26 +822,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 		}
 		config_lookup_string(&configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
 		config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
-		if (configmimes)
-		{
-			int count = config_setting_length(configmimes);
-			int i;
-			for (i = 0; i < count && i < MAX_SERVERS; i++)
-			{
-				char *ext = NULL;
-				char *mime = NULL;
-				config_setting_t *iterator = config_setting_get_elem(configmimes, i);
-				if (iterator)
-				{
-					config_setting_lookup_string(iterator, "ext", (const char **)&ext);
-					config_setting_lookup_string(iterator, "mime", (const char **)&mime);
-					if (mime != NULL && ext != NULL)
-					{
-						utils_addmime(ext, mime);
-					}
-				}
-			}
-		}
+		config_mimes(configmimes);
 		config_setting_t *configservers = config_lookup(&configfile, "servers");
 		if (configservers)
 		{
@@ -744,83 +834,9 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 				config_setting_t *iterator = config_setting_get_elem(configservers, i);
 				if (iterator)
 				{
-					ouistiticonfig->servers[i] = calloc(1, sizeof(*ouistiticonfig->servers[i]));
+					ouistiticonfig->servers[i] = config_server(iterator);
 					serverconfig_t *config = ouistiticonfig->servers[i];
-
-					config->server = calloc(1, sizeof(*config->server));
-					char *hostname = NULL;
-					config_setting_lookup_string(iterator, "hostname", (const char **)&hostname);
-					if (hostname && strchr(hostname, '.') == NULL)
-					{
-						err("hostname must contain the domain");
-					}
-					else if (hostname == NULL)
-					{
-						hostname = str_hostname;
-					}
-					warn("hostname %s", hostname);
-					config->server->hostname = hostname;
-					config->server->port = 80;
-					config_setting_lookup_int(iterator, "port", &config->server->port);
-					config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
-					config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
-					config->server->chunksize = DEFAULT_CHUNKSIZE;
-					config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
-					config->server->maxclients = DEFAULT_MAXCLIENTS;
-					config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
-					config->server->version = HTTP11;
-					const char *version = NULL;
-					config_setting_lookup_string(iterator, "version", &version);
-					if (version)
-					{
-						int i = 0;
-						for (i = 0; httpversion[i] != NULL; i++)
-						{
-							if (!strcmp(version,  httpversion[i]))
-							{
-								config->server->version = i;
-								break;
-							}
-						}
-					}
-					config->server->versionstr = httpversion[config->server->version];
-
-					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
-					config->tls = tls_config(iterator);
-					config->modules.document = document_config(iterator,(config->tls!=NULL), "document");
-					if (config->modules.document == NULL)
-						config->modules.document = document_config(iterator,(config->tls!=NULL), "static_file");
-					if (config->modules.document == NULL)
-					{
-						config->modules.document = document_config(iterator,(config->tls!=NULL), "filestorage");
-						if (config->modules.document != NULL)
-							config->modules.document->options |= DOCUMENT_REST;
-					}
-					config->modules.auth = auth_config(iterator,(config->tls!=NULL));
-					config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
-					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
-					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
-					config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
-					config->modules.cors = cors_config(iterator,(config->tls!=NULL));
-					config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
-#ifdef VHOSTS
-#if LIBCONFIG_VER_MINOR < 5
-					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
-#else
-					config_setting_t *configvhosts = config_setting_lookup(iterator, "vhosts");
-#endif
-					if (configvhosts)
-					{
-						int count = config_setting_length(configvhosts);
-						int j;
-
-						for (j = 0; j < count && (j + i) < MAX_SERVERS; j++)
-						{
-							config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
-							config->vhosts[j] = vhost_config(iterator,(config->tls!=NULL));
-						}
-					}
-#endif
+					config_modules(iterator, config);
 				}
 			}
 			ouistiticonfig->servers[i] = NULL;
