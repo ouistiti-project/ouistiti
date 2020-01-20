@@ -351,6 +351,8 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 			utils_searchstring(&user, string + i, "username", sizeof("username") - 1);
 			utils_searchstring(&uri, string + i, "uri", sizeof("uri") - 1);
 		break;
+		default:
+		break;
 		}
 	}
 

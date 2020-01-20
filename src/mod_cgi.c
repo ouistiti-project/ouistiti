@@ -116,6 +116,7 @@ void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
 
 void mod_cgi_destroy(void *arg)
 {
+	// nothing to do
 }
 
 static void _cgi_freectx(mod_cgi_ctx_t *ctx)
