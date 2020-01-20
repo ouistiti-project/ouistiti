@@ -115,8 +115,8 @@ static void authn_basic_destroy(void *arg)
 
 authn_rules_t authn_basic_rules =
 {
-	.create = authn_basic_create,
-	.challenge = authn_basic_challenge,
-	.check = authn_basic_check,
-	.destroy = authn_basic_destroy,
+	.create = &authn_basic_create,
+	.challenge = &authn_basic_challenge,
+	.check = &authn_basic_check,
+	.destroy = &authn_basic_destroy,
 };

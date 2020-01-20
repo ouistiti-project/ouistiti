@@ -454,8 +454,8 @@ void mod_document_destroy(void *data)
 const module_t mod_document =
 {
 	.name = str_document,
-	.create = (module_create_t)mod_document_create,
-	.destroy = mod_document_destroy
+	.create = (module_create_t)&mod_document_create,
+	.destroy = &mod_document_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_document")));

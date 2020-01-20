@@ -238,8 +238,8 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 const module_t mod_redirect =
 {
 	.name = str_redirect,
-	.create = (module_create_t)mod_redirect_create,
-	.destroy = mod_redirect_destroy
+	.create = (module_create_t)&mod_redirect_create,
+	.destroy = &mod_redirect_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_redirect")));

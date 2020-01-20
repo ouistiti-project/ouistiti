@@ -470,14 +470,14 @@ static void authz_sqlite_destroy(void *arg)
 
 authz_rules_t authz_sqlite_rules =
 {
-	.create = authz_sqlite_create,
-	.check = authz_sqlite_check,
-	.passwd = authz_sqlite_passwd,
-	.group = authz_sqlite_group,
-	.home = authz_sqlite_home,
-	.join = authz_sqlite_join,
+	.create = &authz_sqlite_create,
+	.check = &authz_sqlite_check,
+	.passwd = &authz_sqlite_passwd,
+	.group = &authz_sqlite_group,
+	.home = &authz_sqlite_home,
+	.join = &authz_sqlite_join,
 #ifdef AUTHN_OAUTH2
-	.adduser = authz_sqlite_adduser,
+	.adduser = &authz_sqlite_adduser,
 #endif
-	.destroy = authz_sqlite_destroy,
+	.destroy = &authz_sqlite_destroy,
 };

@@ -80,8 +80,8 @@ static int _mod_redirect404_connector(void *arg, http_message_t *request, http_m
 const module_t mod_redirect404 =
 {
 	.name = str_redirect404,
-	.create = (module_create_t)mod_redirect404_create,
-	.destroy = mod_redirect404_destroy
+	.create = (module_create_t)&mod_redirect404_create,
+	.destroy = &mod_redirect404_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_redirect404")));

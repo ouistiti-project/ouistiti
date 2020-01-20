@@ -417,8 +417,8 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 const module_t mod_cgi =
 {
 	.name = str_cgi,
-	.create = (module_create_t)mod_cgi_create,
-	.destroy = mod_cgi_destroy
+	.create = (module_create_t)&mod_cgi_create,
+	.destroy = &mod_cgi_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_cgi")));

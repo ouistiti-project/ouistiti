@@ -428,9 +428,9 @@ static const char *authn_oauth2_check(void *arg, const char *method, const char 
 
 authn_rules_t authn_oauth2_rules =
 {
-	.create = authn_oauth2_create,
-	.setup = authn_oauth2_setup,
-	.challenge = authn_oauth2_challenge,
-	.check = authn_oauth2_check,
-	.destroy = authn_oauth2_destroy,
+	.create = &authn_oauth2_create,
+	.setup = &authn_oauth2_setup,
+	.challenge = &authn_oauth2_challenge,
+	.check = &authn_oauth2_check,
+	.destroy = &authn_oauth2_destroy,
 };

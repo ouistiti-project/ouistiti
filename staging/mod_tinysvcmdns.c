@@ -161,8 +161,8 @@ void mod_tinysvcmdns_destroy(void *data)
 const module_t mod_tinysvcmdns =
 {
 	.name = str_tinysvcmdns,
-	.create = (module_create_t)mod_tinysvcmdns_create,
-	.destroy = mod_tinysvcmdns_destroy
+	.create = (module_create_t)&mod_tinysvcmdns_create,
+	.destroy = &mod_tinysvcmdns_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_tinysvcmdns")));
