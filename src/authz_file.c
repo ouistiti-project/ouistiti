@@ -202,11 +202,6 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 	int ret = 0;
 	authz_file_config_t *config = ctx->config;
 
-	struct passwd *userpasswd = NULL;
-	userpasswd = getpwnam(user);
-	if (userpasswd)
-		warn("user %s pwd %s home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
-
 	const char *checkpasswd = authz_file_passwd(ctx, user);
 	if (checkpasswd != NULL &&
 			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)

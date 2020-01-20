@@ -38,7 +38,6 @@ extern "C"
 extern const char str_authenticate[];
 extern const char str_authorization[];
 extern const char str_anonymous[];
-extern const char *str_authenticate_types[];
 extern const char *str_authenticate_engine[];
 
 typedef struct mod_auth_s mod_auth_t;
@@ -195,12 +194,14 @@ struct authn_s
 	authn_type_t type;
 	const hash_t *hash;
 	http_server_t *server;
+	mod_auth_t *auth;
 };
 
 struct mod_auth_s
 {
 	void *authn_config;
 	authn_type_t authn_type;
+	const char *authn_typename;
 	void *authz_config;
 	authz_type_t authz_type;
 	const char *algo;
