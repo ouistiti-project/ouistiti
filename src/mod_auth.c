@@ -99,6 +99,7 @@ struct _mod_auth_ctx_s
 	http_client_t *ctl;
 	char *authenticate;
 	authsession_t *info;
+	char *authorization;
 };
 
 struct _mod_auth_s
@@ -354,6 +355,8 @@ static void _mod_auth_freectx(void *vctx)
 		if (ctx->info->token)
 			free(ctx->info->token);
 		free(ctx->info);
+		if (ctx->authorization)
+			free(ctx->authorization);
 	}
 	free(ctx->authenticate);
 	free(ctx);
@@ -610,6 +613,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 					strncpy(info->home, home, sizeof(info->home));
 			}
 			ctx->info = info;
+			ctx->authorization = strdup(authorization);
 		}
 		if (mod->authz->type & AUTHZ_HEADER_E)
 		{
@@ -720,9 +724,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ctx->info != NULL)
 	{
 		if (mod->authz->type & AUTHZ_HEADER_E)
-			_authn_setauthorization(ctx, NULL, ctx->info, httpmessage_addheader, response);
-		else if (mod->authz->type & AUTHZ_COOKIE_E)
-			_authn_setauthorization(ctx, NULL, ctx->info, cookie_set, response);
+			_authn_setauthorization(ctx, ctx->authorization, ctx->info, httpmessage_addheader, response);
 		return EREJECT;
 	}
 
