@@ -84,7 +84,6 @@ $(TARGET)_LIBRARY-$(DEBUG)+=rt
 subdir-$(CGI)+=mod_cgi.mk
 subdir-$(DOCUMENT)+=mod_document.mk
 subdir-$(AUTH)+=mod_auth.mk
-subdir-$(VHOSTS_DEPRECATED)+=mod_vhosts.mk
 subdir-$(SERVERHEADER)+=mod_server.mk
 subdir-$(CLIENTFILTER)+=mod_clientfilter.mk
 subdir-$(REDIRECT)+=mod_redirect404.mk
