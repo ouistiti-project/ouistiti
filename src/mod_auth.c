@@ -792,8 +792,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 const module_t mod_auth =
 {
 	.name = str_auth,
-	.create = (module_create_t)mod_auth_create,
-	.destroy = mod_auth_destroy
+	.create = (module_create_t)&mod_auth_create,
+	.destroy = &mod_auth_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_auth")));

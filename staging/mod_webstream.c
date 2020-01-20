@@ -291,8 +291,8 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 const module_t mod_webstream =
 {
 	.name = str_webstream,
-	.create = (module_create_t)mod_webstream_create,
-	.destroy = mod_webstream_destroy
+	.create = (module_create_t)&mod_webstream_create,
+	.destroy = &mod_webstream_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_webstream")));

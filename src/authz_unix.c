@@ -195,11 +195,11 @@ static void authz_unix_destroy(void *arg)
 
 authz_rules_t authz_unix_rules =
 {
-	.create = authz_unix_create,
-	.check = authz_unix_check,
+	.create = &authz_unix_create,
+	.check = &authz_unix_check,
 	.passwd = NULL,
-	.group = authz_unix_group,
-	.home = authz_unix_home,
-	.destroy = authz_unix_destroy,
+	.group = &authz_unix_group,
+	.home = &authz_unix_home,
+	.destroy = &authz_unix_destroy,
 };
 #endif

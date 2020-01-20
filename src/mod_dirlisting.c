@@ -256,4 +256,13 @@ void mod_dirlisting_destroy(void *data)
 {
 	free(data);
 }
+const module_t mod_dirlisting =
+{
+	.name = str_dirlisting,
+	.create = (module_create_t)&mod_dirlisting_create,
+	.destroy = &mod_dirlisting_destroy
+};
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_dirlisting")));
+#endif
 #endif

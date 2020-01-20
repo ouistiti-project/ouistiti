@@ -266,10 +266,10 @@ static void authz_file_destroy(void *arg)
 
 authz_rules_t authz_file_rules =
 {
-	.create = authz_file_create,
-	.check = authz_file_check,
-	.passwd = authz_file_passwd,
-	.group = authz_file_group,
-	.home = authz_file_home,
-	.destroy = authz_file_destroy,
+	.create = &authz_file_create,
+	.check = &authz_file_check,
+	.passwd = &authz_file_passwd,
+	.group = &authz_file_group,
+	.home = &authz_file_home,
+	.destroy = &authz_file_destroy,
 };

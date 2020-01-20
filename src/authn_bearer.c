@@ -127,8 +127,8 @@ static void authn_bearer_destroy(void *arg)
 
 authn_rules_t authn_bearer_rules =
 {
-	.create = authn_bearer_create,
-	.challenge = authn_bearer_challenge,
-	.check = authn_bearer_check,
-	.destroy = authn_bearer_destroy,
+	.create = &authn_bearer_create,
+	.challenge = &authn_bearer_challenge,
+	.check = &authn_bearer_check,
+	.destroy = &authn_bearer_destroy,
 };

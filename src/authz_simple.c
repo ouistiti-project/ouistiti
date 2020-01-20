@@ -95,10 +95,10 @@ static const char *authz_simple_home(void *arg, const char *user)
 
 authz_rules_t authz_simple_rules =
 {
-	.create = authz_simple_create,
-	.check = authz_simple_check,
-	.passwd = authz_simple_passwd,
-	.group = authz_simple_group,
-	.home = authz_simple_home,
+	.create = &authz_simple_create,
+	.check = &authz_simple_check,
+	.passwd = &authz_simple_passwd,
+	.group = &authz_simple_group,
+	.home = &authz_simple_home,
 	.destroy = NULL,
 };

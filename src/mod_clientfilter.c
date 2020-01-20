@@ -130,13 +130,14 @@ static void *_mod_clientfilter_getctx(void *arg, http_client_t *ctl, struct sock
 
 static void _mod_clientfilter_freectx(void *vctx)
 {
+	// nothing to do
 }
 
 const module_t mod_clientfilter =
 {
 	.name = str_clientfilter,
-	.create = (module_create_t)mod_clientfilter_create,
-	.destroy = mod_clientfilter_destroy
+	.create = (module_create_t)&mod_clientfilter_create,
+	.destroy = &mod_clientfilter_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_clientfilter")));

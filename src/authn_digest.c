@@ -428,9 +428,9 @@ static void authn_digest_destroy(void *arg)
 
 authn_rules_t authn_digest_rules =
 {
-	.create = authn_digest_create,
-	.setup = authn_digest_setup,
-	.challenge = authn_digest_challenge,
-	.check = authn_digest_check,
-	.destroy = authn_digest_destroy,
+	.create = &authn_digest_create,
+	.setup = &authn_digest_setup,
+	.challenge = &authn_digest_challenge,
+	.check = &authn_digest_check,
+	.destroy = &authn_digest_destroy,
 };

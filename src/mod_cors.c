@@ -163,8 +163,8 @@ void mod_cors_destroy(void *data)
 const module_t mod_cors =
 {
 	.name = str_cors,
-	.create = (module_create_t)mod_cors_create,
-	.destroy = mod_cors_destroy
+	.create = (module_create_t)&mod_cors_create,
+	.destroy = &mod_cors_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_cors")));

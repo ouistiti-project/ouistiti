@@ -123,8 +123,8 @@ static void authn_none_destroy(void *arg)
 
 authn_rules_t authn_none_rules =
 {
-	.create = authn_none_create,
-	.challenge = authn_none_challenge,
-	.check = authn_none_check,
-	.destroy = authn_none_destroy,
+	.create = &authn_none_create,
+	.challenge = &authn_none_challenge,
+	.check = &authn_none_check,
+	.destroy = &authn_none_destroy,
 };
