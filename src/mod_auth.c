@@ -188,7 +188,7 @@ authz_rules_t *authz_rules[] = {
 #endif
 };
 
-static int _mod_sethash(_mod_auth_t *mod, mod_auth_t *config)
+static const hash_t *_mod_findhash(const char *name, int nameid)
 {
 	const hash_t *hash_list[] =
 	{
@@ -198,25 +198,37 @@ static int _mod_sethash(_mod_auth_t *mod, mod_auth_t *config)
 		hash_sha256,
 		hash_sha512,
 		hash_macsha256,
+		NULL
 	};
 
+	int i;
+	static const hash_t *hash = NULL;
+	for (i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
+	{
+		hash = hash_list[i];
+		if (hash != NULL)
+		{
+			if (name != NULL && !strcmp(name, hash->name))
+				break;
+			if (nameid == hash->nameid)
+				break;
+		}
+	}
+	return hash;
+}
+
+static int _mod_sethash(_mod_auth_t *mod, mod_auth_t *config)
+{
 	int ret = EREJECT;
 	if (config->algo)
 	{
-		int i;
-		static const hash_t *hash = NULL;
-		for (i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
-		{
-			hash = hash_list[i];
-			if (hash != NULL && !strcmp(config->algo, hash->name))
-			{
-				mod->authn->hash = hash;
-				ret = ESUCCESS;
-				break;
-			}
-		}
+		mod->authn->hash = _mod_findhash(config->algo, -1);
 	}
-	if (mod->authn->hash == NULL && hash_sha256)
+	if (mod->authn->hash != NULL)
+	{
+		ret = ESUCCESS;
+	}
+	else if (mod->authn->hash == NULL && hash_sha256)
 	{
 		mod->authn->hash = hash_sha256;
 		ret = ESUCCESS;
@@ -420,22 +432,8 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 			a1decode = 1;
 			i++;
 		}
-		if (checkpasswd[i] == '1')
-		{
-			hash = hash_md5;
-		}
-		if (checkpasswd[i] == '2')
-		{
-			hash = hash_sha1;
-		}
-		if (checkpasswd[i] == '5')
-		{
-			hash = hash_sha256;
-		}
-		if (checkpasswd[i] == '6')
-		{
-			hash = hash_sha512;
-		}
+
+		hash = _mod_findhash(NULL, checkpasswd[i]);
 		if (hash)
 		{
 			char hashpasswd[32];
@@ -644,13 +642,11 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 		}
 		else if (ctx->info && mod->authz->type & AUTHZ_COOKIE_E)
 		{
-	dbg("cookie");
 			_authn_setauthorization(ctx, authorization, ctx->info, _authn_cookie_set, response);
 		}
 
 		if (mod->authz->type & AUTHZ_CHOWN_E)
 		{
-	dbg("chown");
 			auth_setowner(user);
 		}
 		warn("user \"%s\" accepted from %p", user, ctx->ctl);
