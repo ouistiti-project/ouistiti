@@ -197,20 +197,20 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_mess
 	return pid;
 }
 
-static int document_checkname(const char *path_info, mod_cgi_config_t *config)
+static int _cgi_checkname(const char *uri, mod_cgi_config_t *config)
 {
-	if (path_info[0] == '.')
+	if (uri[0] == '/')
+		uri++;
+	if (uri[0] == '.' && uri[1] != '/')
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(path_info, config->deny) == ESUCCESS)
+	if (utils_searchexp(uri, config->deny) == ESUCCESS)
 	{
-		warn("document: forbidden %s file %s", path_info, "deny");
 		return  EREJECT;
 	}
-	if (utils_searchexp(path_info, config->allow) != ESUCCESS)
+	if (utils_searchexp(uri, config->allow) != ESUCCESS)
 	{
-		warn("document: forbidden %s file %s", path_info, "not allow");
 		return  EREJECT;
 	}
 	return ESUCCESS;
@@ -222,7 +222,7 @@ static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_me
 	const char *url = httpmessage_REQUEST(request,"uri");
 	if (url && config->docroot)
 	{
-		if (document_checkname(url, config) != ESUCCESS)
+		if (_cgi_checkname(url, config) != ESUCCESS)
 		{
 			dbg("cgi: %s forbidden extension", url);
 			return EREJECT;
