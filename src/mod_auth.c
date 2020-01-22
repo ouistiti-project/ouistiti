@@ -549,6 +549,14 @@ static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t 
 }
 
 typedef void (*_httpmessage_set)(http_message_t *, const char *, const char *);
+void _authn_cookie_set(http_message_t *request, const char *key, const char *value)
+{
+	/**
+	 * this facade allows to extend the parameters
+	 */
+	cookie_set(request, key, value);
+}
+
 static int _authn_setauthorization(_mod_auth_ctx_t *ctx, const char *authorization,
 			authsession_t *info, _httpmessage_set httpmessage_set, http_message_t *response)
 {
@@ -631,7 +639,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 		}
 		else if (mod->authz->type & AUTHZ_COOKIE_E)
 		{
-			_authn_setauthorization(ctx, authorization, info, cookie_set, response);
+			_authn_setauthorization(ctx, authorization, info, _authn_cookie_set, response);
 		}
 
 		if (mod->authz->type & AUTHZ_UNIX_E)
