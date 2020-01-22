@@ -36,6 +36,7 @@
 #define DOCUMENT_RANGE 0x04
 #define DOCUMENT_REST 0x08
 #define DOCUMENT_HOME 0x10
+#define DOCUMENT_TLS 0x20
 
 #ifdef __cplusplus
 extern "C"
