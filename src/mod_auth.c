@@ -289,12 +289,12 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->authn->server = server;
 	mod->authn->type = config->authn_type;
 	mod->authn->rules = authn_rules[config->authn_type];
-	if (mod->authn->rules == NULL)
-		err("authentication type is not availlable, change configuration");
 
 	_mod_sethash(mod, config);
 
-	if (mod->authn->rules && mod->authz->rules)
+	if (mod->authn->rules == NULL)
+		err("authentication type is not availlable, change configuration");
+	else
 	{
 		mod->authn->ctx = mod->authn->rules->create(mod->authn, mod->authz, config->authn_config);
 	}
@@ -306,7 +306,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 	else
 	{
-		if (mod->authn->rules && mod->authz->rules->destroy)
+		if (mod->authz->rules->destroy)
 			mod->authz->rules->destroy(mod->authz->ctx);
 		free(mod->authz);
 		free(mod->authn);
