@@ -137,16 +137,16 @@ static void *authz_sqlite_create(void *arg)
 	return ctx;
 }
 
+#define SEARCH_QUERY "select %s from users inner join groups on groups.id=users.groupid where users.name=@NAME;"
 static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
 {
 	authz_sqlite_config_t *config = ctx->config;
 	int ret;
 	const char *value = NULL;
-	const char *query = "select %s from users inner join groups on groups.id=users.groupid where users.name=@NAME;";
 
-	int size = strlen(query) + strlen(field);
+	int size = sizeof(SEARCH_QUERY) + strlen(field);
 	char *sql = sqlite3_malloc(size);
-	snprintf(sql, size, query, field);
+	snprintf(sql, size, SEARCH_QUERY, field);
 
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
