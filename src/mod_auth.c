@@ -579,6 +579,30 @@ static int _authn_setauthorization(_mod_auth_ctx_t *ctx, const char *authorizati
 	return ESUCCESS;
 }
 
+static authsession_t *_authn_setsession(_mod_auth_t *mod, const char * user)
+{
+	authsession_t *info = NULL;
+
+	info = calloc(1, sizeof(*info));
+	strncpy(info->user, user, sizeof(info->user));
+	strncpy(info->type, mod->type, sizeof(info->type));
+	if (mod->authz->rules->group)
+	{
+		const char *group = NULL;
+		group = mod->authz->rules->group(mod->authz->ctx, user);
+		if (group)
+			strncpy(info->group, group, sizeof(info->group));
+	}
+	if (mod->authz->rules->home)
+	{
+		const char *home = NULL;
+		home = mod->authz->rules->home(mod->authz->ctx, user);
+		if (home)
+			strncpy(info->home, home, sizeof(info->home));
+	}
+	return info;
+}
+
 static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 		const char *authorization,
 		const char *method,
@@ -609,44 +633,27 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	const char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
 	if (user != NULL)
 	{
-		authsession_t *info = NULL;
-		info = ctx->info;
-		if (info == NULL)
+		if (ctx->info == NULL)
 		{
-			const char *group = NULL;
-			const char *home = NULL;
-			info = calloc(1, sizeof(*info));
-			strncpy(info->user, user, sizeof(info->user));
-			strncpy(info->type, mod->type, sizeof(info->type));
-			if (mod->authz->rules->group)
-			{
-				group = mod->authz->rules->group(mod->authz->ctx, user);
-				if (group)
-					strncpy(info->group, group, sizeof(info->group));
-			}
-			if (mod->authz->rules->home)
-			{
-				home = mod->authz->rules->home(mod->authz->ctx, user);
-				if (home)
-					strncpy(info->home, home, sizeof(info->home));
-			}
-			ctx->info = info;
+			ctx->info = _authn_setsession(mod, user);
 			ctx->authorization = strdup(authorization);
 		}
-		if (mod->authz->type & AUTHZ_HEADER_E)
+		if (ctx->info && mod->authz->type & AUTHZ_HEADER_E)
 		{
-			_authn_setauthorization(ctx, authorization, info, httpmessage_addheader, response);
+			_authn_setauthorization(ctx, authorization, ctx->info, httpmessage_addheader, response);
 		}
-		else if (mod->authz->type & AUTHZ_COOKIE_E)
+		else if (ctx->info && mod->authz->type & AUTHZ_COOKIE_E)
 		{
-			_authn_setauthorization(ctx, authorization, info, _authn_cookie_set, response);
+	dbg("cookie");
+			_authn_setauthorization(ctx, authorization, ctx->info, _authn_cookie_set, response);
 		}
 
 		if (mod->authz->type & AUTHZ_CHOWN_E)
 		{
-			auth_setowner(info->user);
+	dbg("chown");
+			auth_setowner(user);
 		}
-		warn("user \"%s\" accepted from %p", info->user, ctx->ctl);
+		warn("user \"%s\" accepted from %p", user, ctx->ctl);
 		ret = EREJECT;
 	}
 	return ret;
