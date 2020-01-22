@@ -92,17 +92,14 @@ static int document_checkname(document_connector_t *private, const char *uri, ht
 		uri++;
 	if (uri[0] == '.' && uri[1] != '/')
 	{
-		warn("document: forbidden %s file %s", uri, "cached");
 		return  EREJECT;
 	}
 	if (utils_searchexp(uri, config->deny) == ESUCCESS)
 	{
-		warn("document: forbidden %s file %s", uri, "deny");
 		return  EREJECT;
 	}
 	if (utils_searchexp(uri, config->allow) != ESUCCESS)
 	{
-		warn("document: forbidden %s file %s", uri, "not allow");
 		return  EREJECT;
 	}
 	return ESUCCESS;
@@ -250,6 +247,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		}
 		else if (document_checkname(private, uri, response) == EREJECT)
 		{
+			dbg("document: %s forbidden extension", uri);
 			/**
 			 * Another module may have the same docroot and
 			 * accept the name of the uri.
