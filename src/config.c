@@ -63,7 +63,65 @@ static config_t configfile;
 static char *logfile = NULL;
 static int logfd = 0;
 
+typedef void (*_parsercb_t)(void *arg, const char *option, int length);
+
+static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata)
+{
+	const char *ext = options;
+
+	while (ext != NULL)
+	{
+		int length = strlen(ext);
+		const char *ext_end = strchr(ext, ',');
+		if (ext_end)
+		{
+			length -= strlen(ext_end + 1) + 1;
+			ext_end++;
+		}
+		cb(cbdata, ext, length);
+		ext = ext_end;
+	}
+	return 0;
+}
+
 #ifdef DOCUMENT
+static void document_optioncb(void *arg, const char *option, int length)
+{
+	mod_document_t *static_file = (mod_document_t *)arg;
+
+#ifdef DIRLISTING
+	if (!strncmp(option, "dirlisting", length))
+		static_file->options |= DOCUMENT_DIRLISTING;
+#endif
+#ifdef SENDFILE
+	if (!strncmp(option, "sendfile", length))
+	{
+		if (!(static_file->options & DOCUMENT_TLS))
+			static_file->options |= DOCUMENT_SENDFILE;
+		else
+			warn("sendfile configuration is not allowed with tls");
+	}
+#endif
+#ifdef RANGEREQUEST
+	if (!strncmp(option, "range", length))
+	{
+		static_file->options |= DOCUMENT_RANGE;
+	}
+#endif
+#ifdef DOCUMENTREST
+	if (!strncmp(option, "rest", length))
+	{
+		static_file->options |= DOCUMENT_REST;
+	}
+#endif
+#ifdef DOCUMENTHOME
+	if (!strncmp(option, "home", length))
+	{
+		static_file->options |= DOCUMENT_HOME;
+	}
+#endif
+}
+
 static const char *str_index = "index.html";
 static mod_document_t *document_config(config_setting_t *iterator, int tls, char *entry)
 {
@@ -85,51 +143,10 @@ static mod_document_t *document_config(config_setting_t *iterator, int tls, char
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
 		if (static_file->defaultpage == NULL)
 			static_file->defaultpage = str_index;
+		if (tls)
+			static_file->options |= DOCUMENT_TLS;
 		config_setting_lookup_string(configstaticfile, "options", (const char **)&transfertype);
-		char *ext = transfertype;
-
-		while (ext != NULL)
-		{
-			length = strlen(ext);
-			char *ext_end = strchr(ext, ',');
-			if (ext_end)
-			{
-				length -= strlen(ext_end + 1) + 1;
-				ext_end++;
-			}
-#ifdef DIRLISTING
-			if (!strncmp(ext, "dirlisting", length))
-				static_file->options |= DOCUMENT_DIRLISTING;
-#endif
-#ifdef SENDFILE
-			if (!strncmp(ext, "sendfile", length))
-			{
-				if(!tls)
-					static_file->options |= DOCUMENT_SENDFILE;
-				else
-					warn("sendfile configuration is not allowed with tls");
-			}
-#endif
-#ifdef RANGEREQUEST
-			if (!strncmp(ext, "range", length))
-			{
-				static_file->options |= DOCUMENT_RANGE;
-			}
-#endif
-#ifdef DOCUMENTREST
-			if (!strncmp(ext, "rest", length))
-			{
-				static_file->options |= DOCUMENT_REST;
-			}
-#endif
-#ifdef DOCUMENTHOME
-			if (!strncmp(ext, "home", length))
-			{
-				static_file->options |= DOCUMENT_HOME;
-			}
-#endif
-			ext = ext_end;
-		}
+		config_parseoptions(transfertype, document_optioncb, static_file);
 	}
 	return static_file;
 }
