@@ -146,7 +146,7 @@ static mod_document_t *document_config(config_setting_t *iterator, int tls, char
 		if (tls)
 			static_file->options |= DOCUMENT_TLS;
 		config_setting_lookup_string(configstaticfile, "options", (const char **)&transfertype);
-		config_parseoptions(transfertype, document_optioncb, static_file);
+		config_parseoptions(transfertype, &document_optioncb, static_file);
 	}
 	return static_file;
 }
@@ -473,6 +473,22 @@ struct _authz_s *authz_list[] =
 	NULL
 };
 
+static void authz_optionscb(void *arg, const char *option, int length)
+{
+	mod_auth_t *auth = (mod_auth_t *)arg;
+
+	if (!strncmp(option, "home", length))
+		auth->authz_type |= AUTHZ_HOME_E;
+	if (!strncmp(option, "cookie", length))
+		auth->authz_type |= AUTHZ_COOKIE_E;
+	if (!strncmp(option, "header", length))
+		auth->authz_type |= AUTHZ_HEADER_E;
+	if (!strncmp(option, "token", length))
+		auth->authz_type |= AUTHZ_TOKEN_E;
+	if (!strncmp(option, "chown", length))
+		auth->authz_type |= AUTHZ_CHOWN_E;
+}
+
 static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 {
 	mod_auth_t *auth = NULL;
@@ -498,16 +514,12 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 
 		char *mode = NULL;
 		config_setting_lookup_string(configauth, "options", (const char **)&mode);
-		if (mode && strstr(mode, "home") != NULL)
-			auth->authz_type |= AUTHZ_HOME_E;
-		if (mode && strstr(mode, "cookie") != NULL)
-			auth->authz_type |= AUTHZ_COOKIE_E;
-		if (mode && strstr(mode, "header") != NULL)
-			auth->authz_type |= AUTHZ_HEADER_E;
-		if (mode && strstr(mode, "token") != NULL)
-			auth->authz_type |= AUTHZ_TOKEN_E;
-		if (mode && strstr(mode, "chown") != NULL)
-			auth->authz_type |= AUTHZ_CHOWN_E;
+		if (tls)
+			auth->authz_type |= AUTHZ_TLS_E;
+		if (mode != NULL)
+		{
+			config_parseoptions(mode, &authz_optionscb, auth);
+		}
 		config_setting_lookup_int(configauth, "expire", &auth->expire);
 
 		struct _authz_s *authz = authz_list[0];
@@ -595,9 +607,23 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
 #endif
 
 #ifdef WEBSOCKET
+static void websocket_optionscb(void *arg, const char *option, int length)
+{
+	mod_websocket_t *conf = (mod_websocket_t *)arg;
+#ifdef WEBSOCKET_RT
+	if (!strncmp(option, "direct", length))
+	{
+		if (!(conf->options & WEBSOCKET_TLS))
+			conf->options |= WEBSOCKET_REALTIME;
+		else
+			warn("realtime configuration is not allowed with tls");
+	}
+#endif
+}
+
 static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 {
-	mod_websocket_t *ws = NULL;
+	mod_websocket_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configws = config_setting_get_member(iterator, "websocket");
 #else
@@ -606,45 +632,39 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 	if (configws)
 	{
 		char *mode = NULL;
-		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
-		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
-		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		char *ext = mode;
-
-		while (ext != NULL)
-		{
-			int length;
-			length = strlen(ext);
-			char *ext_end = strchr(ext, ',');
-			if (ext_end)
-			{
-				length -= strlen(ext_end + 1) + 1;
-				ext_end++;
-			}
-#ifdef WEBSOCKET_RT
-			if (!strncmp(ext, "direct", length))
-			{
-				if (!tls)
-					ws->options |= WEBSOCKET_REALTIME;
-				else
-					warn("realtime configuration is not allowed with tls");
-			}
-#endif
-			ext = ext_end;
-		}
+		if (tls)
+			conf->options |= WEBSOCKET_TLS;
+		config_parseoptions(mode, &websocket_optionscb, conf);
 	}
-	return ws;
+	return conf;
 }
 #else
 #define websocket_config(...) NULL
 #endif
 
 #ifdef WEBSTREAM
+static void webstream_optionscb(void *arg, const char *option, int length)
+{
+	mod_webstream_t *conf = (mod_webstream_t *)arg;
+#ifdef WEBSOCKET_RT
+	if (!strncmp(option, "direct", length))
+	{
+		if (!(conf->options & WEBSOCKET_TLS))
+			conf->options |= WEBSOCKET_REALTIME;
+		else
+			warn("realtime configuration is not allowed with tls");
+	}
+#endif
+}
+
 static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 {
-	mod_webstream_t *ws = NULL;
+	mod_webstream_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configws = config_setting_get_member(iterator, "webstream");
 #else
@@ -654,79 +674,60 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 	{
 		char *url = NULL;
 		char *mode = NULL;
-		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
-		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
-		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
+		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		char *ext = mode;
-
-		while (ext != NULL)
-		{
-			int length;
-			length = strlen(ext);
-			char *ext_end = strchr(ext, ',');
-			if (ext_end)
-			{
-				length -= strlen(ext_end + 1) + 1;
-				ext_end++;
-			}
-			if (!strncmp(ext, "direct", length))
-			{
-				if (!tls)
-					ws->options |= WEBSOCKET_REALTIME;
-				else
-					warn("realtime configuration is not allowed with tls");
-			}
-			ext = ext_end;
-		}
+		if (tls)
+			conf->options |= WEBSOCKET_TLS;
+		config_parseoptions(mode, &webstream_optionscb, conf);
 	}
-	return ws;
+	return conf;
 }
 #else
 #define webstream_config(...) NULL
 #endif
 
 #ifdef REDIRECT
-static int redirect_mode(const char *mode)
+static int redirect_mode(const char *option, int length)
 {
 	int options = 0;
-	const char *ext = mode;
-
-	while (ext != NULL)
+	if (!strncmp(option, "generate_204", length))
 	{
-		int length;
-		length = strlen(ext);
-		char *ext_end = strchr(ext, ',');
-		if (ext_end)
-		{
-			length -= strlen(ext_end + 1) + 1;
-			ext_end++;
-		}
-		if (!strncmp(ext, "generate_204", length))
-		{
-			options |= REDIRECT_GENERATE204;
-		}
-		else if (!strncmp(ext, "hsts", length))
-		{
-			options |= REDIRECT_HSTS;
-		}
-		else if (!strncmp(ext, "temporary", length))
-		{
-			options |= REDIRECT_TEMPORARY;
-		}
-		else if (!strncmp(ext, "permanently", length))
-		{
-			options |= REDIRECT_PERMANENTLY;
-		}
-		else if (!strncmp(ext, "error", length))
-		{
-			options |= REDIRECT_ERROR;
-		}
-		ext = ext_end;
+		options |= REDIRECT_GENERATE204;
+	}
+	else if (!strncmp(option, "hsts", length))
+	{
+		options |= REDIRECT_HSTS;
+	}
+	else if (!strncmp(option, "temporary", length))
+	{
+		options |= REDIRECT_TEMPORARY;
+	}
+	else if (!strncmp(option, "permanently", length))
+	{
+		options |= REDIRECT_PERMANENTLY;
+	}
+	else if (!strncmp(option, "error", length))
+	{
+		options |= REDIRECT_ERROR;
 	}
 	return options;
 }
+
+static void redirect_optionscb(void *arg, const char *option, int length)
+{
+	mod_redirect_t *conf = (mod_redirect_t *)arg;
+	conf->options = redirect_mode(option, length);
+}
+
+static void redirect_linkoptionscb(void *arg, const char *option, int length)
+{
+	mod_redirect_link_t *link = (mod_redirect_link_t *)arg;
+	link->options = redirect_mode(option, length);
+}
+
 static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 {
 	mod_redirect_t *conf = NULL;
@@ -740,7 +741,7 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 		conf = calloc(1, sizeof(*conf));
 		char *mode = NULL;
 		config_setting_lookup_string(config, "options", (const char **)&mode);
-		conf->options = redirect_mode(mode);
+		config_parseoptions(mode, &redirect_optionscb, conf);
 
 		config_setting_t *configlinks = config_setting_lookup(config, "links");
 		if (configlinks)
@@ -756,9 +757,7 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 					char *destination = NULL;
 					const char *origin = NULL;
 					char *mode = NULL;
-
-					config_setting_lookup_string(iterator, "options", (const char **)&mode);
-					int options = redirect_mode(mode);
+					int options = 0;
 
 					static char origin_error[4];
 					config_setting_t *originset = config_setting_lookup(iterator, "origin");
@@ -782,7 +781,11 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 					{
 						mod_redirect_link_t *link = calloc(1, sizeof(*link));
 						link->origin = strdup(origin);
-						link->options = options;
+
+						config_setting_lookup_string(iterator, "options", (const char **)&mode);
+						config_parseoptions(mode, &redirect_linkoptionscb, link);
+						link->options |= options;
+
 						link->destination = destination;
 						link->next = conf->links;
 						conf->links = link;
