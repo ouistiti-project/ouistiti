@@ -217,6 +217,7 @@ extern const module_t mod_auth;
 int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd);
 
 const char *auth_info(http_message_t *request, const char *key);
+int auth_setowner(const char *user);
 
 #ifdef __cplusplus
 }

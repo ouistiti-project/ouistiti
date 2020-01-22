@@ -117,6 +117,34 @@ const char *auth_info(http_message_t *request, const char *key)
 	return value;
 }
 
+int auth_setowner(const char *user)
+{
+	int ret = EREJECT;
+#ifdef HAVE_PWD
+	struct passwd *pw;
+	pw = getpwnam(user);
+	if (pw != NULL)
+	{
+		uid_t uid;
+		uid = getuid();
+		//only "saved set-uid", "uid" and "euid" may be set
+		//first step: set the "saved set-uid" (root)
+		if (seteuid(uid) < 0)
+			warn("not enought rights to change user");
+		//second step: set the new "euid"
+		else if (setegid(pw->pw_gid) < 0)
+			warn("not enought rights to change group");
+		else if (seteuid(pw->pw_uid) < 0)
+			warn("not enought rights to change user");
+		else
+			ret = ESUCCESS;
+	}
+#else
+	ret = ESUCCESS;
+#endif
+	return ret;
+}
+
 #ifndef MODULES
 static const module_t *modules[] =
 {
@@ -494,36 +522,12 @@ int main(int argc, char * const *argv)
 	signal(SIGPIPE, SIG_IGN);
 #endif
 
-#ifdef HAVE_PWD
-	uid_t   pw_uid = -1;
-	gid_t   pw_gid = -1;
-	if (ouistiticonfig->user)
-	{
-		struct passwd *result;
-
-		result = getpwnam(ouistiticonfig->user);
-		if (result == NULL)
-		{
-			err("Error: user %s not found\n", ouistiticonfig->user);
-			return -1;
-		}
-		pw_uid = result->pw_uid;
-		pw_gid = result->pw_gid;
-	}
-#endif
 	first = main_set(ouistiticonfig, serverid);
 
 	main_setmodules(first);
 
-#ifdef HAVE_PWD
-	if (pw_uid > 0 && pw_gid > 0)
-	{
-		if (setegid(pw_gid) < 0)
-			warn("not enought rights to change group");
-		if (seteuid(pw_uid) < 0)
-			err("Error: start server as root");
-	}
-#endif
+	if (auth_setowner(ouistiticonfig->user) == EREJECT)
+		err("Error: user %s not found\n", ouistiticonfig->user);
 
 	main_run(first);
 
