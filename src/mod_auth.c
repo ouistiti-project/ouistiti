@@ -642,7 +642,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 			_authn_setauthorization(ctx, authorization, info, _authn_cookie_set, response);
 		}
 
-		if (mod->authz->type & AUTHZ_UNIX_E)
+		if (mod->authz->type & AUTHZ_CHOWN_E)
 		{
 			auth_setowner(info->user);
 		}

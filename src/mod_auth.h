@@ -111,6 +111,7 @@ typedef enum
 	AUTHZ_COOKIE_E = 0x20,
 	AUTHZ_HEADER_E = 0x40,
 	AUTHZ_TOKEN_E = 0x80,
+	AUTHZ_CHOWN_E = 0x100,
 } authz_type_t;
 typedef struct authz_s authz_t;
 typedef char *(*generatetoken_t)(mod_auth_t *mod, authsession_t *info);
