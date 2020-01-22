@@ -71,40 +71,6 @@ static void *authn_none_create(const authn_t *authn, authz_t *authz, void *arg)
 
 static int authn_none_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
-	authn_none_t *mod = (authn_none_t *)arg;
-	authn_none_config_t *config = mod->config;
-	struct passwd *pw = NULL;
-	if (config->user)
-	{
-		errno = 0;
-		pw = getpwnam(config->user);
-	}
-	if (pw)
-	{
-		//read mod_auth.c
-		uid_t uid;
-		uid = getuid();
-		if (seteuid(uid) < 0)
-			warn("not enought rights to change user");
-		if (setegid(pw->pw_gid) < 0)
-			warn("not enought rights to change group");
-		if (seteuid(pw->pw_uid) < 0)
-			warn("not enought rights to change user");
-	}
-	else
-	{
-		if (errno == 0 || errno == ENOENT || errno == ESRCH ||
-				errno == EBADF || errno == EPERM)
-			err("Security check the user %s is into /etc/passwd", config->user);
-		else
-			err("auth getpwnam error %s", strerror(errno));
-		uid_t uid;
-		uid = getuid();
-		if (setegid(1000) < 0)
-			warn("not enought rights to change group");
-		if (seteuid(uid) < 0)
-			warn("not enought rights to change user");
-	}
 	return EREJECT;
 }
 
@@ -112,6 +78,7 @@ static const char *authn_none_check(void *arg, const char *method, const char *u
 {
 	authn_none_t *mod = (authn_none_t *)arg;
 	authn_none_config_t *config = mod->config;
+
 	return config->user;
 }
 
