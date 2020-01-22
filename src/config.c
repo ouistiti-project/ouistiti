@@ -204,9 +204,12 @@ static void *authn_none_config(config_setting_t *configauth, const char *type)
 		authn_config = calloc(1, sizeof(*authn_config));
 		authn_config->user = user;
 	}
+	else if (user == NULL)
+		warn("config: authn_none needs to set the user");
 	return authn_config;
 }
 #endif
+
 #ifdef AUTHN_BASIC
 static void *authn_basic_config(config_setting_t *configauth, const char *type)
 {
