@@ -489,6 +489,8 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 			auth->authz_type |= AUTHZ_HEADER_E;
 		if (mode && strstr(mode, "token") != NULL)
 			auth->authz_type |= AUTHZ_TOKEN_E;
+		if (mode && strstr(mode, "chown") != NULL)
+			auth->authz_type |= AUTHZ_CHOWN_E;
 		config_setting_lookup_int(configauth, "expire", &auth->expire);
 
 		struct _authz_s *authz = authz_list[0];
