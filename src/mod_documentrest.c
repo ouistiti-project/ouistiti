@@ -154,7 +154,6 @@ static int putheader_connector(document_connector_t *private, http_message_t *re
 static int putcontent_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	const char *uri = httpmessage_REQUEST(request,"uri");
 
 	char *input;
 	int inputlen;
@@ -233,8 +232,6 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	int ret =  EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	mod_document_t *config = (mod_document_t *)mod->config;
-	const char *uri = httpmessage_REQUEST(request,"uri");
 
 	if (private->fd == 0)
 	{
@@ -343,8 +340,6 @@ int deletefile_connector(void *arg, http_message_t *request, http_message_t *res
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	mod_document_t *config = (mod_document_t *)mod->config;
-
 	const char *uri = httpmessage_REQUEST(request,"uri");
 
 	httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"name\":\"", -1);

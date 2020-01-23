@@ -62,8 +62,6 @@ typedef struct _mod_cgi_config_s _mod_cgi_config_t;
 typedef struct _mod_cgi_s _mod_cgi_t;
 typedef struct mod_cgi_ctx_s mod_cgi_ctx_t;
 
-static void *_mod_cgi_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
-static void _mod_cgi_freectx(void *vctx);
 static int _cgi_connector(void *arg, http_message_t *request, http_message_t *response);
 
 struct mod_cgi_ctx_s
@@ -180,13 +178,11 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_mess
 
 		char *dirpath;
 		dirpath = dirname(ctx->cgipath);
-		if (dirpath)
+		if (dirpath &&
+			(chdir(dirpath) != 0))
 		{
-			if (chdir(dirpath) != 0)
-			{
-				err("cgi: directory forbidden %s %s", dirpath, strerror(errno));
-				exit(0);
-			}
+			err("cgi: directory forbidden %s %s", dirpath, strerror(errno));
+			exit(0);
 		}
 		setbuf(stdout, 0);
 		sched_yield();

@@ -208,9 +208,8 @@ static const hash_t *_mod_findhash(const char *name, int nameid)
 		hash = hash_list[i];
 		if (hash != NULL)
 		{
-			if (name != NULL && !strcmp(name, hash->name))
-				break;
-			if (nameid == hash->nameid)
+			if ((name != NULL && !strcmp(name, hash->name)) ||
+				(nameid == hash->nameid))
 				break;
 		}
 	}
@@ -387,9 +386,9 @@ static void _mod_auth_freectx(void *vctx)
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
-	_mod_auth_t *mod = ctx->mod;
 	int ret = EREJECT;
 	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL);
+
 	if (info)
 	{
 		const char *home = info->home;
@@ -484,6 +483,7 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 	return ret;
 }
 
+#ifndef AUTHZ_JWT
 static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
 {
 	char *token = calloc(1, 36);
@@ -497,6 +497,7 @@ static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
 	ret = base64_urlencoding->encode(_nonce, 24, token, 36);
 	return token;
 }
+#endif
 
 static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t *request)
 {
@@ -558,8 +559,6 @@ void _authn_cookie_set(http_message_t *request, const char *key, const char *val
 static int _authn_setauthorization(_mod_auth_ctx_t *ctx, const char *authorization,
 			authsession_t *info, _httpmessage_set httpmessage_set, http_message_t *response)
 {
-	_mod_auth_t *mod = ctx->mod;
-
 #ifdef AUTH_TOKEN
 	if (info->token)
 	{
@@ -667,7 +666,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
 	{
 		auth_dbg("auth challenge failed");
 		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
-		if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
+		if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
 		{
 			httpmessage_result(response, RESULT_403);
 		}
