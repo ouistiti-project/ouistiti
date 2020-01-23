@@ -39,6 +39,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <crypt.h>
+#include <time.h>
 
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
@@ -108,6 +109,12 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			struct spwd *spasswd = getspnam(pw->pw_name);
 			if (seteuid(uid) < 0)
 				warn("not enought rights to change user");
+			if ((spasswd->sp_expire > 0) &&
+				(spasswd->sp_expire < (time(NULL) / (60 * 60 * 24))))
+			{
+				warn("authz: user %s password expired", user);
+				return 0;
+			}
 			if (spasswd && spasswd->sp_pwdp)
 			{
 				cryptpasswd = spasswd->sp_pwdp;
