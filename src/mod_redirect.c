@@ -53,8 +53,6 @@
 
 typedef struct _mod_redirect_s _mod_redirect_t;
 
-static void *_mod_redirect_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
-static void _mod_redirect_freectx(void *vctx);
 static int _mod_redirect_connector(void *arg, http_message_t *request, http_message_t *response);
 
 static const char str_redirect[] = "redirect";

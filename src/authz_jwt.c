@@ -183,14 +183,10 @@ json_t *jwt_decode_json(const char *id_token, const char *key)
 		b64payloadlength = b64signature - b64payload;
 		b64signature++;
 	}
-	if (ret == ESUCCESS)
+	if ((ret == ESUCCESS) && (strcmp(b64signature2, b64signature)))
 	{
-
-		if (strcmp(b64signature2, b64signature))
-		{
-			err("jwt token signature failed %s / %s", b64signature2, b64signature);
-			ret = EREJECT;
-		}
+		err("jwt token signature failed %s / %s", b64signature2, b64signature);
+		ret = EREJECT;
 	}
 	json_t *jpayload = NULL;
 #ifndef AUTHZ_JWT_SIGNNOTCHECK

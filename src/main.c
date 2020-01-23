@@ -66,12 +66,11 @@
 #include "mod_webstream.h"
 #include "mod_tinysvcmdns.h"
 
+#include "config.h"
+
 #if defined WEBSOCKET || defined WEBSTREAM
 extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
 #endif
-
-#include "config.h"
-#include "../version.h"
 
 #define PACKAGEVERSION PACKAGE "/" VERSION
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)

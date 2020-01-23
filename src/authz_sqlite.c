@@ -274,10 +274,10 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 		SQLITE3_CHECK(ret, EREJECT, sql);
 
 		ret = sqlite3_step(statement);
-		if (ret == SQLITE_ROW)
+		if ((ret == SQLITE_ROW) &&
+			(sqlite3_column_type(statement, 0) == SQLITE_INTEGER))
 		{
-			if (sqlite3_column_type(statement, 0) == SQLITE_INTEGER)
-				userid = sqlite3_column_int(statement, 0);
+			userid = sqlite3_column_int(statement, 0);
 		}
 		sqlite3_finalize(statement);
 	}
@@ -305,10 +305,10 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 		SQLITE3_CHECK(ret, EREJECT, sql);
 
 		ret = sqlite3_step(statement);
-		if (ret == SQLITE_ROW)
+		if ((ret == SQLITE_ROW) &&
+			(sqlite3_column_type(statement, 0) == SQLITE_INTEGER))
 		{
-			if (sqlite3_column_type(statement, 0) == SQLITE_INTEGER)
-				userid = sqlite3_column_int(statement, 0);
+			userid = sqlite3_column_int(statement, 0);
 		}
 		sqlite3_finalize(statement);
 	}
