@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=iso-8859-1
+
+POST
+application/x-www-form-urlencoded
+name=foo&passwd=bar
+
