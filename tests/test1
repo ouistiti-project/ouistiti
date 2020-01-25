@@ -1,0 +1,5 @@
+DESC="request with relative URI"
+CONFIG=test1.conf
+TESTREQUEST=test1_rq.txt
+TESTCODE=400
+TESTCONTENTLEN=0
