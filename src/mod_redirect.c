@@ -132,13 +132,23 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 									const char *status, const char *uri)
 {
 	int ret = ECONTINUE;
-	if (utils_searchexp(uri, link->origin) == ESUCCESS)
+	const char *path_info = NULL;
+	if (utils_searchexp(uri, link->origin, &path_info) == ESUCCESS)
 	{
 		if (link->destination != NULL &&
-				utils_searchexp(uri, link->destination) != ESUCCESS)
+				utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
 		{
 			int result = mod->result;
-			httpmessage_addheader(response, str_location, link->destination);
+			if (path_info != NULL)
+			{
+				int length = strlen(path_info) + strlen(link->destination) + 1;
+				char *location = calloc(1, length);
+				snprintf(location, length, "%s%s", link->destination, path_info);
+				httpmessage_addheader(response, str_location, link->destination);
+				free(location);
+			}
+			else
+				httpmessage_addheader(response, str_location, link->destination);
 			if (link->options & REDIRECT_PERMANENTLY)
 				result = RESULT_301;
 			else if (link->options & REDIRECT_TEMPORARY)
@@ -206,7 +216,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 	if (config->options & REDIRECT_GENERATE204)
 	{
 		const char *path = httpmessage_REQUEST(request, "uri");
-		if (utils_searchexp(path, "generate_204") == ESUCCESS)
+		if (utils_searchexp(path, "generate_204", NULL) == ESUCCESS)
 		{
 			httpmessage_result(response, RESULT_204);
 			return ESUCCESS;
