@@ -729,6 +729,46 @@ static void redirect_linkoptionscb(void *arg, const char *option, int length)
 	link->options = redirect_mode(option, length);
 }
 
+static mod_redirect_link_t *redirect_linkconfig(config_setting_t *iterator)
+{
+	mod_redirect_link_t *link = NULL;
+	char *destination = NULL;
+	const char *origin = NULL;
+	char *mode = NULL;
+	int options = 0;
+
+	static char origin_error[4];
+	config_setting_t *originset = config_setting_lookup(iterator, "origin");
+	if (config_setting_is_number(originset))
+	{
+		int value;
+		value = config_setting_get_int(originset);
+		snprintf(origin_error, 4, "%.3d", value);
+		origin = origin_error;
+		config_setting_set_string(originset, origin_error);
+		//originset = config_setting_lookup(iterator, "origin");
+		if (value == 204)
+			options |= REDIRECT_GENERATE204;
+		else
+			options |= REDIRECT_ERROR;
+	}
+	else
+		origin = config_setting_get_string(originset);
+	config_setting_lookup_string(iterator, "destination", (const char **)&destination);
+	if (origin != NULL)
+	{
+		link = calloc(1, sizeof(*link));
+		link->origin = strdup(origin);
+
+		config_setting_lookup_string(iterator, "options", (const char **)&mode);
+		config_parseoptions(mode, &redirect_linkoptionscb, link);
+		link->options |= options;
+
+		link->destination = destination;
+	}
+	return link;
+}
+
 static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 {
 	mod_redirect_t *conf = NULL;
@@ -755,39 +795,9 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 				config_setting_t *iterator = config_setting_get_elem(configlinks, i);
 				if (iterator)
 				{
-					char *destination = NULL;
-					const char *origin = NULL;
-					char *mode = NULL;
-					int options = 0;
-
-					static char origin_error[4];
-					config_setting_t *originset = config_setting_lookup(iterator, "origin");
-					if (config_setting_is_number(originset))
+					mod_redirect_link_t *link = redirect_linkconfig(iterator);
+					if (link != NULL)
 					{
-						int value;
-						value = config_setting_get_int(originset);
-						snprintf(origin_error, 4, "%.3d", value);
-						origin = origin_error;
-						config_setting_set_string(originset, origin_error);
-						//originset = config_setting_lookup(iterator, "origin");
-						if (value == 204)
-							options |= REDIRECT_GENERATE204;
-						else
-							options |= REDIRECT_ERROR;
-					}
-					else
-						origin = config_setting_get_string(originset);
-					config_setting_lookup_string(iterator, "destination", (const char **)&destination);
-					if (origin != NULL)
-					{
-						mod_redirect_link_t *link = calloc(1, sizeof(*link));
-						link->origin = strdup(origin);
-
-						config_setting_lookup_string(iterator, "options", (const char **)&mode);
-						config_parseoptions(mode, &redirect_linkoptionscb, link);
-						link->options |= options;
-
-						link->destination = destination;
 						link->next = conf->links;
 						conf->links = link;
 					}
