@@ -89,8 +89,8 @@ static int _checkname(_mod_webstream_ctx_t *ctx, char *pathname)
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(pathname, config->deny) == ESUCCESS &&
-		utils_searchexp(pathname, config->allow) != ESUCCESS)
+	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
+		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
 	{
 		return  EREJECT;
 	}

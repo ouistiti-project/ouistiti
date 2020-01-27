@@ -94,11 +94,11 @@ static int document_checkname(document_connector_t *private, const char *uri, ht
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(uri, config->deny) == ESUCCESS)
+	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(uri, config->allow) != ESUCCESS)
+	if (utils_searchexp(uri, config->allow, NULL) != ESUCCESS)
 	{
 		return  EREJECT;
 	}

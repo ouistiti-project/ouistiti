@@ -1,6 +1,8 @@
 /*****************************************************************************
  * mod_cgi.c: callbacks and management of connection
  * this file is part of https://github.com/ouistiti-project/ouistiti
+ *
+ * follow RFC3875 : https://tools.ietf.org/html/rfc3875
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -193,7 +195,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_mess
 	return pid;
 }
 
-static int _cgi_checkname(const char *uri, mod_cgi_config_t *config)
+static int _cgi_checkname(const char *uri, mod_cgi_config_t *config, const char **path_info)
 {
 	if (uri[0] == '/')
 		uri++;
@@ -201,11 +203,11 @@ static int _cgi_checkname(const char *uri, mod_cgi_config_t *config)
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(uri, config->deny) == ESUCCESS)
+	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(uri, config->allow) != ESUCCESS)
+	if (utils_searchexp(uri, config->allow, path_info) != ESUCCESS)
 	{
 		return  EREJECT;
 	}
@@ -218,7 +220,8 @@ static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_me
 	const char *url = httpmessage_REQUEST(request,"uri");
 	if (url && config->docroot)
 	{
-		if (_cgi_checkname(url, config) != ESUCCESS)
+		const char *path_info = NULL;
+		if (_cgi_checkname(url, config, &path_info) != ESUCCESS)
 		{
 			dbg("cgi: %s forbidden extension", url);
 			return EREJECT;

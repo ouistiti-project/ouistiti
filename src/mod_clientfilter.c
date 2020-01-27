@@ -104,13 +104,13 @@ static void *_mod_clientfilter_getctx(void *arg, http_client_t *ctl, struct sock
 	{
 		if (config->deny)
 		{
-			protect = utils_searchexp(address, mod->config->deny);
+			protect = utils_searchexp(address, mod->config->deny, NULL);
 			if (protect == ESUCCESS)
 			{
 				ret = EREJECT;
 				if (config->accept)
 				{
-					protect = utils_searchexp(address, mod->config->accept);
+					protect = utils_searchexp(address, mod->config->accept, NULL);
 					if (protect == ESUCCESS)
 					{
 						ret = ESUCCESS;

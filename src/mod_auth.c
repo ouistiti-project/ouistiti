@@ -686,7 +686,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
 				redirect = config->redirect;
 			if (redirect[0] == '/')
 				redirect++;
-			protect = utils_searchexp(uri, redirect);
+			protect = utils_searchexp(uri, redirect, NULL);
 			if (protect == ESUCCESS)
 			{
 				/**
@@ -777,10 +777,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		/**
 		 * check uri
 		 */
-		protect = utils_searchexp(uri, config->unprotect);
+		protect = utils_searchexp(uri, config->unprotect, NULL);
 		if (protect == ESUCCESS)
 		{
-			protect = utils_searchexp(uri, config->protect);
+			protect = utils_searchexp(uri, config->protect, NULL);
 			if (protect != ESUCCESS)
 			{
 				ret = EREJECT;

@@ -127,7 +127,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
 
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (utils_searchexp(uri, str_authresp) == ESUCCESS)
+	if (utils_searchexp(uri, str_authresp, NULL) == ESUCCESS)
 	{
 		mod->state = 1;
 		/** set the default result */
@@ -375,7 +375,7 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 	snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
 	httpmessage_addheader(response, str_authenticate, authenticate);
 
-	if (!utils_searchexp(uri, str_authresp))
+	if (!utils_searchexp(uri, str_authresp, NULL))
 	{
 		ret = EREJECT;
 	}
