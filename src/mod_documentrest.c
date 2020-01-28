@@ -93,6 +93,10 @@ static int putheader_connector(document_connector_t *private, http_message_t *re
 		snprintf(range, 20, "bytes %.9ld/*", (long)private->size);
 		httpmessage_addheader(response, "Content-Range", range);
 	}
+	else if (private->offset > 0)
+	{
+		private->fd = open(private->filepath, O_WRONLY, 0644);
+	}
 	else
 	{
 #ifdef PUTTMPFILE
@@ -107,7 +111,7 @@ static int putheader_connector(document_connector_t *private, http_message_t *re
 		char *dirpath = dirname(filepath);
 		private->fd = open(dirpath, O_WRONLY | O_TMPFILE, 0644);
 #else
-		private->fd = open(private->filepath, O_WRONLY | O_CREAT, 0644);
+		private->fd = open(private->filepath, O_WRONLY | O_CREAT | O_EXCL, 0644);
 #endif
 	}
 	if (private->fd > 0)
@@ -131,7 +135,8 @@ static int putheader_connector(document_connector_t *private, http_message_t *re
 		httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
 		httpmessage_appendcontent(response, uri, -1);
 		httpmessage_appendcontent(response, "\"}\n", -1);
-		if (private->size > 0)
+
+		if (private->offset > 0)
 #if defined RESULT_416
 			httpmessage_result(response, RESULT_416);
 #else
