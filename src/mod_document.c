@@ -159,19 +159,17 @@ static int _document_connectordir(_mod_document_mod_t *mod, http_message_t *requ
 		{
 			dbg("document: move to %s", indexpath);
 #if defined(RESULT_301)
-			int locationlength = length + strlen(config->defaultpage) + 3;
-			char *location = calloc(1, locationlength);
 			/**
 			 * Check uri is only one character.
 			 * It should be "/"
 			 */
 			if ((uri[0] == '/') && (uri[1] == '\0'))
 				uri++;
-			snprintf(location, locationlength, "%s/%s", uri, config->defaultpage);
-			httpmessage_addheader(response, str_location, location);
+			httpmessage_addheader(response, str_location, uri);
+			httpmessage_appendheader(response, str_location, "/", config->defaultpage, NULL);
 			httpmessage_result(response, RESULT_301);
+
 			free(indexpath);
-			free(location);
 			document_close(private, request);
 			return ESUCCESS;
 #else
@@ -206,7 +204,6 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		private->ctl = httpmessage_client(request);
 		private->size = 0;
 		private->offset = 0;
-		struct stat filestat;
 		const char *uri = httpmessage_REQUEST(request,"uri");
 		const char *url = uri;
 
@@ -225,6 +222,8 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		}
 		if (docroot == NULL)
 			docroot = config->docroot;
+
+		struct stat filestat;
 		private->filepath = utils_buildpath(docroot, other, url, "", &filestat);
 #ifdef DOCUMENTREST
 		const char *method = httpmessage_REQUEST(request, "method");
