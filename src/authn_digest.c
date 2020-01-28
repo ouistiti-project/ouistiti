@@ -55,7 +55,6 @@ struct authn_digest_s
 	authn_digest_config_t *config;
 	authz_t *authz;
 	const hash_t *hash;
-	char *challenge;
 	const char *opaque;
 	char nonce[MAXNONCE];
 	int stale;
@@ -117,7 +116,6 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
 	mod->authz = authz;
-	mod->challenge = calloc(1, 256);
 	mod->hash = authn->hash;
 	if (mod->config->opaque == NULL)
 		mod->opaque = str_opaque;
@@ -170,18 +168,17 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	int ret;
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
-	snprintf(mod->challenge, 256, "%s realm=\"%s\",qop=\"auth\",nonce=\"%s\",opaque=\"%s\",stale=%s",
-						str_digest,
-						mod->config->realm,
-						mod->nonce,
-						mod->opaque,
-						(mod->stale)?"true":"false");
+	httpmessage_addheader(response, str_authenticate, "Digest realm=\"");
+	httpmessage_appendheader(response, str_authenticate,
+				mod->config->realm,
+				"\",qop=\"auth\",nonce=\"", mod->nonce,
+				"\",opaque=\"", mod->opaque,
+				"\",stale=", (mod->stale)?"true":"false", NULL);
 	if (mod->hash != hash_md5)
 	{
-		int len = strlen(mod->challenge);
-		snprintf(mod->challenge + len, 256 - len, ",algorithm=\"%s\"", mod->hash->name);
+		httpmessage_appendheader(response, str_authenticate,
+				",algorithm=\"", mod->hash->name, "\"", NULL);
 	}
-	httpmessage_addheader(response, str_authenticate, mod->challenge);
 	httpmessage_keepalive(response);
 	ret = ECONTINUE;
 	return ret;
@@ -427,8 +424,6 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 static void authn_digest_destroy(void *arg)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
-	if (mod->challenge)
-		free(mod->challenge);
 	free(mod);
 }
 

@@ -159,13 +159,15 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 			{
 				const char *type = "authorization_code"; /** RFC6749 4.1.2 */
 
+
+				httpmessage_addheader(request2, str_authorization, "Basic ");
+
 				char authorization[256] = {0};
 				char basic[164];
 				snprintf(basic, 164, "%s:%s", config->client_id, config->client_passwd);
-				strncpy(authorization, "Basic ", 256);
 				int length = strlen(basic) * 1.5 + 5;
-				base64_urlencoding->encode(basic, strlen(basic), authorization + strlen(authorization), length - 1);
-				httpmessage_addheader(request2, str_authorization, authorization);
+				base64_urlencoding->encode(basic, strlen(basic), authorization, 256);
+				httpmessage_appendheader(request2, str_authorization, authorization, NULL);
 
 				response2 = httpmessage_create();
 
@@ -291,13 +293,10 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 				snprintf(authorization, MAX_TOKEN + 7 + 1, "oAuth2 %s", access_token);
 				httpmessage_addheader(response, str_authorization, authorization);
 
-				char location[1024];
 				const char *scheme = httpmessage_REQUEST(request, "scheme");
+				httpmessage_addheader(response, str_location, scheme);
 				const char *host = httpmessage_REQUEST(request, "host");
-				snprintf(location, 1024, "%s://%s/",
-										scheme,
-										host);
-				httpmessage_addheader(response, str_location, location);
+				httpmessage_appendheader(response, str_location, "://", host, "/", NULL);
 				httpmessage_result(response, RESULT_302);
 
 				cookie_set(response, str_authorization, authorization);
