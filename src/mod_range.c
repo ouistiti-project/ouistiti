@@ -62,6 +62,7 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 	const char *range = httpmessage_REQUEST(request,"Range");
 	if (range != NULL && range[0] != '\0')
 		rangesize = strstr(range, "bytes=");
+
 	if (rangesize)
 	{
 		int offset;
