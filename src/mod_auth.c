@@ -405,11 +405,9 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 		{
 			dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)
-			char *location = calloc(1, homelength + 1 + 1);
-			snprintf(location, homelength + 1 + 1, "%s/", home);
-			httpmessage_addheader(response, str_location, location);
+			httpmessage_addheader(response, str_location, home);
+			httpmessage_appendheader(response, str_location, "/", NULL);
 			httpmessage_result(response, RESULT_301);
-			free(location);
 			ret = ESUCCESS;
 #endif
 		}
