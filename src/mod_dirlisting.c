@@ -135,7 +135,15 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *mod, http_message_t
 	struct dirent *ent;
 
 	errno = 0;
+#ifdef USE_REENTRANT
+	/**
+	 * readdir_r is deprecated but SonarCloud requires readdir_r.
+	 */
+	struct dirent entstorage;
+	readdir_r(private->dir, &entstorage, &ent);
+#else
 	ent = readdir(private->dir);
+#endif
 	if (ent)
 	{
 		if (ent->d_name[0] != '.')
