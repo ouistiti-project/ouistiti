@@ -15,6 +15,7 @@ LIBHTTPSERVER_DIR=libhttpserver/
 #if mono thread only one server may run
 VTHREAD=n
 VTHREAD_TYPE=fork
+USE_STDARG=n
 
 #modules selection:
 
