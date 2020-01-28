@@ -1,4 +1,4 @@
-HTTP/1.1 416 Range Not Satisfiable
+HTTP/1.1 405 Method Not Allowed
 Content-Type: text/json
 Content-Length: 52
 
