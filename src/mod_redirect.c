@@ -139,16 +139,11 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 				utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
 		{
 			int result = mod->result;
+			httpmessage_addheader(response, str_location, link->destination);
 			if (path_info != NULL)
 			{
-				int length = strlen(path_info) + strlen(link->destination) + 1;
-				char *location = calloc(1, length);
-				snprintf(location, length, "%s%s", link->destination, path_info);
-				httpmessage_addheader(response, str_location, link->destination);
-				free(location);
+				httpmessage_appendheader(response, str_location, path_info, NULL);
 			}
-			else
-				httpmessage_addheader(response, str_location, link->destination);
 			if (link->options & REDIRECT_PERMANENTLY)
 				result = RESULT_301;
 			else if (link->options & REDIRECT_TEMPORARY)
@@ -200,9 +195,8 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 			if (!strcmp(upgrade, "1"))
 			{
 				char location[1024];
-				snprintf(location, 1024, "%s://%s%s%s/%s",
-							scheme, host, portseparator, port, path);
-				httpmessage_addheader(response, str_location, location);
+				httpmessage_addheader(response, str_location, scheme);
+				httpmessage_appendheader(response, str_location, "://", host, portseparator, port, path, NULL);
 				httpmessage_addheader(response, "Vary", str_upgrade_insec_req);
 				httpmessage_result(response, RESULT_301);
 				return ESUCCESS;
