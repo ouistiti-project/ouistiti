@@ -2,4 +2,4 @@ HTTP/1.1 200 OK
 Content-Type: text/json
 Content-Length: 49
 
-{"method":"PUT","name":"/newdir/","result":"OK"}
+{"method":"PUT","result":"OK","name":"/newdir/"}
