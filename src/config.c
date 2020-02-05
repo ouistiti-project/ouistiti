@@ -522,13 +522,15 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 		config_setting_lookup_int(configauth, "expire", &auth->expire);
 
-		struct _authz_s *authz = authz_list[0];
-		while (authz->config != NULL)
+		int i = 0;
+		struct _authz_s *authz = authz_list[i];
+		while (authz != NULL && authz->config != NULL)
 		{
 			auth->authz_config = authz->config(configauth);
 			if (auth->authz_config != NULL)
 				break;
-			authz++;
+			i++;
+			authz = authz_list[i];
 		}
 		if (authz != NULL)
 		{
@@ -539,13 +541,15 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configauth, "type", (const char **)&type);
 		if (type != NULL)
 		{
-			struct _authn_s *authn = authn_list[0];
-			while (authn->config != NULL)
+			i = 0;
+			struct _authn_s *authn = authn_list[i];
+			while (authn != NULL && authn->config != NULL)
 			{
 				auth->authn_config = authn->config(configauth, type);
 				if (auth->authn_config != NULL)
 					break;
-				authn++;
+				i++;
+				authn = authn_list[i];
 			}
 			if (authn != NULL)
 			{
