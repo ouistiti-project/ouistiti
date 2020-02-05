@@ -85,17 +85,10 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *mod, http_message_t 
 	document_connector_t *private = httpmessage_private(request, NULL);
 	const char *uri = httpmessage_REQUEST(request,"uri");
 
-	if (chdir(private->filepath) != 0)
-	{
-		warn("dirlisting: directory forbidden %s %s", private->filepath, strerror(errno));
-		document_close(private, request);
-		httpmessage_result(response, RESULT_403);
-		return ESUCCESS;
-	}
-	private->dir = opendir(private->filepath);
+	private->dir = fdopendir(private->fdfile);
 	if (private->dir)
 	{
-		dbg("dirlisting: open /%s", private->filepath);
+		dbg("dirlisting: open /%s", private->url);
 		/**
 		 * The content-length of dirlisting is unknown.
 		 * Set the content-type first without content-length.
@@ -120,7 +113,7 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *mod, http_message_t 
 	}
 	else
 	{
-		warn("dirlisting: directory not open %s %s", private->filepath, strerror(errno));
+		warn("dirlisting: directory not open %s %s", private->url, strerror(errno));
 		document_close(private, request);
 		httpmessage_result(response, RESULT_400);
 		ret = ESUCCESS;
@@ -152,8 +145,13 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *mod, http_message_t
 			if (length > MAX_NAMELENGTH)
 				warn("dirlisting: %s file name length too long", ent->d_name);
 			struct stat filestat;
-			stat(ent->d_name, &filestat);
+			fstatat(private->fdfile, ent->d_name, &filestat, 0);
 			size_t size = filestat.st_size;
+			if (size == -1)
+			{
+				err("dirlisting: %s stat error %s", ent->d_name, strerror(errno));
+				return EREJECT;
+			}
 			int unit = 0;
 			while (size > 2000)
 			{
@@ -161,6 +159,7 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *mod, http_message_t
 				unit++;
 			}
 			const char *mime = "inode/directory";
+
 			if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
 			{
 				mime = utils_getmime(ent->d_name);
@@ -174,15 +173,15 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *mod, http_message_t
 		}
 		ret = ECONTINUE;
 	}
-	else if (private->filepath != NULL)
+	else if (private->fdfile > 0)
 	{
 		int length = sizeof(DIRLISTING_FOOTER);
 		char *data = calloc(1, length);
 		snprintf(data, length, DIRLISTING_FOOTER, "OK");
 		httpmessage_addcontent(response, NULL, data, -1);
 		free(data);
-		free(private->filepath);
-		private->filepath = NULL;
+		close(private->fdfile);
+		private->fdfile = 0;
 		ret = ECONTINUE;
 	}
 	else

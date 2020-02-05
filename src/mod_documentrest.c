@@ -51,21 +51,46 @@
 #define dbg(...)
 #endif
 
+#define HAVE_SYMLINK
+
 static const char str_OK[] = "OK";
 static const char str_KO[] = "KO";
+
+static int restheader_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
+{
+	const char *uri = httpmessage_REQUEST(request,"uri");
+	const char *method = httpmessage_REQUEST(request,"method");
+
+	httpmessage_addcontent(response, "text/json", NULL, 0);
+	httpmessage_appendcontent(response, "{\"method\":\"", -1);
+	httpmessage_appendcontent(response, method, -1);
+	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
+	if (httpmessage_result(response, 0) == 200)
+		httpmessage_appendcontent(response, "OK", -1);
+	else
+	{
+		httpmessage_appendcontent(response, "KO\",\"error\":\"", -1);
+		httpmessage_appendcontent(response, strerror(errno), -1);
+	}
+	httpmessage_appendcontent(response, "\",\"name\":\"", -1);
+	httpmessage_appendcontent(response, uri, -1);
+	httpmessage_appendcontent(response, "\"}\n", -1);
+#ifdef DEBUG
+	clock_gettime(CLOCK_REALTIME, &private->start);
+	dbg("document transfer start: %ld:%ld", private->start.tv_sec, private->start.tv_nsec);
+#endif
+
+	return ESUCCESS;
+}
 
 static int putdir_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
 	const char *uri = httpmessage_REQUEST(request,"uri");
 
-	httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"name\":\"", -1);
-	httpmessage_appendcontent(response, uri, -1);
-	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
-	if (mkdir(private->filepath, 0777) > 0)
+	if (mkdirat(private->fdroot, private->url, 0777) > 0)
 	{
-		err("document: directory creation not allowed %s", private->filepath);
-		httpmessage_appendcontent(response, "KO\"}\n", -1);
+		err("document: directory creation not allowed %s", private->url);
 #if defined RESULT_405
 		httpmessage_result(response, RESULT_405);
 #else
@@ -74,85 +99,10 @@ static int putdir_connector(document_connector_t *private, http_message_t *reque
 	}
 	else
 	{
-		warn("document: directory creation %s", private->filepath);
-		httpmessage_appendcontent(response, "OK\"}\n", -1);
+		warn("document: directory creation %s", private->url);
 	}
 	ret = ESUCCESS;
 	document_close(private, request);
-	return ret;
-}
-
-static int putheader_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
-{
-	int ret =  EREJECT;
-	const char *uri = httpmessage_REQUEST(request,"uri");
-
-	if (private->size > private->offset)
-	{
-		char range[20];
-		snprintf(range, 20, "bytes %.9ld/*", (long)private->size);
-		httpmessage_addheader(response, "Content-Range", range);
-	}
-	else if (private->offset > 0)
-	{
-		private->fd = open(private->filepath, O_WRONLY, 0644);
-	}
-	else
-	{
-#ifdef PUTTMPFILE
-#ifndef O_TMPFILE
-#define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
-#endif
-		/**
-		 * tmpfile will be not visible before to be closed
-		 */
-		char filepath[PATH_MAX];
-		strncpy(filepath, private->filepath, PATH_MAX);
-		char *dirpath = dirname(filepath);
-		private->fd = open(dirpath, O_WRONLY | O_TMPFILE, 0644);
-#else
-		private->fd = open(private->filepath, O_WRONLY | O_CREAT | O_EXCL, 0644);
-#endif
-	}
-	if (private->fd > 0)
-	{
-		if (private->offset > 0)
-		{
-			lseek(private->fd, private->offset, SEEK_SET);
-		}
-		ret = EINCOMPLETE;
-		httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"OK\",\"name\":\"", -1);
-		httpmessage_appendcontent(response, uri, -1);
-		httpmessage_appendcontent(response, "\"}\n", -1);
-#ifdef DEBUG
-		clock_gettime(CLOCK_REALTIME, &private->start);
-		dbg("document transfer start: %ld:%ld", private->start.tv_sec, private->start.tv_nsec);
-#endif
-	}
-	else
-	{
-		err("document: file creation not allowed %s (size: %ld)", private->filepath, (long)private->size);
-		httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
-		httpmessage_appendcontent(response, uri, -1);
-		httpmessage_appendcontent(response, "\"}\n", -1);
-
-		if (private->offset > 0)
-#if defined RESULT_416
-			httpmessage_result(response, RESULT_416);
-#else
-			httpmessage_result(response, RESULT_400);
-#endif
-		else
-#if defined RESULT_405
-			httpmessage_result(response, RESULT_405);
-#else
-			httpmessage_result(response, RESULT_400);
-#endif
-		ret = ESUCCESS;
-		private->fd = 0;
-		document_close(private, request);
-	}
-
 	return ret;
 }
 
@@ -176,10 +126,10 @@ static int putcontent_connector(document_connector_t *private, http_message_t *r
 	ret = EINCOMPLETE;
 	while (inputlen > 0)
 	{
-		int wret = write(private->fd, input, inputlen);
+		int wret = write(private->fdfile, input, inputlen);
 		if (wret < 0)
 		{
-			err("document: access file %s error %s", private->filepath, strerror(errno));
+			err("document: access file %s error %s", private->url, strerror(errno));
 			if (errno != EAGAIN)
 			{
 #ifdef RESULT_500
@@ -187,7 +137,7 @@ static int putcontent_connector(document_connector_t *private, http_message_t *r
 #else
 				httpmessage_result(response, RESULT_404);
 #endif
-				rest = 0;
+				rest = -1;
 				break;
 			}
 		}
@@ -215,19 +165,24 @@ static int putcontent_connector(document_connector_t *private, http_message_t *r
 		value.tv_nsec = stop.tv_nsec - private->start.tv_nsec;
 		dbg("document: (%llu bytes) time %ld:%03ld", private->datasize, value.tv_sec, value.tv_nsec/1000000);
 #endif
-		warn("document: %s uploaded", private->filepath);
-		if (private->fd)
+		warn("document: %s uploaded", private->url);
+		if (private->fdfile)
 		{
 #ifdef PUTTMPFILE
 			char path[PATH_MAX];
-			snprintf(path, PATH_MAX, "/proc/self/fd/%d", private->fd);
-			linkat(AT_FDCWD, path, AT_FDCWD, private->filepath,AT_SYMLINK_FOLLOW);
+			snprintf(path, PATH_MAX, "/proc/self/fd/%d", private->fdfile);
+			if (linkat(mode->fdroot, path, AT_FDCWD, private->url, AT_SYMLINK_FOLLOW) == -1)
+#if defined RESULT_405
+				httpmessage_result(response, RESULT_405);
+#else
+				httpmessage_result(response, RESULT_400);
 #endif
-			close(private->fd);
+#endif
+			close(private->fdfile);
 		}
-		private->fd = 0;
-		ret = ESUCCESS;
+		private->fdfile = 0;
 		document_close(private, request);
+		ret = ESUCCESS;
 	}
 	return ret;
 }
@@ -238,57 +193,44 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 
-	if (private->fd == 0)
+	if (private->type & DOCUMENT_DIRLISTING)
 	{
-		int length = strlen(private->filepath);
-		if (private->filepath[length - 1] == '/')
-		{
-			ret = putdir_connector(private, request, response);
-		}
-		else
-		{
-			ret = putheader_connector(private, request, response);
-		}
+		ret = putdir_connector(private, request, response);
 	}
 	/**
 	 * we are into PRECONTENT, the data is no yet available
 	 * Then the first loop as to complete on the opening
 	 */
-	else if (private->fd > 0)
+	else if (private->fdfile > 0)
 	{
 		ret = putcontent_connector(private, request, response);
+	}
+	if (ret == ESUCCESS)
+	{
+		ret = restheader_connector(private, request, response);
 	}
 	return ret;
 }
 
-typedef int (*changefunc)(const char *oldpath, const char *newpath);
-static int changename(mod_document_t *config, http_message_t *request, char *oldpath, const char *newname, changefunc func)
+int _document_renameat(int fddir, const char *oldpath, const char *newpath)
+{
+	return renameat(fddir, oldpath, fddir, newpath);
+}
+
+int _document_symlinkat(int fddir, const char *oldpath, const char *newpath)
+{
+	return symlinkat(oldpath, fddir, newpath);
+}
+
+typedef int (*changefunc)(int fddir, const char *oldpath, const char *newpath);
+static int changename(document_connector_t *private, http_message_t *request, const char *oldpath, const char *newname, changefunc func)
 {
 	int ret = -1;
 	if (newname && newname[0] != '\0')
 	{
-		const char *docroot = config->docroot;
-		const char *other = "";
-		const char *homepath = strstr(newname, "~");
-		if (homepath != NULL && config->dochome != NULL)
-		{
-			docroot = config->dochome;
-			newname = homepath + 1;
-#ifdef AUTH
-			if (newname[0] == '/')
-			{
-				other = auth_info(request, "user");
-			}
-#endif
-		}
-		char *newpath = utils_buildpath(docroot, other, newname, "", NULL);
-		if (newpath)
-		{
-			warn("change %s to %s", oldpath, newpath);
-			if (!func(oldpath, newpath))
-				ret = 0;
-			free(newpath);
-		}
+		warn("change %s to %s", oldpath, newname);
+		if (!func(private->fdroot, oldpath, newname))
+			ret = 0;
 	}
 	return ret;
 }
@@ -300,7 +242,6 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	mod_document_t *config = (mod_document_t *)mod->config;
 
 	const char *uri = httpmessage_REQUEST(request,"uri");
-	const char *result = str_KO;
 	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
 
 	if (cmd == NULL || cmd[0] == '\0')
@@ -309,33 +250,55 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	}
 	else if (cmd && !strcmp("mv", cmd))
 	{
-		warn("move %s", private->filepath);
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
-		if (!changename(config, request, private->filepath, arg, rename))
-			result = str_OK;
+		if (arg[0] == '/')
+			arg++;
+		warn("move %s to %s", private->url, arg);
+		if (changename(private, request, private->url, arg, _document_renameat) == -1)
+#if defined RESULT_405
+			httpmessage_result(response, RESULT_405);
+#else
+			httpmessage_result(response, RESULT_400);
+#endif
 	}
 	else if (cmd && !strcmp("chmod", cmd))
 	{
-		warn("chmod %s", private->filepath);
+		warn("chmod %s", private->url);
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
 		int mod = strtol(arg, NULL, 8);
-		if (!chmod(private->filepath, mod))
-			result = str_OK;
+		if (fchmodat(private->fdroot, private->url, mod, 0) == -1)
+#if defined RESULT_405
+			httpmessage_result(response, RESULT_405);
+#else
+			httpmessage_result(response, RESULT_400);
+#endif
 	}
 #ifdef HAVE_SYMLINK
 	else if (cmd && !strcmp("ln", cmd))
 	{
-		warn("link %s", private->filepath);
 		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
-		if (!changename(config, private->filepath, arg, symlink))
-			result = (char *)str_OK;
+		if (arg[0] == '/')
+			arg++;
+		warn("document: link %s to %s", private->url, arg);
+		if (changename(private, request, private->url, arg, _document_symlinkat) == -1)
+#if defined RESULT_405
+			httpmessage_result(response, RESULT_405);
+#else
+			httpmessage_result(response, RESULT_400);
+#endif
 	}
 #endif
-	httpmessage_addcontent(response, "text/json", "{\"method\":\"POST\",\"name\":\"", -1);
-	httpmessage_appendcontent(response, uri, -1);
-	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
-	httpmessage_appendcontent(response, result, -1);
-	httpmessage_appendcontent(response, "\"}\n", -1);
+	else
+	{
+		err("document: %s unknown", cmd);
+		errno = 22;
+#if defined RESULT_405
+		httpmessage_result(response, RESULT_405);
+#else
+		httpmessage_result(response, RESULT_400);
+#endif
+	}
+	restheader_connector(private, request, response);
 	document_close(private, request);
 
 	return ESUCCESS;
@@ -347,20 +310,12 @@ int deletefile_connector(void *arg, http_message_t *request, http_message_t *res
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	const char *uri = httpmessage_REQUEST(request,"uri");
 
-	httpmessage_addcontent(response, "text/json", "{\"method\":\"DELETE\",\"name\":\"", -1);
-	httpmessage_appendcontent(response, uri, -1);
-	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
-	struct stat statistic;
-	stat(private->filepath, &statistic);
-	int (*rmfunction)(const char *pathname);
-	if (S_ISDIR(statistic.st_mode))
-		rmfunction = rmdir;
-	else
-		rmfunction = unlink;
-	if (rmfunction(private->filepath) < 0)
+	int flags = 0;
+	if (private->type & DOCUMENT_DIRLISTING)
+		flags |= AT_REMOVEDIR;
+	if (unlinkat(private->fdroot, private->url, flags) < 0)
 	{
-		err("file removing not allowed %s", private->filepath);
-		httpmessage_appendcontent(response, "KO\"}\n", -1);
+		err("file removing not allowed %s", private->url);
 #if defined RESULT_405
 		httpmessage_result(response, RESULT_405);
 #else
@@ -369,9 +324,9 @@ int deletefile_connector(void *arg, http_message_t *request, http_message_t *res
 	}
 	else
 	{
-		warn("remove file : %s", private->filepath);
-		httpmessage_appendcontent(response, "OK\"}\n", -1);
+		warn("remove file : %s", private->url);
 	}
+	restheader_connector(private, request, response);
 	document_close(private, request);
 	return ESUCCESS;
 }

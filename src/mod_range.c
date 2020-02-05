@@ -37,7 +37,7 @@
 #include <errno.h>
 
 #include "httpserver/httpserver.h"
-#include "httpserver/uri.h"
+#include "httpserver/utils.h"
 #include "mod_document.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -48,12 +48,12 @@
 #define dbg(...)
 #endif
 
-
 int range_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	if (private == NULL || private->type & DOCUMENT_DIRLISTING || private->filepath == NULL)
+
+	if (private == NULL || private->type & DOCUMENT_DIRLISTING || !(private->fdfile > 0))
 		return EREJECT;
 
 	int filesize = private->size;
@@ -95,8 +95,11 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 					filesize);
 		httpmessage_addheader(response, "Content-Range", buffer);
 		httpmessage_result(response, RESULT_206);
+
+		lseek(private->fdfile, private->offset, SEEK_SET);
 	}
 	httpmessage_addheader(response, "Accept-Ranges", "bytes");
+
 	return EREJECT;
 
 notsatisfiable:
