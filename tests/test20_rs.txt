@@ -17,7 +17,7 @@ REQUEST_METHOD = POST
 SCHEME = http
 URI = /test.cgi
 QUERY_STRING = 
-SCRIPT_NAME = /test.cgi
+SCRIPT_NAME = test.cgi
 CONTENT_TYPE = text/plain
 CONTENT_LENGTH = 15
 CONTENT:

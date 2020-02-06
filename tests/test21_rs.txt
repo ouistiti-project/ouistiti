@@ -18,7 +18,7 @@ SCHEME = http
 URI = /test.cgi
 QUERY_STRING = hello
 HTTP_ACCEPT = 
-SCRIPT_NAME = /test.cgi
+SCRIPT_NAME = test.cgi
 CONTENT_TYPE = text/raw
 CONTENT_LENGTH = 2232
 CONTENT:
