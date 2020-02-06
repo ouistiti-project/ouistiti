@@ -65,6 +65,7 @@ SERVERHEADER=y
 #support of the HTTP streaming
 WEBSTREAM=n
 UDPGW=n
+DUMMYSTREAM=n
 #support of client address filter
 CLIENTFILTER=n
 #support the redirection
