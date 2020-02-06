@@ -174,7 +174,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_mess
 		argv[1] = NULL;
 
 		char **env = NULL;
-		env = cgi_buildenv(config, request, ctx->cgipath);
+		env = cgi_buildenv(config, request, ctx->cgipath, ctx->path_info);
 
 		close(sock);
 
