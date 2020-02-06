@@ -28,15 +28,16 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
+#define _GNU_SOURCE
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <sys/time.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <libgen.h>
 #include <netinet/in.h>
@@ -83,8 +84,8 @@ struct mod_cgi_ctx_s
 	_mod_cgi_t *mod;
 	http_client_t *ctl;
 
-	char *cgipath;
-	char *path_info;
+	char cgipath[256];
+	const char *path_info;
 
 	pid_t pid;
 	int tocgi[2];
@@ -97,6 +98,7 @@ struct _mod_cgi_s
 {
 	http_server_t *server;
 	mod_cgi_config_t *config;
+	int rootfd;
 };
 
 void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
@@ -106,39 +108,48 @@ void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
 	if (!modconfig)
 		return NULL;
 
+	int rootfd = open(modconfig->docroot, O_PATH | O_DIRECTORY);
+	if (rootfd == -1)
+	{
+		err("cgi: %s access denied", modconfig->docroot);
+		return NULL;
+	}
+
+	mod = calloc(1, sizeof(*mod));
+	mod->rootfd = rootfd;
+	mod->config = modconfig;
+	mod->server = server;
 	if (modconfig->timeout == 0)
 		modconfig->timeout = 3;
 
-	httpserver_addconnector(server, _cgi_connector, modconfig, CONNECTOR_DOCUMENT, str_cgi);
+	httpserver_addconnector(server, _cgi_connector, mod, CONNECTOR_DOCUMENT, str_cgi);
 
-	return modconfig;
+	return mod;
 }
 
 void mod_cgi_destroy(void *arg)
 {
+	_mod_cgi_t *mod = (_mod_cgi_t *)arg;
 	// nothing to do
+	close(mod->rootfd);
 }
 
 static void _cgi_freectx(mod_cgi_ctx_t *ctx)
 {
-	if (ctx->cgipath)
-		free(ctx->cgipath);
-	if (ctx->path_info)
-		free(ctx->path_info);
 	if (ctx->chunk)
 		free(ctx->chunk);
 	if (ctx->fromcgi[0])
-	{
-		if (ctx->fromcgi[0])
-			close(ctx->fromcgi[0]);
-		if (ctx->tocgi[1] > 0)
-			close(ctx->tocgi[1]);
-	}
+		close(ctx->fromcgi[0]);
+	if (ctx->tocgi[1] > 0)
+		close(ctx->tocgi[1]);
 	free(ctx);
 }
 
-static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_message_t *request)
+static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 {
+	_mod_cgi_t *mod = ctx->mod;
+	mod_cgi_config_t *config = mod->config;
+
 	if (pipe(ctx->tocgi) < 0)
 		return EREJECT;
 	if (pipe(ctx->fromcgi))
@@ -169,26 +180,25 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_mess
 
 		int sock = httpmessage_keepalive(request);
 
-		char *argv[2];
-		argv[0] = basename(ctx->cgipath);
-		argv[1] = NULL;
+		char * const argv[2] = { (char *)ctx->cgipath, NULL };
 
 		char **env = NULL;
 		env = cgi_buildenv(config, request, ctx->cgipath, ctx->path_info);
 
 		close(sock);
 
-		char *dirpath;
-		dirpath = dirname(ctx->cgipath);
-		if (dirpath &&
-			(chdir(dirpath) != 0))
-		{
-			err("cgi: directory forbidden %s %s", dirpath, strerror(errno));
-			exit(0);
-		}
 		setbuf(stdout, 0);
 		sched_yield();
-		execve(argv[0], argv, env);
+		/**
+		 * cgipath is absolute, but in fact execveat runs in docroot.
+		 */
+#ifdef USE_EXECVEAT
+		execveat(mod->rootfd, ctx->cgipath, argv, env);
+#else
+		int scriptfd = openat(mod->rootfd, ctx->cgipath, __O_PATH);
+		close(mod->rootfd);
+		fexecve(scriptfd, argv, env);
+#endif
 		err("cgi error: %s", strerror(errno));
 		exit(0);
 	}
@@ -214,8 +224,9 @@ static int _cgi_checkname(const char *uri, mod_cgi_config_t *config, const char 
 	return ESUCCESS;
 }
 
-static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_message_t *response)
+static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *response)
 {
+	mod_cgi_config_t *config = mod->config;
 	int ret = EREJECT;
 	const char *url = httpmessage_REQUEST(request,"uri");
 	if (url && config->docroot)
@@ -227,31 +238,48 @@ static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_me
 			return EREJECT;
 		}
 
-		const char *other = "";
-		char *filepath;
-		struct stat filestat;
-		filepath = utils_buildpath(config->docroot, other, url, "", &filestat);
+		char cgipath[256];
+		int length = 256;
+		if (path_info != NULL && (path_info - url) < length)
+		{
+			length = path_info - url;
+		}
+		strncpy(cgipath, url + 1, length - 1);
+		warn("cgi: %s search %d", cgipath, mod->rootfd);
+		int scriptfd = openat(mod->rootfd, cgipath, O_PATH);
+		if (scriptfd < 0)
+		{
+			warn("cgi: %s not found", cgipath);
+			warn("cgi: %s", strerror(errno));
+			return EREJECT;
+		}
+
+		struct stat filestat = {0};
+		fstat(scriptfd, &filestat);
 
 		if (S_ISDIR(filestat.st_mode))
 		{
 			dbg("cgi: %s is directory", url);
-			free(filepath);
+			close(scriptfd);
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
 		if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
 		{
 			httpmessage_result(response, RESULT_403);
-			warn("cgi: %s access denied", url);
-			free(filepath);
+			warn("cgi: %s access denied", cgipath);
+			warn("cgi: %s", strerror(errno));
+			close(scriptfd);
 			return ESUCCESS;
 		}
 
 		mod_cgi_ctx_t *ctx;
-		dbg("cgi: run %s", filepath);
+		dbg("cgi: run %s", url);
 		ctx = calloc(1, sizeof(*ctx));
-		ctx->cgipath = filepath;
-		ctx->pid = _mod_cgi_fork(ctx, config, request);
+		strncpy(ctx->cgipath, cgipath, length);
+		ctx->mod = mod;
+		ctx->path_info = path_info;
+		ctx->pid = _mod_cgi_fork(ctx, request);
 		ctx->state = STATE_START;
 		if (config->chunksize == 0)
 			config->chunksize = 64;
@@ -262,12 +290,15 @@ static int _cgi_start(mod_cgi_config_t *config, http_message_t *request, http_me
 	return ret;
 }
 
-static int _cgi_request(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_message_t *request)
+static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 {
+	_mod_cgi_t *mod = ctx->mod;
+	mod_cgi_config_t *config = mod->config;
 	int ret = ECONTINUE;
 	char *input;
 	int inputlen;
 	unsigned long long rest;
+
 	inputlen = httpmessage_content(request, &input, &rest);
 	if (inputlen > 0)
 	{
@@ -291,8 +322,10 @@ static int _cgi_request(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_messa
 	return ret;
 }
 
-static int _cgi_response(mod_cgi_ctx_t *ctx, mod_cgi_config_t *config, http_message_t *response)
+static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 {
+	_mod_cgi_t *mod = ctx->mod;
+	mod_cgi_config_t *config = mod->config;
 	int ret = ECONTINUE;
 	int sret;
 	fd_set rfds;
@@ -367,16 +400,17 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 {
 	int ret = EINCOMPLETE;
 	mod_cgi_ctx_t *ctx = httpmessage_private(request, NULL);
-	mod_cgi_config_t *config = (mod_cgi_config_t *)arg;
+	_mod_cgi_t *mod = (_mod_cgi_t *)arg;
+	mod_cgi_config_t *config = mod->config;
 
 	if (ctx == NULL)
 	{
-		ret = _cgi_start(config, request, response);
+		ret = _cgi_start(mod, request, response);
 		return ret;
 	}
 	else if (ctx->tocgi[1] > 0 && ctx->state == STATE_START)
 	{
-		_cgi_request(ctx, config, request);
+		_cgi_request(ctx, request);
 	}
 	/**
 	 * when the request is complete the module must check the CGI immedialty
@@ -384,7 +418,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	 */
 	if ((ctx->state & STATE_MASK) >= STATE_INFINISH && (ctx->state & STATE_MASK) < STATE_CONTENTCOMPLETE)
 	{
-		ret = _cgi_response(ctx, config, response);
+		ret = _cgi_response(ctx, response);
 	}
 	else if ((ctx->state & STATE_MASK) == STATE_CONTENTCOMPLETE)
 	{
