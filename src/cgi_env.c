@@ -52,9 +52,10 @@ static char str_gatewayinterface[] = "CGI/1.1";
 static char str_contenttype[] = "Content-Type";
 
 #define ENV_NOTREQUIRED 0x01
-typedef const char *(*httpenv_callback_t)(mod_cgi_config_t *config, http_message_t *request, char *cgi_path);
+typedef const char *(*httpenv_callback_t)(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path);
 struct httpenv_s
 {
+	int id;
 	char *target;
 	int length;
 	int options;
@@ -62,200 +63,372 @@ struct httpenv_s
 };
 typedef struct httpenv_s httpenv_t;
 
-const char *env_docroot(mod_cgi_config_t *config, http_message_t *request, char *cgi_path)
-{
-	return config->docroot;
-}
-
-const char *env_gatewayinterface(mod_cgi_config_t *config, http_message_t *request, char *cgi_path)
+const char *env_gatewayinterface(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
 {
 	return str_gatewayinterface;
 }
 
+const char *env_docroot(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return config->docroot;
+}
+
+const char *env_serversoftware(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_SERVER(request, "software");
+}
+
+const char *env_servername(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_SERVER(request, "name");
+}
+
+const char *env_serverprotocol(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_SERVER(request, "protocol");
+}
+
+const char *env_serveraddr(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_SERVER(request, "addr");
+}
+
+const char *env_serverport(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_SERVER(request, "port");
+}
+
+const char *env_requestmethod(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "method");
+}
+
+const char *env_requestscheme(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "scheme");
+}
+
+const char *env_requesturi(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "uri");
+}
+
+const char *env_requestcontentlength(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Content-Length");
+}
+
+const char *env_requestcontenttype(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Content-Type");
+}
+
+const char *env_requestquery(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "query");
+}
+
+const char *env_requestaccept(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Accept");
+}
+
+const char *env_requestacceptencoding(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Accept-Encoding");
+}
+
+const char *env_requestacceptlanguage(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Accept-Language");
+}
+
+const char *env_requestcookie(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Cookie");
+}
+
+const char *env_requestuseragent(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "User-Agent");
+}
+
+const char *env_requesthost(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Host");
+}
+
+const char *env_requestreferer(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Referer");
+}
+
+const char *env_requestorigin(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "Origin");
+}
+
+const char *env_remotehost(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	const char *value = httpmessage_REQUEST(request, "remote_host");
+	if (value == NULL)
+		value = httpmessage_REQUEST(request, "remote_addr");
+	return value;
+}
+
+const char *env_remoteaddr(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "remote_addr");
+}
+
+const char *env_remoteport(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return httpmessage_REQUEST(request, "remote_port");
+}
+
+const char *env_authuser(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return auth_info(request, "user");
+}
+
+const char *env_authgroup(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return auth_info(request, "group");
+}
+
+const char *env_authtype(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path)
+{
+	return auth_info(request, "type");
+}
+
 enum cgi_env_e
 {
-	DOCUMENT_ROOT,
-	SERVER_SOFTWARE,
-	SERVER_NAME,
-	GATEWAY_INTERFACE,
-	SERVER_PROTOCOL,
-	SERVER_ADDR,
-	SERVER_PORT,
-	REQUEST_METHOD,
-	REQUEST_SCHEME,
-	REQUEST_URI,
-	CONTENT_LENGTH,
-	CONTENT_TYPE,
-	QUERY_STRING,
-	HTTP_ACCEPT,
-	HTTP_ACCEPT_ENCODING,
-	HTTP_ACCEPT_LANGUAGE,
-	PATH_INFO,
+	PATH_INFO =  1,
 	PATH_TRANSLATED,
 	SCRIPT_FILENAME,
 	SCRIPT_NAME,
-	REMOTE_HOST,
-	REMOTE_ADDR,
-	REMOTE_PORT,
-	REMOTE_USER,
-	AUTH_TYPE,
-	HTTP_COOKIE,
-	HTTP_HOST,
-	HTTP_USER_AGENT,
-	HTTP_REFERER,
-	HTTP_ORIGIN,
-	AUTH_USER,
 	HTTPS,
-
-	NBENVS,
 };
 static const httpenv_t cgi_env[] =
 {
 	{
+		.id = PATH_INFO,
+		.target = "PATH_INFO=",
+		.length = 512,
+	},
+	{
+		.id = PATH_INFO,
+		.target = "PATH_TRANSLATED=",
+		.length = 512,
+	},
+	{
+		.id = SCRIPT_FILENAME,
+		.target = "SCRIPT_FILENAME=",
+		.length = 512,
+	},
+	{
+		. id = SCRIPT_NAME,
+		.target = "SCRIPT_NAME=",
+		.length = 64,
+	},
+	{
+		.id = -1,
 		.target = "DOCUMENT_ROOT=",
-		.length = 26,
+		.length = 512,
 		.cb = &env_docroot,
 	},
 	{
+		.id = -1,
 		.target = "SERVER_SOFTWARE=",
 		.length = 26,
+		.cb = &env_serversoftware,
+
 	},
 	{
+		.id = -1,
 		.target = "SERVER_NAME=",
 		.length = 26,
+		.cb = &env_servername,
 	},
 	{
+		.id = -1,
 		.target = "GATEWAY_INTERFACE=",
 		.length = 26,
 		.cb = &env_gatewayinterface,
 	},
 	{
+		.id = -1,
 		.target = "SERVER_PROTOCOL=",
 		.length = 10,
+		.cb = &env_serverprotocol,
 	},
 	{
+		.id = -1,
 		.target = "SERVER_ADDR=",
 		.length = 26,
+		.cb = &env_serveraddr,
 	},
 	{
+		.id = -1,
 		.target = "SERVER_PORT=",
-		.length = 26,
+		.length = 6,
+		.cb = &env_serverport,
 	},
 	{
+		.id = -1,
 		.target = "REQUEST_METHOD=",
 		.length = 6,
+		.cb = &env_requestmethod,
 	},
 	{
+		.id = -1,
 		.target = "REQUEST_SCHEME=",
 		.length = 6,
+		.cb = &env_requestscheme,
 	},
 	{
+		.id = -1,
 		.target = "REQUEST_URI=",
 		.length = 512,
+		.cb = &env_requesturi,
 	},
 	{
+		.id = -1,
 		.target = "CONTENT_LENGTH=",
 		.length = 16,
+		.cb = &env_requestcontentlength,
 	},
 	{
+		.id = -1,
 		.target = "CONTENT_TYPE=",
-		.length = 126,
+		.length = 128,
+		.cb = &env_requestcontenttype,
 	},
 	{
+		.id = -1,
 		.target = "QUERY_STRING=",
-		.length = 256,
+		.length = 512,
+		.cb = &env_requestquery,
 	},
 	{
+		.id = -1,
 		.target = "HTTP_ACCEPT=",
 		.length = 128,
 		.options = ENV_NOTREQUIRED,
+		.cb = &env_requestaccept,
 	},
 	{
+		.id = -1,
 		.target = "HTTP_ACCEPT_ENCODING=",
 		.length = 128,
 		.options = ENV_NOTREQUIRED,
+		.cb = &env_requestacceptencoding,
 	},
 	{
+		.id = -1,
 		.target = "HTTP_ACCEPT_LANGUAGE=",
 		.length = 64,
 		.options = ENV_NOTREQUIRED,
+		.cb = &env_requestacceptlanguage,
 	},
 	{
-		.target = "PATH_INFO=",
-		.length = 512,
-	},
-	{
-		.target = "PATH_TRANSLATED=",
-		.length = 512,
-	},
-	{
-		.target = "SCRIPT_FILENAME=",
-		.length = 512,
-	},
-	{
-		.target = "SCRIPT_NAME=",
-		.length = 64,
-	},
-	{
+		.id = -1,
 		.target = "REMOTE_HOST=",
 		.length = 26,
+		.cb = &env_remotehost,
 	},
 	{
+		.id = -1,
 		.target = "REMOTE_ADDR=",
 		.length = INET6_ADDRSTRLEN,
+		.cb = &env_remoteaddr,
 	},
 	{
+		.id = -1,
 		.target = "REMOTE_PORT=",
 		.length = 26,
+		.cb = &env_remoteport,
 	},
 	{
+		.id = -1,
 		.target = "REMOTE_USER=",
 		.length = 26,
 		.options = ENV_NOTREQUIRED,
+		.cb = &env_authuser,
 	},
 	{
+		.id = -1,
 		.target = "AUTH_TYPE=",
 		.length = 26,
 		.options = ENV_NOTREQUIRED,
+		.cb = &env_authtype,
 	},
 	{
+		.id = -1,
 		.target = "HTTP_COOKIE=",
 		.length = 512,
+		.cb = &env_requestcookie,
 	},
 	{
+		.id = -1,
 		.target = "HTTP_HOST=",
 		.length = 512,
+		.cb = &env_requesthost,
 	},
 	{
+		.id = -1,
 		.target = "HTTP_USER_AGENT=",
 		.length = 512,
+		.cb = &env_requestuseragent,
 	},
 	{
+		.id = -1,
 		.target = "HTTP_REFERER=",
 		.length = 512,
 		.options = ENV_NOTREQUIRED,
+		.cb = &env_requestreferer,
 	},
 	{
+		.id = -1,
 		.target = "HTTP_ORIGIN=",
 		.length = 512,
 		.options = ENV_NOTREQUIRED,
+		.cb = &env_requestorigin,
 	},
 	{
+		.id = -1,
 		.target = "AUTH_USER=",
 		.length = 26,
 		.options = ENV_NOTREQUIRED,
+		.cb = &env_authuser,
 	},
 	{
+		.id = -1,
+		.id = HTTPS,
 		.target = "HTTPS=",
 		.length = 1,
 		.options = ENV_NOTREQUIRED,
+	},
+	{
+		.id = -1,
+		.target = "REMOTE_GROUP=",
+		.length = 26,
+		.options = ENV_NOTREQUIRED,
+		.cb = &env_authgroup,
+	},
+	{
+		.id = -1,
+		.target = "AUTH_GROUP=",
+		.length = 26,
+		.options = ENV_NOTREQUIRED,
+		.cb = &env_authgroup,
 	}
 };
 
-char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi_path)
+char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path, const char *path_info)
 {
 	char **env = NULL;
-	int nbenvs = NBENVS;
+	int nbenvs = sizeof(cgi_env) / sizeof(*cgi_env);
 
 	env = calloc(sizeof(char *), nbenvs + config->nbenvs + 1);
 
@@ -267,97 +440,24 @@ char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi
 		int length = strlen(cgi_env[i].target) + cgi_env[i].length;
 		env[i] = (char *)calloc(1, length + 1);
 		const char *value = NULL;
-		switch (i)
+		int valuelength = -1;
+		switch (cgi_env[i].id)
 		{
-			case SERVER_SOFTWARE:
-				value = httpmessage_SERVER(request, "software");
-			break;
-			case SERVER_NAME:
-				value = httpmessage_SERVER(request, "name");
-			break;
-			case SERVER_PROTOCOL:
-				value = httpmessage_SERVER(request, "protocol");
-			break;
-			case SERVER_PORT:
-				value = httpmessage_SERVER(request, "port");
-			break;
-			case SERVER_ADDR:
-				value = httpmessage_SERVER(request, "addr");
-			break;
-			case REQUEST_METHOD:
-				value = httpmessage_REQUEST(request, "method");
-			break;
-			case REQUEST_SCHEME:
-				value = httpmessage_REQUEST(request, "scheme");
-			break;
-			case REQUEST_URI:
-				value = httpmessage_REQUEST(request, "uri");
-			break;
-			case CONTENT_LENGTH:
-				value = httpmessage_REQUEST(request, "Content-Length");
-			break;
-			case CONTENT_TYPE:
-				value = httpmessage_REQUEST(request, str_contenttype);
-			break;
-			case QUERY_STRING:
-				value = httpmessage_REQUEST(request, "query");
-			break;
-			case HTTP_ACCEPT:
-				value = httpmessage_REQUEST(request, "Accept");
-			break;
-			case HTTP_ACCEPT_ENCODING:
-				value = httpmessage_REQUEST(request, "Accept-Encoding");
-			break;
-			case HTTP_ACCEPT_LANGUAGE:
-				value = httpmessage_REQUEST(request, "Accept-Language");
-			break;
 			case SCRIPT_NAME:
 			{
-				int length = strlen(config->docroot);
-				value = cgi_path + length;
+				value = cgi_path;
+				if (path_info != NULL)
+					valuelength = strlen(path_info);
 			}
 			break;
 			case SCRIPT_FILENAME:
 				value = cgi_path;
 			break;
 			case PATH_INFO:
-				value = NULL;
+				value = path_info;
 			break;
 			case PATH_TRANSLATED:
-				value = NULL;
-			break;
-			case REMOTE_ADDR:
-				value = httpmessage_REQUEST(request, "remote_addr");
-			break;
-			case REMOTE_HOST:
-				value = httpmessage_REQUEST(request, "remote_host");
-				if (value == NULL)
-					value = httpmessage_REQUEST(request, "remote_addr");
-			break;
-			case REMOTE_PORT:
-				value = httpmessage_REQUEST(request, "remote_port");
-			break;
-			case AUTH_USER:
-			case REMOTE_USER:
-				value = auth_info(request, "user");
-			break;
-			case AUTH_TYPE:
-				value = auth_info(request, "type");
-			break;
-			case HTTP_COOKIE:
-				value = httpmessage_REQUEST(request, "Cookie");
-			break;
-			case HTTP_HOST:
-				value = httpmessage_REQUEST(request, "Host");
-			break;
-			case HTTP_USER_AGENT:
-				value = httpmessage_REQUEST(request, "User-Agent");
-			break;
-			case HTTP_REFERER:
-				value = httpmessage_REQUEST(request, "Referer");
-			break;
-			case HTTP_ORIGIN:
-				value = httpmessage_REQUEST(request, "Origin");
+				value = path_info;
 			break;
 			case HTTPS:
 				if (config->options & CGI_OPTION_TLS)
@@ -366,13 +466,14 @@ char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi
 			default:
 				if (cgi_env[i].cb != NULL)
 					value = cgi_env[i].cb(config, request, cgi_path);
-				options |= ENV_NOTREQUIRED;
 		}
 		if ((value == NULL) && (options & ENV_NOTREQUIRED) == 0)
 			value = str_null;
 		if (value != NULL)
 		{
-			snprintf(env[j], length + 1, "%s%s", cgi_env[i].target, value);
+			if (valuelength == -1)
+				valuelength = strlen(value);
+			snprintf(env[j], length + 1, "%s%.*s", cgi_env[i].target, valuelength, value);
 			j++;
 		}
 	}
