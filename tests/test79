@@ -1,0 +1,5 @@
+DESC="open webstream socket"
+PREPARE_ASYNC="./utils/streamer -R /tmp -n dummy -u $USER -s 10 -t"
+CONFIG=test5.conf
+TESTREQUEST=test79_rq.txt
+TESTCODE=200
