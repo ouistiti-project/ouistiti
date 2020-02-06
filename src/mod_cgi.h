@@ -50,7 +50,7 @@ typedef struct mod_cgi_config_s
 
 extern const module_t mod_cgi;
 
-char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi_path);
+char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path, const char *path_info);
 
 #ifdef __cplusplus
 }
