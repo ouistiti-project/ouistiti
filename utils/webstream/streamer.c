@@ -50,6 +50,9 @@
 
 #define CHUNKSIZE 4500
 
+#define OPTION_OUISTITI 0x01
+#define OPTION_TEST 0x02
+
 typedef int (*server_t)(int sock);
 
 typedef struct stream_s stream_t;
@@ -61,6 +64,7 @@ struct stream_s
 {
 	int sock;
 	buffer_t *buffer;
+	int options;
 };
 
 struct buffer_s
@@ -77,10 +81,10 @@ void *runstream(void *arg)
 	stream_t *stream = (stream_t *)arg;
 	buffer_t *buffer = stream->buffer;
 	int ret;
-	int run = 1;
+	int run = 10;
 
 	warn("new stream %p %d", stream, stream->sock);
-	while (run)
+	while (run > 0)
 	{
 		pthread_mutex_lock(&buffer->mutex);
 		do
@@ -94,26 +98,37 @@ void *runstream(void *arg)
 			dbg("send error %d %s", ret, strerror(errno));
 			run = 0;
 		}
+		if (stream->options & OPTION_TEST)
+			run--;
 	}
+	if (stream->options & OPTION_TEST)
+	{
+		pthread_mutex_lock(&buffer->mutex);
+		buffer->ready = 2;
+		pthread_mutex_unlock(&buffer->mutex);
+	}
+
 	warn("end stream %p", stream);
 	free(stream);
+	shutdown(stream->sock, SHUT_RDWR);
+	close(stream->sock);
 	return NULL;
 }
 
-int startstream(int sock, buffer_t *origin)
+int startstream(int sock, buffer_t *origin, int options, pthread_t *thread)
 {
-	pthread_t thread;
 	pthread_attr_t attr;
 
 	stream_t *stream = calloc(1, sizeof(*stream));
 
 	stream->sock = sock;
 	stream->buffer = origin;
+	stream->options = options;
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-	
-	pthread_create(&thread, &attr, runstream, stream);
+
+	pthread_create(thread, &attr, runstream, stream);
 }
 
 void *rungenerator(void *arg)
@@ -127,25 +142,30 @@ void *rungenerator(void *arg)
 
 	while (run)
 	{
-		memset(buffer->data, elem, buffer->size);
+		memset(buffer->data, elem + 0x30, buffer->size);
+		pthread_mutex_lock(&buffer->mutex);
 		buffer->ready = 1;
+		pthread_mutex_unlock(&buffer->mutex);
 		pthread_cond_broadcast(&buffer->cond);
 		nanosleep(&timeout, NULL);
 		elem++;
-//		pthread_mutex_lock(&buffer->mutex);
-		buffer->ready = 0;
-//		pthread_mutex_lock(&buffer->mutex);
+		elem %= 10;
+		pthread_mutex_lock(&buffer->mutex);
+		if (buffer->ready == 2)
+			run = 0;
+		else
+			buffer->ready = 0;
+		pthread_mutex_unlock(&buffer->mutex);
 	}
 	free(buffer->data);
+	warn("generator end");
 	return NULL;
 }
 
-int startgernerator(buffer_t *origin)
+void startgernerator(buffer_t *origin, pthread_t *thread)
 {
-	pthread_t thread;
 	pthread_attr_t attr;
 
-	origin->size = CHUNKSIZE;
 	origin->data = malloc(origin->size);
 
 	pthread_cond_init(&origin->cond, NULL);
@@ -153,8 +173,8 @@ int startgernerator(buffer_t *origin)
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-	
-	pthread_create(&thread, &attr, rungenerator, origin);
+
+	pthread_create(thread, &attr, rungenerator, origin);
 }
 
 void help(char **argv)
@@ -165,27 +185,29 @@ void help(char **argv)
 	fprintf(stderr, "\t-u <name>\tset the user to run\n");
 	fprintf(stderr, "\t-w \tstart chat with specific ouistiti features\n");
 	fprintf(stderr, "\t-n <name> \tthe name of the stream\n");
+	fprintf(stderr, "\t-t \ttest mode\n");
 }
 
 static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%2hd\"}";
 const char *str_username = "apache";
-
-#define OPTION_OUISTITI 0x01
 
 int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
 	char *root = "/var/run/ouistiti";
-	char *proto = "stream";
+	char *proto = "dummy";
 	int maxclients = 50;
 	const char *username = str_username;
 	int options = 0;
-
+	pthread_t thread;
+	pthread_t streamthread;
+	int chunksize = CHUNKSIZE;
 	int opt;
+
 	do
 	{
-		opt = getopt(argc, argv, "u:R:m:hon:");
+		opt = getopt(argc, argv, "u:R:m:hon:ts:");
 		switch (opt)
 		{
 			case 'R':
@@ -204,8 +226,14 @@ int main(int argc, char **argv)
 			case 'u':
 				username = optarg;
 			break;
+			case 's':
+				chunksize = atoi(optarg);
+			break;
 			case 'o':
 				options |= OPTION_OUISTITI;
+			break;
+			case 't':
+				options |= OPTION_TEST;
 			break;
 		}
 	} while(opt != -1);
@@ -246,8 +274,9 @@ int main(int argc, char **argv)
 		if (ret == 0)
 		{
 			buffer_t origin;
-			startgernerator(&origin);
-			
+			origin.size = chunksize;
+			startgernerator(&origin, &thread);
+
 			int newsock = 0;
 			do
 			{
@@ -267,7 +296,7 @@ int main(int argc, char **argv)
 						{
 							newsock = ouistiti_recvaddr(newsock, NULL, NULL);
 						}
-						startstream(newsock, &origin);
+						startstream(newsock, &origin, options, &streamthread);
 					}
 					else
 					{
@@ -278,13 +307,11 @@ int main(int argc, char **argv)
 				{
 					dbg("streamer: error %d %s", ret, strerror(errno));
 				}
-			} while(newsock > 0);
+			} while(newsock > 0 && !(options & OPTION_TEST));
 		}
+		pthread_join(thread, NULL);
+		pthread_join(streamthread, NULL);
 		unlink(addr.sun_path);
-	}
-	if (ret)
-	{
-		err("error : %s\n", strerror(errno));
 	}
 	return ret;
 }
