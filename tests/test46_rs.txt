@@ -18,7 +18,7 @@ SCHEME = http
 URI = /test.cgi
 QUERY_STRING = data=y
 HTTP_ACCEPT = 
-SCRIPT_NAME = /test.cgi
+SCRIPT_NAME = test.cgi
 CONTENT_TYPE = text/plain
 CONTENT_LENGTH = 6
 CONTENT:
