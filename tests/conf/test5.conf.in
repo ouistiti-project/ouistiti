@@ -9,4 +9,9 @@ servers= ({
 			deny = "*";
 			allow = "echo";
 		};
+		webstream = {
+			docroot = "/tmp";
+			deny = "*";
+			allow = "dummy";
+		};
 	});
