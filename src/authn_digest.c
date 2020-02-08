@@ -108,10 +108,10 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 		return NULL;
 	if (authz->rules->passwd == NULL)
 	{
-		err("authn Digest is not compatible with authz %s", str_authenticate_engine[authz->type&AUTHZ_TYPE_MASK]);
+		err("authn Digest is not compatible with authz %s", authz->name);
 		return NULL;
 	}
-	str_digest = authn->auth->authn_typename;
+	str_digest = authn->auth->authn.name;
 
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
@@ -128,6 +128,7 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 
 static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 {
+	const authn_digest_t *mod = (authn_digest_t *)arg;
 /**
  *  nonce and opaque may be B64 encoded data
  * or hexa encoded data
