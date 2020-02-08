@@ -185,21 +185,39 @@ static int authn_digest_setup(void *arg, http_client_t *ctl, struct sockaddr *ad
 	authn_digest_nonce(arg, mod->nonce, MAXNONCE);
 }
 
+static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)
+{
+	httpmessage_addheader(response, str_authenticate, "Digest ");
+	if (mod->config->realm != NULL && mod->config->realm[0] != 0)
+	{
+		httpmessage_appendheader(response, str_authenticate,
+				"realm=\"", mod->config->realm, "\"", NULL);
+	}
+	httpmessage_appendheader(response, str_authenticate,
+				"\",qop=\"auth\",nonce=\"", mod->nonce,
+				"\",opaque=\"", mod->opaque,
+				"\",stale=", (mod->stale)?"true":"false", NULL);
+}
+
 static int authn_digest_challenge(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret;
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
-	httpmessage_addheader(response, str_authenticate, "Digest realm=\"");
-	httpmessage_appendheader(response, str_authenticate,
-				mod->config->realm,
-				"\",qop=\"auth\",nonce=\"", mod->nonce,
-				"\",opaque=\"", mod->opaque,
-				"\",stale=", (mod->stale)?"true":"false", NULL);
+	/**
+	 * WWW-AUTHENTICATE header without algorithm is mandatory
+	 * Firefox and Chrome doesn't support other algorithm than MD5
+	 */
+	authn_digest_www_authenticate(mod, response);
+
 	if (mod->hash != hash_md5)
 	{
+		/**
+		 * this adds a second WWW-AUTHENTICATE header with algorithm
+		 */
+		authn_digest_www_authenticate(mod, response);
 		httpmessage_appendheader(response, str_authenticate,
-				",algorithm=\"", mod->hash->name, "\"", NULL);
+				",algorithm=", mod->hash->name, "", NULL);
 	}
 	httpmessage_keepalive(response);
 	ret = ECONTINUE;
@@ -394,9 +412,13 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	}
 	else if (algorithm == NULL || strcmp(algorithm, mod->hash->name))
 	{
+		/**
+		 * Firefox and Chrome doesn't support other algorithm than MD5
+		 * https://bugzilla.mozilla.org/show_bug.cgi?id=472823
+		 */
 		warn("auth: algorithm is bad %s/%s", algorithm, mod->hash->name);
 		mod->hash = hash_md5;
-		check = 0;
+		check = 1;
 	}
 	else if (strcmp(opaque, mod->opaque) || strcmp(realm, mod->config->realm))
 	{
