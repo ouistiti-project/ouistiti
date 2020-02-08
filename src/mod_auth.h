@@ -122,6 +122,7 @@ struct authz_s
 	authz_rules_t *rules;
 	authz_type_t type;
 	generatetoken_t generatetoken;
+	const char *name;
 };
 
 typedef struct authn_none_config_s authn_none_config_t;
@@ -141,6 +142,7 @@ struct authn_digest_config_s
 {
 	const char *realm;
 	const char *opaque;
+	const char *secret;
 };
 
 typedef struct authn_bearer_config_s authn_bearer_config_t;
@@ -201,11 +203,18 @@ struct authn_s
 
 struct mod_auth_s
 {
-	void *authn_config;
-	authn_type_t authn_type;
-	const char *authn_typename;
-	void *authz_config;
-	authz_type_t authz_type;
+	struct
+	{
+		void *config;
+		authn_type_t type;
+		const char *name;
+	} authn;
+	struct
+	{
+		void *config;
+		authz_type_t type;
+		const char *name;
+	} authz;
 	const char *algo;
 	const char *secret;
 	const char *redirect;

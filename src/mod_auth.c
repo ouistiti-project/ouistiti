@@ -123,14 +123,7 @@ static const char *str_user = "USER";
 static const char *str_group = "GROUP";
 static const char *str_home = "HOME";
 static const char *str_wilcard = "*";
-const char *str_authenticate_engine[] =
-{
-	"simple",
-	"file",
-	"unix",
-	"sqlite",
-	"jwt",
-};
+
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE
 	&authn_none_rules,
@@ -260,9 +253,10 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->config = config;
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
-	mod->authz->type = config->authz_type;
+	mod->authz->type = config->authz.type;
+	mod->authz->name = config->authz.name;
 
-	mod->authz->rules = authz_rules[config->authz_type & AUTHZ_TYPE_MASK];
+	mod->authz->rules = authz_rules[config->authz.type & AUTHZ_TYPE_MASK];
 	if (mod->authz->rules == NULL)
 	{
 		err("authentication storage not set, change configuration");
@@ -278,16 +272,16 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	 */
 	mod->authz->generatetoken = authz_generatejwtoken;
 #else
-	if ((config->authz_type & AUTHZ_TOKEN_E) &&  (authz_rules[config->authz_type & AUTHZ_TYPE_MASK])->join == NULL)
+	if ((config->authz.type & AUTHZ_TOKEN_E) &&  (authz_rules[config->authz.type & AUTHZ_TYPE_MASK])->join == NULL)
 	{
 		err("Please use other authz module (sqlite) to enable token");
-		config->authz_type &= ~AUTHZ_TOKEN_E;
+		config->authz.type &= ~AUTHZ_TOKEN_E;
 	}
 	else
 		mod->authz->generatetoken = authz_generatetoken;
 #endif
 
-	mod->authz->ctx = mod->authz->rules->create(config->authz_config);
+	mod->authz->ctx = mod->authz->rules->create(config->authz.config);
 	if (mod->authz->ctx == NULL)
 	{
 		free(mod->authz);
@@ -298,8 +292,8 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->auth = config;
 	mod->authn->server = server;
-	mod->authn->type = config->authn_type;
-	mod->authn->rules = authn_rules[config->authn_type];
+	mod->authn->type = config->authn.type;
+	mod->authn->rules = authn_rules[config->authn.type];
 
 	_mod_sethash(mod, config);
 
@@ -307,11 +301,11 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		err("authentication type is not availlable, change configuration");
 	else
 	{
-		mod->authn->ctx = mod->authn->rules->create(mod->authn, mod->authz, config->authn_config);
+		mod->authn->ctx = mod->authn->rules->create(mod->authn, mod->authz, config->authn.config);
 	}
 	if (mod->authn->ctx)
 	{
-		mod->type = config->authn_typename;
+		mod->type = config->authn.name;
 		mod->typelength = strlen(mod->type);
 		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod, str_auth);
 	}
@@ -662,6 +656,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
 	ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 	if (ret == ECONTINUE)
 	{
+		ret = ESUCCESS;
 		auth_dbg("auth challenge failed");
 		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 		if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
@@ -707,7 +702,6 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
 		{
 			httpmessage_result(response, RESULT_401);
 		}
-		ret = ESUCCESS;
 	}
 	return ret;
 }
