@@ -69,14 +69,14 @@ static void utils_searchstring(char **result, const char *haystack, const char *
 		char *end = NULL;
 		*result = strchr(haystack, '=');
 		if (*result == NULL)
-			return;
+			return 0;
 		*result += 1;
 		if (**result == '"')
 		{
 			*result = *result + 1;
 			end = strchr(*result, '"');
 		}
-		else
+		if (end == NULL)
 		{
 			end = *result;
 			while(*end != 0 && *end != ' ' && *end != ',')
@@ -84,9 +84,10 @@ static void utils_searchstring(char **result, const char *haystack, const char *
 				end++;
 			}
 		}
-		if (end)
-			*end = 0;
+		*end = 0;
+		return end - *result;
 	}
+	return 0;
 }
 
 static char *utils_stringify(const unsigned char *data, int len)
@@ -139,12 +140,32 @@ static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 	int i;
 
 	srandom(time(NULL));
-	for (i = 0; i < 6; i++)
-		*(int *)(_nonce + i * 4) = random();
+	int usedate = random() % 5;
+	if (usedate)
+	{
+		struct tm nowtm;
+		time_t now = time(NULL) / (60 * 30); // 30 minutes of validity
+		strftime(_nonce, 24, "%M%H%Y%A%B", localtime_r(&now, &nowtm));
+		const char *key = mod->config->secret;
+		if (hash_macsha256 != NULL && key != NULL)
+		{
+			void *ctx = hash_macsha256->initkey(key, strlen(key));
+			if (ctx)
+			{
+				hash_macsha256->update(ctx, _nonce, 24);
+				char signature[HASH_MAX_SIZE];
+				hash_macsha256->finish(ctx, signature);
+				memcpy(_nonce, signature, 24);
+			}
+		}
+	}
+	else
+	{
+		for (i = 0; i < 6; i++)
+			*(int *)(_nonce + i * 4) = random();
+	}
 	base64->encode(_nonce, 24, nonce, noncelen);
 #else
-	const authn_digest_t *mod = (authn_digest_t *)arg;
-
 	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
 	if (!strcmp(mod->opaque, str_opaque))
 		strncpy(nonce, "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", noncelen); //RFC7616
