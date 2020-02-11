@@ -198,7 +198,7 @@ struct authn_s
 	authn_type_t type;
 	const hash_t *hash;
 	http_server_t *server;
-	mod_auth_t *auth;
+	mod_auth_t *config;
 };
 
 struct mod_auth_s
