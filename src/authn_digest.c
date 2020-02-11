@@ -55,6 +55,7 @@ struct authn_digest_s
 {
 	authn_digest_config_t *config;
 	authz_t *authz;
+	const authn_t *authn;
 	const hash_t *hash;
 	const char *opaque;
 	char nonce[MAXNONCE];
@@ -118,6 +119,7 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
+	mod->authn = authn;
 	mod->authz = authz;
 	mod->hash = authn->hash;
 	if (mod->config->opaque == NULL)
@@ -127,6 +129,29 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 	if (mod->config->realm == NULL)
 		mod->config->realm = httpserver_INFO(authn->server, "host");
 	return mod;
+}
+
+static void authn_digest_noncetime(void *arg, char *nonce, int noncelen)
+{
+	const authn_digest_t *mod = (authn_digest_t *)arg;
+	struct tm nowtm;
+	int expire = 30;
+	if (mod->authn->config->expire != 0)
+		expire = mod->authn->config->expire;
+	time_t now = time(NULL) / (60 * expire);
+	strftime(nonce, noncelen, "%M%H%A%B%Y", localtime_r(&now, &nowtm));
+	const char *key = mod->authn->config->secret;
+	if (hash_macsha256 != NULL && key != NULL)
+	{
+		void *ctx = hash_macsha256->initkey(key, strlen(key));
+		if (ctx)
+		{
+			hash_macsha256->update(ctx, nonce, noncelen);
+			char signature[HASH_MAX_SIZE];
+			hash_macsha256->finish(ctx, signature);
+			memcpy(nonce, signature, noncelen);
+		}
+	}
 }
 
 static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
@@ -145,21 +170,7 @@ static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
 	int usedate = random() % 5;
 	if (usedate)
 	{
-		struct tm nowtm;
-		time_t now = time(NULL) / (60 * 30); // 30 minutes of validity
-		strftime(_nonce, 24, "%M%H%Y%A%B", localtime_r(&now, &nowtm));
-		const char *key = mod->config->secret;
-		if (hash_macsha256 != NULL && key != NULL)
-		{
-			void *ctx = hash_macsha256->initkey(key, strlen(key));
-			if (ctx)
-			{
-				hash_macsha256->update(ctx, _nonce, 24);
-				char signature[HASH_MAX_SIZE];
-				hash_macsha256->finish(ctx, signature);
-				memcpy(_nonce, signature, 24);
-			}
-		}
+		authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
 	}
 	else
 	{
