@@ -559,7 +559,9 @@ static int _authn_setauthorization(_mod_auth_ctx_t *ctx, const char *authorizati
 	else
 #endif
 	if (authorization != NULL)
+	{
 		httpmessage_set(response, str_authorization, authorization);
+	}
 	httpmessage_set(response, str_xuser, info->user);
 	if (info->group)
 		httpmessage_set(response, str_xgroup, info->group);
