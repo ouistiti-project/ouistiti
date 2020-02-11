@@ -114,7 +114,7 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 		err("authn Digest is not compatible with authz %s", authz->name);
 		return NULL;
 	}
-	str_digest = authn->auth->authn.name;
+	str_digest = authn->config->authn.name;
 
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;

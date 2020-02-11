@@ -290,7 +290,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
-	mod->authn->auth = config;
+	mod->authn->config = config;
 	mod->authn->server = server;
 	mod->authn->type = config->authn.type;
 	mod->authn->rules = authn_rules[config->authn.type];
