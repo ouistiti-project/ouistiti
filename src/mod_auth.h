@@ -85,6 +85,7 @@ typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *
 typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);
 typedef const char *(*authz_rule_group_t)(void *arg, const char *user);
 typedef const char *(*authz_rule_home_t)(void *arg, const char *user);
+typedef char *(*authz_rule_token_t)(void *arg, const char *user);
 typedef int (*authz_rule_adduser_t)(void *arg, authsession_t *newuser);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
@@ -96,6 +97,7 @@ struct authz_rules_s
 	authz_rule_passwd_t passwd;
 	authz_rule_group_t group;
 	authz_rule_home_t home;
+	authz_rule_token_t token;
 	authz_rule_adduser_t adduser;
 	authz_rule_destroy_t destroy;
 };
