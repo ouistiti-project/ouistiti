@@ -207,7 +207,7 @@ static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * 
 				"realm=\"", mod->config->realm, "\"", NULL);
 	}
 	httpmessage_appendheader(response, str_authenticate,
-				"\",qop=\"auth\",nonce=\"", mod->nonce,
+				",qop=\"auth\",nonce=\"", mod->nonce,
 				"\",opaque=\"", mod->opaque,
 				"\",stale=", (mod->stale)?"true":"false", NULL);
 }
