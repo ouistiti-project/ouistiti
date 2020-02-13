@@ -730,7 +730,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ctx->info != NULL)
 	{
 		if (mod->authz->type & AUTHZ_HEADER_E)
-			_authn_setauthorization(ctx, ctx->authorization, ctx->info, httpmessage_addheader, response);
+			_authn_setauthorization(ctx,
+				ctx->authorization, ctx->info,
+				httpmessage_addheader, httpmessage_appendheader,
+				response);
 		return EREJECT;
 	}
 
@@ -793,6 +796,29 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ret != EREJECT)
 	{
 		ret = _authn_challenge(ctx, uri, request, response);
+	}
+	else
+	{
+		httpmessage_SESSION(request, str_auth, ctx->info);
+		if (ctx->info && mod->authz->type & AUTHZ_HEADER_E)
+		{
+			_authn_setauthorization(ctx,
+					authorization, ctx->info,
+					httpmessage_addheader, httpmessage_appendheader,
+					response);
+		}
+		else if (ctx->info && mod->authz->type & AUTHZ_COOKIE_E)
+		{
+			_authn_setauthorization(ctx,
+					authorization, ctx->info,
+					_authn_cookie_set, cookie_set,
+					response);
+		}
+
+		if (mod->authz->type & AUTHZ_CHOWN_E)
+		{
+			auth_setowner(ctx->info->user);
+		}
 	}
 	return ret;
 }

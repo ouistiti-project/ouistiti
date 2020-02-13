@@ -194,7 +194,7 @@ json_t *jwt_decode_json(const char *id_token, const char *key)
 #endif
 	{
 		length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
-		auth_dbg("JWT: %s", data);
+		auth_dbg("jwt: decode %s", data);
 		jpayload = json_loadb(data, length, 0, &error);
 	}
 	return jpayload;
