@@ -591,6 +591,13 @@ static authsession_t *_authn_setsession(_mod_auth_t *mod, const char * user)
 		if (home)
 			strncpy(info->home, home, sizeof(info->home));
 	}
+	if (mod->authz->rules->token)
+	{
+		char *token = NULL;
+		token = mod->authz->rules->token(mod->authz->ctx, user);
+		if (token)
+			info->token = token;
+	}
 	return info;
 }
 
