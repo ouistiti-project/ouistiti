@@ -206,6 +206,30 @@ authsession_t *jwt_decode(const char *id_token, const char *key)
 	json_t *jinfo = jwt_decode_json(id_token, key);
 	if (jinfo != NULL)
 	{
+		json_t *jexpire = json_object_get(jinfo, "exp");
+		if (jexpire && json_is_integer(jexpire))
+		{
+			time_t expire = json_integer_value(jexpire);
+#ifndef DEBUG
+			time_t now = time(NULL);
+#else
+			time_t now = 0;
+#endif
+			if (expire < now)
+			{
+				warn("auth: jwt expired");
+#ifndef DEBUG
+				return NULL;
+#else
+				err("auth: DEBUG is unsecure please rebuild as release");
+#endif
+			}
+		}
+		else
+		{
+			warn("auth: jwt doesn't contain exp");
+			return NULL;
+		}
 		authsession = calloc(1, sizeof(*authsession));
 		const char *user = NULL;
 		json_t *juser = json_object_get(jinfo, "preferred_username");
