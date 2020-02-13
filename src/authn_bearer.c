@@ -53,6 +53,7 @@ typedef struct authn_bearer_s authn_bearer_t;
 struct authn_bearer_s
 {
 	authn_bearer_config_t *config;
+	const authn_t *authn;
 	authz_t *authz;
 	http_client_t *clt;
 };
@@ -60,6 +61,7 @@ struct authn_bearer_s
 static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg)
 {
 	authn_bearer_t *mod = calloc(1, sizeof(*mod));
+	mod->authn = authn;
 	mod->authz = authz;
 	mod->config = (authn_bearer_config_t *)arg;
 	if (mod->config->realm == NULL)
@@ -112,7 +114,23 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 
 	if (!strncmp(string, "Bearer ", 7))
 		string += 7;
-	return mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
+	const char *user = NULL;
+	const char *data = string;
+	const char *sign = strrchr(string, '.');
+	if (sign != NULL)
+	{
+		int datalen = sign - data;
+		sign++;
+		if (authn_checksignature(mod->authn, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		{
+			user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
+			if (user == NULL)
+			{
+				user = str_anonymous;
+			}
+		}
+	}
+	return user;
 }
 
 static void authn_bearer_destroy(void *arg)
