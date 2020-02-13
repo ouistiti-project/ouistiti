@@ -103,23 +103,38 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	json_t *jtoken = json_object();
 	json_t *juser = json_string(info->user);
 	json_object_set(jtoken, "user", juser);
-	json_object_set(jtoken, "home", json_string(info->home));
-	json_object_set(jtoken, "roles", json_string(info->group));
+	json_t *jhome = json_string(info->home);
+	json_object_set(jtoken, "home", jhome);
+	json_t *jroles = json_string(info->group);
+	json_object_set(jtoken, "roles", jroles);
+#ifndef DEBUG
+	time_t now = time(NULL);
+#else
+	time_t now = 0;
+#endif
+	json_t *jexpire = NULL;
+	if (mod->expire > 0)
+	{
+		jexpire = json_integer((mod->expire * 60) + now);
+	}
+	else
+		jexpire = json_integer((30 * 60) + now);
+	json_object_set(jtoken, "exp", jexpire);
 #ifdef AUTH_OPENID
 	json_object_set(jtoken, "sub", juser);
 	json_object_set(jtoken, "preferred_username", juser);
 	json_object_set(jtoken, "aud", json_string("ouistiti"));
-	time_t now = time(NULL);
-	json_object_set(jtoken, "exp", json_integer(mod->expire + now));
 	json_object_set(jtoken, "iat", json_integer(now));
 	if (info->urlspace && info->urlspace[0] != '\0')
 		json_object_set(jtoken, "iss", json_string(info->urlspace));
 #endif
 	char *ttoken = json_dumps(jtoken, 0);
+	auth_dbg("jwt: encode %s", ttoken);
 
 	int ret;
-	int length = strlen(theader) + 1 + strlen(ttoken) + 1;
-	char *token = calloc(2, length + 32);
+	int length = (strlen(theader) * 1.5) + 1 + (strlen(ttoken) * 1.5) + 1;
+
+	char *token = calloc(2, length + 1);
 	char *offset = token;
 	length *= 2;
 	ret = base64_urlencoding->encode(theader, strlen(theader), offset, length);
@@ -133,12 +148,10 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	ret = base64_urlencoding->encode(ttoken, strlen(ttoken), offset, length);
 	offset += ret;
 	length = offset - token;
-	*offset = '.';
-	offset++;
-
-	ret = jwt_sign(mod->secret, token, length, offset);
 	err("token %s", token);
-
+	/**
+	 * the signature is added inside mod_auth
+	 */
 	return token;
 }
 

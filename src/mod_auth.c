@@ -475,101 +475,6 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 	return ret;
 }
 
-#ifndef AUTHZ_JWT
-static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
-{
-	char *token = calloc(1, 36);
-	char _nonce[24];
-	int i;
-	for (i = 0; i < 6; i++)
-	{
-		*(int *)(_nonce + i * 4) = random();
-	}
-	int ret = 0;
-	ret = base64_urlencoding->encode(_nonce, 24, token, 36);
-	return token;
-}
-#endif
-
-static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t *request)
-{
-	_mod_auth_t *mod = ctx->mod;
-	const char *authorization = NULL;
-	/**
-	 * with standard authentication, the authorization code
-	 * is sended info header
-	 */
-	if (authorization == NULL || authorization[0] == '\0')
-	{
-		authorization = httpmessage_REQUEST(request, str_authorization);
-	}
-	/**
-	 * to send the authorization header only once, the "cookie"
-	 * option of the server store the authorization inside cookie.
-	 * This method allow to use little client which manage only cookie.
-	 */
-	if (authorization == NULL || authorization[0] == '\0')
-	{
-		authorization = cookie_get(request, str_authorization);
-		err("cookie get %s %p",str_authorization, authorization);
-	}
-
-	if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
-	{
-		err("authorization type: %.*s, %.*s", mod->typelength, authorization, mod->typelength, mod->type);
-		authorization = NULL;
-	}
-#ifdef AUTH_TOKEN
-	/**
-	 * The authorization may be accepted and replaced by a token.
-	 * This token is available inside the cookie.
-	 */
-	if ((authorization == NULL || authorization[0] == '\0') && mod->authz->type & AUTHZ_TOKEN_E)
-	{
-		if (mod->authz->type & AUTHZ_HEADER_E)
-		{
-			authorization = httpmessage_REQUEST(request, str_xtoken);
-		}
-		else
-		{
-			authorization = cookie_get(request, str_xtoken);
-		}
-	}
-#endif
-	return authorization;
-}
-
-typedef void (*_httpmessage_set)(http_message_t *, const char *, const char *);
-void _authn_cookie_set(http_message_t *request, const char *key, const char *value)
-{
-	/**
-	 * this facade allows to extend the parameters
-	 */
-	cookie_set(request, key, value);
-}
-
-static int _authn_setauthorization(_mod_auth_ctx_t *ctx, const char *authorization,
-			authsession_t *info, _httpmessage_set httpmessage_set, http_message_t *response)
-{
-#ifdef AUTH_TOKEN
-	if (info->token)
-	{
-		httpmessage_set(response, str_xtoken, info->token);
-	}
-	else
-#endif
-	if (authorization != NULL)
-	{
-		httpmessage_set(response, str_authorization, authorization);
-	}
-	httpmessage_set(response, str_xuser, info->user);
-	if (info->group)
-		httpmessage_set(response, str_xgroup, info->group);
-	if (info->home)
-		httpmessage_set(response, str_xhome, "~/");
-	return ESUCCESS;
-}
-
 static authsession_t *_authn_setsession(_mod_auth_t *mod, const char * user)
 {
 	authsession_t *info = NULL;
@@ -601,11 +506,193 @@ static authsession_t *_authn_setsession(_mod_auth_t *mod, const char * user)
 	return info;
 }
 
+#ifndef AUTHZ_JWT
+static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
+{
+	int tokenlen = (((24 + 1 + sizeof(time_t)) * 1.5) + 1) + 1;
+	char *token = calloc(1, tokenlen);
+	char _nonce[(24 + 1 + sizeof(time_t))];
+	int i;
+	for (i = 0; i < (24 / sizeof(int)); i++)
+	{
+		*(int *)(_nonce + i * 4) = random();
+	}
+	_nonce[24] = '.';
+	time_t expire = (mod->config->expire * 60);
+	if (expire == 0)
+		expire = 60 * 30;
+	expire += time(NULL);
+	mempcpy(&_nonce[25], expire, sizeof(time_t));
+	int ret = 0;
+	ret = base64_urlencoding->encode(_nonce, 24, token, tokenlen);
+	return token;
+}
+#endif
+
+#ifdef AUTH_TOKEN
+static const char *_authn_gettoken(_mod_auth_ctx_t *ctx, http_message_t *request)
+{
+	_mod_auth_t *mod = ctx->mod;
+	const char *authorization = NULL;
+	/**
+	 * The authorization may be accepted and replaced by a token.
+	 * This token is available inside the cookie.
+	 */
+	if (mod->authz->type & AUTHZ_HEADER_E)
+	{
+		authorization = httpmessage_REQUEST(request, str_xtoken);
+	}
+	else
+	{
+		authorization = cookie_get(request, str_xtoken);
+	}
+}
+
+int authn_checksignature(const authn_t *authn,
+		const char *data, int datalen,
+		const char *sign, int signlen)
+{
+	const char *key = authn->config->secret;
+
+	if (hash_macsha256 != NULL && key != NULL)
+	{
+		void *ctx = hash_macsha256->initkey(key, strlen(key));
+		if (ctx)
+		{
+			hash_macsha256->update(ctx, data, datalen);
+			char signature[HASH_MAX_SIZE];
+			hash_macsha256->finish(ctx, signature);
+			char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
+			base64_urlencoding->encode(signature, sizeof(signature), b64signature, sizeof(b64signature));
+			if (!strncmp(b64signature, sign, signlen))
+				return ESUCCESS;
+		}
+	}
+	return EREJECT;
+}
+
+int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
+{
+	int ret = ECONTINUE;
+	_mod_auth_t *mod = ctx->mod;
+
+	const char *string = token;
+	const char *user = NULL;
+	const char *data = string;
+	const char *sign = strrchr(string, '.');
+	if (sign != NULL)
+	{
+		int datalen = sign - data;
+		sign++;
+		if (authn_checksignature(mod->authn, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		{
+			user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
+			if (user == NULL)
+			{
+				user = str_anonymous;
+			}
+			if (ctx->info == NULL)
+			{
+				ctx->info = _authn_setsession(mod, user);
+			}
+			if (ctx->info->token == NULL)
+			{
+				ctx->info->token = strdup(string);
+				char *sign = strrchr(ctx->info->token, '.');
+				if (sign != NULL)
+					sign[0] = '\0';
+			}
+			ret = EREJECT;
+		}
+	}
+	return ret;
+}
+#endif
+
+static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t *request)
+{
+	_mod_auth_t *mod = ctx->mod;
+	const char *authorization = NULL;
+	/**
+	 * with standard authentication, the authorization code
+	 * is sended info header
+	 */
+	if (authorization == NULL || authorization[0] == '\0')
+	{
+		authorization = httpmessage_REQUEST(request, str_authorization);
+	}
+	/**
+	 * to send the authorization header only once, the "cookie"
+	 * option of the server store the authorization inside cookie.
+	 * This method allow to use little client which manage only cookie.
+	 */
+	if (authorization == NULL || authorization[0] == '\0')
+	{
+		authorization = cookie_get(request, str_authorization);
+		err("cookie get %s %p",str_authorization, authorization);
+	}
+
+	if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
+	{
+		err("authorization type: %.*s, %.*s", mod->typelength, authorization, mod->typelength, mod->type);
+		authorization = NULL;
+	}
+	return authorization;
+}
+
+typedef void (*_httpmessage_set)(http_message_t *, const char *, const char *);
+typedef int (*_httpmessage_append)(http_message_t *, const char *, const char *, ...);
+static void _authn_cookie_set(http_message_t *request, const char *key, const char *value)
+{
+	/**
+	 * this facade allows to extend the parameters
+	 */
+	cookie_set(request, key, value, NULL);
+}
+
+static int _authn_setauthorization(_mod_auth_ctx_t *ctx,
+			const char *authorization, authsession_t *info,
+			_httpmessage_set httpmessage_set, _httpmessage_append httpmessage_append,
+			http_message_t *response)
+{
+#ifdef AUTH_TOKEN
+	if (info->token)
+	{
+		const char *key = ctx->mod->config->secret;
+		if (hash_macsha256 != NULL && key != NULL)
+		{
+			void *ctx = hash_macsha256->initkey(key, strlen(key));
+			if (ctx)
+			{
+				hash_macsha256->update(ctx, info->token, strlen(info->token));
+				char signature[HASH_MAX_SIZE];
+				hash_macsha256->finish(ctx, signature);
+				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
+				base64_urlencoding->encode(signature, sizeof(signature), b64signature, sizeof(b64signature));
+				httpmessage_append(response, str_xtoken, info->token, ".", b64signature, NULL);
+			}
+		}
+		else
+			httpmessage_set(response, str_xtoken, info->token);
+	}
+	else
+#endif
+	if (authorization != NULL)
+	{
+		httpmessage_set(response, str_authorization, authorization);
+	}
+	httpmessage_set(response, str_xuser, info->user);
+	if (info->group)
+		httpmessage_set(response, str_xgroup, info->group);
+	if (info->home)
+		httpmessage_set(response, str_xhome, "~/");
+	return ESUCCESS;
+}
+
 static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 		const char *authorization,
 		const char *method,
-		const char *uri,
-		http_message_t *response)
+		const char *uri)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
@@ -636,19 +723,16 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 			ctx->info = _authn_setsession(mod, user);
 			ctx->authorization = strdup(authorization);
 		}
-		if (ctx->info && mod->authz->type & AUTHZ_HEADER_E)
-		{
-			_authn_setauthorization(ctx, authorization, ctx->info, httpmessage_addheader, response);
-		}
-		else if (ctx->info && mod->authz->type & AUTHZ_COOKIE_E)
-		{
-			_authn_setauthorization(ctx, authorization, ctx->info, _authn_cookie_set, response);
-		}
 
-		if (mod->authz->type & AUTHZ_CHOWN_E)
+#ifdef AUTH_TOKEN
+		if (mod->authz->type & AUTHZ_TOKEN_E && ctx->info->token == NULL)
 		{
-			auth_setowner(user);
+			char *token = mod->authz->generatetoken(mod->config, ctx->info);
+			if (mod->authz->rules->join)
+				mod->authz->rules->join(mod->authz->ctx, ctx->info->user, token, mod->config->expire);
+			ctx->info->token = token;
 		}
+#endif
 		warn("user \"%s\" accepted from %p", user, ctx->ctl);
 		ret = EREJECT;
 	}
@@ -749,33 +833,33 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		ret = ESUCCESS;
 	}
 
+#ifdef AUTH_TOKEN
+	if (ret == ECONTINUE && mod->authz->type & AUTHZ_TOKEN_E)
+	{
+		authorization = _authn_gettoken(ctx, request);
+		if (mod->authn->ctx && authorization != NULL)
+		{
+			const char *string = authorization;
+			int fieldnamelen = strlen(str_xtoken);
+			if (!strncmp(string, str_xtoken, fieldnamelen))
+			{
+				string += fieldnamelen + 1; // +1 for the tailing '='
+			}
+			ret = authn_checktoken( ctx, string);
+		}
+	}
+#endif
 	if (ret == ECONTINUE)
 	{
 		authorization = _authn_getauthorization(ctx, request);
 		if (mod->authn->ctx && authorization != NULL)
 		{
 			ret = _authn_checkauthorization( ctx, authorization,
-				httpmessage_REQUEST(request, "method"), uri, response);
+				httpmessage_REQUEST(request, "method"), uri);
 		}
 	}
 
-	if (ret == EREJECT)
-	{
-		/**
-		 * authorization is good
-		 */
-		httpmessage_SESSION(request, str_auth, ctx->info);
-#ifdef AUTH_TOKEN
-		if (mod->authz->type & AUTHZ_TOKEN_E)
-		{
-			char *token = mod->authz->generatetoken(mod->config, ctx->info);
-			if (mod->authz->rules->join)
-				mod->authz->rules->join(mod->authz->ctx, ctx->info->user, token, mod->config->expire);
-			ctx->info->token = token;
-		}
-#endif
-	}
-	else
+	if (ret != EREJECT)
 	{
 		int protect = 1;
 		/**
