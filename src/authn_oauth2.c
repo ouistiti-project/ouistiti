@@ -299,7 +299,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 				httpmessage_appendheader(response, str_location, "://", host, "/", NULL);
 				httpmessage_result(response, RESULT_302);
 
-				cookie_set(response, str_authorization, authorization);
+				cookie_set(response, str_authorization, authorization, NULL);
 				ret = ESUCCESS;
 			}
 		}
