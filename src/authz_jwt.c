@@ -69,30 +69,6 @@ struct authz_jwt_s
 	authsession_t *token;
 };
 
-int jwt_sign(const char *key, const char *input, size_t len, char *output)
-{
-	int ret = EREJECT;
-	if (hash_macsha256 != NULL && key != NULL)
-	{
-		void *ctx = hash_macsha256->initkey(key, strlen(key));
-		if (ctx)
-		{
-			hash_macsha256->update(ctx, input, len);
-			char signature[HASH_MAX_SIZE];
-			hash_macsha256->finish(ctx, signature);
-
-			base64_urlencoding->encode(signature, HASH_MAX_SIZE, output, 64);
-			ret = ESUCCESS;
-		}
-	}
-	else
-	{
-		err("auth: set secret in configuration");
-		output[0] = '\0';
-	}
-	return ret;
-}
-
 char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 {
 	json_t *jheader = json_object();
