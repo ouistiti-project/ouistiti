@@ -184,6 +184,7 @@ do
 			PID=$(cat ${TESTDIR}run.pid)
 			rm ${TESTDIR}run.pid
 			killall -9 $(echo $TARGET | ${AWK} '{print $1}')
+			exit 1
 		fi
 	else
 		echo "$TEST completed"
