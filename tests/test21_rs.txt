@@ -5,7 +5,7 @@ CGI/1.0 test script report:
 
 argc is 0. argv is .
 
-SERVER_SOFTWARE = ouistiti/2.2
+SERVER_SOFTWARE = ouistiti/2.3
 GATEWAY_INTERFACE = CGI/1.1
 SERVER_PROTOCOL = HTTP/1.1
 SERVER_NAME = www.ouistiti.net

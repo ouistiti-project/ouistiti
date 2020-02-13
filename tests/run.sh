@@ -7,6 +7,7 @@ PWD=$(pwd)
 CONTINUE=0
 GCOV=0
 ALL=0
+NOERROR=0
 while [ -n "$1" ]; do
 case $1 in
 	-D)
@@ -177,11 +178,12 @@ do
 	fi
 	if [ ! $ERR -eq 0 ]; then
 		echo "$TEST quits on error"
-		if [ -n "$NOERROR" ]; then
+		if [ $NOERROR -eq 0 ]; then
 			TESTERROR=${TESTERROR} $TEST
 		else
-			kill -9 $PID 2> /dev/null
-			exit $ERR
+			PID=$(cat ${TESTDIR}run.pid)
+			rm ${TESTDIR}run.pid
+			killall -9 $(echo $TARGET | ${AWK} '{print $1}')
 		fi
 	else
 		echo "$TEST completed"
