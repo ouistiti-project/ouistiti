@@ -81,6 +81,10 @@
 #error mod_auth require RESULT_401
 #endif
 
+#ifdef DEBUG
+#warning "debug mode in unsafe"
+#endif
+
 typedef struct _mod_auth_s _mod_auth_t;
 typedef struct _mod_auth_ctx_s _mod_auth_ctx_t;
 
@@ -506,8 +510,7 @@ static authsession_t *_authn_setsession(_mod_auth_t *mod, const char * user)
 	return info;
 }
 
-#ifndef AUTHZ_JWT
-static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
+char *authz_generatetoken(mod_auth_t *config, authsession_t *info)
 {
 	int tokenlen = (((24 + 1 + sizeof(time_t)) * 1.5) + 1) + 1;
 	char *token = calloc(1, tokenlen);
@@ -518,16 +521,15 @@ static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info)
 		*(int *)(_nonce + i * 4) = random();
 	}
 	_nonce[24] = '.';
-	time_t expire = (mod->config->expire * 60);
+	time_t expire = (config->expire * 60);
 	if (expire == 0)
 		expire = 60 * 30;
 	expire += time(NULL);
-	mempcpy(&_nonce[25], expire, sizeof(time_t));
+	memcpy(&_nonce[25], &expire, sizeof(time_t));
 	int ret = 0;
 	ret = base64_urlencoding->encode(_nonce, 24, token, tokenlen);
 	return token;
 }
-#endif
 
 #ifdef AUTH_TOKEN
 static const char *_authn_gettoken(_mod_auth_ctx_t *ctx, http_message_t *request)
