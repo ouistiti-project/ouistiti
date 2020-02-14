@@ -382,6 +382,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	const char *user_ret = NULL;
 	char *uri = NULL;
 	int urilen = 0;
+	int urichecklen = 0;
 	char *realm = str_empty;
 	int realmlen = 0;
 	char *qop = NULL;
@@ -478,7 +479,14 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 			{
 				urilen = utils_searchstring(&uri, string + i, "uri", sizeof("uri") - 1);
 				if (urilen > 0)
+				{
 					i += urilen + sizeof("uri=") + 1;
+					const char *query = strchr(uri, '?');
+					if (query != NULL)
+						urichecklen = query - uri;
+					else
+						urichecklen = urilen;
+				}
 			}
 		break;
 		default:
@@ -525,7 +533,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		warn("auth: uri is unset");
 		check = 0;
 	}
-	else if (strncmp(url, uri, urilen))
+	else if (strncmp(url, uri, urichecklen))
 	{
 		warn("try connection on %s with authorization on %s", url, uri);
 		check = 0;
