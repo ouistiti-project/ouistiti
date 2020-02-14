@@ -250,10 +250,13 @@ int main(int argc, char **argv)
 
 	if (getuid() == 0)
 	{
+		int ret = 0;
 		struct passwd *user = NULL;
 		user = getpwnam(username);
-		setgid(user->pw_gid);
-		setuid(user->pw_uid);
+		ret = setgid(user->pw_gid);
+		ret = setuid(user->pw_uid);
+		if (ret == -1)
+			err("change owner to launch");
 	}
 
 	sock = socket(PF_UNIX, SOCK_STREAM, 0);
