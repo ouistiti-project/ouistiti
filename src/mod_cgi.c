@@ -195,7 +195,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 #ifdef USE_EXECVEAT
 		execveat(mod->rootfd, ctx->cgipath, argv, env);
 #else
-		int scriptfd = openat(mod->rootfd, ctx->cgipath, __O_PATH);
+		int scriptfd = openat(mod->rootfd, ctx->cgipath, O_PATH);
 		close(mod->rootfd);
 		fexecve(scriptfd, argv, env);
 #endif
@@ -244,23 +244,23 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		{
 			length = path_info - url;
 		}
-		strncpy(cgipath, url + 1, length - 1);
-		warn("cgi: %s search %d", cgipath, mod->rootfd);
-		int scriptfd = openat(mod->rootfd, cgipath, O_PATH);
+		strncpy(cgipath, url + 1, length);
+		cgipath[length - 1] = '\0';
+		int scriptfd = -1;
+		scriptfd = openat(mod->rootfd, cgipath, O_PATH);
 		if (scriptfd < 0)
 		{
-			warn("cgi: %s not found", cgipath);
-			warn("cgi: %s", strerror(errno));
+			warn("cgi: %s error %s", cgipath, strerror(errno));
 			return EREJECT;
 		}
 
 		struct stat filestat = {0};
 		fstat(scriptfd, &filestat);
+		close(scriptfd);
 
 		if (S_ISDIR(filestat.st_mode))
 		{
 			dbg("cgi: %s is directory", url);
-			close(scriptfd);
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
@@ -269,7 +269,6 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 			httpmessage_result(response, RESULT_403);
 			warn("cgi: %s access denied", cgipath);
 			warn("cgi: %s", strerror(errno));
-			close(scriptfd);
 			return ESUCCESS;
 		}
 
