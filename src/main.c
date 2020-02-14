@@ -69,7 +69,7 @@
 #include "config.h"
 
 #if defined WEBSOCKET || defined WEBSTREAM
-extern int ouistiti_websocket_run(void *arg, int socket, char *protocol, http_message_t *request);
+extern int ouistiti_websocket_run(void *arg, int socket, const char *protocol, http_message_t *request);
 #endif
 
 #define PACKAGEVERSION PACKAGE "/" VERSION
