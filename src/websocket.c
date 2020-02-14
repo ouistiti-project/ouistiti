@@ -49,7 +49,7 @@
 #define dbg(...)
 #endif
 
-int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request)
+int ouistiti_websocket_socket(void *arg, int sock, const char *filepath, http_message_t *request)
 {
 	struct sockaddr_un addr;
 	memset(&addr, 0, sizeof(struct sockaddr_un));
@@ -104,7 +104,7 @@ static int _websocket_connect(int client, int socket)
 	return sendmsg(client, &msg, MSG_DONTWAIT);
 }
 
-int ouistiti_websocket_run(void *arg, int sock, char *filepath, http_message_t *request)
+int ouistiti_websocket_run(void *arg, int sock, const char *filepath, http_message_t *request)
 {
 	int client = ouistiti_websocket_socket(arg, sock, filepath, request);
 	if (client)
