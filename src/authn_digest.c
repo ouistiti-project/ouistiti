@@ -131,60 +131,66 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 	return mod;
 }
 
-static void authn_digest_noncetime(void *arg, char *nonce, int noncelen)
+static int authn_digest_noncetime(void *arg, char *nonce, int noncelen)
 {
 	const authn_digest_t *mod = (authn_digest_t *)arg;
 	struct tm nowtm;
 	int expire = 30;
 	if (mod->authn->config->expire != 0)
 		expire = mod->authn->config->expire;
-	time_t now = time(NULL) / (60 * expire);
-	strftime(nonce, noncelen, "%M%H%A%B%Y", localtime_r(&now, &nowtm));
+	time_t now = time(NULL);
+	now -= now % (60 * expire);
+	now += (60 *expire);
 	const char *key = mod->authn->config->secret;
 	if (hash_macsha256 != NULL && key != NULL)
 	{
 		void *ctx = hash_macsha256->initkey(key, strlen(key));
 		if (ctx)
 		{
-			hash_macsha256->update(ctx, nonce, noncelen);
+			hash_macsha256->update(ctx, (char*)&now, sizeof(now));
 			char signature[HASH_MAX_SIZE];
 			hash_macsha256->finish(ctx, signature);
-			memcpy(nonce, signature, noncelen);
+			base64_urlencoding->encode(signature, sizeof(signature), nonce, noncelen);
+			return ESUCCESS;
 		}
 	}
+	return EREJECT;
 }
 
-static void authn_digest_nonce(void *arg, char *nonce, int noncelen)
+static int authn_digest_nonce(void *arg, char *nonce, int noncelen)
 {
+	int ret = EREJECT;
 	const authn_digest_t *mod = (authn_digest_t *)arg;
 /**
  *  nonce and opaque may be B64 encoded data
  * or hexa encoded data
  */
 #ifndef DEBUG
-	(void) arg;
-	char _nonce[24];
-	int i;
+	char _nonce[32];
 
 	srandom(time(NULL));
 	int usedate = random() % 5;
 	if (usedate)
 	{
-		authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
+		ret = authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
 	}
-	else
+	if (ret == EREJECT)
 	{
-		for (i = 0; i < 6; i++)
-			*(int *)(_nonce + i * 4) = random();
+		int i;
+		for (i = 0; i < (sizeof(_nonce) / sizeof(int)); i++)
+			*(int *)(_nonce + i * sizeof(int)) = random();
+		base64->encode(_nonce, sizeof(_nonce), nonce, noncelen);
+		ret = ESUCCESS;
 	}
-	base64->encode(_nonce, 24, nonce, noncelen);
 #else
 	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
 	if (!strcmp(mod->opaque, str_opaque))
 		strncpy(nonce, "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", noncelen); //RFC7616
 	else
 		strncpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);  //RFC2617
+	ret = ESUCCESS;
 #endif
+	return ret;
 }
 
 static int authn_digest_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
@@ -232,6 +238,13 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 		httpmessage_appendheader(response, str_authenticate,
 				",algorithm=", mod->hash->name, "", NULL);
 	}
+
+#ifdef DEBUG
+	char _nonce[32];
+	authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
+	httpmessage_addheader(response, "test-nonce-time", _nonce);
+#endif
+
 	httpmessage_keepalive(response);
 	ret = ECONTINUE;
 	return ret;
