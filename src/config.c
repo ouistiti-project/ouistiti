@@ -237,7 +237,6 @@ static void *authn_digest_config(config_setting_t *configauth)
 	authn_config = calloc(1, sizeof(*authn_config));
 	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
 	config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
-	config_setting_lookup_string(configauth, "secret", (const char **)&authn_config->secret);
 	return authn_config;
 }
 #endif
@@ -414,7 +413,6 @@ static void *authz_simple_config(config_setting_t *configauth)
 static void *authz_jwt_config(config_setting_t *configauth)
 {
 	authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
-	config_setting_lookup_string(configauth, "secret", (const char **)&authz_config->key);
 	return authz_config;
 }
 #endif

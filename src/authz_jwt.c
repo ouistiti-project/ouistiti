@@ -69,7 +69,7 @@ struct authz_jwt_s
 	authsession_t *token;
 };
 
-char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
+char *authz_generatejwtoken(mod_auth_t *config, authsession_t *info)
 {
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));
@@ -89,9 +89,9 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	time_t now = 0;
 #endif
 	json_t *jexpire = NULL;
-	if (mod->expire > 0)
+	if (config->expire > 0)
 	{
-		jexpire = json_integer((mod->expire * 60) + now);
+		jexpire = json_integer((config->expire * 60) + now);
 	}
 	else
 		jexpire = json_integer((30 * 60) + now);
@@ -131,7 +131,7 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	return token;
 }
 
-json_t *jwt_decode_json(const char *id_token, const char *key)
+json_t *jwt_decode_json(const char *id_token)
 {
 	if (id_token == NULL)
 		return NULL;
@@ -161,38 +161,24 @@ json_t *jwt_decode_json(const char *id_token, const char *key)
 		err("oAuth2 id token error %s", error.text);
 	}
 #endif
-
-	int ret = EREJECT;
-	char b64signature2[64] = {0};
-	if (b64signature != NULL)
+	if (b64payload != NULL)
 	{
-
-		ret = jwt_sign(key, b64header, b64signature - b64header, b64signature2);
-
 		b64payloadlength = b64signature - b64payload;
-		b64signature++;
 	}
-	if ((ret == ESUCCESS) && (strcmp(b64signature2, b64signature)))
-	{
-		err("jwt token signature failed %s / %s", b64signature2, b64signature);
-		ret = EREJECT;
-	}
+
 	json_t *jpayload = NULL;
-#ifndef AUTHZ_JWT_SIGNNOTCHECK
-	if (ret == ESUCCESS)
-#endif
-	{
-		length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
-		auth_dbg("jwt: decode %s", data);
-		jpayload = json_loadb(data, length, 0, &error);
-	}
+	length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
+	auth_dbg("jwt: decode %s", data);
+	jpayload = json_loadb(data, length, 0, &error);
+	if (jpayload == NULL)
+		err("jwt: decode error %s", error.text);
 	return jpayload;
 }
 
-authsession_t *jwt_decode(const char *id_token, const char *key)
+authsession_t *jwt_decode(const char *id_token)
 {
 	authsession_t *authsession = NULL;
-	json_t *jinfo = jwt_decode_json(id_token, key);
+	json_t *jinfo = jwt_decode_json(id_token);
 	if (jinfo != NULL)
 	{
 		json_t *jexpire = json_object_get(jinfo, "exp");
@@ -230,6 +216,7 @@ authsession_t *jwt_decode(const char *id_token, const char *key)
 		juser = json_object_get(jinfo, "user");
 		if (juser && json_is_string(juser))
 			user = json_string_value(juser);
+
 		if (user == NULL)
 			user = str_anonymous;
 		strncpy(authsession->user, user, sizeof(authsession->user));
@@ -273,7 +260,9 @@ static void *authz_jwt_create(void *arg)
 static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
 	if (ctx->token == NULL)
-		ctx->token = jwt_decode(token, ctx->config->key);
+	{
+		ctx->token = jwt_decode(token);
+	}
 	if (ctx->token != NULL)
 		return ctx->token->user;
 	return NULL;

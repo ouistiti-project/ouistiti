@@ -76,7 +76,7 @@ struct authz_sqlite_config_s
 typedef struct authz_jwt_config_s authz_jwt_config_t;
 struct authz_jwt_config_s
 {
-	const char *key;
+	const char *none;
 };
 
 typedef void *(*authz_rule_create_t)(void *config);
@@ -144,7 +144,6 @@ struct authn_digest_config_s
 {
 	const char *realm;
 	const char *opaque;
-	const char *secret;
 };
 
 typedef struct authn_bearer_config_s authn_bearer_config_t;
@@ -152,7 +151,6 @@ struct authn_bearer_config_s
 {
 	const char *realm;
 	const char *token_ep;
-	int expire;
 };
 
 typedef struct authn_oauth2_config_s authn_oauth2_config_t;
