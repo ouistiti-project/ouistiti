@@ -178,8 +178,8 @@ do
 	fi
 	if [ ! $ERR -eq 0 ]; then
 		echo "$TEST quits on error"
-		if [ $NOERROR -eq 0 ]; then
-			TESTERROR=${TESTERROR} $TEST
+		if [ $NOERROR -eq 1 ]; then
+			TESTERROR="${TESTERROR} $TEST"
 		else
 			PID=$(cat ${TESTDIR}run.pid)
 			rm ${TESTDIR}run.pid
@@ -204,8 +204,6 @@ do
 		#kill -9 $PID 2> /dev/null
 	fi
 done
-echo $TESTERROR
-
 if [ ${ALL} -eq 1 ]; then
 	./src/ouistiti -h
 	./src/ouistiti -V
@@ -215,4 +213,8 @@ if [ ${GCOV} -eq 1 ]; then
 	lcov --directory . -c -o rapport.info
 	genhtml -o ./rapport -t "couverture de code des tests" rapport.info
 	firefox ./rapport/index.html
+fi
+if [ -n "$TESTERROR" ]; then
+	echo $TESTERROR
+	exit 1
 fi
