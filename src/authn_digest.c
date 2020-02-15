@@ -149,8 +149,13 @@ static int authn_digest_noncetime(void *arg, char *nonce, int noncelen)
 		{
 			hash_macsha256->update(ctx, (char*)&now, sizeof(now));
 			char signature[HASH_MAX_SIZE];
-			hash_macsha256->finish(ctx, signature);
-			base64_urlencoding->encode(signature, sizeof(signature), nonce, noncelen);
+			int signlen = HASH_MAX_SIZE;
+			signlen = hash_macsha256->finish(ctx, signature);
+#if 0
+			if ((signlen * 1.5) > noncelen)
+				signlen = noncelen / 1.5;
+#endif
+			base64_urlencoding->encode(signature, signlen, nonce, noncelen);
 			return ESUCCESS;
 		}
 	}
@@ -161,12 +166,13 @@ static int authn_digest_nonce(void *arg, char *nonce, int noncelen)
 {
 	int ret = EREJECT;
 	const authn_digest_t *mod = (authn_digest_t *)arg;
+err("%s", __FUNCTION__);
 /**
  *  nonce and opaque may be B64 encoded data
  * or hexa encoded data
  */
 #ifndef DEBUG
-	char _nonce[32];
+	char _nonce[(int)(HASH_MAX_SIZE * 1.5) + 1];
 
 	srandom(time(NULL));
 	int usedate = random() % 5;
@@ -240,7 +246,7 @@ static int authn_digest_challenge(void *arg, http_message_t *request, http_messa
 	}
 
 #ifdef DEBUG
-	char _nonce[32];
+	char _nonce[(int)(HASH_MAX_SIZE * 1.5) + 1];
 	authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
 	httpmessage_addheader(response, "test-nonce-time", _nonce);
 #endif

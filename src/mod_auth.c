@@ -563,9 +563,9 @@ int authn_checksignature(const authn_t *authn,
 		{
 			hash_macsha256->update(ctx, data, datalen);
 			char signature[HASH_MAX_SIZE];
-			hash_macsha256->finish(ctx, signature);
+			int signlen = hash_macsha256->finish(ctx, signature);
 			char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
-			base64_urlencoding->encode(signature, sizeof(signature), b64signature, sizeof(b64signature));
+			base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
 			if (!strncmp(b64signature, sign, signlen))
 				return ESUCCESS;
 		}
@@ -668,9 +668,9 @@ static int _authn_setauthorization(_mod_auth_ctx_t *ctx,
 			{
 				hash_macsha256->update(ctx, info->token, strlen(info->token));
 				char signature[HASH_MAX_SIZE];
-				hash_macsha256->finish(ctx, signature);
+				int signlen = hash_macsha256->finish(ctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
-				base64_urlencoding->encode(signature, sizeof(signature), b64signature, sizeof(b64signature));
+				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
 				httpmessage_append(response, str_xtoken, info->token, ".", b64signature, NULL);
 			}
 		}
