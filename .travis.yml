@@ -1,0 +1,12 @@
+dist: bionic
+compiler: gcc
+
+script:
+ - git clone https://github.com/ouistiti-project/libhttpserver.git
+ - make defconfig
+ - make DEBUG=y GCOV=1
+ - make hosttools
+ - sudo make install
+ - ./tests/run.sh -A
+ - make gcov
+ 
