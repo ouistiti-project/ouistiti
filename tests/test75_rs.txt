@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 59
+
+<html>
+	<body>
+		file with space in name
+	</body>
+</html>
+

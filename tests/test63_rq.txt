@@ -1,6 +1,6 @@
-POST /test41.old HTTP/1.1
+POST /empty.html HTTP/1.1
 HOST: 127.0.0.1
 X-POST-CMD: ln
-X-POST-ARG: /test41.link
+X-POST-ARG: /empty.link
 Authorization: Basic dGVzdDp0ZXN0
 

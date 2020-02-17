@@ -38,6 +38,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <errno.h>
+#include <crypt.h>
+#include <time.h>
 
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
@@ -63,10 +65,10 @@ typedef struct authz_unix_s authz_unix_t;
 struct authz_unix_s
 {
 	authz_file_config_t *config;
-	char *user;
-	char *passwd;
-	char *group;
-	char *home;
+	char user[32];
+	char passwd[128];
+	char group[32];
+	char home[128];
 };
 
 static void *authz_unix_create(void *arg)
@@ -88,51 +90,59 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		ret = 1;
 
 	struct passwd *pw = NULL;
-	pw = getpwnam(user);
+	struct passwd pwstore;
+	char buffer[512];
+
+	getpwnam_r(user, &pwstore, buffer, sizeof(buffer), &pw);
 	if (passwd && pw)
 	{
 		char *cryptpasswd = pw->pw_passwd;
 		/* get the shadow password if possible */
-		uid_t uid;
-		uid = geteuid();
-		if (seteuid(0) < 0)
-			warn("not enought rights to change user to root");
-		struct spwd *spasswd = getspnam(pw->pw_name);
-		if (seteuid(uid) < 0)
-			warn("not enought rights to change user");
-		if (spasswd && spasswd->sp_pwdp) {
-			cryptpasswd = spasswd->sp_pwdp;
-		}
 
 		char *testpasswd = NULL;
-		if (strcmp(cryptpasswd, "x"))
-			testpasswd = crypt(passwd, cryptpasswd);
-		else
+		if (!strcmp(cryptpasswd, "x"))
 		{
-			warn("authz unix: unaccessible user");
-			if (geteuid() != 0)
-				err("authz unix: run ouistiti as root for unix file authentication");
+			uid_t uid;
+			uid = geteuid();
+			if (seteuid(0) < 0)
+				warn("not enought rights to change user to root");
+			struct spwd *spasswd = getspnam(pw->pw_name);
+			if (seteuid(uid) < 0)
+				warn("not enought rights to change user");
+			if ((spasswd->sp_expire > 0) &&
+				(spasswd->sp_expire < (time(NULL) / (60 * 60 * 24))))
+			{
+				warn("authz: user %s password expired", user);
+				return 0;
+			}
+			if (spasswd && spasswd->sp_pwdp)
+			{
+				cryptpasswd = spasswd->sp_pwdp;
+			}
+			else
+			{
+				warn("authz unix: unaccessible user");
+				return 0;
+			}
 		}
 
+#ifdef USE_REENTRANT
+		struct crypt_data crdata = {0};
+		testpasswd = crypt_r(passwd, cryptpasswd, &crdata);
+#else
+		testpasswd = crypt(passwd, cryptpasswd);
+#endif
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
 			ret = 1;
-#ifdef HAVE_STRDUP
-			ctx->user = strdup(pw->pw_name);
-			ctx->home = strdup(pw->pw_dir);
-#else
-			ctx->user = pw->pw_name;
-			ctx->home = pw->pw_dir;
-#endif
+			strncpy(ctx->user, pw->pw_name, sizeof(ctx->user));
+			strncpy(ctx->home, pw->pw_dir, sizeof(ctx->home));
+
 			struct group *grp;
-			grp = getgrgid(pw->pw_gid);
-			if (grp)
+			struct group grpstorage;
+			if (getgrgid_r(pw->pw_gid, &grpstorage, buffer, sizeof(buffer), &grp))
 			{
-#ifdef HAVE_STRDUP
-				ctx->group = strdup(grp->gr_name);
-#else
-				ctx->group = grp->gr_name;
-#endif
+				strncpy(ctx->group, grp->gr_name, sizeof(ctx->group));
 			}
 		}
 		else
@@ -161,10 +171,10 @@ static const char *authz_unix_group(void *arg, const char *user)
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
 
-	if (ctx->group && ctx->group[0] != '\0')
+	if (ctx->group[0] != '\0')
 		return ctx->group;
 	if (!strcmp(user, "anonymous"))
-		return "anonymous";
+		return user;
 	return NULL;
 }
 
@@ -173,7 +183,7 @@ static const char *authz_unix_home(void *arg, const char *user)
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 	authz_file_config_t *config = ctx->config;
 
-	if (ctx->home && ctx->home[0] != '\0')
+	if (ctx->home[0] != '\0')
 		return ctx->home;
 	return NULL;
 }
@@ -182,24 +192,16 @@ static void authz_unix_destroy(void *arg)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 
-#ifdef HAVE_STRDUP
-	if (ctx->user)
-		free(ctx->user);
-	if (ctx->home)
-		free(ctx->home);
-	if (ctx->group)
-		free(ctx->group);
-#endif
 	free(ctx);
 }
 
 authz_rules_t authz_unix_rules =
 {
-	.create = authz_unix_create,
-	.check = authz_unix_check,
+	.create = &authz_unix_create,
+	.check = &authz_unix_check,
 	.passwd = NULL,
-	.group = authz_unix_group,
-	.home = authz_unix_home,
-	.destroy = authz_unix_destroy,
+	.group = &authz_unix_group,
+	.home = &authz_unix_home,
+	.destroy = &authz_unix_destroy,
 };
 #endif

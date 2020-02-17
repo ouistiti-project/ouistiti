@@ -137,16 +137,16 @@ static void *authz_sqlite_create(void *arg)
 	return ctx;
 }
 
+#define SEARCH_QUERY "select %s from users inner join groups on groups.id=users.groupid where users.name=@NAME;"
 static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
 {
 	authz_sqlite_config_t *config = ctx->config;
 	int ret;
 	const char *value = NULL;
-	const char *query = "select %s from users inner join groups on groups.id=users.groupid where users.name=@NAME;";
 
-	int size = strlen(query) + strlen(field);
+	int size = sizeof(SEARCH_QUERY) + strlen(field);
 	char *sql = sqlite3_malloc(size);
-	snprintf(sql, size, query, field);
+	snprintf(sql, size, SEARCH_QUERY, field);
 
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
@@ -274,10 +274,10 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 		SQLITE3_CHECK(ret, EREJECT, sql);
 
 		ret = sqlite3_step(statement);
-		if (ret == SQLITE_ROW)
+		if ((ret == SQLITE_ROW) &&
+			(sqlite3_column_type(statement, 0) == SQLITE_INTEGER))
 		{
-			if (sqlite3_column_type(statement, 0) == SQLITE_INTEGER)
-				userid = sqlite3_column_int(statement, 0);
+			userid = sqlite3_column_int(statement, 0);
 		}
 		sqlite3_finalize(statement);
 	}
@@ -305,10 +305,10 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 		SQLITE3_CHECK(ret, EREJECT, sql);
 
 		ret = sqlite3_step(statement);
-		if (ret == SQLITE_ROW)
+		if ((ret == SQLITE_ROW) &&
+			(sqlite3_column_type(statement, 0) == SQLITE_INTEGER))
 		{
-			if (sqlite3_column_type(statement, 0) == SQLITE_INTEGER)
-				userid = sqlite3_column_int(statement, 0);
+			userid = sqlite3_column_int(statement, 0);
 		}
 		sqlite3_finalize(statement);
 	}
@@ -470,14 +470,14 @@ static void authz_sqlite_destroy(void *arg)
 
 authz_rules_t authz_sqlite_rules =
 {
-	.create = authz_sqlite_create,
-	.check = authz_sqlite_check,
-	.passwd = authz_sqlite_passwd,
-	.group = authz_sqlite_group,
-	.home = authz_sqlite_home,
-	.join = authz_sqlite_join,
+	.create = &authz_sqlite_create,
+	.check = &authz_sqlite_check,
+	.passwd = &authz_sqlite_passwd,
+	.group = &authz_sqlite_group,
+	.home = &authz_sqlite_home,
+	.join = &authz_sqlite_join,
 #ifdef AUTHN_OAUTH2
-	.adduser = authz_sqlite_adduser,
+	.adduser = &authz_sqlite_adduser,
 #endif
-	.destroy = authz_sqlite_destroy,
+	.destroy = &authz_sqlite_destroy,
 };

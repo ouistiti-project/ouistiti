@@ -153,8 +153,8 @@ void mod_methodlock_destroy(void *data)
 const module_t mod_methodlock =
 {
 	.name = str_methodlock,
-	.create = (module_create_t)mod_methodlock_create,
-	.destroy = mod_methodlock_destroy
+	.create = (module_create_t)&mod_methodlock_create,
+	.destroy = &mod_methodlock_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_methodlock")));

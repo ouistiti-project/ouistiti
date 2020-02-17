@@ -63,7 +63,65 @@ static config_t configfile;
 static char *logfile = NULL;
 static int logfd = 0;
 
+typedef void (*_parsercb_t)(void *arg, const char *option, int length);
+
+static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata)
+{
+	const char *ext = options;
+
+	while (ext != NULL)
+	{
+		int length = strlen(ext);
+		const char *ext_end = strchr(ext, ',');
+		if (ext_end)
+		{
+			length -= strlen(ext_end + 1) + 1;
+			ext_end++;
+		}
+		cb(cbdata, ext, length);
+		ext = ext_end;
+	}
+	return 0;
+}
+
 #ifdef DOCUMENT
+static void document_optioncb(void *arg, const char *option, int length)
+{
+	mod_document_t *static_file = (mod_document_t *)arg;
+
+#ifdef DIRLISTING
+	if (!strncmp(option, "dirlisting", length))
+		static_file->options |= DOCUMENT_DIRLISTING;
+#endif
+#ifdef SENDFILE
+	if (!strncmp(option, "sendfile", length))
+	{
+		if (!(static_file->options & DOCUMENT_TLS))
+			static_file->options |= DOCUMENT_SENDFILE;
+		else
+			warn("sendfile configuration is not allowed with tls");
+	}
+#endif
+#ifdef RANGEREQUEST
+	if (!strncmp(option, "range", length))
+	{
+		static_file->options |= DOCUMENT_RANGE;
+	}
+#endif
+#ifdef DOCUMENTREST
+	if (!strncmp(option, "rest", length))
+	{
+		static_file->options |= DOCUMENT_REST;
+	}
+#endif
+#ifdef DOCUMENTHOME
+	if (!strncmp(option, "home", length))
+	{
+		static_file->options |= DOCUMENT_HOME;
+	}
+#endif
+}
+
 static const char *str_index = "index.html";
 static mod_document_t *document_config(config_setting_t *iterator, int tls, char *entry)
 {
@@ -85,51 +143,10 @@ static mod_document_t *document_config(config_setting_t *iterator, int tls, char
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
 		if (static_file->defaultpage == NULL)
 			static_file->defaultpage = str_index;
+		if (tls)
+			static_file->options |= DOCUMENT_TLS;
 		config_setting_lookup_string(configstaticfile, "options", (const char **)&transfertype);
-		char *ext = transfertype;
-
-		while (ext != NULL)
-		{
-			length = strlen(ext);
-			char *ext_end = strchr(ext, ',');
-			if (ext_end)
-			{
-				length -= strlen(ext_end + 1) + 1;
-				ext_end++;
-			}
-#ifdef DIRLISTING
-			if (!strncmp(ext, "dirlisting", length))
-				static_file->options |= DOCUMENT_DIRLISTING;
-#endif
-#ifdef SENDFILE
-			if (!strncmp(ext, "sendfile", length))
-			{
-				if(!tls)
-					static_file->options |= DOCUMENT_SENDFILE;
-				else
-					warn("sendfile configuration is not allowed with tls");
-			}
-#endif
-#ifdef RANGEREQUEST
-			if (!strncmp(ext, "range", length))
-			{
-				static_file->options |= DOCUMENT_RANGE;
-			}
-#endif
-#ifdef DOCUMENTREST
-			if (!strncmp(ext, "rest", length))
-			{
-				static_file->options |= DOCUMENT_REST;
-			}
-#endif
-#ifdef DOCUMENTHOME
-			if (!strncmp(ext, "home", length))
-			{
-				static_file->options |= DOCUMENT_HOME;
-			}
-#endif
-			ext = ext_end;
-		}
+		config_parseoptions(transfertype, &document_optioncb, static_file);
 	}
 	return static_file;
 }
@@ -183,16 +200,342 @@ static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int t
 #endif
 
 #ifdef AUTH
-#ifdef MODULES
-const char *str_authenticate_types[] =
+#ifdef AUTHN_NONE
+static void *authn_none_config(config_setting_t *configauth)
 {
-	"None",
-	"Basic",
-	"Digest",
-	"Bearer",
-	"oAuth2",
-};
+	authn_none_config_t *authn_config = NULL;
+	const char *user = NULL;
+
+	config_setting_lookup_string(configauth, "user", (const char **)&user);
+	if (user != NULL)
+	{
+		authn_config = calloc(1, sizeof(*authn_config));
+		authn_config->user = user;
+	}
+	else
+		warn("config: authn_none needs to set the user");
+	return authn_config;
+}
 #endif
+
+#ifdef AUTHN_BASIC
+static void *authn_basic_config(config_setting_t *configauth)
+{
+	authn_basic_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	return authn_config;
+}
+#endif
+
+#ifdef AUTHN_DIGEST
+static void *authn_digest_config(config_setting_t *configauth)
+{
+	authn_digest_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
+	return authn_config;
+}
+#endif
+
+#ifdef AUTHN_BEARER
+static void *authn_bearer_config(config_setting_t *configauth)
+{
+	authn_bearer_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
+	if (authn_config->token_ep == NULL)
+		config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->token_ep);
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	return authn_config;
+}
+#endif
+
+#ifdef AUTHN_OAUTH2
+static void *authn_oauth2_config(config_setting_t *configauth)
+{
+	authn_oauth2_config_t *authn_config = NULL;
+	const char *auth_ep = NULL;
+	const char *token_ep = NULL;
+	const char *discovery = NULL;
+
+	config_setting_lookup_string(configauth, "discovery", (const char **)&discovery);
+	config_setting_lookup_string(configauth, "auth_ep", (const char **)&auth_ep);
+	config_setting_lookup_string(configauth, "token_ep", (const char **)&token_ep);
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	authn_config->discovery = discovery;
+	authn_config->auth_ep = auth_ep;
+	authn_config->token_ep = token_ep;
+
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+
+	config_setting_lookup_string(configauth, "client_id", (const char **)&authn_config->client_id);
+	if (authn_config->client_id == NULL)
+		authn_config->client_id = authn_config->realm;
+
+	config_setting_lookup_string(configauth, "client_passwd", (const char **)&authn_config->client_passwd);
+	if (authn_config->client_passwd == NULL)
+	{
+		config_setting_lookup_string(configauth, "secret", (const char **)&authn_config->client_passwd);
+	}
+
+	if (authn_config->iss == NULL)
+		authn_config->iss = authn_config->realm;
+
+	return authn_config;
+}
+#endif
+
+struct _authn_s
+{
+	void *(*config)(config_setting_t *);
+	authn_type_t type;
+	const char *name;
+};
+
+struct _authn_s *authn_list[] =
+{
+#ifdef AUTHN_BASIC
+	&(struct _authn_s){
+		.config = &authn_basic_config,
+		.type = AUTHN_BASIC_E,
+		.name = "Basic",
+	},
+#endif
+#ifdef AUTHN_DIGEST
+	&(struct _authn_s){
+		.config = &authn_digest_config,
+		.type = AUTHN_DIGEST_E,
+		.name = "Digest",
+	},
+#endif
+#ifdef AUTHN_BEARER
+	&(struct _authn_s){
+		.config = &authn_bearer_config,
+		.type = AUTHN_BEARER_E,
+		.name = "Bearer",
+	},
+#endif
+#ifdef AUTHN_OAUTH2
+	&(struct _authn_s){
+		.config = &authn_oauth2_config,
+		.type = AUTHN_OAUTH2_E,
+		.name = "oAuth2",
+	},
+#endif
+#ifdef AUTHN_NONE
+	&(struct _authn_s){
+		.config = &authn_none_config,
+		.type = AUTHN_NONE_E,
+		.name = "None",
+	},
+#endif
+	NULL
+};
+
+static int authn_config(config_setting_t *configauth, mod_authn_t *mod)
+{
+	int ret = EREJECT;
+
+	char *type = NULL;
+	config_setting_lookup_string(configauth, "type", (const char **)&type);
+	if (type == NULL)
+	{
+		return ret;
+	}
+
+	int i = 0;
+	struct _authn_s *authn = authn_list[i];
+	while (authn != NULL && authn->config != NULL)
+	{
+		if (!strcmp(type, authn->name))
+			mod->config = authn->config(configauth);
+		if (mod->config != NULL)
+		{
+			break;
+		}
+		i++;
+		authn = authn_list[i];
+	}
+	if (authn != NULL)
+	{
+		mod->type = authn->type;
+		mod->name = authn->name;
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+#ifdef AUTHZ_UNIX
+static void *authz_unix_config(config_setting_t *configauth)
+{
+	authz_file_config_t *authz_config = NULL;
+	char *path = NULL;
+
+	config_setting_lookup_string(configauth, "file", (const char **)&path);
+	if (path != NULL && path[0] != '0' && strstr(path, "shadow"))
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->path = path;
+	}
+	return authz_config;
+}
+#endif
+#ifdef AUTHZ_FILE
+static void *authz_file_config(config_setting_t *configauth)
+{
+	authz_file_config_t *authz_config = NULL;
+	char *path = NULL;
+
+	config_setting_lookup_string(configauth, "file", (const char **)&path);
+	if (path != NULL && path[0] != '0')
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->path = path;
+	}
+	return authz_config;
+}
+#endif
+#ifdef AUTHZ_SQLITE
+static void *authz_sqlite_config(config_setting_t *configauth)
+{
+	authz_sqlite_config_t *authz_config = NULL;
+	char *path = NULL;
+
+	config_setting_lookup_string(configauth, "dbname", (const char **)&path);
+	if (path != NULL && path[0] != '0')
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->dbname = path;
+	}
+	return authz_config;
+}
+#endif
+#ifdef AUTHZ_SIMPLE
+static void *authz_simple_config(config_setting_t *configauth)
+{
+	authz_simple_config_t *authz_config = NULL;
+	char *user = NULL;
+	config_setting_lookup_string(configauth, "user", (const char **)&user);
+	if (user != NULL && user[0] != '0')
+	{
+		char *passwd = NULL;
+		char *group = NULL;
+		char *home = NULL;
+		config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
+		config_setting_lookup_string(configauth, "group", (const char **)&group);
+		config_setting_lookup_string(configauth, "home", (const char **)&home);
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->user = user;
+		authz_config->group = group;
+		authz_config->home = home;
+		authz_config->passwd = passwd;
+	}
+	return authz_config;
+}
+#endif
+#ifdef AUTHZ_JWT
+	/**
+	 * defautl configuration
+	 */
+static void *authz_jwt_config(config_setting_t *configauth)
+{
+	authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
+	return authz_config;
+}
+#endif
+
+struct _authz_s
+{
+	void *(*config)(config_setting_t *);
+	authz_type_t type;
+	const char *name;
+};
+
+struct _authz_s *authz_list[] =
+{
+#ifdef AUTHZ_UNIX
+	&(struct _authz_s){
+		.config = &authz_unix_config,
+		.type = AUTHZ_UNIX_E,
+		.name = "unix",
+	},
+#endif
+#ifdef AUTHZ_FILE
+	&(struct _authz_s){
+		.config = &authz_file_config,
+		.type = AUTHZ_FILE_E,
+		.name = "file",
+	},
+#endif
+#ifdef AUTHZ_SQLITE
+	&(struct _authz_s){
+		.config = &authz_sqlite_config,
+		.type = AUTHZ_SQLITE_E,
+		.name = "sqlite",
+	},
+#endif
+#ifdef AUTHZ_SIMPLE
+	&(struct _authz_s){
+		.config = &authz_simple_config,
+		.type = AUTHZ_SIMPLE_E,
+		.name = "simple",
+	},
+#endif
+#ifdef AUTHZ_JWT
+	&(struct _authz_s){
+		.config = &authz_jwt_config,
+		.type = AUTHZ_JWT_E,
+		.name = "jwt",
+	},
+#endif
+	NULL
+};
+
+static void authz_optionscb(void *arg, const char *option, int length)
+{
+	mod_auth_t *auth = (mod_auth_t *)arg;
+
+	if (!strncmp(option, "home", length))
+		auth->authz.type |= AUTHZ_HOME_E;
+	if (!strncmp(option, "cookie", length))
+		auth->authz.type |= AUTHZ_COOKIE_E;
+	if (!strncmp(option, "header", length))
+		auth->authz.type |= AUTHZ_HEADER_E;
+	if (!strncmp(option, "token", length))
+		auth->authz.type |= AUTHZ_TOKEN_E;
+	if (!strncmp(option, "chown", length))
+		auth->authz.type |= AUTHZ_CHOWN_E;
+}
+
+static int authz_config(config_setting_t *configauth, mod_authz_t *mod)
+{
+	int ret = EREJECT;
+	int i = 0;
+	struct _authz_s *authz = authz_list[i];
+	while (authz != NULL && authz->config != NULL)
+	{
+		mod->config = authz->config(configauth);
+		if (mod->config != NULL)
+		{
+			break;
+		}
+		i++;
+		authz = authz_list[i];
+	}
+	if (authz != NULL)
+	{
+		mod->type |= authz->type;
+		mod->name = authz->name;
+	}
+	return ret;
+}
+
 static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 {
 	mod_auth_t *auth = NULL;
@@ -218,160 +561,26 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 
 		char *mode = NULL;
 		config_setting_lookup_string(configauth, "options", (const char **)&mode);
-		if (mode && strstr(mode, "home") != NULL)
-			auth->authz_type |= AUTHZ_HOME_E;
-		if (mode && strstr(mode, "cookie") != NULL)
-			auth->authz_type |= AUTHZ_COOKIE_E;
-		if (mode && strstr(mode, "header") != NULL)
-			auth->authz_type |= AUTHZ_HEADER_E;
-		if (mode && strstr(mode, "token") != NULL)
-			auth->authz_type |= AUTHZ_TOKEN_E;
+		if (tls)
+			auth->authz.type |= AUTHZ_TLS_E;
+		if (mode != NULL)
+		{
+			config_parseoptions(mode, &authz_optionscb, auth);
+		}
 		config_setting_lookup_int(configauth, "expire", &auth->expire);
 
-#ifdef AUTHZ_UNIX
-		if (auth->authz_config == NULL)
+		int ret;
+		ret = authz_config(configauth, &auth->authz);
+		if (ret == EREJECT)
 		{
-			char *path = NULL;
-
-			config_setting_lookup_string(configauth, "file", (const char **)&path);
-			if (path != NULL && path[0] != '0' && strstr(path, "shadow"))
-			{
-				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
-				authz_config->path = path;
-				auth->authz_type |= AUTHZ_UNIX_E;
-				auth->authz_config = authz_config;
-			}
-		}
-#endif
-#ifdef AUTHZ_FILE
-		if (auth->authz_config == NULL)
-		{
-			char *path = NULL;
-
-			config_setting_lookup_string(configauth, "file", (const char **)&path);
-			if (path != NULL && path[0] != '0')
-			{
-				authz_file_config_t *authz_config = calloc(1, sizeof(*authz_config));
-				authz_config->path = path;
-				auth->authz_type |= AUTHZ_FILE_E;
-				auth->authz_config = authz_config;
-			}
-		}
-#endif
-#ifdef AUTHZ_SQLITE
-		if (auth->authz_config == NULL)
-		{
-			char *path = NULL;
-
-			config_setting_lookup_string(configauth, "dbname", (const char **)&path);
-			if (path != NULL && path[0] != '0')
-			{
-				authz_sqlite_config_t *authz_config = calloc(1, sizeof(*authz_config));
-				authz_config->dbname = path;
-				auth->authz_type |= AUTHZ_SQLITE_E;
-				auth->authz_config = authz_config;
-			}
-		}
-#endif
-#ifdef AUTHZ_SIMPLE
-		if (auth->authz_config == NULL)
-		{
-			char *user = NULL;
-			config_setting_lookup_string(configauth, "user", (const char **)&user);
-			if (user != NULL && user[0] != '0')
-			{
-				char *passwd = NULL;
-				char *group = NULL;
-				char *home = NULL;
-				config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
-				config_setting_lookup_string(configauth, "group", (const char **)&group);
-				config_setting_lookup_string(configauth, "home", (const char **)&home);
-				authz_simple_config_t *authz_config = calloc(1, sizeof(*authz_config));
-				authz_config->user = user;
-				authz_config->group = group;
-				authz_config->home = home;
-				authz_config->passwd = passwd;
-				auth->authz_type |= AUTHZ_SIMPLE_E;
-				auth->authz_config = authz_config;
-			}
-		}
-#endif
-
-		char *type = NULL;
-		config_setting_lookup_string(configauth, "type", (const char **)&type);
-#ifdef AUTHN_NONE
-		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_NONE_E], 4))
-		{
-			authn_none_config_t *authn_config = calloc(1, sizeof(*authn_config));
-			auth->authn_type = AUTHN_NONE_E;
-			config_setting_lookup_string(configauth, "user", (const char **)&authn_config->user);
-			auth->authn_config = authn_config;
-		}
-#endif
-#ifdef AUTHN_BASIC
-		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_BASIC_E], 5))
-		{
-			authn_basic_config_t *authn_config = calloc(1, sizeof(*authn_config));
-			auth->authn_type = AUTHN_BASIC_E;
-			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-			auth->authn_config = authn_config;
-		}
-#endif
-#ifdef AUTHN_DIGEST
-		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_DIGEST_E], 5))
-		{
-			authn_digest_config_t *authn_config = calloc(1, sizeof(*authn_config));
-			auth->authn_type = AUTHN_DIGEST_E;
-			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-			config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
-			auth->authn_config = authn_config;
-		}
-#endif
-#ifdef AUTHN_BEARER
-		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_BEARER_E], 6))
-		{
-			authn_bearer_config_t *authn_config = calloc(1, sizeof(*authn_config));
-			auth->authn_type = AUTHN_BEARER_E;
-			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-			/**
-			 * token_ep and signin are not compatible
-			 */
-			auth->redirect = NULL;
-			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
-			if (authn_config->token_ep == NULL)
-				config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->token_ep);
-			auth->authn_config = authn_config;
-#ifdef AUTHZ_JWT
-			/**
-			 * defautl configuration
-			 */
-			if (auth->authz_config == NULL)
-			{
-				authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
-				authz_config->key = auth->secret;
-				auth->authz_type |= AUTHZ_JWT_E;
-				auth->authz_config = authz_config;
-			}
-#endif
+			err("config: authz is not set");
 		}
 
-#endif
-#ifdef AUTHN_OAUTH2
-		if (type != NULL && !strncasecmp(type, str_authenticate_types[AUTHN_OAUTH2_E], 6))
+		ret = authn_config(configauth, &auth->authn);
+		if (ret == EREJECT)
 		{
-			authn_oauth2_config_t *authn_config = calloc(1, sizeof(*authn_config));
-			auth->authn_type = AUTHN_OAUTH2_E;
-			if (authn_config->iss == NULL)
-				authn_config->iss = authn_config->realm;
-			config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-			config_setting_lookup_string(configauth, "auth_ep", (const char **)&authn_config->auth_ep);
-			config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
-			authn_config->client_passwd = auth->secret;
-			authn_config->client_id = authn_config->realm;
-			config_setting_lookup_string(configauth, "discovery", (const char **)&authn_config->discovery);
-			auth->authn_config = authn_config;
+			err("config: authn type is not set");
 		}
-#endif
 	}
 	return auth;
 }
@@ -396,6 +605,7 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
 		config_setting_lookup_string(configcgi, "deny", (const char **)&cgi->deny);
 		cgi->nbenvs = 0;
 		cgi->chunksize = 64;
+		cgi->options |= CGI_OPTION_TLS;
 		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);
 #if LIBCONFIG_VER_MINOR < 5
 		config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
@@ -422,9 +632,23 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
 #endif
 
 #ifdef WEBSOCKET
+static void websocket_optionscb(void *arg, const char *option, int length)
+{
+	mod_websocket_t *conf = (mod_websocket_t *)arg;
+#ifdef WEBSOCKET_RT
+	if (!strncmp(option, "direct", length))
+	{
+		if (!(conf->options & WEBSOCKET_TLS))
+			conf->options |= WEBSOCKET_REALTIME;
+		else
+			warn("realtime configuration is not allowed with tls");
+	}
+#endif
+}
+
 static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 {
-	mod_websocket_t *ws = NULL;
+	mod_websocket_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configws = config_setting_get_member(iterator, "websocket");
 #else
@@ -433,45 +657,39 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 	if (configws)
 	{
 		char *mode = NULL;
-		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
-		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
-		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		char *ext = mode;
-
-		while (ext != NULL)
-		{
-			int length;
-			length = strlen(ext);
-			char *ext_end = strchr(ext, ',');
-			if (ext_end)
-			{
-				length -= strlen(ext_end + 1) + 1;
-				ext_end++;
-			}
-#ifdef WEBSOCKET_RT
-			if (!strncmp(ext, "direct", length))
-			{
-				if (!tls)
-					ws->options |= WEBSOCKET_REALTIME;
-				else
-					warn("realtime configuration is not allowed with tls");
-			}
-#endif
-			ext = ext_end;
-		}
+		if (tls)
+			conf->options |= WEBSOCKET_TLS;
+		config_parseoptions(mode, &websocket_optionscb, conf);
 	}
-	return ws;
+	return conf;
 }
 #else
 #define websocket_config(...) NULL
 #endif
 
 #ifdef WEBSTREAM
+static void webstream_optionscb(void *arg, const char *option, int length)
+{
+	mod_webstream_t *conf = (mod_webstream_t *)arg;
+#ifdef WEBSOCKET_RT
+	if (!strncmp(option, "direct", length))
+	{
+		if (!(conf->options & WEBSOCKET_TLS))
+			conf->options |= WEBSOCKET_REALTIME;
+		else
+			warn("realtime configuration is not allowed with tls");
+	}
+#endif
+}
+
 static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 {
-	mod_webstream_t *ws = NULL;
+	mod_webstream_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configws = config_setting_get_member(iterator, "webstream");
 #else
@@ -481,79 +699,100 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 	{
 		char *url = NULL;
 		char *mode = NULL;
-		ws = calloc(1, sizeof(*ws));
-		config_setting_lookup_string(configws, "docroot", (const char **)&ws->docroot);
-		config_setting_lookup_string(configws, "deny", (const char **)&ws->deny);
-		config_setting_lookup_string(configws, "allow", (const char **)&ws->allow);
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
+		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		char *ext = mode;
-
-		while (ext != NULL)
-		{
-			int length;
-			length = strlen(ext);
-			char *ext_end = strchr(ext, ',');
-			if (ext_end)
-			{
-				length -= strlen(ext_end + 1) + 1;
-				ext_end++;
-			}
-			if (!strncmp(ext, "direct", length))
-			{
-				if (!tls)
-					ws->options |= WEBSOCKET_REALTIME;
-				else
-					warn("realtime configuration is not allowed with tls");
-			}
-			ext = ext_end;
-		}
+		if (tls)
+			conf->options |= WEBSOCKET_TLS;
+		config_parseoptions(mode, &webstream_optionscb, conf);
 	}
-	return ws;
+	return conf;
 }
 #else
 #define webstream_config(...) NULL
 #endif
 
 #ifdef REDIRECT
-static int redirect_mode(const char *mode)
+static int redirect_mode(const char *option, int length)
 {
 	int options = 0;
-	const char *ext = mode;
-
-	while (ext != NULL)
+	if (!strncmp(option, "generate_204", length))
 	{
-		int length;
-		length = strlen(ext);
-		char *ext_end = strchr(ext, ',');
-		if (ext_end)
-		{
-			length -= strlen(ext_end + 1) + 1;
-			ext_end++;
-		}
-		if (!strncmp(ext, "generate_204", length))
-		{
-			options |= REDIRECT_GENERATE204;
-		}
-		else if (!strncmp(ext, "hsts", length))
-		{
-			options |= REDIRECT_HSTS;
-		}
-		else if (!strncmp(ext, "temporary", length))
-		{
-			options |= REDIRECT_TEMPORARY;
-		}
-		else if (!strncmp(ext, "permanently", length))
-		{
-			options |= REDIRECT_PERMANENTLY;
-		}
-		else if (!strncmp(ext, "error", length))
-		{
-			options |= REDIRECT_ERROR;
-		}
-		ext = ext_end;
+		options |= REDIRECT_GENERATE204;
+	}
+	else if (!strncmp(option, "hsts", length))
+	{
+		options |= REDIRECT_HSTS;
+	}
+	else if (!strncmp(option, "temporary", length))
+	{
+		options |= REDIRECT_TEMPORARY;
+	}
+	else if (!strncmp(option, "permanently", length))
+	{
+		options |= REDIRECT_PERMANENTLY;
+	}
+	else if (!strncmp(option, "error", length))
+	{
+		options |= REDIRECT_ERROR;
 	}
 	return options;
 }
+
+static void redirect_optionscb(void *arg, const char *option, int length)
+{
+	mod_redirect_t *conf = (mod_redirect_t *)arg;
+	conf->options = redirect_mode(option, length);
+}
+
+static void redirect_linkoptionscb(void *arg, const char *option, int length)
+{
+	mod_redirect_link_t *link = (mod_redirect_link_t *)arg;
+	link->options = redirect_mode(option, length);
+}
+
+static mod_redirect_link_t *redirect_linkconfig(config_setting_t *iterator)
+{
+	mod_redirect_link_t *link = NULL;
+	char *destination = NULL;
+	const char *origin = NULL;
+	char *mode = NULL;
+	int options = 0;
+
+	static char origin_error[4];
+	config_setting_t *originset = config_setting_lookup(iterator, "origin");
+	if (config_setting_is_number(originset))
+	{
+		int value;
+		value = config_setting_get_int(originset);
+		snprintf(origin_error, 4, "%.3d", value);
+		origin = origin_error;
+		config_setting_set_string(originset, origin_error);
+		//originset = config_setting_lookup(iterator, "origin");
+		if (value == 204)
+			options |= REDIRECT_GENERATE204;
+		else
+			options |= REDIRECT_ERROR;
+	}
+	else
+		origin = config_setting_get_string(originset);
+	config_setting_lookup_string(iterator, "destination", (const char **)&destination);
+	if (origin != NULL)
+	{
+		link = calloc(1, sizeof(*link));
+		link->origin = strdup(origin);
+
+		config_setting_lookup_string(iterator, "options", (const char **)&mode);
+		config_parseoptions(mode, &redirect_linkoptionscb, link);
+		link->options |= options;
+
+		link->destination = destination;
+	}
+	return link;
+}
+
 static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 {
 	mod_redirect_t *conf = NULL;
@@ -567,7 +806,7 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 		conf = calloc(1, sizeof(*conf));
 		char *mode = NULL;
 		config_setting_lookup_string(config, "options", (const char **)&mode);
-		conf->options = redirect_mode(mode);
+		config_parseoptions(mode, &redirect_optionscb, conf);
 
 		config_setting_t *configlinks = config_setting_lookup(config, "links");
 		if (configlinks)
@@ -580,37 +819,9 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 				config_setting_t *iterator = config_setting_get_elem(configlinks, i);
 				if (iterator)
 				{
-					char *destination = NULL;
-					const char *origin = NULL;
-					char *mode = NULL;
-
-					config_setting_lookup_string(iterator, "options", (const char **)&mode);
-					int options = redirect_mode(mode);
-
-					static char origin_error[4];
-					config_setting_t *originset = config_setting_lookup(iterator, "origin");
-					if (config_setting_is_number(originset))
+					mod_redirect_link_t *link = redirect_linkconfig(iterator);
+					if (link != NULL)
 					{
-						int value;
-						value = config_setting_get_int(originset);
-						snprintf(origin_error, 4, "%.3d", value);
-						origin = origin_error;
-						config_setting_set_string(originset, origin_error);
-						//originset = config_setting_lookup(iterator, "origin");
-						if (value == 204)
-							options |= REDIRECT_GENERATE204;
-						else
-							options |= REDIRECT_ERROR;
-					}
-					else
-						origin = config_setting_get_string(originset);
-					config_setting_lookup_string(iterator, "destination", (const char **)&destination);
-					if (origin != NULL)
-					{
-						mod_redirect_link_t *link = calloc(1, sizeof(*link));
-						link->origin = strdup(origin);
-						link->options = options;
-						link->destination = destination;
 						link->next = conf->links;
 						conf->links = link;
 					}
@@ -682,6 +893,115 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 #define vhost_config(...) NULL
 #endif
 
+static void config_mimes(config_setting_t *configmimes)
+{
+	if (configmimes)
+	{
+		int count = config_setting_length(configmimes);
+		int i;
+		for (i = 0; i < count && i < MAX_SERVERS; i++)
+		{
+			char *ext = NULL;
+			char *mime = NULL;
+			config_setting_t *iterator = config_setting_get_elem(configmimes, i);
+			if (iterator)
+			{
+				config_setting_lookup_string(iterator, "ext", (const char **)&ext);
+				config_setting_lookup_string(iterator, "mime", (const char **)&mime);
+				if (mime != NULL && ext != NULL)
+				{
+					utils_addmime(ext, mime);
+				}
+			}
+		}
+	}
+}
+
+static serverconfig_t *config_server(config_setting_t *iterator)
+{
+	serverconfig_t *config = calloc(1, sizeof(*config));
+
+	config->server = calloc(1, sizeof(*config->server));
+	char *hostname = NULL;
+	config_setting_lookup_string(iterator, "hostname", (const char **)&hostname);
+	if (hostname && strchr(hostname, '.') == NULL)
+	{
+		err("hostname must contain the domain");
+	}
+	else if (hostname == NULL)
+	{
+		hostname = str_hostname;
+	}
+	warn("hostname %s", hostname);
+	config->server->hostname = hostname;
+	config->server->port = 80;
+	config_setting_lookup_int(iterator, "port", &config->server->port);
+	config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
+	config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
+	config->server->chunksize = DEFAULT_CHUNKSIZE;
+	config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
+	config->server->maxclients = DEFAULT_MAXCLIENTS;
+	config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
+	config->server->version = HTTP11;
+	const char *version = NULL;
+	config_setting_lookup_string(iterator, "version", &version);
+	if (version)
+	{
+		int i = 0;
+		for (i = 0; httpversion[i] != NULL; i++)
+		{
+			if (!strcmp(version,  httpversion[i]))
+			{
+				config->server->version = i;
+				break;
+			}
+		}
+	}
+	config->server->versionstr = httpversion[config->server->version];
+	return config;
+}
+
+static void config_modules(config_setting_t *iterator, serverconfig_t *config)
+{
+	config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
+	config->tls = tls_config(iterator);
+	config->modules.document = document_config(iterator,(config->tls!=NULL), "document");
+	if (config->modules.document == NULL)
+		config->modules.document = document_config(iterator,(config->tls!=NULL), "static_file");
+	if (config->modules.document == NULL)
+	{
+		config->modules.document = document_config(iterator,(config->tls!=NULL), "filestorage");
+		if (config->modules.document != NULL)
+			config->modules.document->options |= DOCUMENT_REST;
+	}
+	config->modules.auth = auth_config(iterator,(config->tls!=NULL));
+	config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
+	config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
+	config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
+	config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
+	config->modules.cors = cors_config(iterator,(config->tls!=NULL));
+	config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
+#ifdef VHOSTS
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
+#else
+	config_setting_t *configvhosts = config_setting_lookup(iterator, "vhosts");
+#endif
+	if (configvhosts)
+	{
+		int count = config_setting_length(configvhosts);
+		int j;
+
+		for (j = 0; j < count && (j + i) < MAX_SERVERS; j++)
+		{
+			config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
+			config->vhosts[j] = vhost_config(iterator,(config->tls!=NULL));
+		}
+	}
+#endif
+}
+
+
 ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 {
 	int ret;
@@ -713,26 +1033,7 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 		}
 		config_lookup_string(&configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
 		config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
-		if (configmimes)
-		{
-			int count = config_setting_length(configmimes);
-			int i;
-			for (i = 0; i < count && i < MAX_SERVERS; i++)
-			{
-				char *ext = NULL;
-				char *mime = NULL;
-				config_setting_t *iterator = config_setting_get_elem(configmimes, i);
-				if (iterator)
-				{
-					config_setting_lookup_string(iterator, "ext", (const char **)&ext);
-					config_setting_lookup_string(iterator, "mime", (const char **)&mime);
-					if (mime != NULL && ext != NULL)
-					{
-						utils_addmime(ext, mime);
-					}
-				}
-			}
-		}
+		config_mimes(configmimes);
 		config_setting_t *configservers = config_lookup(&configfile, "servers");
 		if (configservers)
 		{
@@ -744,83 +1045,9 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 				config_setting_t *iterator = config_setting_get_elem(configservers, i);
 				if (iterator)
 				{
-					ouistiticonfig->servers[i] = calloc(1, sizeof(*ouistiticonfig->servers[i]));
+					ouistiticonfig->servers[i] = config_server(iterator);
 					serverconfig_t *config = ouistiticonfig->servers[i];
-
-					config->server = calloc(1, sizeof(*config->server));
-					char *hostname = NULL;
-					config_setting_lookup_string(iterator, "hostname", (const char **)&hostname);
-					if (hostname && strchr(hostname, '.') == NULL)
-					{
-						err("hostname must contain the domain");
-					}
-					else if (hostname == NULL)
-					{
-						hostname = str_hostname;
-					}
-					warn("hostname %s", hostname);
-					config->server->hostname = hostname;
-					config->server->port = 80;
-					config_setting_lookup_int(iterator, "port", &config->server->port);
-					config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
-					config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
-					config->server->chunksize = DEFAULT_CHUNKSIZE;
-					config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
-					config->server->maxclients = DEFAULT_MAXCLIENTS;
-					config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
-					config->server->version = HTTP11;
-					const char *version = NULL;
-					config_setting_lookup_string(iterator, "version", &version);
-					if (version)
-					{
-						int i = 0;
-						for (i = 0; httpversion[i] != NULL; i++)
-						{
-							if (!strcmp(version,  httpversion[i]))
-							{
-								config->server->version = i;
-								break;
-							}
-						}
-					}
-					config->server->versionstr = httpversion[config->server->version];
-
-					config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
-					config->tls = tls_config(iterator);
-					config->modules.document = document_config(iterator,(config->tls!=NULL), "document");
-					if (config->modules.document == NULL)
-						config->modules.document = document_config(iterator,(config->tls!=NULL), "static_file");
-					if (config->modules.document == NULL)
-					{
-						config->modules.document = document_config(iterator,(config->tls!=NULL), "filestorage");
-						if (config->modules.document != NULL)
-							config->modules.document->options |= DOCUMENT_REST;
-					}
-					config->modules.auth = auth_config(iterator,(config->tls!=NULL));
-					config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
-					config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
-					config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
-					config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
-					config->modules.cors = cors_config(iterator,(config->tls!=NULL));
-					config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
-#ifdef VHOSTS
-#if LIBCONFIG_VER_MINOR < 5
-					config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
-#else
-					config_setting_t *configvhosts = config_setting_lookup(iterator, "vhosts");
-#endif
-					if (configvhosts)
-					{
-						int count = config_setting_length(configvhosts);
-						int j;
-
-						for (j = 0; j < count && (j + i) < MAX_SERVERS; j++)
-						{
-							config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
-							config->vhosts[j] = vhost_config(iterator,(config->tls!=NULL));
-						}
-					}
-#endif
+					config_modules(iterator, config);
 				}
 			}
 			ouistiticonfig->servers[i] = NULL;
@@ -851,10 +1078,10 @@ static void _modulesconfig_destroy(modulesconfig_t *config)
 	}
 	if (config->auth)
 	{
-		if (config->auth->authn_config)
-			free(config->auth->authn_config);
-		if (config->auth->authz_config)
-			free(config->auth->authz_config);
+		if (config->auth->authn.config)
+			free(config->auth->authn.config);
+		if (config->auth->authz.config)
+			free(config->auth->authz.config);
 		free(config->auth);
 	}
 	if (config->cgi)

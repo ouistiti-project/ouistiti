@@ -126,8 +126,8 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
 
-	char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
-	if (utils_searchexp(uri, str_authresp) == ESUCCESS)
+	const char *uri = httpmessage_REQUEST(request, "uri");
+	if (utils_searchexp(uri, str_authresp, NULL) == ESUCCESS)
 	{
 		mod->state = 1;
 		/** set the default result */
@@ -159,13 +159,15 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 			{
 				const char *type = "authorization_code"; /** RFC6749 4.1.2 */
 
+
+				httpmessage_addheader(request2, str_authorization, "Basic ");
+
 				char authorization[256] = {0};
 				char basic[164];
 				snprintf(basic, 164, "%s:%s", config->client_id, config->client_passwd);
-				strncpy(authorization, "Basic ", 256);
 				int length = strlen(basic) * 1.5 + 5;
-				base64_urlencoding->encode(basic, strlen(basic), authorization + strlen(authorization), length - 1);
-				httpmessage_addheader(request2, str_authorization, authorization);
+				base64_urlencoding->encode(basic, strlen(basic), authorization, 256);
+				httpmessage_appendheader(request2, str_authorization, authorization, NULL);
 
 				response2 = httpmessage_create();
 
@@ -291,16 +293,13 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 				snprintf(authorization, MAX_TOKEN + 7 + 1, "oAuth2 %s", access_token);
 				httpmessage_addheader(response, str_authorization, authorization);
 
-				char location[1024];
 				const char *scheme = httpmessage_REQUEST(request, "scheme");
+				httpmessage_addheader(response, str_location, scheme);
 				const char *host = httpmessage_REQUEST(request, "host");
-				snprintf(location, 1024, "%s://%s/",
-										scheme,
-										host);
-				httpmessage_addheader(response, str_location, location);
+				httpmessage_appendheader(response, str_location, "://", host, "/", NULL);
 				httpmessage_result(response, RESULT_302);
 
-				cookie_set(response, str_authorization, authorization);
+				cookie_set(response, str_authorization, authorization, NULL);
 				ret = ESUCCESS;
 			}
 		}
@@ -325,7 +324,6 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 			json_decref(json_authtokens);
 		}
 	}
-	free(uri);
 	return ret;
 }
 
@@ -371,13 +369,12 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = mod->config;
 
-	const char *uriencoded = httpmessage_REQUEST(request, "uri");
-	char *uri = utils_urldecode(uriencoded);
+	const char *uri = httpmessage_REQUEST(request, "uri");
 	char authenticate[256];
 	snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
 	httpmessage_addheader(response, str_authenticate, authenticate);
 
-	if (!utils_searchexp(uri, str_authresp))
+	if (!utils_searchexp(uri, str_authresp, NULL))
 	{
 		ret = EREJECT;
 	}
@@ -405,11 +402,10 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 		httpmessage_result(response, RESULT_302);
 		ret = ESUCCESS;
 	}
-	free(uri);
 	return ret;
 }
 
-static const char *authn_oauth2_check(void *arg, const char *method, const char *uri, char *string)
+static const char *authn_oauth2_check(void *arg, const char *method, const char *uri, const char *string)
 {
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = mod->config;
@@ -431,9 +427,9 @@ static const char *authn_oauth2_check(void *arg, const char *method, const char 
 
 authn_rules_t authn_oauth2_rules =
 {
-	.create = authn_oauth2_create,
-	.setup = authn_oauth2_setup,
-	.challenge = authn_oauth2_challenge,
-	.check = authn_oauth2_check,
-	.destroy = authn_oauth2_destroy,
+	.create = &authn_oauth2_create,
+	.setup = &authn_oauth2_setup,
+	.challenge = &authn_oauth2_challenge,
+	.check = &authn_oauth2_check,
+	.destroy = &authn_oauth2_destroy,
 };

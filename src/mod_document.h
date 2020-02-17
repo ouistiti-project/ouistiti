@@ -36,6 +36,7 @@
 #define DOCUMENT_RANGE 0x04
 #define DOCUMENT_REST 0x08
 #define DOCUMENT_HOME 0x10
+#define DOCUMENT_TLS 0x20
 
 #ifdef __cplusplus
 extern "C"
@@ -67,17 +68,19 @@ struct _mod_document_mod_s
 	mod_document_t *config;
 	void *vhost;
 	mod_transfer_t transfer;
+	int fdroot;
+	int fdhome;
 };
 
 struct _document_connector_s
 {
-	int type;
 	_mod_document_mod_t *mod;
 	http_client_t *ctl;
 	void *previous;
-	char *path_info;
-	char *filepath;
-	int fd;
+	const char *url;
+	int fdfile;
+	int fdroot;
+	int type;
 	DIR *dir;
 	http_connector_t func;
 	unsigned long long size;

@@ -143,8 +143,8 @@ void mod_server_destroy(void *data)
 const module_t mod_server =
 {
 	.name = str_server,
-	.create = (module_create_t)mod_server_create,
-	.destroy = mod_server_destroy
+	.create = (module_create_t)&mod_server_create,
+	.destroy = &mod_server_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_server")));

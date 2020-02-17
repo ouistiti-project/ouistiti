@@ -18,6 +18,7 @@ servers= ({
 			#passwd="Circle Of Life"; #RFC2617
 			#algorithm = "MD5";
 			algorithm = "SHA-256"; #RFC7616
+			secret = "ouistiti is a marmoset";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";

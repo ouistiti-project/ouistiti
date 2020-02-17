@@ -82,7 +82,7 @@ static int authn_basic_challenge(void *arg, http_message_t *request, http_messag
 }
 
 static char user[256] = {0};
-static const char *authn_basic_check(void *arg, const char *method, const char *uri, char *string)
+static const char *authn_basic_check(void *arg, const char *method, const char *uri, const char *string)
 {
 	const authn_basic_t *mod = (authn_basic_t *)arg;
 	char *passwd;
@@ -115,8 +115,8 @@ static void authn_basic_destroy(void *arg)
 
 authn_rules_t authn_basic_rules =
 {
-	.create = authn_basic_create,
-	.challenge = authn_basic_challenge,
-	.check = authn_basic_check,
-	.destroy = authn_basic_destroy,
+	.create = &authn_basic_create,
+	.challenge = &authn_basic_challenge,
+	.check = &authn_basic_check,
+	.destroy = &authn_basic_destroy,
 };

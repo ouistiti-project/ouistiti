@@ -2,4 +2,4 @@ DESC="test to PUT the same file again on the server"
 PREPARE="touch ${TESTDIR}/htdocs/test41.txt"
 CONFIG=test10.conf
 TESTREQUEST=test41_rq.txt
-TESTCODE=416
+TESTCODE=405

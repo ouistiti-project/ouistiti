@@ -17,6 +17,11 @@ servers= ({
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 		};
+		redirect = {
+			links = ({
+				origin = "token";
+			});
+		};
 	});
 
 

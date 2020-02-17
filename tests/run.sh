@@ -7,6 +7,7 @@ PWD=$(pwd)
 CONTINUE=0
 GCOV=0
 ALL=0
+NOERROR=0
 while [ -n "$1" ]; do
 case $1 in
 	-D)
@@ -23,7 +24,7 @@ case $1 in
 		;;
 	-A)
 		ALL=1
-		TESTS=$(find $TESTDIR -maxdepth 1 -name test*[0-9])
+		TESTS=$(find $TESTDIR -maxdepth 1 -name test*[0-9] | sort)
 		;;
 	-N)
 		NOERROR=1
@@ -89,9 +90,13 @@ do
 	${SED} -i "s/\%PWD\%/$(echo $PWD | ${SED} 's/\//\\\//g')/g" ${TESTDIR}conf/${CONFIG}
 	${SED} -i "s/\%USER\%/$USER/g" ${TESTDIR}conf/${CONFIG}
 
-	if [ -n "$PREPARE" ]; then
-		$PREPARE &
+	if [ -n "$PREPARE_ASYNC" ]; then
+		$PREPARE_ASYNC &
 		sleep 1
+	fi
+
+	if [ -n "$PREPARE" ]; then
+		$PREPARE
 	fi
 
 	TARGET="ouistiti -s 1 -f ${TESTDIR}conf/${CONFIG}"
@@ -173,11 +178,13 @@ do
 	fi
 	if [ ! $ERR -eq 0 ]; then
 		echo "$TEST quits on error"
-		if [ -n "$NOERROR" ]; then
-			TESTERROR=${TESTERROR} $TEST
+		if [ $NOERROR -eq 1 ]; then
+			TESTERROR="${TESTERROR} $TEST"
 		else
-			kill -9 $PID 2> /dev/null
-			exit $ERR
+			PID=$(cat ${TESTDIR}run.pid)
+			rm ${TESTDIR}run.pid
+			killall -9 $(echo $TARGET | ${AWK} '{print $1}')
+			exit 1
 		fi
 	else
 		echo "$TEST completed"
@@ -197,8 +204,6 @@ do
 		#kill -9 $PID 2> /dev/null
 	fi
 done
-echo $TESTERROR
-
 if [ ${ALL} -eq 1 ]; then
 	./src/ouistiti -h
 	./src/ouistiti -V
@@ -208,4 +213,8 @@ if [ ${GCOV} -eq 1 ]; then
 	lcov --directory . -c -o rapport.info
 	genhtml -o ./rapport -t "couverture de code des tests" rapport.info
 	firefox ./rapport/index.html
+fi
+if [ -n "$TESTERROR" ]; then
+	echo $TESTERROR
+	exit 1
 fi

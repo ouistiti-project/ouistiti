@@ -34,6 +34,8 @@ extern "C"
 {
 #endif
 
+#define CGI_OPTION_TLS 0x01
+
 typedef struct mod_cgi_config_s
 {
 	char *docroot;
@@ -43,11 +45,12 @@ typedef struct mod_cgi_config_s
 	int nbenvs;
 	int chunksize;
 	int timeout;
+	int options;
 } mod_cgi_config_t;
 
 extern const module_t mod_cgi;
 
-char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, char *cgi_path);
+char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, const char *cgi_path, const char *path_info);
 
 #ifdef __cplusplus
 }
