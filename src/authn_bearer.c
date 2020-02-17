@@ -124,10 +124,6 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 		if (authn_checksignature(mod->authn, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{
 			user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
-			if (user == NULL)
-			{
-				user = str_anonymous;
-			}
 		}
 	}
 	return user;
