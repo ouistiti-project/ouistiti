@@ -479,7 +479,7 @@ char **cgi_buildenv(mod_cgi_config_t *config, http_message_t *request, const cha
 	}
 	for (i = 0; i < config->nbenvs; i++)
 	{
-		env[j + i] = (char *)config->env[i];
+		env[j + i] = strdup(config->env[i]);
 	}
 	env[j + i] = NULL;
 	return env;
