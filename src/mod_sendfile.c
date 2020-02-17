@@ -56,6 +56,17 @@ int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 {
 	int ret, size;
 
+	if (!(private->type & DOCUMENT_SENDFILE))
+	{
+		/**
+		 * the first loop must not send content
+		 * it should send the header first.
+		 */
+		private->type |= DOCUMENT_SENDFILE;
+		errno = EAGAIN;
+		return ECONTINUE;
+	}
+
 	/**
 	 * check the size for the rnage support
 	 * the size may be different of the real size file
@@ -81,7 +92,7 @@ int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 		do
 		{
 			int sock = ret;
-			ret = sendfile(sock, private->fd, NULL, size);
+			ret = sendfile(sock, private->fdfile, NULL, size);
 		}
 		while (ret < 0 && errno == EINTR);
 	}

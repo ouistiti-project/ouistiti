@@ -45,8 +45,8 @@
 #include "httpserver/utils.h"
 #include "mod_webstream.h"
 
-extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);
-extern int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request);
+extern int ouistiti_websocket_run(void *arg, int sock, const char *protocol, http_message_t *request);
+extern int ouistiti_websocket_socket(void *arg, int sock, const char *filepath, http_message_t *request);
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -65,6 +65,7 @@ struct _mod_webstream_s
 {
 	mod_webstream_t *config;
 	socket_t socket;
+	int fdroot;
 };
 
 struct _mod_webstream_ctx_s
@@ -74,14 +75,14 @@ struct _mod_webstream_ctx_s
 	int socket;
 	int client;
 	pid_t pid;
-	http_client_t *ctl;
+	http_client_t *clt;
 };
 
 static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
 
 static const char str_webstream[] = "webstream";
 
-static int _checkname(_mod_webstream_ctx_t *ctx, char *pathname)
+static int _checkname(_mod_webstream_ctx_t *ctx, const char *pathname)
 {
 	_mod_webstream_t *mod = ctx->mod;
 	mod_webstream_t *config = (mod_webstream_t *)mod->config;
@@ -89,8 +90,8 @@ static int _checkname(_mod_webstream_ctx_t *ctx, char *pathname)
 	{
 		return  EREJECT;
 	}
-	if (utils_searchexp(pathname, config->deny) == ESUCCESS &&
-		utils_searchexp(pathname, config->allow) != ESUCCESS)
+	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
+		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
 	{
 		return  EREJECT;
 	}
@@ -106,49 +107,57 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 
 	if (ctx->client == 0)
 	{
-		char *uri = utils_urldecode(httpmessage_REQUEST(request, "uri"));
+		const char *uri = httpmessage_REQUEST(request, "uri");
+		if (uri[0] == '/')
+			uri++;
 		if (_checkname(ctx, uri) != ESUCCESS)
 		{
-			free(uri);
 			return ret;
 		}
 
-		struct stat filestat;
-		char *filepath = utils_buildpath(config->docroot, uri, "", "", &filestat);
-		if (filepath)
+		int fdfile = openat(mod->fdroot, uri, O_PATH);
+		if (fdfile == -1)
 		{
-			if (S_ISSOCK(filestat.st_mode))
+			return EREJECT;
+		}
+		struct stat filestat;
+		fstat(fdfile, &filestat);
+		close(fdfile);
+
+		if (S_ISSOCK(filestat.st_mode))
+		{
+			ctx->socket = httpmessage_lock(response);
+			const char *mime = NULL;
+			mime = utils_getmime(uri);
+			httpmessage_addcontent(response, mime, NULL, -1);
+
+			if (fchdir(ctx->mod->fdroot) == -1)
+				warn("webstream: impossible to change directory");
+			int wssock;
+			if (config->options & WEBSOCKET_REALTIME)
 			{
-				ctx->socket = httpmessage_keepalive(response);
-				const char *mime = NULL;
-				mime = utils_getmime(filepath);
-				httpmessage_addcontent(response, mime, NULL, -1);
+				wssock = ouistiti_websocket_run(NULL, ctx->socket, uri, request);
+			}
+			else
+				wssock = ouistiti_websocket_socket(NULL, ctx->socket, uri, request);
 
-				int wssock;
-				if (config->options & WEBSOCKET_REALTIME)
-				{
-					wssock = ouistiti_websocket_run(NULL, ctx->socket, filepath, request);
-				}
-				else
-					wssock = ouistiti_websocket_socket(NULL, ctx->socket, filepath, request);
-
-				if (wssock > 0)
-				{
-					ctx->client = wssock;
-					ret = ECONTINUE;
-				}
-				else
-				{
-					httpmessage_result(response, RESULT_404);
-					ret = ESUCCESS;
-				}
+			if (wssock > 0)
+			{
+				ctx->client = wssock;
+				ret = ECONTINUE;
 			}
 		}
-		free(uri);
+
+		if (ctx->client <= 0)
+		{
+			httpmessage_result(response, RESULT_400);
+			ret = ESUCCESS;
+		}
+		else
+			ctx->socket = httpmessage_lock(response);
 	}
 	else
 	{
-		ctx->socket = httpmessage_lock(response);
 		if (!(config->options & WEBSOCKET_REALTIME))
 		{
 			ctx->pid = _webstream_run(ctx, request);
@@ -158,14 +167,14 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 	return ret;
 }
 
-static void *_mod_webstream_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static void *_mod_webstream_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	_mod_webstream_t *mod = (_mod_webstream_t *)arg;
 
 	_mod_webstream_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	ctx->mod = mod;
-	ctx->ctl = ctl;
-	httpclient_addconnector(ctl, _webstream_connector, ctx, CONNECTOR_DOCUMENT, str_webstream);
+	ctx->clt = clt;
+	httpclient_addconnector(clt, _webstream_connector, ctx, CONNECTOR_DOCUMENT, str_webstream);
 
 	return ctx;
 }
@@ -179,7 +188,7 @@ static void _mod_webstream_freectx(void *arg)
 #ifdef VTHREAD
 		dbg("webstream: waitpid");
 		waitpid(ctx->pid, NULL, 0);
-		warn("webstream: end stream %p", ctx->ctl);
+		warn("webstream: end stream %p", ctx->clt);
 #else
 		/**
 		 * ignore SIGCHLD allows the child to die without to create a z$
@@ -190,6 +199,10 @@ static void _mod_webstream_freectx(void *arg)
 		action.sa_handler = SIG_IGN;
 		sigaction(SIGCHLD, &action, NULL);
 #endif
+		shutdown(ctx->client, SHUT_RD);
+		close(ctx->client);
+		httpclient_shutdown(ctx->clt);
+
 	}
 	free(ctx);
 }
@@ -199,13 +212,15 @@ void *mod_webstream_create(http_server_t *server, mod_webstream_t *config)
 	_mod_webstream_t *mod = calloc(1, sizeof(*mod));
 
 	mod->config = config;
-
+	mod->fdroot = open(config->docroot, O_DIRECTORY);
 	httpserver_addmod(server, _mod_webstream_getctx, _mod_webstream_freectx, mod, str_webstream);
 	return mod;
 }
 
 void mod_webstream_destroy(void *data)
 {
+	_mod_webstream_t *mod = (_mod_webstream_t *)data;
+	close(mod->fdroot);
 	free(data);
 }
 
@@ -236,6 +251,8 @@ static void *_webstream_main(void *arg)
 		{
 			int length;
 			ret = ioctl(client, FIONREAD, &length);
+			if (length == 0)
+				end = 1;
 			while (length > 0)
 			{
 				char *buffer;
@@ -276,9 +293,9 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 	pid_t pid;
 
 	_webstream_main_t info = {.socket = ctx->socket, .client = ctx->client};
-	info.ctx = httpclient_context(ctx->ctl);
-	info.recvreq = httpclient_addreceiver(ctx->ctl, NULL, NULL);
-	info.sendresp = httpclient_addsender(ctx->ctl, NULL, NULL);
+	info.ctx = httpclient_context(ctx->clt);
+	info.recvreq = httpclient_addreceiver(ctx->clt, NULL, NULL);
+	info.sendresp = httpclient_addsender(ctx->clt, NULL, NULL);
 
 	if ((pid = fork()) == 0)
 	{
@@ -291,8 +308,8 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 const module_t mod_webstream =
 {
 	.name = str_webstream,
-	.create = (module_create_t)mod_webstream_create,
-	.destroy = mod_webstream_destroy
+	.create = (module_create_t)&mod_webstream_create,
+	.destroy = &mod_webstream_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_webstream")));

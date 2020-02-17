@@ -69,31 +69,7 @@ struct authz_jwt_s
 	authsession_t *token;
 };
 
-int jwt_sign(const char *key, const char *input, size_t len, char *output)
-{
-	int ret = EREJECT;
-	if (hash_macsha256 != NULL && key != NULL)
-	{
-		void *ctx = hash_macsha256->initkey(key, strlen(key));
-		if (ctx)
-		{
-			hash_macsha256->update(ctx, input, len);
-			char signature[HASH_MAX_SIZE];
-			hash_macsha256->finish(ctx, signature);
-
-			base64_urlencoding->encode(signature, HASH_MAX_SIZE, output, 64);
-			ret = ESUCCESS;
-		}
-	}
-	else
-	{
-		err("auth: set secret in configuration");
-		output[0] = '\0';
-	}
-	return ret;
-}
-
-char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
+char *authz_generatejwtoken(mod_auth_t *config, authsession_t *info)
 {
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));
@@ -103,23 +79,38 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	json_t *jtoken = json_object();
 	json_t *juser = json_string(info->user);
 	json_object_set(jtoken, "user", juser);
-	json_object_set(jtoken, "home", json_string(info->home));
-	json_object_set(jtoken, "roles", json_string(info->group));
+	json_t *jhome = json_string(info->home);
+	json_object_set(jtoken, "home", jhome);
+	json_t *jroles = json_string(info->group);
+	json_object_set(jtoken, "roles", jroles);
+#ifndef DEBUG
+	time_t now = time(NULL);
+#else
+	time_t now = 0;
+#endif
+	json_t *jexpire = NULL;
+	if (config->expire > 0)
+	{
+		jexpire = json_integer((config->expire * 60) + now);
+	}
+	else
+		jexpire = json_integer((30 * 60) + now);
+	json_object_set(jtoken, "exp", jexpire);
 #ifdef AUTH_OPENID
 	json_object_set(jtoken, "sub", juser);
 	json_object_set(jtoken, "preferred_username", juser);
 	json_object_set(jtoken, "aud", json_string("ouistiti"));
-	time_t now = time(NULL);
-	json_object_set(jtoken, "exp", json_integer(mod->expire + now));
 	json_object_set(jtoken, "iat", json_integer(now));
 	if (info->urlspace && info->urlspace[0] != '\0')
 		json_object_set(jtoken, "iss", json_string(info->urlspace));
 #endif
 	char *ttoken = json_dumps(jtoken, 0);
+	auth_dbg("jwt: encode %s", ttoken);
 
 	int ret;
-	int length = strlen(theader) + 1 + strlen(ttoken) + 1;
-	char *token = calloc(2, length + 32);
+	int length = (strlen(theader) * 1.5) + 1 + (strlen(ttoken) * 1.5) + 1;
+
+	char *token = calloc(2, length + 1);
 	char *offset = token;
 	length *= 2;
 	ret = base64_urlencoding->encode(theader, strlen(theader), offset, length);
@@ -133,16 +124,14 @@ char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info)
 	ret = base64_urlencoding->encode(ttoken, strlen(ttoken), offset, length);
 	offset += ret;
 	length = offset - token;
-	*offset = '.';
-	offset++;
-
-	ret = jwt_sign(mod->secret, token, length, offset);
 	err("token %s", token);
-
+	/**
+	 * the signature is added inside mod_auth
+	 */
 	return token;
 }
 
-json_t *jwt_decode_json(const char *id_token, const char *key)
+json_t *jwt_decode_json(const char *id_token)
 {
 	if (id_token == NULL)
 		return NULL;
@@ -172,44 +161,50 @@ json_t *jwt_decode_json(const char *id_token, const char *key)
 		err("oAuth2 id token error %s", error.text);
 	}
 #endif
-
-	int ret = EREJECT;
-	char b64signature2[64] = {0};
-	if (b64signature != NULL)
+	if (b64payload != NULL)
 	{
-
-		ret = jwt_sign(key, b64header, b64signature - b64header, b64signature2);
-
 		b64payloadlength = b64signature - b64payload;
-		b64signature++;
 	}
-	if (ret == ESUCCESS)
-	{
 
-		if (strcmp(b64signature2, b64signature))
-		{
-			err("jwt token signature failed %s / %s", b64signature2, b64signature);
-			ret = EREJECT;
-		}
-	}
 	json_t *jpayload = NULL;
-#ifndef AUTHZ_JWT_SIGNNOTCHECK
-	if (ret == ESUCCESS)
-#endif
-	{
-		length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
-		auth_dbg("JWT: %s", data);
-		jpayload = json_loadb(data, length, 0, &error);
-	}
+	length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
+	auth_dbg("jwt: decode %s", data);
+	jpayload = json_loadb(data, length, 0, &error);
+	if (jpayload == NULL)
+		err("jwt: decode error %s", error.text);
 	return jpayload;
 }
 
-authsession_t *jwt_decode(const char *id_token, const char *key)
+authsession_t *jwt_decode(const char *id_token)
 {
 	authsession_t *authsession = NULL;
-	json_t *jinfo = jwt_decode_json(id_token, key);
+	json_t *jinfo = jwt_decode_json(id_token);
 	if (jinfo != NULL)
 	{
+		json_t *jexpire = json_object_get(jinfo, "exp");
+		if (jexpire && json_is_integer(jexpire))
+		{
+			time_t expire = json_integer_value(jexpire);
+#ifndef DEBUG
+			time_t now = time(NULL);
+#else
+			time_t now = 0;
+#endif
+			if (expire < now)
+			{
+				warn("auth: jwt expired");
+#ifndef DEBUG
+				return NULL;
+#else
+				err("auth: DEBUG is unsecure please rebuild as release");
+#endif
+			}
+		}
+		else
+		{
+			warn("auth: jwt doesn't contain exp");
+			return NULL;
+		}
 		authsession = calloc(1, sizeof(*authsession));
 		const char *user = NULL;
 		json_t *juser = json_object_get(jinfo, "preferred_username");
@@ -221,6 +216,7 @@ authsession_t *jwt_decode(const char *id_token, const char *key)
 		juser = json_object_get(jinfo, "user");
 		if (juser && json_is_string(juser))
 			user = json_string_value(juser);
+
 		if (user == NULL)
 			user = str_anonymous;
 		strncpy(authsession->user, user, sizeof(authsession->user));
@@ -264,7 +260,9 @@ static void *authz_jwt_create(void *arg)
 static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
 	if (ctx->token == NULL)
-		ctx->token = jwt_decode(token, ctx->config->key);
+	{
+		ctx->token = jwt_decode(token);
+	}
 	if (ctx->token != NULL)
 		return ctx->token->user;
 	return NULL;
@@ -328,13 +326,13 @@ static void authz_jwt_destroy(void *arg)
 
 authz_rules_t authz_jwt_rules =
 {
-	.create = authz_jwt_create,
-	.check = authz_jwt_check,
-	.group = authz_jwt_group,
-	.home = authz_jwt_home,
-	.join = authz_jwt_join,
+	.create = &authz_jwt_create,
+	.check = &authz_jwt_check,
+	.group = &authz_jwt_group,
+	.home = &authz_jwt_home,
+	.join = &authz_jwt_join,
 #ifdef AUTHN_OAUTH2
-	.adduser = authz_jwt_adduser,
+	.adduser = &authz_jwt_adduser,
 #endif
-	.destroy = authz_jwt_destroy,
+	.destroy = &authz_jwt_destroy,
 };

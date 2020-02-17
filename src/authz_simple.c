@@ -63,9 +63,9 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 {
 	authz_simple_t *ctx = (authz_simple_t *)arg;
 
-	if (user != NULL && passwd != NULL && !strcmp(user, ctx->user) && ctx->passwd)
+	if (user != NULL && passwd != NULL && !strcmp(user, ctx->user) &&
+		ctx->passwd && (authz_checkpasswd(passwd, ctx->user, NULL,  ctx->passwd) == ESUCCESS))
 	{
-		if (authz_checkpasswd(passwd, ctx->user, NULL,  ctx->passwd) == ESUCCESS)
 			return user;
 	}
 	return NULL;
@@ -95,10 +95,10 @@ static const char *authz_simple_home(void *arg, const char *user)
 
 authz_rules_t authz_simple_rules =
 {
-	.create = authz_simple_create,
-	.check = authz_simple_check,
-	.passwd = authz_simple_passwd,
-	.group = authz_simple_group,
-	.home = authz_simple_home,
+	.create = &authz_simple_create,
+	.check = &authz_simple_check,
+	.passwd = &authz_simple_passwd,
+	.group = &authz_simple_group,
+	.home = &authz_simple_home,
 	.destroy = NULL,
 };

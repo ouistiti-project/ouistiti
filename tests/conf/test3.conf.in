@@ -6,7 +6,7 @@ servers= ({
 		version="HTTP11";
 		cgi = {
 			docroot = "%PWD%/tests/htdocs";
-			allow = ".cgi";
+			allow = ".cgi*";
 			deny = ".htaccess,.php";
 		};
 	});

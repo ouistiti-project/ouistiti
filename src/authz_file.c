@@ -202,11 +202,6 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 	int ret = 0;
 	authz_file_config_t *config = ctx->config;
 
-	struct passwd *userpasswd = NULL;
-	userpasswd = getpwnam(user);
-	if (userpasswd)
-		warn("user %s pwd %s home %s", userpasswd->pw_name, userpasswd->pw_passwd, userpasswd->pw_dir);
-
 	const char *checkpasswd = authz_file_passwd(ctx, user);
 	if (checkpasswd != NULL &&
 			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)
@@ -266,10 +261,10 @@ static void authz_file_destroy(void *arg)
 
 authz_rules_t authz_file_rules =
 {
-	.create = authz_file_create,
-	.check = authz_file_check,
-	.passwd = authz_file_passwd,
-	.group = authz_file_group,
-	.home = authz_file_home,
-	.destroy = authz_file_destroy,
+	.create = &authz_file_create,
+	.check = &authz_file_check,
+	.passwd = &authz_file_passwd,
+	.group = &authz_file_group,
+	.home = &authz_file_home,
+	.destroy = &authz_file_destroy,
 };

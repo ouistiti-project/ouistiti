@@ -49,8 +49,6 @@
 
 typedef struct _mod_redirect404_s _mod_redirect404_t;
 
-static void *_mod_redirect404_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
-static void _mod_redirect404_freectx(void *vctx);
 static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response);
 
 static const char str_redirect404[] = "redirect404";
@@ -68,11 +66,14 @@ void *mod_redirect404_create(http_server_t *server, mod_redirect404_t *config)
 
 void mod_redirect404_destroy(void *arg)
 {
+	// nothing to do
 }
 
 static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	mod_redirect404_t *conf = (mod_redirect404_t *)arg;
+	const char *uri = httpmessage_REQUEST(request, "uri");
+	warn("redirect 404: %s", uri);
 	httpmessage_result(response, RESULT_404);
 	return EREJECT;
 }
@@ -80,8 +81,8 @@ static int _mod_redirect404_connector(void *arg, http_message_t *request, http_m
 const module_t mod_redirect404 =
 {
 	.name = str_redirect404,
-	.create = (module_create_t)mod_redirect404_create,
-	.destroy = mod_redirect404_destroy
+	.create = (module_create_t)&mod_redirect404_create,
+	.destroy = &mod_redirect404_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_redirect404")));

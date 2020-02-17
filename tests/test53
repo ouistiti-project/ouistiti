@@ -1,6 +1,4 @@
 DESC="Auth Basic from database: good password"
 CONFIG=test12.conf
-TESTREQUEST=test12_rq.txt
-TESTCODE=200
-TESTHEADERLEN=108
-TESTCONTENTLEN=40
+TESTREQUEST=test53_rq.txt
+TESTCODE=302

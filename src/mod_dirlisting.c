@@ -60,14 +60,15 @@ typedef struct _document_connector_s document_connector_t;
 #define DIRLISTING_HEADER "\
 {\
 \"method\":\"GET\",\
-\"result\":\"OK\",\
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
 #define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%s\"},"
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
 #define DIRLISTING_FOOTER "\
-{}]}\n"
+{}],\
+\"result\":\"%s\"\
+}\n"
 
 static const char str_dirlisting[] = "dirlisting";
 
@@ -78,54 +79,112 @@ static const char *_sizeunit[] = {
 	"GB",
 	"TB",
 };
-/**
- * this function is used by mod_document and has NOT to be static
- */
-int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
+static int _dirlisting_connectorheader(_mod_document_mod_t *mod, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const char *uri = httpmessage_REQUEST(request,"uri");
 
-	if (private->dir == NULL)
+	private->dir = fdopendir(private->fdfile);
+	if (private->dir)
 	{
-		chdir(private->filepath);
-		private->dir = opendir(private->filepath);
-		if (private->dir)
+		dbg("dirlisting: open /%s", private->url);
+		/**
+		 * The content-length of dirlisting is unknown.
+		 * Set the content-type first without content-length.
+		 */
+		httpmessage_addcontent(response, utils_getmime(".json"), NULL, -1);
+		if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
 		{
-			dbg("dirlisting: open /%s", private->filepath);
-			/**
-			 * The content-length of dirlisting is unknown.
-			 * Set the content-type first without content-length.
-			 */
-			httpmessage_addcontent(response, (char*)utils_getmime(".json"), NULL, -1);
-			if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
-			{
-				closedir(private->dir);
-				private->dir = NULL;
-				document_close(private, request);
-				ret = ESUCCESS;
-			}
-			else
-			{
-				int length = strlen(private->path_info);
-				char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
-				snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, private->path_info);
-				httpmessage_appendcontent(response, data, strlen(data));
-				free(data);
-				ret = ECONTINUE;
-			}
+			closedir(private->dir);
+			private->dir = NULL;
+			document_close(private, request);
+			ret = ESUCCESS;
 		}
 		else
 		{
-			warn("dirlisting: directory not open %s %s", private->filepath, strerror(errno));
-			document_close(private, request);
-			httpmessage_result(response, RESULT_400);
-			ret = ESUCCESS;
+			int length = strlen(uri);
+			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
+			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, uri);
+			httpmessage_appendcontent(response, data, strlen(data));
+			free(data);
+			ret = ECONTINUE;
 		}
 	}
-	else if (private->path_info == NULL)
+	else
+	{
+		warn("dirlisting: directory not open %s %s", private->url, strerror(errno));
+		document_close(private, request);
+		httpmessage_result(response, RESULT_400);
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+static int _dirlisting_connectorcontent(_mod_document_mod_t *mod, http_message_t *request, http_message_t *response)
+{
+	int ret = EREJECT;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	struct dirent *ent;
+
+	errno = 0;
+#ifdef USE_REENTRANT
+	/**
+	 * readdir_r is deprecated but SonarCloud requires readdir_r.
+	 */
+	struct dirent entstorage;
+	readdir_r(private->dir, &entstorage, &ent);
+#else
+	ent = readdir(private->dir);
+#endif
+	if (ent)
+	{
+		if (ent->d_name[0] != '.')
+		{
+			unsigned int length = strlen(ent->d_name);
+			if (length > MAX_NAMELENGTH)
+				warn("dirlisting: %s file name length too long", ent->d_name);
+			struct stat filestat;
+			fstatat(private->fdfile, ent->d_name, &filestat, 0);
+			size_t size = filestat.st_size;
+			if (size == -1)
+			{
+				err("dirlisting: %s stat error %s", ent->d_name, strerror(errno));
+				return EREJECT;
+			}
+			int unit = 0;
+			while (size > 2000)
+			{
+				size /= 1024;
+				unit++;
+			}
+			const char *mime = "inode/directory";
+
+			if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
+			{
+				mime = utils_getmime(ent->d_name);
+			}
+			length += strlen(mime);
+			length += 4 + 2 + 4;
+			char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
+			snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
+			httpmessage_addcontent(response, NULL, data, -1);
+			free(data);
+		}
+		ret = ECONTINUE;
+	}
+	else if (private->fdfile > 0)
+	{
+		int length = sizeof(DIRLISTING_FOOTER);
+		char *data = calloc(1, length);
+		snprintf(data, length, DIRLISTING_FOOTER, "OK");
+		httpmessage_addcontent(response, NULL, data, -1);
+		free(data);
+		close(private->fdfile);
+		private->fdfile = 0;
+		ret = ECONTINUE;
+	}
+	else
 	{
 		/**
 		 * the content length is unknown before the sending.
@@ -138,47 +197,26 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 		document_close(private, request);
 		ret = ESUCCESS;
 	}
+	return ret;
+}
+
+/**
+ * this function is used by mod_document and has NOT to be static
+ */
+int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret = EREJECT;
+	document_connector_t *private = httpmessage_private(request, NULL);
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
+	mod_document_t *config = (mod_document_t *)mod->config;
+
+	if (private->dir == NULL)
+	{
+		ret = _dirlisting_connectorheader(mod, request, response);
+	}
 	else
 	{
-		struct dirent *ent;
-		ent = readdir(private->dir);
-		if (ent)
-		{
-			if (ent->d_name[0] != '.')
-			{
-				unsigned int length = strlen(ent->d_name);
-				if (length > MAX_NAMELENGTH)
-					warn("dirlisting: %s file name length too long", ent->d_name);
-				struct stat filestat;
-				stat(ent->d_name, &filestat);
-				size_t size = filestat.st_size;
-				int unit = 0;
-				while (size > 2000)
-				{
-					size /= 1024;
-					unit++;
-				}
-				const char *mime = "inode/directory";
-				if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
-				{
-					mime = utils_getmime(ent->d_name);
-				}
-				length += strlen(mime);
-				length += 4 + 2 + 4;
-				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-				snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
-				httpmessage_addcontent(response, NULL, data, -1);
-				free(data);
-			}
-			ret = ECONTINUE;
-		}
-		else
-		{
-			free(private->path_info);
-			private->path_info = NULL;
-			httpmessage_addcontent(response, NULL, DIRLISTING_FOOTER, -1);
-			ret = ECONTINUE;
-		}
+		ret = _dirlisting_connectorcontent(mod, request, response);
 	}
 	return ret;
 }
@@ -225,4 +263,13 @@ void mod_dirlisting_destroy(void *data)
 {
 	free(data);
 }
+const module_t mod_dirlisting =
+{
+	.name = str_dirlisting,
+	.create = (module_create_t)&mod_dirlisting_create,
+	.destroy = &mod_dirlisting_destroy
+};
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_dirlisting")));
+#endif
 #endif

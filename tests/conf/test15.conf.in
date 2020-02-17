@@ -24,6 +24,10 @@ servers= ({
 				destination = "index.html";
 				options = "temporary";
 			},{
+				origin = "temporary/*";
+				destination = "dirlisting/";
+				options = "temporary";
+			},{
 				origin = "token";
 			},{
 				origin = "empty";

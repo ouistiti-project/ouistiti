@@ -1,6 +1,6 @@
 DESC="test websocket startup"
 CONFIG=test5.conf
-PREPARE="./utils/websocket_echo -R /tmp -u $USER -t"
+PREPARE_ASYNC="./utils/websocket_echo -R /tmp -u $USER -t"
 #CLEAN="killall -9 websocket_echo"
 TESTREQUEST=test24_rq.txt
 TESTCODE=101

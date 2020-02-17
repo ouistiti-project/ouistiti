@@ -1,0 +1,5 @@
+DESC="POST request with x-www-form-urlencoded"
+CONFIG=test3.conf
+TESTREQUEST=test76_rq.txt
+TESTCODE=200
+TESTCONTENTLEN=61
