@@ -161,6 +161,16 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		close(ctx->tocgi[0]);
 		/* keep only output of the pipe */
 		close(ctx->fromcgi[1]);
+#ifdef DEBUG
+		char **envs = NULL;
+		envs = cgi_buildenv(config, request, ctx->cgipath, ctx->path_info);
+		char *env = *envs++;
+		while (env != NULL)
+		{
+			free(env);
+			env = *envs++;
+		}
+#endif
 	}
 	else /* into child */
 	{
