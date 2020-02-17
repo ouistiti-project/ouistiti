@@ -338,6 +338,39 @@ struct _authn_s *authn_list[] =
 	NULL
 };
 
+static int authn_config(config_setting_t *configauth, mod_authn_t *mod)
+{
+	int ret = EREJECT;
+
+	char *type = NULL;
+	config_setting_lookup_string(configauth, "type", (const char **)&type);
+	if (type == NULL)
+	{
+		return ret;
+	}
+
+	int i = 0;
+	struct _authn_s *authn = authn_list[i];
+	while (authn != NULL && authn->config != NULL)
+	{
+		if (!strcmp(type, authn->name))
+			mod->config = authn->config(configauth);
+		if (mod->config != NULL)
+		{
+			break;
+		}
+		i++;
+		authn = authn_list[i];
+	}
+	if (authn != NULL)
+	{
+		mod->type = authn->type;
+		mod->name = authn->name;
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
 #ifdef AUTHZ_UNIX
 static void *authz_unix_config(config_setting_t *configauth)
 {
@@ -480,6 +513,29 @@ static void authz_optionscb(void *arg, const char *option, int length)
 		auth->authz.type |= AUTHZ_CHOWN_E;
 }
 
+static int authz_config(config_setting_t *configauth, mod_authz_t *mod)
+{
+	int ret = EREJECT;
+	int i = 0;
+	struct _authz_s *authz = authz_list[i];
+	while (authz != NULL && authz->config != NULL)
+	{
+		mod->config = authz->config(configauth);
+		if (mod->config != NULL)
+		{
+			break;
+		}
+		i++;
+		authz = authz_list[i];
+	}
+	if (authz != NULL)
+	{
+		mod->type |= authz->type;
+		mod->name = authz->name;
+	}
+	return ret;
+}
+
 static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 {
 	mod_auth_t *auth = NULL;
@@ -513,49 +569,15 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		}
 		config_setting_lookup_int(configauth, "expire", &auth->expire);
 
-		int i = 0;
-		struct _authz_s *authz = authz_list[i];
-		while (authz != NULL && authz->config != NULL)
+		int ret;
+		ret = authz_config(configauth, &auth->authz);
+		if (ret == EREJECT)
 		{
-			auth->authz.config = authz->config(configauth);
-			if (auth->authz.config != NULL)
-			{
-				break;
-			}
-			i++;
-			authz = authz_list[i];
-		}
-		if (authz != NULL)
-		{
-			auth->authz.type |= authz->type;
-			auth->authz.name = authz->name;
+			err("config: authz is not set");
 		}
 
-		char *type = NULL;
-		config_setting_lookup_string(configauth, "type", (const char **)&type);
-		if (type != NULL)
-		{
-			i = 0;
-			struct _authn_s *authn = authn_list[i];
-			while (authn != NULL && authn->config != NULL)
-			{
-				if (!strcmp(type, authn->name))
-					auth->authn.config = authn->config(configauth);
-				if (auth->authn.config != NULL)
-				{
-					warn("auth: scheme %s storage %s", authn->name, authz->name);
-					break;
-				}
-				i++;
-				authn = authn_list[i];
-			}
-			if (authn != NULL)
-			{
-				auth->authn.type = authn->type;
-				auth->authn.name = authn->name;
-			}
-		}
-		else
+		ret = authn_config(configauth, &auth->authn);
+		if (ret == EREJECT)
 		{
 			err("config: authn type is not set");
 		}
