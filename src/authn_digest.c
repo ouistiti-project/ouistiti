@@ -32,6 +32,7 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/hash.h"
+#include "httpserver/utils.h"
 #include "mod_auth.h"
 #include "authn_digest.h"
 
@@ -63,35 +64,6 @@ struct authn_digest_s
 	int stale;
 	int encode;
 };
-
-static int utils_searchstring(char **result, const char *haystack, const char *needle, int length)
-{
-	if ((*result == NULL || *result[0] == '\0') &&
-		!strncmp(haystack, needle, length) && haystack[length] == '=')
-	{
-		char *end = NULL;
-		*result = strchr(haystack, '=');
-		if (*result == NULL)
-			return 0;
-		*result += 1;
-		if (**result == '"')
-		{
-			*result = *result + 1;
-			end = strchr(*result, '"');
-		}
-		if (end == NULL)
-		{
-			end = *result;
-			while(*end != 0 && *end != ' ' && *end != ',')
-			{
-				end++;
-			}
-		}
-		//*end = 0;
-		return end - *result;
-	}
-	return 0;
-}
 
 static char *utils_stringify(const unsigned char *data, int len)
 {
@@ -166,7 +138,7 @@ static int authn_digest_nonce(void *arg, char *nonce, int noncelen)
 {
 	int ret = EREJECT;
 	const authn_digest_t *mod = (authn_digest_t *)arg;
-err("%s", __FUNCTION__);
+
 /**
  *  nonce and opaque may be B64 encoded data
  * or hexa encoded data
@@ -326,26 +298,20 @@ static char *authn_digest_a1(const hash_t * hash, const char *user, int userlen,
 		{
 			i++;
 		}
-		int decrypt = 0;
 		if ( passwd[i] == hash->nameid)
-			decrypt = 1;
-		if (decrypt)
 		{
 			passwd = strrchr(passwd + 1, '$');
-			if (passwd)
+			passwd += 1;
+			char *a1 = NULL;
+			if (decode)
 			{
-				passwd += 1;
-				char *a1 = NULL;
-				if (decode)
-				{
-					char b64passwd[64];
-					int len = base64->decode(passwd, strlen(passwd), b64passwd, 64);
-					a1 = utils_stringify(b64passwd, len);
-				}
-				else
-					a1 = strdup(passwd);
-				return a1;
+				char b64passwd[64];
+				int len = base64->decode(passwd, strlen(passwd), b64passwd, 64);
+				a1 = utils_stringify(b64passwd, len);
 			}
+			else
+				a1 = strdup(passwd);
+			return a1;
 		}
 	}
 	return NULL;
@@ -377,129 +343,53 @@ static struct authn_digest_computing_s authn_digest_md5_computing =
 
 static struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
 
-static char *str_empty = "";
-static const char *authn_digest_check(void *arg, const char *method, const char *url, const char *string)
+struct checkuri_s
 {
+	authn_digest_t *mod;
+	const char *url;
+	const char *value;
+	int length;
+};
+typedef struct checkuri_s checkuri_t;
 
-	authn_digest_t *mod = (authn_digest_t *)arg;
-	const char *passwd = NULL;
-	char *user = str_empty;
-	int userlen = 0;
-	const char *user_ret = NULL;
-	char *uri = NULL;
-	int urilen = 0;
-	int urichecklen = 0;
-	char *realm = str_empty;
-	int realmlen = 0;
-	char *qop = NULL;
-	int qoplen = 0;
-	char *nonce = NULL;
-	int noncelen = 0;
-	char *cnonce = str_empty;
-	int cnoncelen = 0;
-	char *nc = NULL;
-	int nclen = 0;
-	char *opaque = str_empty;
-	int opaquelen = 0;
-	char *algorithm = NULL;
-	int algorithmlen = 0;
-	char *response = NULL;
-	int responselen = 0;
-	int length, i;
+static int authn_digest_checkuri(void *data, const char *uri, int urilen)
+{
+	checkuri_t *info = (checkuri_t *)data;
 
-	length = strlen(string);
-	auth_dbg("digest: parsing %s", string);
-	for (i = 0; i < length; i++)
+	if (uri != NULL)
 	{
-
-		switch (string[i])
+		int urichecklen = 0;
+		const char *query = strchr(uri, '?');
+		if (query != NULL)
+			urichecklen = query - uri;
+		else
+			urichecklen = urilen;
+		if (!strncmp(info->url, uri, urichecklen))
 		{
-		case 'a':
-			if (algorithmlen == 0)
-			{
-				algorithmlen = utils_searchstring(&algorithm, string + i, "algorithm", sizeof("algorithm") - 1);
-				if (algorithmlen > 0)
-					i += algorithmlen + sizeof("algorithm=");
-			}
-		break;
-		case 'r':
-			if (realmlen == 0)
-			{
-				realmlen = utils_searchstring(&realm, string + i, "realm", sizeof("realm") - 1);
-				if (realmlen > 0)
-					i += realmlen + sizeof("realm=") + 1;
-			}
-			if (responselen == 0)
-			{
-				responselen = utils_searchstring(&response, string + i, "response", sizeof("response") - 1);
-				if (responselen > 0)
-					i += responselen + sizeof("response=") + 1;
-			}
-		break;
-		case 'c':
-			if (cnoncelen == 0)
-			{
-				cnoncelen = utils_searchstring(&cnonce, string + i, "cnonce", sizeof("cnonce") - 1);
-				if (cnoncelen > 0)
-					i += cnoncelen + sizeof("cnonce=") + 1;
-			}
-		break;
-		case 'n':
-			if (noncelen == 0)
-			{
-				noncelen = utils_searchstring(&nonce, string + i, "nonce", sizeof("nonce") - 1);
-				if (noncelen > 0)
-					i += noncelen + sizeof("nonce=") + 1;
-			}
-			if (nclen == 0)
-			{
-				nclen = utils_searchstring(&nc, string + i, "nc", sizeof("nc") - 1);
-				if (nclen > 0)
-					i += nclen + sizeof("nc=");
-			}
-		break;
-		case 'o':
-			if (opaquelen == 0)
-			{
-				opaquelen = utils_searchstring(&opaque, string + i, "opaque", sizeof("opaque") - 1);
-				if (opaquelen > 0)
-					i += opaquelen + sizeof("opaque=") + 1;
-			}
-		break;
-		case 'q':
-			if (qoplen == 0)
-			{
-				qoplen = utils_searchstring(&qop, string + i, "qop", sizeof("qop") - 1);
-				if (qoplen > 0)
-					i += qoplen + sizeof("qop=");
-			}
-		break;
-		case 'u':
-			if (userlen == 0)
-			{
-				userlen = utils_searchstring(&user, string + i, "username", sizeof("username") - 1);
-				if (userlen > 0)
-					i += userlen + sizeof("username=") + 1;
-			}
-			if (urilen == 0)
-			{
-				urilen = utils_searchstring(&uri, string + i, "uri", sizeof("uri") - 1);
-				if (urilen > 0)
-				{
-					i += urilen + sizeof("uri=") + 1;
-					const char *query = strchr(uri, '?');
-					if (query != NULL)
-						urichecklen = query - uri;
-					else
-						urichecklen = urilen;
-				}
-			}
-		break;
-		default:
-		break;
+			info->value = uri;
+			info->length = urilen;
+			auth_dbg("uri %.*s", info->length, info->value);
+			return ESUCCESS;
 		}
+		warn("try connection on %s with authorization on %s", info->url, uri);
 	}
-	const hash_t *hash = hash_md5;
+	warn("auth: uri is unset");
+	return EREJECT;
+}
+
+struct chekcalgorithm_s
+{
+	authn_digest_t *mod;
+	const hash_t *hash;
+};
+typedef struct chekcalgorithm_s chekcalgorithm_t;
+
+static int authn_digest_checkalgorithm(void *data, const char *algorithm, int algorithmlen)
+{
+	chekcalgorithm_t *info = (chekcalgorithm_t *)data;
+	authn_digest_t *mod = info->mod;
+
+	info->hash = hash_md5;
 
 	if (algorithm != NULL)
 	{
@@ -508,80 +398,238 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		 * https://bugzilla.mozilla.org/show_bug.cgi?id=472823
 		 */
 		if(!strncmp(algorithm, mod->hash->name, algorithmlen))
-			hash = mod->hash;
+		{
+			info->hash = mod->hash;
+		}
 		else
 		{
 			warn("auth: algorithm is bad %s/%s", algorithm, mod->hash->name);
-			return NULL;
+			return EREJECT;
 		}
 	}
+	auth_dbg("algorithm %s", info->hash->name);
+	return ESUCCESS;
+}
 
-	int check = 1;
-	if (nonce == NULL)
-	{
-		warn("auth: nonce is unset");
-		check = 0;
-	}
-	else if (strncmp(nonce, mod->nonce, noncelen))
-	{
-		mod->stale++;
-		mod->stale %= 5;
-		warn("auth: nonce is corrupted");
-		check = 0;
-	}
-	else if (strncmp(opaque, mod->opaque, opaquelen) || strncmp(realm, mod->config->realm, realmlen))
-	{
-		warn("auth: opaque or realm is bad");
-		check = 0;
-	}
-	else if (uri == NULL)
-	{
-		warn("auth: uri is unset");
-		check = 0;
-	}
-	else if (strncmp(url, uri, urichecklen))
-	{
-		warn("try connection on %s with authorization on %s", url, uri);
-		check = 0;
-	}
-#ifndef DEBUG
-	else
-#endif
-	{
-		strncpy(mod->user, user, userlen);
-		passwd = mod->authz->rules->passwd(mod->authz->ctx, mod->user);
-	}
-	if (response && passwd && authn_digest_computing)
-	{
-		auth_dbg("user %.*s", userlen, user);
-		auth_dbg("passwd %s", passwd);
-		auth_dbg("response %.*s", responselen, response);
-		auth_dbg("algorithm %s", mod->hash->name);
-		auth_dbg("algorithm %.*s", algorithmlen, algorithm);
-		auth_dbg("realm %.*s", realmlen, realm);
-		auth_dbg("cnonce %.*s", cnoncelen, cnonce);
-		auth_dbg("nonce %.*s", noncelen, nonce);
-		auth_dbg("nc %.*s", nclen, nc);
-		auth_dbg("opaque %.*s", opaquelen, opaque);
-		auth_dbg("qop %.*s", qoplen, qop);
-		auth_dbg("uri %.*s", urilen, uri);
+struct checkstring_s
+{
+	authn_digest_t *mod;
+	const char *value;
+	int length;
+};
+typedef struct checkstring_s checkstring_t;
+static int authn_digest_checkrealm(void *data, const char *value, int length)
+{
+	checkstring_t *info = (checkstring_t *)data;
+	authn_digest_t *mod = info->mod;
 
-		char *a1 = authn_digest_computing->a1(hash, user, userlen, realm, realmlen, passwd, strlen(passwd));
-		char *a2 = authn_digest_computing->a2(hash, method, strlen(method), uri, urilen, NULL, 0);
-		char *digest = authn_digest_computing->digest(hash, a1, nonce, noncelen, nc, nclen, cnonce, cnoncelen, qop, qoplen, a2);
+	if (value != NULL && !strncmp(value, mod->config->realm, length))
+	{
+		info->value = value;
+		info->length = length;
+		auth_dbg("realm %.*s", length, value);
+		return ESUCCESS;
+	}
+	warn("auth: realm is unset or bad");
+	return EREJECT;
+}
 
-		auth_dbg("Digest %s", digest);
-		if (digest && !strncmp(digest, response, responselen) && check)
+static int authn_digest_checknonce(void *data, const char *value, int length)
+{
+	checkstring_t *info = (checkstring_t *)data;
+	authn_digest_t *mod = info->mod;
+
+	if (value != NULL && !strncmp(value, mod->nonce, length))
+	{
+		info->value = value;
+		info->length = length;
+		auth_dbg("nonce %.*s", length, value);
+		return ESUCCESS;
+	}
+	warn("auth: nonce is unset or bad");
+	mod->stale++;
+	mod->stale %= 5;
+	return EREJECT;
+}
+
+static int authn_digest_checkopaque(void *data, const char *value, int length)
+{
+	checkstring_t *info = (checkstring_t *)data;
+	authn_digest_t *mod = info->mod;
+
+	if (value != NULL && mod->opaque != NULL && !strncmp(value, mod->opaque, length))
+	{
+		info->value = value;
+		info->length = length;
+		auth_dbg("opaque %.*s", length, value);
+		return ESUCCESS;
+	}
+	else if (mod->opaque != NULL)
+		return EREJECT;
+	warn("auth: opaque is unset");
+	return ECONTINUE;
+}
+
+static int authn_digest_checkcnonce(void *data, const char *value, int length)
+{
+	checkstring_t *info = (checkstring_t *)data;
+	authn_digest_t *mod = info->mod;
+
+	if (value != NULL)
+	{
+		info->value = value;
+		info->length = length;
+		auth_dbg("cnonce %.*s", length, value);
+		return ESUCCESS;
+	}
+	warn("auth: cnonce is unset");
+	return ESUCCESS;
+}
+
+static int authn_digest_checkqop(void *data, const char *value, int length)
+{
+	checkstring_t *info = (checkstring_t *)data;
+	authn_digest_t *mod = info->mod;
+
+	if (value != NULL)
+	{
+		info->value = value;
+		info->length = length;
+		auth_dbg("qop %.*s", length, value);
+		return ESUCCESS;
+	}
+	warn("auth: qop is unset");
+	return EREJECT;
+}
+
+static int authn_digest_checknc(void *data, const char *value, int length)
+{
+	checkstring_t *info = (checkstring_t *)data;
+	authn_digest_t *mod = info->mod;
+
+	if (value != NULL)
+	{
+		long nc = strtol(value, NULL, 10);
+		if (nc < 5)
 		{
+			info->value = value;
+			info->length = length;
+			auth_dbg("nc %.*s", length, value);
+			return ESUCCESS;
+		}
+		mod->stale = 0;
+		return EREJECT;
+	}
+	warn("auth: nc is unset");
+	return ESUCCESS;
+}
+
+static int authn_digest_checkresponse(void *data, const char *value, int length)
+{
+	checkstring_t *info = (checkstring_t *)data;
+	authn_digest_t *mod = info->mod;
+
+	if (value != NULL)
+	{
+		info->value = value;
+		info->length = length;
+		auth_dbg("response %.*s", length, value);
+		return ESUCCESS;
+	}
+	warn("auth: response is unset");
+	return EREJECT;
+}
+
+struct checkuser_s
+{
+	authn_digest_t *mod;
+	const char *value;
+	int length;
+	const char *passwd;
+};
+typedef struct checkuser_s checkuser_t;
+static int authn_digest_checkuser(void *data, const char *value, int length)
+{
+	checkuser_t *info = (checkuser_t *)data;
+	authn_digest_t *mod = info->mod;
+
+	if (value != NULL)
+	{
+		char user[MAXUSER];
+		strncpy(user, value, length);
+		info->passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
+		if (info->passwd != NULL)
+		{
+			info->value = value;
+			info->length = length;
+			auth_dbg("user %.*s", length, value);
+			return ESUCCESS;
+		}
+		warn("auth: user is unknown");
+	}
+	warn("auth: user is unset");
+	return EREJECT;
+}
+
+
+static char *str_empty = "";
+static const char *authn_digest_check(void *arg, const char *method, const char *url, const char *string)
+{
+	const char *user_ret = NULL;
+	authn_digest_t *mod = (authn_digest_t *)arg;
+	checkuri_t uri = { .mod = mod, .url = url};
+	chekcalgorithm_t algorithm = { .mod = mod};
+	checkuser_t user = {.mod = mod};
+	checkstring_t realm = {.mod = mod, .value = str_empty, .length = 0};
+	checkstring_t qop = {.mod = mod};
+	checkstring_t nonce = {.mod = mod};
+	checkstring_t cnonce = {.mod = mod, .value = str_empty, .length = 0};
+	checkstring_t nc = {.mod = mod};
+	checkstring_t opaque = {.mod = mod, .value = str_empty, .length = 0};
+	checkstring_t response = {.mod = mod};
+	utils_parsestring_t parser[] = {
+		{.field = "username", .cb = authn_digest_checkuser, .cbdata = &user},
+		{.field = "response", .cb = authn_digest_checkresponse, .cbdata = &response},
+		{.field = "uri", .cb = authn_digest_checkuri, .cbdata = &uri},
+		{.field = "algorithm", .cb = authn_digest_checkalgorithm, .cbdata = &algorithm},
+		{.field = "realm", .cb = authn_digest_checkrealm, .cbdata = &realm},
+		{.field = "qop", .cb = authn_digest_checkqop, .cbdata = &qop},
+		{.field = "nonce", .cb = authn_digest_checknonce,.cbdata =  &nonce},
+		{.field = "cnonce", .cb = authn_digest_checkcnonce,.cbdata =  &cnonce},
+		{.field = "nc", .cb = authn_digest_checknc, .cbdata = &nc},
+		{.field = "opaque", .cb = authn_digest_checkopaque, .cbdata = &opaque},
+	};
+
+	int ret = utils_parsestring(string, 10, parser);
+	if (ret == ESUCCESS && authn_digest_computing)
+	{
+		char *a1 = authn_digest_computing->a1(algorithm.hash,
+						user.value, user.length,
+						realm.value, realm.length,
+						user.passwd, strlen(user.passwd));
+		char *a2 = authn_digest_computing->a2(algorithm.hash,
+						method, strlen(method),
+						uri.value, uri.length,
+						NULL, 0);
+		char *digest = authn_digest_computing->digest(algorithm.hash,
+						a1,
+						nonce.value, nonce.length,
+						nc.value, nc.length,
+						cnonce.value, cnonce.length,
+						qop.value, qop.length,
+						a2);
+
+		auth_dbg("Digest:\n\t%.*s\n\t%s", response.length, response.value, digest);
+		if (digest && !strncmp(digest, response.value, response.length))
+		{
+			strncpy(mod->user, user.value, user.length);
 			user_ret = mod->user;
 		}
+		else
+			memset(mod->user, 0 , MAXUSER);
 		free (a1);
 		free (a2);
 		free (digest);
-	}
-	else
-	{
-		user_ret = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 	}
 	return user_ret;
 }
