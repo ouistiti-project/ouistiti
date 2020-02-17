@@ -162,7 +162,7 @@ static int _document_getconnnectorput(_mod_document_mod_t *mod,
 	}
 
 	int length = strlen(url);
-	if (fdfile > 0)
+	if (fdfile > 0 || length < 1)
 	{
 		close(fdfile);
 		const char *uri = httpmessage_REQUEST(request,"uri");
