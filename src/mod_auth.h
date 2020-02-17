@@ -127,6 +127,14 @@ struct authz_s
 	const char *name;
 };
 
+struct mod_authz_s
+{
+	void *config;
+	authz_type_t type;
+	const char *name;
+};
+typedef struct mod_authz_s mod_authz_t;
+
 typedef struct authn_none_config_s authn_none_config_t;
 struct authn_none_config_s
 {
@@ -201,20 +209,18 @@ struct authn_s
 	mod_auth_t *config;
 };
 
+struct mod_authn_s
+{
+	void *config;
+	authn_type_t type;
+	const char *name;
+};
+typedef struct mod_authn_s mod_authn_t;
+
 struct mod_auth_s
 {
-	struct
-	{
-		void *config;
-		authn_type_t type;
-		const char *name;
-	} authn;
-	struct
-	{
-		void *config;
-		authz_type_t type;
-		const char *name;
-	} authz;
+	mod_authn_t authn;
+	mod_authz_t authz;
 	const char *algo;
 	const char *secret;
 	const char *redirect;
