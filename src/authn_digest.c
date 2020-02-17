@@ -556,7 +556,9 @@ static int authn_digest_checkuser(void *data, const char *value, int length)
 	if (value != NULL)
 	{
 		char user[MAXUSER];
+		length = (length < MAXUSER - 1)? length: MAXUSER - 1;
 		strncpy(user, value, length);
+		user[length] = '\0';
 		info->passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 		if (info->passwd != NULL)
 		{
@@ -565,7 +567,7 @@ static int authn_digest_checkuser(void *data, const char *value, int length)
 			auth_dbg("user %.*s", length, value);
 			return ESUCCESS;
 		}
-		warn("auth: user is unknown");
+		warn("auth: user %s is unknown", user);
 	}
 	warn("auth: user is unset");
 	return EREJECT;
@@ -623,6 +625,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		if (digest && !strncmp(digest, response.value, response.length))
 		{
 			strncpy(mod->user, user.value, user.length);
+			mod->user[user.length] = '\0';
 			user_ret = mod->user;
 		}
 		else
