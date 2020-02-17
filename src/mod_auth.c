@@ -548,6 +548,7 @@ static const char *_authn_gettoken(_mod_auth_ctx_t *ctx, http_message_t *request
 	{
 		authorization = cookie_get(request, str_xtoken);
 	}
+	return authorization;
 }
 
 int authn_checksignature(const authn_t *authn,
@@ -692,14 +693,14 @@ static int _authn_setauthorization(_mod_auth_ctx_t *ctx,
 }
 
 static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
-		const char *authorization,
-		const char *method,
-		const char *uri)
+		const char *authorization, http_message_t *request)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
 	const char *authentication = strchr(authorization, ' ');
+	const char *method = httpmessage_REQUEST(request, "method");
+	const char *uri = httpmessage_REQUEST(request, "uri");
 
 	if (authentication)
 		authentication++;
@@ -741,12 +742,13 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	return ret;
 }
 
-static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
-				http_message_t *request, http_message_t *response)
+static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
+	const char *uri = httpmessage_REQUEST(request, "uri");
+
 
 	ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 	if (ret == ECONTINUE)
@@ -801,6 +803,27 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, const char *uri,
 	return ret;
 }
 
+static int _authn_checkuri(mod_auth_t *config, http_message_t *request)
+{
+	const char *uri = httpmessage_REQUEST(request, "uri");
+	int ret = ECONTINUE;
+	int protect = 1;
+	/**
+	 * check uri
+	 */
+	protect = utils_searchexp(uri, config->unprotect, NULL);
+	if (protect == ESUCCESS)
+	{
+		ret = EREJECT;
+	}
+	protect = utils_searchexp(uri, config->protect, NULL);
+	if (protect == ESUCCESS)
+	{
+		ret = ECONTINUE;
+	}
+	return ret;
+}
+
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -815,22 +838,15 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	 */
 	if (ctx->info != NULL)
 	{
-		if (mod->authz->type & AUTHZ_HEADER_E)
-			_authn_setauthorization(ctx,
-				ctx->authorization, ctx->info,
-				httpmessage_addheader, httpmessage_appendheader,
-				response);
-		return EREJECT;
+		ret = EREJECT;
 	}
-
-	const char *uri = httpmessage_REQUEST(request, "uri");
 
 	/**
 	 * The header WWW-Authenticate inside the request
 	 * allows to disconnect the user.
 	 */
 	authorization = httpmessage_REQUEST(request, str_authenticate);
-	if (authorization != NULL && authorization[0] != '\0')
+	if (ret == ECONTINUE && authorization != NULL && authorization[0] != '\0')
 	{
 		ret = ESUCCESS;
 	}
@@ -856,32 +872,16 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		authorization = _authn_getauthorization(ctx, request);
 		if (mod->authn->ctx && authorization != NULL)
 		{
-			ret = _authn_checkauthorization( ctx, authorization,
-				httpmessage_REQUEST(request, "method"), uri);
+			ret = _authn_checkauthorization( ctx, authorization, request);
 		}
 	}
 
 	if (ret != EREJECT)
-	{
-		int protect = 1;
-		/**
-		 * check uri
-		 */
-		protect = utils_searchexp(uri, config->unprotect, NULL);
-		if (protect == ESUCCESS)
-		{
-			protect = utils_searchexp(uri, config->protect, NULL);
-			if (protect != ESUCCESS)
-			{
-				ret = EREJECT;
-			}
-		}
-	}
-
+		ret = _authn_checkuri(config, request);
 
 	if (ret != EREJECT)
 	{
-		ret = _authn_challenge(ctx, uri, request, response);
+		ret = _authn_challenge(ctx, request, response);
 	}
 	else
 	{
