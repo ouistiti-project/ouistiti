@@ -321,6 +321,32 @@ static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return ret;
 }
 
+static int _cgi_parseresponse(mod_cgi_ctx_t *ctx, http_message_t *response, char * chunk, int size, int rest)
+{
+	int ret;
+
+	ret = httpmessage_parsecgi(response, chunk, &rest);
+	cgi_dbg("cgi: parse %d data %d %d\n%s#", ret, size, rest, chunk);
+	if (ret == ECONTINUE && ctx->state < STATE_HEADERCOMPLETE)
+	{
+#if defined(RESULT_302)
+		/**
+		 * RFC 3875 : 6.2.3
+		 */
+		const char *location = httpmessage_REQUEST(response, str_location);
+		if (location != NULL && location[0] != '\0')
+			httpmessage_result(response, RESULT_302);
+#endif
+		ctx->state = STATE_HEADERCOMPLETE;
+	}
+	if (ret == ESUCCESS)
+	{
+		ctx->state = STATE_CONTENTCOMPLETE;
+		//parse_cgi is complete but not this module
+	}
+	return ret;
+}
+
 static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 {
 	_mod_cgi_t *mod = ctx->mod;
@@ -337,14 +363,14 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 	{
 		int size = config->chunksize;
 		size = read(ctx->fromcgi[0], ctx->chunk, size);
-		if (size < 1)
+		if (size < 0)
+		{
+			err("cgi read %s", strerror(errno));
+			ctx->state = STATE_CONTENTCOMPLETE;
+		}
+		else if (size < 1)
 		{
 			ctx->state = STATE_CONTENTCOMPLETE;
-			ret = ECONTINUE;
-			if (size < 0)
-			{
-				err("cgi read %s", strerror(errno));
-			}
 		}
 		else
 		{
@@ -359,25 +385,7 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 			int rest = size;
 			if (rest > 0)
 			{
-				ret = httpmessage_parsecgi(response, ctx->chunk, &rest);
-				cgi_dbg("cgi: parse %d data %d %d\n%s#", ret, size, rest, ctx->chunk);
-				if (ret == ECONTINUE && ctx->state < STATE_HEADERCOMPLETE)
-				{
-#if defined(RESULT_302)
-					/**
-					 * RFC 3875 : 6.2.3
-					 */
-					const char *location = httpmessage_REQUEST(response, str_location);
-					if (location != NULL && location[0] != '\0')
-						httpmessage_result(response, RESULT_302);
-#endif
-					ctx->state = STATE_HEADERCOMPLETE;
-				}
-				if (ret == ESUCCESS)
-				{
-					ctx->state = STATE_CONTENTCOMPLETE;
-					//parse_cgi is complete but not this module
-				}
+				ret = _cgi_parseresponse(ctx, response, ctx->chunk, size, rest);
 			}
 		}
 		/**
