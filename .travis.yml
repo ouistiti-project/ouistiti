@@ -1,0 +1,44 @@
+language: C
+compiler: gcc
+dist: bionic
+
+branches:
+  only:
+    master
+    /^v\d+\.\d+(\.\d+)?(-\S*)?$/
+
+addons:
+  hosts:
+    - travis.local
+
+  sonar:
+
+  apt:
+    packages:
+      - libmbedtls-dev
+      - libconfig-dev
+
+jobs:
+  include:
+    - stage: prepare
+      script: git clone $GITHUB_LIBOUISTITI libhttpserver
+    - stage: configure
+      script: 
+        make defconfig
+        make TINYSVCMDNS=n oldconfig
+    - stage: build
+      script: make DEBUG=y G=1
+    - stage: tests
+      script:
+        make hosttools
+        ./tests/run.sh
+        make gcov
+    - stage: release
+      script:
+        make clean
+        make fullforked_defconfig
+        make TINYSVCMDNS=n oldconfig
+        make
+        make DESTDIR=./release install
+        pushd release && tar -czf ../ouistiti-travis.tar.gz . && popd
+
