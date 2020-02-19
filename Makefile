@@ -55,6 +55,6 @@ endif
 export LIBHTTPSERVER_LDFLAGS
 export LIBHTTPSERVER_CFLAGS
 
-subdir-y+=utils
 subdir-y+=staging
 subdir-y+=src
+subdir-y+=utils

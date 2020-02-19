@@ -82,10 +82,13 @@ $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 $(TARGET)_LIBRARY-$(DEBUG)+=rt
 
 subdir-$(CGI)+=mod_cgi.mk
+subdir-$(COOKIE)+=mod_cookie.mk
 subdir-$(DOCUMENT)+=mod_document.mk
 subdir-$(AUTH)+=mod_auth.mk
+subdir-$(MBEDTLS)+=mod_mbedtls.mk
 subdir-$(SERVERHEADER)+=mod_server.mk
 subdir-$(CLIENTFILTER)+=mod_clientfilter.mk
 subdir-$(REDIRECT)+=mod_redirect404.mk
 subdir-$(REDIRECT)+=mod_redirect.mk
 subdir-$(CORS)+=mod_cors.mk
+subdir-$(WEBSOCKET)+=mod_websocket.mk
