@@ -1,0 +1,7 @@
+modules-$(MODULES)+=mod_cookie
+slib-y+=mod_cookie
+mod_cookie_SOURCES+=mod_cookie.c
+mod_cookie_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
+mod_cookie_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
+
+mod_cookie_CFLAGS-$(DEBUG)+=-g -DDEBUG

@@ -485,6 +485,7 @@ defconfig: $(builddir)$(CONFIG).old cleanconfig FORCE
 
 CONFIGS:=$(shell cat $(DEFCONFIG) | sed 's/\"/\\\"/g' | grep -v '^\#' | awk -F= 't$$1 != t {print $$1}' )
 oldconfig: $(DEFCONFIG) FORCE
+	@printf "$(foreach config,$(CONFIGS),$(config)=$($(config))\n)" > $(builddir)$(CONFIG)
 	@$(eval CONFIGS=$(foreach config,$(CONFIGS),$(if $($(config)),,$(config))))
 	@$(if $(CONFIGS),cat $(DEFCONFIG) | grep $(addprefix -e ,$(CONFIGS)), echo "") >> $(builddir)$(CONFIG)
 

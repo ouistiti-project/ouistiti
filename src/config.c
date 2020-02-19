@@ -992,7 +992,7 @@ static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 		int count = config_setting_length(configvhosts);
 		int j;
 
-		for (j = 0; j < count && (j + i) < MAX_SERVERS; j++)
+		for (j = 0; j < count && j < MAX_SERVERS; j++)
 		{
 			config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
 			config->vhosts[j] = vhost_config(iterator,(config->tls!=NULL));
