@@ -1,4 +1,5 @@
 subdir-$(WEBSOCKET)+=websocket.mk
+subdir-$(WEBSOCKET)+=client_websocket.mk
 subdir-$(WEBSTREAM)+=webstream.mk
 
 hostbin-$(HOST_UTILS)+=testclient
