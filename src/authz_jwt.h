@@ -34,5 +34,6 @@
 extern authz_rules_t authz_jwt_rules;
 
 char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info);
+authsession_t *jwt_decode(const char *id_token);
 
 #endif
