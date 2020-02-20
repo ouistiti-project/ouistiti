@@ -120,7 +120,7 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 	{
 		int datalen = sign - data;
 		sign++;
-		if (authn_checksignature(mod->authn, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{
 			user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 		}
