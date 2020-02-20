@@ -41,4 +41,3 @@ jobs:
         make
         make DESTDIR=./release install
         pushd release && tar -czf ../ouistiti-travis.tar.gz . && popd
-
