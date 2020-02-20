@@ -52,9 +52,9 @@
 #ifndef FILE_CONFIG
 #define STATIC_CONFIG
 #endif
-#include "httpserver/mod_tls.h"
-#include "httpserver/mod_websocket.h"
-#include "httpserver/mod_cookie.h"
+#include "mod_tls.h"
+#include "mod_websocket.h"
+#include "mod_cookie.h"
 #include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
