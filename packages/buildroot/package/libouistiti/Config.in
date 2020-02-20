@@ -1,0 +1,41 @@
+menuconfig BR2_PACKAGE_LIBOUISTITI
+	bool "libouistiti"
+	depends on BR2_PACKAGE_LIBOUISTITI
+	help
+	  small, fast and secure http library.
+
+	  https://github.com/ouistiti-net
+
+if BR2_PACKAGE_LIBOUISTITI
+
+config BR2_PACKAGE_LIBOUISTITI_CLIENT
+	bool "HTTP client parsing"
+	help
+	  Allow to generate Request and parse Response.
+
+choice
+	prompt "hash library frontend for ouistiti"
+	help
+	  Hash frontend for ouistiti.
+	default BR2_PACKAGE_LIBOUISTITI_MBEDTLS
+
+config BR2_PACKAGE_LIBOUISTITI_MBEDTLS
+	bool "mbedtls"
+	depends on BR2_PACKAGE_MBEDTLS
+
+config BR2_PACKAGE_LIBOUISTITI_OPENSSL
+	bool "openssl (experimental)"
+	depends on BR2_PACKAGE_OPENSSL
+
+config BR2_PACKAGE_LIBOUISTITI_WOLFSSL
+	bool "wolfssl (experimental)"
+	depends on BR2_PACKAGE_WOLFSSL
+
+endchoice
+
+config BR2_PACKAGE_LIBOUISTITI_WEBSOCKET
+	bool "websocket protocol library"
+	help
+	  Enable Websocket support for ouistiti.
+
+endif
