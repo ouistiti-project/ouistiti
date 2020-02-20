@@ -37,7 +37,6 @@
 #include <time.h>
 
 #include "httpserver/httpserver.h"
-#include "httpserver/uri.h"
 #include "httpserver/utils.h"
 #include "mod_document.h"
 #include "mod_auth.h"

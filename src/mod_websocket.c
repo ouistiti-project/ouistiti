@@ -49,7 +49,6 @@
 #include "httpserver/log.h"
 #include "httpserver/httpserver.h"
 #include "httpserver/hash.h"
-#include "httpserver/uri.h"
 #include "httpserver/mod_websocket.h"
 #include "httpserver/utils.h"
 #include "httpserver/websocket.h"

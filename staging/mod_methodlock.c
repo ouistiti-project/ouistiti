@@ -36,7 +36,6 @@
 #include <dirent.h>
 
 #include "httpserver/httpserver.h"
-#include "httpserver/uri.h"
 #include "mod_auth.h"
 #include "mod_methodlock.h"
 
