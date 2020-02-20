@@ -1,10 +1,10 @@
 /*****************************************************************************
- * authz_simple.h: Check Authentication in configuration file
- * this file is part of https://github.com/ouistiti-project/ouistiti
+ * mod_tls.h: Simple HTTPS module
+ * this file is part of https://github.com/ouistiti-project/libhttpserver
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
- * Authors: Marc Chalain <marc.chalain@gmail.com
+ * Authors: Marc Chalain <marc.chalain@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,14 +26,29 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __AUTHN_JWT_H__
-#define __AUTHN_JWT_H__
+#ifndef __MOD_TLS_H__
+#define __MOD_TLS_H__
 
-#include "mod_auth.h"
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-extern authz_rules_t authz_jwt_rules;
+typedef struct mod_tls_s mod_tls_t;
+struct mod_tls_s
+{
+	char *crtfile;
+	char *pemfile;
+	char *cachain;
+	char *dhmfile;
+};
 
-char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info);
-authsession_t *jwt_decode(const char *id_token);
+extern const module_t mod_tls;
+
+extern const httpclient_ops_t *tlsclient_ops;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

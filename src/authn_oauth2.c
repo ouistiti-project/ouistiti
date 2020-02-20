@@ -120,6 +120,27 @@ size_t _json_load(void *buffer, size_t buflen, void *data)
 	return size;
 }
 
+static authsession_t *_oauth2_checkidtoken(authn_oauth2_t *mod, json_t *json_idtoken)
+{
+	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
+	authsession_t *authinfo = NULL;
+
+	const char *id_token = json_string_value(json_idtoken);
+	const char *data = id_token;
+	const char *sign = strrchr(id_token, '.');
+	if (sign != NULL)
+	{
+		int datalen = sign - data;
+		sign++;
+		if (authn_checksignature(config->client_passwd, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		{
+			authinfo = jwt_decode(id_token);
+			auth_dbg("oAuth2 id_token: %s", id_token);
+		}
+	}
+	return authinfo;
+}
+
 static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -235,13 +256,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 					json_t *json_idtoken = json_object_get(json_authtokens, "id_token");
 					if (json_idtoken != NULL && json_is_string(json_idtoken))
 					{
-						const char *id_token = json_string_value(json_idtoken);
-						authinfo = jwt_decode(id_token, config->client_passwd);
-						auth_dbg("oAuth2 id_token: %s", id_token);
-						if (authinfo != NULL)
-						{
-							mod->authz->rules->adduser(mod->authz->ctx, authinfo);
-						}
+						authinfo = _oauth2_checkidtoken(mod, json_idtoken);
 					}
 					json_t *json_username = json_object_get(json_authtokens, "username");
 					if (json_username != NULL && json_is_string(json_username))
@@ -281,6 +296,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 			}
 			if (authinfo != NULL)
 			{
+				mod->authz->rules->adduser(mod->authz->ctx, authinfo);
 				ret = mod->authz->rules->join(mod->authz->ctx, authinfo->user, access_token, expires_in);
 			}
 			if (ret != ESUCCESS)

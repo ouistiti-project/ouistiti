@@ -1,10 +1,10 @@
 /*****************************************************************************
- * authz_simple.h: Check Authentication in configuration file
- * this file is part of https://github.com/ouistiti-project/ouistiti
+ * mod_websocket.h: websocket server module
+ * this file is part of https://github.com/ouistiti-project/libhttpserver
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
- * Authors: Marc Chalain <marc.chalain@gmail.com
+ * Authors: Marc Chalain <marc.chalain@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,14 +26,31 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __AUTHN_JWT_H__
-#define __AUTHN_JWT_H__
+#ifndef __MOD_WEBSOCKET_H__
+#define __MOD_WEBSOCKET_H__
 
-#include "mod_auth.h"
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-extern authz_rules_t authz_jwt_rules;
+typedef int (*mod_websocket_run_t)(void *arg, int socket, const char *filepath, http_message_t *request);
+int default_websocket_run(void *arg, int socket, const char *filepath, http_message_t *request);
 
-char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info);
-authsession_t *jwt_decode(const char *id_token);
+typedef struct mod_websocket_s mod_websocket_t;
+struct mod_websocket_s
+{
+	char *docroot;
+	char *allow;
+	char *deny;
+	int options;
+	mod_websocket_run_t run;
+};
+
+extern const module_t mod_websocket;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

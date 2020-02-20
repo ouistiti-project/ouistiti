@@ -41,8 +41,8 @@
 #include "mod_redirect.h"
 #include "mod_webstream.h"
 #include "mod_cors.h"
-#include "httpserver/mod_websocket.h"
-#include "httpserver/mod_tls.h"
+#include "mod_websocket.h"
+#include "mod_tls.h"
 #define WEBSOCKET_REALTIME 0x01
 
 typedef struct modulesconfig_s

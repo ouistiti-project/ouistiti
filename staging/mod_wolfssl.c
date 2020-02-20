@@ -35,8 +35,8 @@
 typedef int (wolftls_ssl_send_t)(void *, const unsigned char *, size_t);
 typedef int (wolfls_ssl_recv_t)(void *, unsigned char *, size_t);
 
-#include "log.h"
-#include "httpserver.h"
+#include "httpserver/log.h"
+#include "httpserver/httpserver.h"
 #include "mod_tls.h"
 
 static const char str_wolftls[] = "tls";
@@ -193,7 +193,7 @@ static int _mod_wolftls_recv(void *vctx, char *data, int size)
 	_mod_wolftls_ctx_t *ctx = (_mod_wolftls_ctx_t *)vctx;
 warn("wolfssl read");
 #ifndef SOCKET_BLOCKING
-	do 
+	do
 	{
 	ret = wolfSSL_pending(ctx->ssl);
 	} while (ret == 0);
