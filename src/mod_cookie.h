@@ -1,6 +1,5 @@
 /*****************************************************************************
- * authz_simple.h: Check Authentication in configuration file
- * this file is part of https://github.com/ouistiti-project/ouistiti
+ * mod_cookie.h: cookie parser
  *****************************************************************************
  * Copyright (C) 2016-2017
  *
@@ -26,14 +25,20 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __AUTHN_JWT_H__
-#define __AUTHN_JWT_H__
+#ifndef __MOD_COOKIE_H__
+#define __MOD_COOKIE_H__
 
-#include "mod_auth.h"
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-extern authz_rules_t authz_jwt_rules;
+typedef void mod_cookie_t;
 
-char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info);
-authsession_t *jwt_decode(const char *id_token);
+extern const module_t mod_cookie;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

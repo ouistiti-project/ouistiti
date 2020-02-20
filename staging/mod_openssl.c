@@ -38,7 +38,7 @@
 
 #include "httpserver/log.h"
 #include "httpserver/httpserver.h"
-#include "httpserver/mod_tls.h"
+#include "mod_tls.h"
 
 #define tls_dbg(...)
 
