@@ -1,0 +1,170 @@
+if !BR2_PACKAGE_LIBCONFIG
+comment "Ouistiti needs libconfig library to manage config file"
+endif
+
+menuconfig BR2_PACKAGE_OUISTITI
+	bool "ouistiti: Embedded webserver and websocket gateway"
+	depends on BR2_USE_MMU
+	depends on BR2_PACKAGE_LIBCONFIG
+	select BR2_PACKAGE_LIBOUISTITI
+	help
+	  ouistiti small, fast and secure webserver.
+	  It is dedicated to configure and manage embedded devices.
+
+	  https://github.com/ouistiti-project
+
+if BR2_PACKAGE_OUISTITI
+
+choice
+	prompt "SSL/TLS library support"
+	help
+	  module to manage HTTPS request.
+	default BR2_PACKAGE_OUISTITI_MBEDTLS
+
+config BR2_PACKAGE_OUISTITI_MBEDTLS
+	bool "mbedtls"
+	depends on BR2_PACKAGE_MBEDTLS
+	select BR2_PACKAGE_LIBOUISTITI_MBEDTLS
+if !BR2_PACKAGE_MBEDTLS
+	comment "mbedtls"
+endif
+
+config BR2_PACKAGE_OUISTITI_OPENSSL
+	bool "openssl (experimental)"
+	depends on BR2_PACKAGE_OPENSSL
+	select BR2_PACKAGE_LIBOUISTITI_OPENSSL
+if !BR2_PACKAGE_OPENSSL
+	comment "openssl (experimental)"
+endif
+
+config BR2_PACKAGE_OUISTITI_WOLFSSL
+	bool "wolfssl (experimental)"
+	depends on BR2_PACKAGE_WOLFSSL
+	select BR2_PACKAGE_LIBOUISTITI_WOLFSSL
+if !BR2_PACKAGE_WOLFSSL
+	comment "wolfssl (experimental)"
+endif
+
+endchoice
+
+menuconfig BR2_PACKAGE_OUISTITI_AUTH
+	bool "authentication support"
+	default y
+	help
+	  Enable Basic/Digest/Bearer... support for ouistiti.
+
+if BR2_PACKAGE_OUISTITI_AUTH
+
+config BR2_PACKAGE_OUISTITI_AUTH_SQLITE
+	bool "sqlite db storage"
+	select BR2_PACKAGE_SQLITE
+	help
+	  Enable password storage into sqlite DB.
+
+config BR2_PACKAGE_OUISTITI_AUTH_UNIX
+	bool "unix shadow file"
+	select BR2_PACKAGE_OUISTITI_AUTH_BASIC
+	help
+	  Enable password storage from UNIX password system.
+
+config BR2_PACKAGE_OUISTITI_AUTH_TOKEN
+	bool "Token exchange"
+	help
+		generate token after authentication and
+		use this token for the following request
+
+config BR2_PACKAGE_OUISTITI_AUTH_JWT
+	bool "auth: Json Web Token"
+	depends on BR2_PACKAGE_JANSSON
+	depends on BR2_PACKAGE_OUISTITI_AUTH_TOKEN
+	help
+	  Generate and parse JsonWebToken for authenticate.
+if !BR2_PACKAGE_JANSSON
+	comment "JWT support: enable Jansson library"
+endif
+
+config BR2_PACKAGE_OUISTITI_AUTH_BASIC
+	bool "auth: Basic authentication"
+	help
+	  Basic Authentication RFC
+
+config BR2_PACKAGE_OUISTITI_AUTH_DIGEST
+	bool "auth: Digest authentication"
+	help
+	  Digest Authentication RFC
+
+config BR2_PACKAGE_OUISTITI_AUTH_BEARER
+	bool "auth: Bearer authentication"
+	help
+	  Bearer Authentication RFC
+
+config BR2_PACKAGE_OUISTITI_AUTH_OAUTH2
+	bool "auth: oAuth2 authentication"
+	depends on BR2_PACKAGE_OUISTITI_AUTH_JWT
+	select BR2_PACKAGE_LIBOUISTITI_CLIENT
+	help
+	  oAuth2 Authentication RFC
+if !BR2_PACKAGE_OUISTITI_AUTH_JWT
+	comment "oAuth2 authentication: enable Auth JWT"
+endif
+
+endif
+
+menuconfig BR2_PACKAGE_OUISTITI_DOCUMENT
+	bool "Document server"
+	default y
+
+if BR2_PACKAGE_OUISTITI_DOCUMENT
+config BR2_PACKAGE_OUISTITI_DOCUMENT_REST
+	bool "Enable REST API"
+	help
+		upload/modify/delete files on host
+
+config BR2_PACKAGE_OUISTITI_DOCUMENT_RANGE
+	bool "Enable partial download"
+	help
+		manage Range Header for partial document download
+
+config BR2_PACKAGE_OUISTITI_DOCUMENT_HOME
+	bool "Home directory"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
+	help
+		Allows to manage files in HOME directory, following the authentication
+
+endif
+
+config BR2_PACKAGE_OUISTITI_CGI
+	bool "CGI server"
+	default n
+	help
+		execute scripts over Common Gateway Interface
+
+menuconfig BR2_PACKAGE_OUISTITI_WEBSOCKET
+	bool "websocket support"
+	select BR2_PACKAGE_LIBOUISTITI_WEBSOCKET
+	default y
+	help
+		create a proxy for UNIX socket to communicate on Websocket
+
+if BR2_PACKAGE_OUISTITI_WEBSOCKET
+
+config BR2_PACKAGE_OUISTITI_WS_JSONRPC
+	bool "websocket: jsonrpc server"
+	select BR2_PACKAGE_JANSSON
+	help
+	  Add a jsonrpc server for websocket.
+
+config BR2_PACKAGE_OUISTITI_WS_CHAT
+	bool "websocket: chat server"
+	help
+	  Add a jsonrpc server for websocket.
+
+endif
+
+config BR2_PACKAGE_OUISTITI_WEBSTREAM
+	bool "webstream support (experimental)"
+	default n
+	help
+		create a proxy for UNIX socket to send data
+
+endif
