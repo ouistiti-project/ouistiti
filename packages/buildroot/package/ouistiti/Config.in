@@ -17,32 +17,35 @@ if BR2_PACKAGE_OUISTITI
 
 choice
 	prompt "SSL/TLS library support"
+	default BR2_PACKAGE_OUISTITI_MBEDTLS
 	help
 	  module to manage HTTPS request.
-	default BR2_PACKAGE_OUISTITI_MBEDTLS
 
 config BR2_PACKAGE_OUISTITI_MBEDTLS
 	bool "mbedtls"
 	depends on BR2_PACKAGE_MBEDTLS
 	select BR2_PACKAGE_LIBOUISTITI_MBEDTLS
+
 if !BR2_PACKAGE_MBEDTLS
-	comment "mbedtls"
+comment "mbedtls"
 endif
 
 config BR2_PACKAGE_OUISTITI_OPENSSL
 	bool "openssl (experimental)"
 	depends on BR2_PACKAGE_OPENSSL
 	select BR2_PACKAGE_LIBOUISTITI_OPENSSL
+
 if !BR2_PACKAGE_OPENSSL
-	comment "openssl (experimental)"
+comment "openssl (experimental)"
 endif
 
 config BR2_PACKAGE_OUISTITI_WOLFSSL
 	bool "wolfssl (experimental)"
 	depends on BR2_PACKAGE_WOLFSSL
 	select BR2_PACKAGE_LIBOUISTITI_WOLFSSL
+
 if !BR2_PACKAGE_WOLFSSL
-	comment "wolfssl (experimental)"
+comment "wolfssl (experimental)"
 endif
 
 endchoice
@@ -70,8 +73,8 @@ config BR2_PACKAGE_OUISTITI_AUTH_UNIX
 config BR2_PACKAGE_OUISTITI_AUTH_TOKEN
 	bool "Token exchange"
 	help
-		generate token after authentication and
-		use this token for the following request
+	  generate token after authentication and
+	  use this token for the following request
 
 config BR2_PACKAGE_OUISTITI_AUTH_JWT
 	bool "auth: Json Web Token"
@@ -79,8 +82,9 @@ config BR2_PACKAGE_OUISTITI_AUTH_JWT
 	depends on BR2_PACKAGE_OUISTITI_AUTH_TOKEN
 	help
 	  Generate and parse JsonWebToken for authenticate.
+
 if !BR2_PACKAGE_JANSSON
-	comment "JWT support: enable Jansson library"
+comment "JWT support: enable Jansson library"
 endif
 
 config BR2_PACKAGE_OUISTITI_AUTH_BASIC
@@ -104,8 +108,9 @@ config BR2_PACKAGE_OUISTITI_AUTH_OAUTH2
 	select BR2_PACKAGE_LIBOUISTITI_CLIENT
 	help
 	  oAuth2 Authentication RFC
+
 if !BR2_PACKAGE_OUISTITI_AUTH_JWT
-	comment "oAuth2 authentication: enable Auth JWT"
+comment "oAuth2 authentication: enable Auth JWT"
 endif
 
 endif
@@ -118,18 +123,19 @@ if BR2_PACKAGE_OUISTITI_DOCUMENT
 config BR2_PACKAGE_OUISTITI_DOCUMENT_REST
 	bool "Enable REST API"
 	help
-		upload/modify/delete files on host
+	  upload/modify/delete files on host
 
 config BR2_PACKAGE_OUISTITI_DOCUMENT_RANGE
 	bool "Enable partial download"
 	help
-		manage Range Header for partial document download
+	  manage Range Header for partial document download
 
 config BR2_PACKAGE_OUISTITI_DOCUMENT_HOME
 	bool "Home directory"
 	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
-		Allows to manage files in HOME directory, following the authentication
+	  Allows to manage files in HOME directory, following the
+	  authentication
 
 endif
 
@@ -137,14 +143,14 @@ config BR2_PACKAGE_OUISTITI_CGI
 	bool "CGI server"
 	default n
 	help
-		execute scripts over Common Gateway Interface
+	  execute scripts over Common Gateway Interface
 
 menuconfig BR2_PACKAGE_OUISTITI_WEBSOCKET
 	bool "websocket support"
-	select BR2_PACKAGE_LIBOUISTITI_WEBSOCKET
 	default y
+	select BR2_PACKAGE_LIBOUISTITI_WEBSOCKET
 	help
-		create a proxy for UNIX socket to communicate on Websocket
+	  create a proxy for UNIX socket to communicate on Websocket
 
 if BR2_PACKAGE_OUISTITI_WEBSOCKET
 
@@ -165,6 +171,6 @@ config BR2_PACKAGE_OUISTITI_WEBSTREAM
 	bool "webstream support (experimental)"
 	default n
 	help
-		create a proxy for UNIX socket to send data
+	  create a proxy for UNIX socket to send data
 
 endif
