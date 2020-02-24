@@ -39,7 +39,7 @@
 
 #include "httpserver/log.h"
 #include "httpserver/httpserver.h"
-#include "httpserver/mod_cookie.h"
+#include "mod_cookie.h"
 
 typedef struct _mod_cookie_ctx_s _mod_cookie_ctx_t;
 typedef struct _mod_cookie_s _mod_cookie_t;

@@ -44,7 +44,7 @@
 #endif
 
 #include "httpserver/httpserver.h"
-#include "httpserver/mod_websocket.h"
+#include "mod_websocket.h"
 #include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"

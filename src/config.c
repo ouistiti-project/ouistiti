@@ -39,8 +39,8 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 
-#include "httpserver/mod_tls.h"
-#include "httpserver/mod_websocket.h"
+#include "mod_tls.h"
+#include "mod_websocket.h"
 #include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
