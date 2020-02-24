@@ -7,6 +7,14 @@ ouistiti_ws_CFLAGS-$(DEBUG)+=-g -DDEBUG
 ouistiti_ws_LIBS+=websocket
 ouistiti_ws_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 
+ifneq ($(USE_PTHREAD),y)
+  WS_ECHO=n
+  WS_CHAT=n
+  WS_JSONRPC=n
+  WS_GPS=n
+  WS_SYSLOGD=n
+endif
+
 bin-$(WS_ECHO)+=websocket_echo
 websocket_echo_SOURCES+=$(WS_SRC)echo.c
 websocket_echo_CFLAGS+=-DPTHREAD
