@@ -22,6 +22,7 @@ OUISTITI_DEFCONFIG=fullforked_defconfig
 endif
 
 OUISTITI_MAKE_OPTS = \
+	LIBHTTPSERVER_NAME=ouistiti \
 	package=ouistiti \
 	prefix=/usr \
 	libdir=/usr/lib/ouistiti \
@@ -55,6 +56,21 @@ ifeq ($(BR2_PACKAGE_OUISTITI_WS_JSONRPC),y)
   OUISTITI_DEPENDENCIES += jansson
 endif
 
+define OUISTITI_LIBRARIES_OPTS
+	$(if $(findstring y,$(BR2_SHARED_LIBS)),
+		$(call KCONFIG_ENABLE_OPT,MODULE,$(@D)/.config)
+		$(call KCONFIG_ENABLE_OPT,SHARED,$(@D)/.config)
+		$(call KCONFIG_DISABLE_OPT,STATIC,$(@D)/.config))
+	$(if $(findstring y,$(BR2_STATIC_LIBS)),
+		$(call KCONFIG_DISABLE_OPT,MODULE,$(@D)/.config)
+		$(call KCONFIG_DISABLE_OPT,SHARED,$(@D)/.config)
+		$(call KCONFIG_ENABLE_OPT,STATIC,$(@D)/.config))
+	$(if $(findstring y,$(BR2_SHARED_STATIC_LIBS)),
+		$(call KCONFIG_ENABLE_OPT,MODULE,$(@D)/.config)
+		$(call KCONFIG_ENABLE_OPT,SHARED,$(@D)/.config)
+		$(call KCONFIG_ENABLE_OPT,STATIC,$(@D)/.config))
+endef
+
 define OUISTITI_AUTH_OPTS
 	$(if $(findstring y,$(BR2_PACKAGE_OUISTITI_AUTH)),
 		$(call KCONFIG_ENABLE_OPT,AUTH,$(@D)/.config)
@@ -69,6 +85,10 @@ define OUISTITI_AUTH_OPTS
 	$(if $(findstring y,$(BR2_PACKAGE_OUISTITI_AUTH_UNIX)),
 		$(call KCONFIG_ENABLE_OPT,AUTHZ_UNIX,$(@D)/.config),
 		$(call KCONFIG_DISABLE_OPT,AUTHZ_UNIX,$(@D)/.config))
+
+	$(if $(findstring y,$(BR2_TOOLCHAIN_USES_UCLIBC)),
+		$(call KCONFIG_DISABLE_OPT,USE_REENTRANT,$(@D)/.config),
+		$(call KCONFIG_ENABLE_OPT,USE_REENTRANT,$(@D)/.config))
 
 	$(if $(findstring y,$(BR2_PACKAGE_OUISTITI_AUTH_TOKEN)),
 		$(call KCONFIG_ENABLE_OPT,AUTH_TOKEN,$(@D)/.config),
@@ -139,6 +159,7 @@ endef
 OUISTITI_MAKE_OPTS+=DEBUG=y
 
 define OUISTITI_KCONFIG_FIXUP_CMDS
+	$(OUISTITI_LIBRARIES_OPTS)
 	$(OUISTITI_TINYSVCMDNS_OPTS)
 	$(OUISTITI_MBEDTLS_OPTS)
 	$(OUISTITI_AUTH_OPTS)
