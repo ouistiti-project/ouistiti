@@ -551,12 +551,10 @@ static const char *_authn_gettoken(_mod_auth_ctx_t *ctx, http_message_t *request
 	return authorization;
 }
 
-int authn_checksignature(const authn_t *authn,
+int authn_checksignature(const char *key,
 		const char *data, int datalen,
 		const char *sign, int signlen)
 {
-	const char *key = authn->config->secret;
-
 	if (hash_macsha256 != NULL && key != NULL)
 	{
 		void *ctx = hash_macsha256->initkey(key, strlen(key));
@@ -587,7 +585,7 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 	{
 		int datalen = sign - data;
 		sign++;
-		if (authn_checksignature(mod->authn, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{
 			user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 			if (user == NULL)
