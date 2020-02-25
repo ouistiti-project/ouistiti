@@ -39,7 +39,9 @@
 #include <sys/un.h>
 #include <sched.h>
 #include <sys/stat.h>
+#ifdef MODULES
 #include <dlfcn.h>
+#endif
 #include <time.h>
 
 #include "../websocket.h"
@@ -110,8 +112,14 @@ void help(char **argv)
 static char *g_library_config = NULL;
 typedef void *(*jsonrpc_init_t)(struct jsonrpc_method_entry_t **, char *config);
 typedef void (*jsonrpc_release_t)(void *ctx);
+#ifdef MODULES
 jsonrpc_init_t jsonrpc_init = NULL;
 jsonrpc_release_t jsonrpc_release = NULL;
+#else
+extern jsonrpc_init_t jsonrpc_init;
+extern jsonrpc_release_t jsonrpc_release;
+#endif
+
 int jsonrpc_server(int sock)
 {
 	struct jsonrpc_method_entry_t *table;
@@ -198,6 +206,7 @@ int main(int argc, char **argv)
 				proto = WS_TEXT;
 			break;
 			case 'L':
+#ifdef MODULES
 				lhandler = dlopen(optarg, RTLD_LAZY);
 				if (lhandler)
 				{
@@ -208,6 +217,7 @@ int main(int argc, char **argv)
 				{
 					err("library not found: %s", dlerror());
 				}
+#endif
 			break;
 			case 'C':
 				g_library_config = optarg;
