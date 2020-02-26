@@ -1,0 +1,6 @@
+HTTP/1.1 302 Found
+Referrer-Policy: origin-when-cross-origin
+WWW-Authenticate: Basic realm="auth.ouistiti.net"
+Location: trust/signin.html
+Cache-Control: no-cache
+
