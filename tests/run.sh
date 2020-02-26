@@ -150,7 +150,7 @@ do
 		rescontentlen=$TESTCONTENTLEN
 	else
 		if [ -e ${TMPRESPONSE} ]; then
-			diff ${TMPRESPONSE} ${TESTDIR}${TESTRESPONSE} | grep '^>'
+			diff -a ${TMPRESPONSE} ${TESTDIR}${TESTRESPONSE} | grep '^>'
 			if [ ! $? -eq 1 ]; then
 				ERR=4
 			fi

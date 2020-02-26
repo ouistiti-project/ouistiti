@@ -14,11 +14,13 @@ REMOTE_HOST = 127.0.0.1
 REMOTE_ADDR = 127.0.0.1
 REQUEST_METHOD = POST
 SCHEME = http
-URI = /test.cgi
-QUERY_STRING = 
-SCRIPT_NAME = test.cgi
-CONTENT_TYPE = text/plain
-CONTENT_LENGTH = 15
-CONTENT:
-Hello world
+URI = /test.cgi/my/path_info
+QUERY_STRING = index=2&name=foo&passwd=bar
 
+HTTP_ACCEPT = 
+PATH_INFO = /my/path_info
+PATH_TRANSLATED = /my/path_info
+SCRIPT_NAME = test.cgi
+CONTENT_TYPE = application/x-www-form-urlencoded
+CONTENT_LENGTH = 19
+CONTENT:
