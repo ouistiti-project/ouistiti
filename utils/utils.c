@@ -28,7 +28,6 @@
 #define _GNU_SOURCE
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <dlfcn.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
