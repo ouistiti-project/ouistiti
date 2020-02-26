@@ -1,0 +1,25 @@
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=iso-8859-1
+
+CGI/1.0 test script report:
+
+argc is 0. argv is .
+
+GATEWAY_INTERFACE = CGI/1.1
+SERVER_PROTOCOL = HTTP/1.1
+SERVER_NAME = www.ouistiti.net
+SERVER_ADDR = 127.0.0.1
+SERVER_PORT = 8080
+REMOTE_HOST = 127.0.0.1
+REMOTE_ADDR = 127.0.0.1
+REQUEST_METHOD = POST
+SCHEME = http
+URI = /test.cgi/my/path_info
+QUERY_STRING = index=2&name=foo&passwd=bar
+HTTP_ACCEPT = 
+PATH_INFO = /my/path_info
+PATH_TRANSLATED = /my/path_info
+SCRIPT_NAME = test.cgi
+CONTENT_TYPE = application/x-www-form-urlencoded
+CONTENT_LENGTH = 19
+CONTENT:
