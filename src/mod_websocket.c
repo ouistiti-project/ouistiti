@@ -468,7 +468,7 @@ static websocket_t _wsdefaul_config =
 };
 int default_websocket_run(void *arg, int socket, const char *filepath, http_message_t *request)
 {
-	pid_t pid;
+	pid_t pid = -1;
 	int wssock = _websocket_socket(filepath);
 
 	if (wssock > 0)

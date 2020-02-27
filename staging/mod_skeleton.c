@@ -29,9 +29,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
-#include "httpserver/mod_skeleton.h"
+#include <httpserver/log.h>
+#include <httpserver/httpserver.h>
+#include "mod_skeleton.h"
 
 typedef struct _mod_skeleton_config_s _mod_skeleton_config_t;
 typedef struct _mod_skeleton_s _mod_skeleton_t;

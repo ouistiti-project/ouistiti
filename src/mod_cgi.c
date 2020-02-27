@@ -303,7 +303,7 @@ static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 	_mod_cgi_t *mod = ctx->mod;
 	mod_cgi_config_t *config = mod->config;
 	int ret = ECONTINUE;
-	char *input;
+	char *input = NULL;
 	int inputlen;
 	unsigned long long rest;
 
@@ -320,7 +320,7 @@ static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 		if (inputlen != len)
 			ret = EREJECT;
 	}
-	else if (rest != EINCOMPLETE)
+	else if (inputlen != EINCOMPLETE)
 		ctx->state = STATE_INFINISH;
 	if (ctx->state == STATE_INFINISH)
 	{
@@ -384,6 +384,7 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 		else
 		{
 			ctx->chunk[size] = 0;
+			size = strlen(ctx->chunk);
 			cgi_dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
 			/**
 			 * if content_length is not null, parcgi is able to
@@ -422,6 +423,11 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	if (ctx == NULL)
 	{
 		ret = _cgi_start(mod, request, response);
+		if (ret == EINCOMPLETE)
+		{
+			ctx = httpmessage_private(request, NULL);
+			_cgi_request(ctx, request);
+		}
 		return ret;
 	}
 	else if (ctx->tocgi[1] > 0 && ctx->state == STATE_START)
