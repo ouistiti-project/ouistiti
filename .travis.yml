@@ -17,27 +17,29 @@ addons:
     packages:
       - libmbedtls-dev
       - libconfig-dev
+      - libjansson-dev
+
+  sonarcloud:
+    organization: "${SONARCLOUD_ORGANIZATION}" # the key of the org you chose at step #3
+    token:
 
 jobs:
   include:
-    - stage: prepare
-      script: git clone $GITHUB_LIBOUISTITI libhttpserver
-    - stage: configure
-      script: 
-        make defconfig
-        make TINYSVCMDNS=n oldconfig
-    - stage: build
-      script: make DEBUG=y G=1
-    - stage: tests
+    - stage: test
       script:
-        make hosttools
-        ./tests/run.sh
-        make gcov
+        git clone ${GITHUB_LIBHTTPSERVER} libhttpserver &&
+        make defconfig && make AUTHN_OAUTH2=n TINYSVCMDNS=n oldconfig &&
+        build-wrapper-linux-x86-64 --out-dir bw-output make DEBUG=y G=1 &&
+        make hosttools &&
+        LD_LIBRARY_PATH=$PWD/libhttpserver/src:$PWD/libhttpserver/src/httpserver ./tests/run.sh -A -N;
+        make gcov &&
+        sonar-scanner
     - stage: release
       script:
-        make clean
-        make fullforked_defconfig
-        make TINYSVCMDNS=n oldconfig
-        make
-        make DESTDIR=./release install
-        pushd release && tar -czf ../ouistiti-travis.tar.gz . && popd
+        git clone ${GITHUB_LIBHTTPSERVER} libhttpserver &&
+        make clean &&
+        make fullforked_defconfig &&
+        make TINYSVCMDNS=n oldconfig &&
+        make && mkdir ${PWD}/release &&
+        make DESTDIR=${PWD}/release install &&
+        pushd ${PWD}/release && tar -czf ../ouistiti-travis.tar.gz . && popd
