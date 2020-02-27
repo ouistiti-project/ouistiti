@@ -104,12 +104,18 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		{
 			uid_t uid;
 			uid = geteuid();
+			/**
+			 * change user to root to request shadow file to the system
+			 */
 			if (seteuid(0) < 0)
 				warn("not enought rights to change user to root");
 			struct spwd *spasswd = getspnam(pw->pw_name);
+			/**
+			 * enable again the user
+			 */
 			if (seteuid(uid) < 0)
 				warn("not enought rights to change user");
-			if ((spasswd->sp_expire > 0) &&
+			if (spasswd && (spasswd->sp_expire > 0) &&
 				(spasswd->sp_expire < (time(NULL) / (60 * 60 * 24))))
 			{
 				warn("authz: user %s password expired", user);
