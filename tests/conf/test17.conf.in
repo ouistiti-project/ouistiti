@@ -1,0 +1,30 @@
+user="%USER%";
+servers= ({
+		hostname = "ouistiti.local";
+		port = 8443;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		unlock_groups = "users";
+		auth = {
+			realm = "welcome to ouistiti";
+			file = "shadow";
+			type = "Basic";
+			secret = "I am a great pretender";
+			unprotect="^trust/*";
+			options = "cookie";
+			algorithm = "SHA-256";
+		};
+		document = {
+			docroot = "%PWD%/tests/htdocs";
+			allow = ".html,.htm,.css,.js,.txt,*";
+			deny = "^.htaccess,.cgi,.php";
+			options = "dirlisting,range,rest";
+		};
+		tls = {
+			crtfile = "%PWD%/tests/conf/ouistiti_srv.crt";
+			pemfile = "%PWD%/tests/conf/ouistiti_srv.key";
+			cachain = "%PWD%/tests/conf/ouistiti_ca.crt";
+			dhmfile = "%PWD%/tests/conf/ouistiti_dhparam.key";
+		};
+	});
+
