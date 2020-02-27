@@ -74,6 +74,7 @@ struct buffer_s
 	int size;
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
+	int options;
 };
 
 void *runstream(void *arg)
@@ -148,8 +149,11 @@ void *rungenerator(void *arg)
 		pthread_mutex_unlock(&buffer->mutex);
 		pthread_cond_broadcast(&buffer->cond);
 		nanosleep(&timeout, NULL);
-		elem++;
-		elem %= 10;
+		if (!(buffer->options & OPTION_TEST))
+		{
+			elem++;
+			elem %= 10;
+		}
 		pthread_mutex_lock(&buffer->mutex);
 		if (buffer->ready == 2)
 			run = 0;
@@ -278,6 +282,7 @@ int main(int argc, char **argv)
 		{
 			buffer_t origin;
 			origin.size = chunksize;
+			origin.options = options;
 			startgernerator(&origin, &thread);
 
 			int newsock = 0;
