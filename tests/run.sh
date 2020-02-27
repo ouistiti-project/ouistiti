@@ -51,6 +51,7 @@ AWK=awk
 SED=sed
 WC=wc
 CURL=curl
+WGET=wget
 USER=$(ls -l $0 | ${AWK} '{print $3}')
 TESTCLIENT="./host/utils/testclient -p 8080"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
@@ -122,6 +123,10 @@ do
 	echo "******************************"
 	if [ -n "$CURLPARAM" ]; then
 		$CURL $CURLOUT -f -s -S $CURLPARAM > $TMPRESPONSE
+	fi
+	if [ -n "$WGETURL" ]; then
+		$WGET --no-check-certificate -S -q -O - $WGETURL 2> $TMPRESPONSE.tmp
+		cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
 	fi
 	if [ -n "$TESTREQUEST" ]; then
 		if [ -n "$INFO" ]; then
