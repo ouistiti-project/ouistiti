@@ -1,5 +1,7 @@
 Ouistiti - Small featured HTTP server
 =====================================
+[![Build Status](https://travis-ci.com/ouistiti-project/ouistiti.svg?branch=master)](https://travis-ci.com/ouistiti-project/ouistiti)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ouistiti-project_ouistiti&metric=alert_status)](https://sonarcloud.io/dashboard?id=ouistiti-project_ouistiti)
 
 # Ouistiti
 
