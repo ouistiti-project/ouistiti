@@ -27,13 +27,13 @@ jobs:
   include:
     - stage: test
       script:
-        git clone ${GITHUB_LIBHTTPSERVER} libhttpserver &&
+        git clone ${GITHUB_LIBHTTPSERVER} -b ${TRAVIS_BRANCH} libhttpserver &&
         make defconfig && make AUTHN_OAUTH2=n TINYSVCMDNS=n oldconfig &&
         build-wrapper-linux-x86-64 --out-dir bw-output make DEBUG=y G=1 &&
         make hosttools &&
         LD_LIBRARY_PATH=$PWD/libhttpserver/src:$PWD/libhttpserver/src/httpserver ./tests/run.sh -A -N;
         make gcov &&
-        sonar-scanner
+        sonar-scanner -D sonar.projectKey=${SONARCLOUD_ORGANIZATION}_ouistiti
     - stage: release
       script:
         git clone ${GITHUB_LIBHTTPSERVER} libhttpserver &&
