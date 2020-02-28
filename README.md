@@ -3,7 +3,7 @@ Ouistiti - Small featured HTTP server
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ouistiti-project_ouistiti&metric=alert_status)](https://sonarcloud.io/dashboard?id=ouistiti-project_ouistiti)
 [![Build Status](https://travis-ci.com/ouistiti-project/ouistiti.svg?branch=master)](https://travis-ci.com/ouistiti-project/ouistiti)
 
-# Ouistiti
+# [Ouistiti](https://ouistiti-project.github.io/)
 
 Ouistiti _(ˈwistiti)_ is the french name of [Marmoset](https://en.wikipedia.org/wiki/Marmoset)
 a little monkey of the New World.
