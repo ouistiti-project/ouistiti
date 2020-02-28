@@ -125,7 +125,7 @@ do
 		$CURL $CURLOUT -f -s -S $CURLPARAM > $TMPRESPONSE
 	fi
 	if [ -n "$WGETURL" ]; then
-		$WGET --no-check-certificate -S -q -O - $WGETURL 2> $TMPRESPONSE.tmp
+		$WGET --no-check-certificate --user $USER --password foobar -S -q -O - $WGETURL 2> $TMPRESPONSE.tmp
 		cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
 	fi
 	if [ -n "$TESTREQUEST" ]; then
