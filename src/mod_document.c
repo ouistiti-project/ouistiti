@@ -146,6 +146,7 @@ static int _document_docroot(_mod_document_mod_t *mod,
 	return fdroot;
 }
 
+#ifdef DOCUMENTREST
 static int _document_getconnnectorput(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
 		http_message_t *request, http_message_t *response,
@@ -196,7 +197,9 @@ static int _document_getconnnectorput(_mod_document_mod_t *mod,
 	*connector = putfile_connector;
 	return fdfile;
 }
+#endif
 
+#ifdef DOCUMENTREST
 static int _document_getconnnectorpost(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
 		http_message_t *request, http_message_t *response,
@@ -223,7 +226,9 @@ static int _document_getconnnectorpost(_mod_document_mod_t *mod,
 	close(fdfile);
 	return openat(fdroot, url, O_RDWR | O_TRUNC);
 }
+#endif
 
+#ifdef DOCUMENTREST
 static int _document_getconnnectordelete(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
 		http_message_t *request, http_message_t *response,
@@ -253,6 +258,7 @@ static int _document_getconnnectordelete(_mod_document_mod_t *mod,
 	 */
 	return dup(fdroot);
 }
+#endif
 
 static int _document_getconnnectorget(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
