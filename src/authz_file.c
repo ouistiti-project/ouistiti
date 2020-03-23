@@ -116,6 +116,37 @@ static void *authz_file_create(void *arg)
 	return ctx;
 }
 
+static int _authz_file_parsestring(char *string,
+			char **puser,
+			char **ppasswd,
+			char **pgroup,
+			char **phome)
+{
+	*ppasswd = NULL;
+	*pgroup = NULL;
+	*phome = NULL;
+	*puser = string;
+	*ppasswd = strchr(*puser, ':');
+	if (*ppasswd)
+	{
+		*ppasswd[0] = '\0';
+		*ppasswd += 1;
+		*pgroup = strchr(*ppasswd, ':');
+	}
+	if (*ppasswd && *pgroup)
+	{
+		*pgroup[0] = '\0';
+		*pgroup += 1;
+		*phome = strchr(*pgroup, ':');
+	}
+	if (*ppasswd && *pgroup && *phome)
+	{
+		*phome[0] = '\0';
+		*phome += 1;
+	}
+	return 0;
+}
+
 static const char *authz_file_passwd(void *arg, const char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
@@ -165,33 +196,25 @@ static const char *authz_file_passwd(void *arg, const char *user)
 	{
 		if (fgets(ctx->user, MAXLENGTH, file) == NULL)
 			break;
-		char *end = strchr(ctx->user, '\n');
-		if (end)
-			*end = '\0';
-		ctx->passwd = strchr(ctx->user, ':');
-		if (ctx->passwd)
+		int len = strlen(ctx->user);
+		if (ctx->user[len - 1] == '\n')
 		{
-			*ctx->passwd = '\0';
-			ctx->passwd++;
-			if (!strcmp(user, ctx->user))
-			{
-				ctx->group = strchr(ctx->passwd, ':');
-				if (ctx->group)
-				{
-					*ctx->group = '\0';
-					ctx->group++;
-					ctx->home = strchr(ctx->group, ':');
-					if (ctx->home)
-					{
-						*ctx->home = '\0';
-						ctx->home++;
-					}
-				}
-				fclose(file);
-				return ctx->passwd;
-			}
+			ctx->user[len - 1] = '\0';
+			len--;
 		}
+		char *end = strchr(ctx->user, ':');
+		if (end)
+			len = end - ctx->user;
+
+		if (!strncmp(user, ctx->user, len))
+		{
+			_authz_file_parsestring(ctx->user, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
+			fclose(file);
+			return ctx->passwd;
+		}
+		ctx->user[0] = 0;
 	}
+	memset(ctx->user, 0, MAXLENGTH);
 	if (file) fclose(file);
 #endif
 	return NULL;
