@@ -467,13 +467,13 @@ static const httpclient_ops_t *_tlsserver_ops = &(httpclient_ops_t)
 {
 	.scheme = str_https,
 	.default_port = 443,
-	.create = _tlsserver_create,
-	.recvreq = _tls_recv,
-	.sendresp = _tls_send,
-	.status = _tls_status,
-	.flush = _tls_flush,
-	.disconnect = _tls_disconnect,
-	.destroy = _tls_destroy,
+	.create = &_tlsserver_create,
+	.recvreq = &_tls_recv,
+	.sendresp = &_tls_send,
+	.status = &_tls_status,
+	.flush = &_tls_flush,
+	.disconnect = &_tls_disconnect,
+	.destroy = &_tls_destroy,
 };
 
 #ifdef HTTPCLIENT_FEATURES
@@ -481,22 +481,22 @@ static const httpclient_ops_t *_tlsclient_ops = &(httpclient_ops_t)
 {
 	.scheme = str_https,
 	.default_port = 443,
-	.create = _tlsclient_create,
-	.connect = _tls_connect,
-	.recvreq = _tls_recv,
-	.sendresp = _tls_send,
-	.status = _tls_status,
-	.flush = _tls_flush,
-	.disconnect = _tls_disconnect,
-	.destroy = _tls_destroy,
+	.create = &_tlsclient_create,
+	.connect = &_tls_connect,
+	.recvreq = &_tls_recv,
+	.sendresp = &_tls_send,
+	.status = &_tls_status,
+	.flush = &_tls_flush,
+	.disconnect = &_tls_disconnect,
+	.destroy = &_tls_destroy,
 };
 #endif
 
 const module_t mod_tls =
 {
 	.name = str_mbedtls,
-	.create = (module_create_t)mod_tls_create,
-	.destroy = mod_tls_destroy,
+	.create = (module_create_t)&mod_tls_create,
+	.destroy = &mod_tls_destroy,
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_tls")));
