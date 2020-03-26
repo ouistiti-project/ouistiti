@@ -413,6 +413,27 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
+static int _authz_computepasswd(const hash_t *hash, const char *user, const char *realm, const char *passwd,
+			char *string, int stringlen)
+{
+	char hashpasswd[32];
+	void *ctx;
+
+	ctx = hash->init();
+	if (realm)
+	{
+		hash->update(ctx, user, strlen(user));
+		hash->update(ctx, ":", 1);
+		hash->update(ctx, realm, strlen(realm));
+		hash->update(ctx, ":", 1);
+	}
+	hash->update(ctx, passwd, strlen(passwd));
+	hash->finish(ctx, hashpasswd);
+
+	base64->encode(hashpasswd, hash->size, string, stringlen);
+	return 0;
+}
+
 int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd)
 {
 	int ret = EREJECT;
@@ -420,54 +441,30 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 	if (checkpasswd[0] == '$')
 	{
 		const hash_t *hash = NULL;
-		int i = 1;
-		int a1decode = 0;
-		if (checkpasswd[i] == 'a')
+		char hashtype = checkpasswd[1];
+		if (checkpasswd[1] == 'a')
 		{
-			a1decode = 1;
-			i++;
+			hashtype = checkpasswd[2];
+			char *checkrealm = strstr(checkpasswd, "realm=");
+			if (checkrealm && !strncmp(checkrealm + 6, realm, strlen(realm)))
+			{
+				hash = _mod_findhash(NULL, hashtype);
+			}
 		}
+		else
+			hash = _mod_findhash(NULL, hashtype);
 
-		hash = _mod_findhash(NULL, checkpasswd[i]);
-		if (hash)
+		checkpasswd = strrchr(checkpasswd + 1, '$');
+		if (checkpasswd)
+			checkpasswd++;
+		if (hash && checkpasswd)
 		{
-			char hashpasswd[32];
-			void *ctx;
-			int length;
-
-			ctx = hash->init();
-			checkpasswd = strchr(checkpasswd+1, '$');
-			if (a1decode)
-			{
-				if (realm != NULL && strncmp(checkpasswd, realm, strlen(realm)))
-				{
-					err("auth: realm error in password");
-					// return ret;
-				}
-				realm = strstr(checkpasswd, "realm=");
-			}
-			if (realm)
-			{
-				realm += 6;
-				int length = strchr(realm, '$') - realm;
-				hash->update(ctx, user, strlen(user));
-				hash->update(ctx, ":", 1);
-				hash->update(ctx, realm, length);
-				hash->update(ctx, ":", 1);
-			}
-			hash->update(ctx, passwd, strlen(passwd));
-			hash->finish(ctx, hashpasswd);
 			char b64passwd[50];
-			base64->encode(hashpasswd, hash->size, b64passwd, 50);
+			_authz_computepasswd(hash, user, realm, passwd, b64passwd, sizeof(b64passwd));
 
-			checkpasswd = strrchr(checkpasswd, '$');
-			if (checkpasswd)
-			{
-				checkpasswd++;
-				auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
-				if (!strcmp(b64passwd, checkpasswd))
-					ret = ESUCCESS;
-			}
+			auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
+			if (!strcmp(b64passwd, checkpasswd))
+				ret = ESUCCESS;
 		}
 		else
 			err("auth: %.3s not supported change password encryption", checkpasswd);
@@ -598,10 +595,7 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			}
 			if (ctx->info->token == NULL)
 			{
-				ctx->info->token = strdup(string);
-				char *sign = strrchr(ctx->info->token, '.');
-				if (sign != NULL)
-					sign[0] = '\0';
+				ctx->info->token = strndup(string, sign - string - 1);
 			}
 			ret = EREJECT;
 		}
