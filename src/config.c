@@ -794,6 +794,27 @@ static mod_redirect_link_t *redirect_linkconfig(config_setting_t *iterator)
 	return link;
 }
 
+static int redirect_linksconfig(config_setting_t *configlinks, mod_redirect_t *conf)
+{
+	conf->options |= REDIRECT_LINK;
+	int count = config_setting_length(configlinks);
+	int i;
+	for (i = 0; i < count; i++)
+	{
+		config_setting_t *iterator = config_setting_get_elem(configlinks, i);
+		if (iterator)
+		{
+			mod_redirect_link_t *link = redirect_linkconfig(iterator);
+			if (link != NULL)
+			{
+				link->next = conf->links;
+				conf->links = link;
+			}
+		}
+	}
+	return count;
+}
+
 static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 {
 	mod_redirect_t *conf = NULL;
@@ -812,22 +833,7 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 		config_setting_t *configlinks = config_setting_lookup(config, "links");
 		if (configlinks)
 		{
-			conf->options |= REDIRECT_LINK;
-			int count = config_setting_length(configlinks);
-			int i;
-			for (i = 0; i < count; i++)
-			{
-				config_setting_t *iterator = config_setting_get_elem(configlinks, i);
-				if (iterator)
-				{
-					mod_redirect_link_t *link = redirect_linkconfig(iterator);
-					if (link != NULL)
-					{
-						link->next = conf->links;
-						conf->links = link;
-					}
-				}
-			}
+			redirect_linksconfig(configlinks, conf);
 		}
 	}
 	return conf;
@@ -896,23 +902,23 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 
 static void config_mimes(config_setting_t *configmimes)
 {
-	if (configmimes)
+	if (configmimes == NULL)
+		return;
+
+	int count = config_setting_length(configmimes);
+	int i;
+	for (i = 0; i < count && i < MAX_SERVERS; i++)
 	{
-		int count = config_setting_length(configmimes);
-		int i;
-		for (i = 0; i < count && i < MAX_SERVERS; i++)
+		char *ext = NULL;
+		char *mime = NULL;
+		config_setting_t *iterator = config_setting_get_elem(configmimes, i);
+		if (iterator)
 		{
-			char *ext = NULL;
-			char *mime = NULL;
-			config_setting_t *iterator = config_setting_get_elem(configmimes, i);
-			if (iterator)
+			config_setting_lookup_string(iterator, "ext", (const char **)&ext);
+			config_setting_lookup_string(iterator, "mime", (const char **)&mime);
+			if (mime != NULL && ext != NULL)
 			{
-				config_setting_lookup_string(iterator, "ext", (const char **)&ext);
-				config_setting_lookup_string(iterator, "mime", (const char **)&mime);
-				if (mime != NULL && ext != NULL)
-				{
-					utils_addmime(ext, mime);
-				}
+				utils_addmime(ext, mime);
 			}
 		}
 	}
@@ -1006,7 +1012,6 @@ static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 {
 	int ret;
-	ouistiticonfig_t *ouistiticonfig = NULL;
 
 	gethostname(str_hostname, HOST_NAME_MAX);
 	strncat(str_hostname, ".local", 7);
@@ -1014,49 +1019,49 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 	config_init(&configfile);
 	dbg("config file: %s", filepath);
 	ret = config_read_file(&configfile, filepath);
-	if (ret == CONFIG_TRUE)
+	if (ret != CONFIG_TRUE)
 	{
-		ouistiticonfig = calloc(1, sizeof(*ouistiticonfig));
-
-		config_lookup_string(&configfile, "user", (const char **)&ouistiticonfig->user);
-		config_lookup_string(&configfile, "log-file", (const char **)&logfile);
-		if (logfile != NULL && logfile[0] != '\0')
-		{
-			logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00644);
-			if (logfd > 0)
-			{
-				dup2(logfd, 1);
-				dup2(logfd, 2);
-				close(logfd);
-			}
-			else
-				err("log file error %s", strerror(errno));
-		}
-		config_lookup_string(&configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
-		config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
-		config_mimes(configmimes);
-		config_setting_t *configservers = config_lookup(&configfile, "servers");
-		if (configservers)
-		{
-			int count = config_setting_length(configservers);
-			int i;
-
-			for (i = 0; i < count && i < MAX_SERVERS; i++)
-			{
-				config_setting_t *iterator = config_setting_get_elem(configservers, i);
-				if (iterator)
-				{
-					ouistiticonfig->servers[i] = config_server(iterator);
-					serverconfig_t *config = ouistiticonfig->servers[i];
-					config_modules(iterator, config);
-				}
-			}
-			ouistiticonfig->servers[i] = NULL;
-		}
-
+		err("%s", config_error_text(&configfile));
+		return NULL;
 	}
-	else
-		printf("%s\n", config_error_text(&configfile));
+	ouistiticonfig_t *ouistiticonfig = calloc(1, sizeof(*ouistiticonfig));
+
+	config_lookup_string(&configfile, "user", (const char **)&ouistiticonfig->user);
+	config_lookup_string(&configfile, "log-file", (const char **)&logfile);
+	if (logfile != NULL && logfile[0] != '\0')
+	{
+		logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00644);
+		if (logfd > 0)
+		{
+			dup2(logfd, 1);
+			dup2(logfd, 2);
+			close(logfd);
+		}
+		else
+			err("log file error %s", strerror(errno));
+	}
+	config_lookup_string(&configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
+	config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
+	config_mimes(configmimes);
+	config_setting_t *configservers = config_lookup(&configfile, "servers");
+	if (configservers)
+	{
+		int count = config_setting_length(configservers);
+		int i;
+
+		for (i = 0; i < count && i < MAX_SERVERS; i++)
+		{
+			config_setting_t *iterator = config_setting_get_elem(configservers, i);
+			if (iterator)
+			{
+				ouistiticonfig->servers[i] = config_server(iterator);
+				serverconfig_t *config = ouistiticonfig->servers[i];
+				config_modules(iterator, config);
+			}
+		}
+		ouistiticonfig->servers[i] = NULL;
+	}
+
 	return ouistiticonfig;
 }
 
