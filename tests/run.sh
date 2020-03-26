@@ -31,6 +31,9 @@ case $1 in
 		;;
 	-h)
 		printf "$0 <-I> <-D> <-C> <-GCOV> test/test[09]*\n"
+		printf "\t-D    run test on an existing server\n"
+		printf "\t-A    run all tests\n"
+		printf "\t-N    continue running after error\n"
 		printf "\t-I    display information about test and the response\n"
 		printf "\t-C    leave ouistiti running for the next test\n"
 		printf "\t-GCOV run lcov to display the code coverage\n"
@@ -126,6 +129,7 @@ do
 	fi
 	if [ -n "$WGETURL" ]; then
 		$WGET --no-check-certificate --user $USER --password foobar -S -q -O - $WGETURL 2> $TMPRESPONSE.tmp
+		#$WGET --no-check-certificate --user $USER --password foobar -S -O - $WGETURL
 		cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
 	fi
 	if [ -n "$TESTREQUEST" ]; then
