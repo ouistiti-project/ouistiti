@@ -88,42 +88,37 @@ static void *_mod_clientfilter_getctx(void *arg, http_client_t *ctl, struct sock
 	_mod_clientfilter_t *mod = (_mod_clientfilter_t *)arg;
 	mod_clientfilter_t *config = mod->config;
 	int protect = 1, ret = ESUCCESS;
-	static char address[NI_MAXHOST];
+	char *address = NULL;
 
 	mod->ctl = ctl;
 #ifdef HAVE_GETNAMEINFO
-	if (!getnameinfo(addr, addrsize, address, NI_MAXHOST, 0, 0, NI_NUMERICHOST))
+	char addressbuf[NI_MAXHOST] = {0};
+	if (!getnameinfo(addr, addrsize, addressbuf, NI_MAXHOST, 0, 0, NI_NUMERICHOST))
+		address = addressbuf;
 #else
 	struct hostent *entity;
 
 	entity = gethostbyaddr(addr, addrsize, AF_INET);
 	if (entity != NULL)
-		strncpy(address, entity->h_name, NI_MAXHOST);
-	if (entity != NULL)
+		address = entity->h_name;
 #endif
+	if (address && config->deny)
 	{
-		if (config->deny)
+		protect = utils_searchexp(address, mod->config->deny, NULL);
+		if (protect == ESUCCESS)
 		{
-			protect = utils_searchexp(address, mod->config->deny, NULL);
-			if (protect == ESUCCESS)
-			{
-				ret = EREJECT;
-				if (config->accept)
-				{
-					protect = utils_searchexp(address, mod->config->accept, NULL);
-					if (protect == ESUCCESS)
-					{
-						ret = ESUCCESS;
-					}
-					else
-						warn("clientfilter: refuses %s", address);
-				}
-			}
+			ret = EREJECT;
 		}
 	}
-	else
+	if (ret == EREJECT && address && config->accept)
 	{
-		err("clientfilter: getnameinfo %s", strerror(errno));
+		protect = utils_searchexp(address, mod->config->accept, NULL);
+		if (protect == ESUCCESS)
+		{
+			ret = ESUCCESS;
+		}
+		else
+			warn("clientfilter: refuses %s", address);
 	}
 	return (ret == ESUCCESS)?(void *)-1: NULL;
 }
