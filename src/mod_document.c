@@ -260,6 +260,26 @@ static int _document_getconnnectordelete(_mod_document_mod_t *mod,
 }
 #endif
 
+static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const char *url, http_message_t *response)
+{
+	mod_document_t *config = (mod_document_t *)mod->config;
+	int fdfile = openat(fdroot, config->defaultpage, O_RDONLY);
+	if (fdfile > 0)
+	{
+		dbg("document: move to %s/%s", url, config->defaultpage);
+		/**
+		 * Check uri is only one character.
+		 * It should be "/"
+		 */
+		if (url[0] != '\0')
+			httpmessage_addheader(response, str_location, "/");
+		else
+			httpmessage_addheader(response, str_location, "");
+		httpmessage_appendheader(response, str_location, url, "/", config->defaultpage, NULL);
+	}
+	return fdfile;
+}
+
 static int _document_getconnnectorget(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
 		http_message_t *request, http_message_t *response,
@@ -289,22 +309,11 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 		{
 			close(fdroot);
 			fdroot = fdfile;
-			fdfile = openat(fdroot, config->defaultpage, O_RDONLY);
+			fdfile = _document_getdefaultpage(mod, fdroot, url, response);
 			if (fdfile > 0)
 			{
-				dbg("document: move to %s/%s", url, config->defaultpage);
 #if defined(RESULT_301)
-				/**
-				 * Check uri is only one character.
-				 * It should be "/"
-				 */
-				if (url[0] != '\0')
-					httpmessage_addheader(response, str_location, "/");
-				else
-					httpmessage_addheader(response, str_location, "");
-				httpmessage_appendheader(response, str_location, url, "/", config->defaultpage, NULL);
 				httpmessage_result(response, RESULT_301);
-
 				close(fdfile);
 				return 0;
 #endif
