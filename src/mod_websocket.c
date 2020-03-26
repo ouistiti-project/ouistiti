@@ -187,8 +187,8 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 			httpmessage_addheader(response, str_protocol, protocol);
 
 		_mod_websocket_handshake(ctx, request, response);
-		httpmessage_addheader(response, str_connection, (char *)str_upgrade);
-		httpmessage_addheader(response, str_upgrade, (char *)str_websocket);
+		httpmessage_addheader(response, str_connection, str_upgrade);
+		httpmessage_addheader(response, str_upgrade, str_websocket);
 		/** disable Content-Type and Content-Length inside the headers **/
 		httpmessage_addcontent(response, "none", NULL, -1);
 		httpmessage_result(response, RESULT_101);
@@ -323,6 +323,116 @@ static int websocket_ping(void *arg, char *data)
 	return info->sendresp(info->ctx, message, sizeof(message));
 }
 
+static int _websocket_readserver(_websocket_main_t *info, char **buffer)
+{
+	int client = info->client;
+	int inlength;
+	int ret;
+
+	ret = ioctl(client, FIONREAD, &inlength);
+	if (ret == 0 && inlength > 0)
+	{
+		*buffer = calloc(1, inlength);
+		ret = recv(client, *buffer, inlength, MSG_NOSIGNAL);
+		if (ret > 0)
+		{
+			websocket_dbg("%s: u => ws: recv %d bytes", str_websocket, ret);
+		}
+		else
+		{
+			free(*buffer);
+			*buffer = NULL;
+		}
+	}
+	return ret;
+}
+
+static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int size)
+{
+	ssize_t length = size;
+	if (info->type == WS_TEXT)
+	{
+		length = strlen(buffer);
+		if (length < size)
+		{
+			warn("%s: two messages in ONE", str_websocket);
+		}
+	}
+	int ret = EINCOMPLETE;
+	int outlength = 0;
+	char *out = calloc(1, length + MAX_FRAGMENTHEADER_SIZE);
+	length = websocket_framed(info->type, (char *)buffer, length, out, &outlength, (void *)info);
+	while (outlength > 0 && ret == EINCOMPLETE)
+	{
+		ret = info->sendresp(info->ctx, (char *)out, outlength);
+		websocket_dbg("%s: u => ws: send %d bytes\n\t%.*s", str_websocket, outlength, (int)length, buffer + size);
+		if (ret > 0)
+			outlength -= ret;
+	}
+	free(out);
+	if (ret == EREJECT)
+	{
+		warn("%s: connection closed by client", str_websocket);
+		return EREJECT;
+	}
+	if (size > length && buffer[length - 1] == '\0')
+	{
+		length ++;
+		buffer += length;
+		size -= length;
+		length += _websocket_forwardtoclient(info, buffer, size);
+	}
+	return length;
+}
+
+static int _websocket_recieveclient(_websocket_main_t *info, char **buffer)
+{
+	int socket = info->socket;
+	int ret;
+	int length = 0;
+
+	ret = ioctl(socket, FIONREAD, &length);
+	if (ret == 0 && length > 0)
+	{
+		*buffer = calloc(1, length);
+		ret = info->recvreq(info->ctx, *buffer, length);
+		if (ret > 0)
+		{
+			websocket_dbg("%s: ws => u: recv %d bytes", str_websocket, ret);
+		}
+		else
+		{
+			free(*buffer);
+			*buffer = NULL;
+		}
+	}
+	return ret;
+}
+
+static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int length)
+{
+	int client = info->client;
+	int ret = 0;
+
+	char *out = calloc(1, length);
+	int outlength = websocket_unframed(buffer, length, out, (void *)info);
+	while (outlength > 0 && ret != -1)
+	{
+		ret = send(client, out, outlength, MSG_NOSIGNAL);
+		if (ret == -1 && errno == EAGAIN)
+			ret = 0;
+		websocket_dbg("%s: ws => u: send %d bytes\n\t%s", str_websocket, ret, out);
+	}
+	fsync(client);
+	free(out);
+	if (ret == -1)
+	{
+		err("%s: data transfer error %d %s", str_websocket, ret, strerror(errno));
+		ret = EREJECT;
+	}
+	return ret;
+}
+
 static void *_websocket_main(void *arg)
 {
 	_websocket_main_t *info = (_websocket_main_t *)arg;
@@ -344,108 +454,34 @@ static void *_websocket_main(void *arg)
 		ret = select(maxfd + 1, &rdfs, NULL, NULL, NULL);
 		if (ret > 0 && FD_ISSET(socket, &rdfs))
 		{
-			int length = 0;
-
-			ret = ioctl(socket, FIONREAD, &length);
-			if (ret == 0 && length > 0)
+			char *buffer = NULL;
+			int size = _websocket_recieveclient(info, &buffer);
+			if (size > 0 && buffer != NULL)
 			{
-				char *buffer = calloc(1, length);
-				ret = info->recvreq(info->ctx, (char *)buffer, length);
-				//char buffer[64];
-				//ret = read(socket, buffer, 63);
-				if (ret > 0)
-				{
-					websocket_dbg("%s: ws => u: recv %d bytes", str_websocket, ret);
-					char *out = calloc(1, length);
-					ret = websocket_unframed(buffer, ret, out, arg);
-					websocket_dbg("%s: ws => u: send %d bytes\n\t%s", str_websocket, ret, out);
-					if (ret > 0)
-						ret = send(client, out, ret, MSG_NOSIGNAL);
-					fsync(client);
-					free(out);
-				}
-				if (ret < 0)
-				{
-					err("%s: data transfer error %d %s", str_websocket, ret, strerror(errno));
-					end = 1;
-				}
+				ret = _websocket_forwardtoserver(info, buffer, size);
 				free(buffer);
 			}
 			else
+				ret = EREJECT;
+			if (ret == EREJECT)
 			{
-				char buffer[64];
-				ret = read(socket, buffer, 63);
-				err("%s: %d %d error %s", str_websocket, ret, length, strerror(errno));
 				end = 1;
 			}
 		}
 		else if (ret > 0 && FD_ISSET(client, &rdfs))
 		{
-			int inlength;
-			ret = ioctl(client, FIONREAD, &inlength);
-			if (ret == 0 && inlength > 0)
+			char *buffer = NULL;
+			int size = _websocket_readserver(info, &buffer);
+			if (size > 0 && buffer != NULL)
 			{
-				char *buffer;
-				buffer = calloc(1, inlength);
-				while (inlength > 0)
-				{
-					ret = recv(client, buffer, inlength, MSG_NOSIGNAL);
-					if (ret > 0)
-					{
-						websocket_dbg("%s: u => ws: recv %d bytes", str_websocket, ret);
-						inlength -= ret;
-						ssize_t size = 0;
-						char *out = calloc(1, ret + MAX_FRAGMENTHEADER_SIZE);
-						while (size < ret)
-						{
-							ssize_t length = ret;
-							int outlength = 0;
-
-							if (info->type == WS_TEXT)
-							{
-								length = strlen(buffer + size);
-								if ((length + size) < ret)
-								{
-									warn("%s: two messages in ONE", str_websocket);
-									/**
-									 * add size to create frame with (length - size) characters
-									 */
-									length += size;
-								}
-							}
-							length = websocket_framed(info->type, (char *)buffer + size, length - size, out, &outlength, arg);
-							if (outlength > 0)
-								outlength = info->sendresp(info->ctx, (char *)out, outlength);
-							websocket_dbg("%s: u => ws: send %d bytes\n\t%.*s", str_websocket, outlength, (int)length, buffer + size);
-							if (outlength == EINCOMPLETE)
-								continue;
-							if (outlength == EREJECT)
-								break;
-							size += length;
-							/**
-							 * remove the null character from the end of the string
-							 */
-							if ((info->type == WS_TEXT) && (buffer[size] == '\0'))
-								size++;
-						}
-						free(out);
-						if (size < ret)
-						{
-							ret = -1;
-							break;
-						}
-					}
-					else
-						break;
-				}
+				ret = _websocket_forwardtoclient(info, buffer, size);
 				free(buffer);
 			}
 			else
-				ret = -1;
-			if (ret < 0)
+				ret = EREJECT;
+			if (ret == EREJECT)
 			{
 				end = 1;
-				warn("%s: server died", str_websocket);
 			}
 		}
 		else if (errno != EAGAIN)
@@ -454,6 +490,7 @@ static void *_websocket_main(void *arg)
 			end = 1;
 		}
 	}
+	warn("%s: server died", str_websocket);
 	shutdown(socket, SHUT_RDWR);
 	close(socket);
 	close(client);
