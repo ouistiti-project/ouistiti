@@ -5,3 +5,4 @@ Upgrade: websocket
 Sec-WebSocket-Protocol: echo
 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
 
+Åhello

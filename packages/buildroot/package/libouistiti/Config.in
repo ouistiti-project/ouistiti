@@ -1,6 +1,5 @@
 menuconfig BR2_PACKAGE_LIBOUISTITI
 	bool "libouistiti"
-	depends on BR2_PACKAGE_LIBOUISTITI
 	help
 	  small, fast and secure http library.
 
@@ -15,9 +14,9 @@ config BR2_PACKAGE_LIBOUISTITI_CLIENT
 
 choice
 	prompt "hash library frontend for ouistiti"
+	default BR2_PACKAGE_LIBOUISTITI_MBEDTLS
 	help
 	  Hash frontend for ouistiti.
-	default BR2_PACKAGE_LIBOUISTITI_MBEDTLS
 
 config BR2_PACKAGE_LIBOUISTITI_MBEDTLS
 	bool "mbedtls"
