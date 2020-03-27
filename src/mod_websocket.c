@@ -316,14 +316,16 @@ static int websocket_pong(void *arg, char *data)
 	return info->sendresp(info->ctx, message, sizeof(message));
 }
 
+#ifdef WEBSOCKET_PING
 static int websocket_ping(void *arg, char *data)
 {
 	_websocket_main_t *info = (_websocket_main_t *)arg;
 	char message[] = { 0x8A, 0x00};
 	return info->sendresp(info->ctx, message, sizeof(message));
 }
+#endif
 
-static int _websocket_readserver(_websocket_main_t *info, char **buffer)
+static int _websocket_readclient(_websocket_main_t *info, char **buffer)
 {
 	int client = info->client;
 	int inlength;
@@ -347,7 +349,7 @@ static int _websocket_readserver(_websocket_main_t *info, char **buffer)
 	return ret;
 }
 
-static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int size)
+static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int size)
 {
 	ssize_t length = size;
 	if (info->type == WS_TEXT)
@@ -365,7 +367,7 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	while (outlength > 0 && ret == EINCOMPLETE)
 	{
 		ret = info->sendresp(info->ctx, (char *)out, outlength);
-		websocket_dbg("%s: u => ws: send %d bytes\n\t%.*s", str_websocket, outlength, (int)length, buffer + size);
+		websocket_dbg("%s: u => ws: send %d/%d bytes\n\t%.*s", str_websocket, ret, outlength, (int)length, buffer + size);
 		if (ret > 0)
 			outlength -= ret;
 	}
@@ -380,12 +382,12 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 		length ++;
 		buffer += length;
 		size -= length;
-		length += _websocket_forwardtoclient(info, buffer, size);
+		length += _websocket_forwardtoserver(info, buffer, size);
 	}
 	return length;
 }
 
-static int _websocket_recieveclient(_websocket_main_t *info, char **buffer)
+static int _websocket_recieveserver(_websocket_main_t *info, char **buffer)
 {
 	int socket = info->socket;
 	int ret;
@@ -409,7 +411,7 @@ static int _websocket_recieveclient(_websocket_main_t *info, char **buffer)
 	return ret;
 }
 
-static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int length)
+static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int length)
 {
 	int client = info->client;
 	int ret = 0;
@@ -422,6 +424,7 @@ static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int
 		if (ret == -1 && errno == EAGAIN)
 			ret = 0;
 		websocket_dbg("%s: ws => u: send %d bytes\n\t%s", str_websocket, ret, out);
+		outlength -= ret;
 	}
 	fsync(client);
 	free(out);
@@ -455,10 +458,10 @@ static void *_websocket_main(void *arg)
 		if (ret > 0 && FD_ISSET(socket, &rdfs))
 		{
 			char *buffer = NULL;
-			int size = _websocket_recieveclient(info, &buffer);
+			int size = _websocket_recieveserver(info, &buffer);
 			if (size > 0 && buffer != NULL)
 			{
-				ret = _websocket_forwardtoserver(info, buffer, size);
+				ret = _websocket_forwardtoclient(info, buffer, size);
 				free(buffer);
 			}
 			else
@@ -471,10 +474,10 @@ static void *_websocket_main(void *arg)
 		else if (ret > 0 && FD_ISSET(client, &rdfs))
 		{
 			char *buffer = NULL;
-			int size = _websocket_readserver(info, &buffer);
+			int size = _websocket_readclient(info, &buffer);
 			if (size > 0 && buffer != NULL)
 			{
-				ret = _websocket_forwardtoclient(info, buffer, size);
+				ret = _websocket_forwardtoserver(info, buffer, size);
 				free(buffer);
 			}
 			else
