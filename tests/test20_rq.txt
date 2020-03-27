@@ -4,4 +4,3 @@ Content-Type: text/plain
 Content-Length:15
 
 Hello world
-

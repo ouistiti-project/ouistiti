@@ -4,3 +4,4 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 Connection: Upgrade
 Upgrade: websocket
 
+Åhello

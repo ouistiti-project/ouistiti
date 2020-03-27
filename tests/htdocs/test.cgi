@@ -1,9 +1,9 @@
 #!/bin/bash
 
 
-echo "Content-Type: text/plain; charset=iso-8859-1"
+printf "Content-Type: text/plain; charset=iso-8859-1\r\n"
 #echo "Content-Length: 700"
-echo
+printf "\r\n"
 sleep 0.1
 
 echo CGI/1.0 test script report:

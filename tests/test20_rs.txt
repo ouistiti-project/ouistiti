@@ -21,4 +21,3 @@ CONTENT_TYPE = text/plain
 CONTENT_LENGTH = 15
 CONTENT:
 Hello world
-
