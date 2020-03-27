@@ -49,6 +49,10 @@
 #define dbg(...)
 #endif
 
+#define TEST 1
+
+static int mode = 0;
+
 typedef int (*server_t)(int *psock);
 
 int echo(int *psock)
@@ -73,15 +77,21 @@ int echo(int *psock)
 				char *out = buffer;
 				ret = strlen(out);
 				ret = send(sock, out, ret, MSG_DONTWAIT | MSG_NOSIGNAL);
-			}
-			if (ret <= 0)
-			{
-				if (errno != EAGAIN)
+				if (mode != TEST)
 				{
-					printf("echo: close %s\n", strerror(errno));
-					close(sock);
-					sock = -1;
+					char ping[] = { 0x8A, 0x00};
+					ret = send(sock, ping, sizeof(ping), MSG_DONTWAIT | MSG_NOSIGNAL);
+					char goodbye[] = { 0x88, 0x02, 0x03, 0xEA};
+					ret = send(sock, goodbye, sizeof(goodbye), MSG_DONTWAIT | MSG_NOSIGNAL);
+					ret = 0;
 				}
+			}
+			if (ret <= 0 && errno != EAGAIN)
+			{
+				if (ret == -1)
+					printf("echo: close %s\n", strerror(errno));
+				close(sock);
+				sock = -1;
 			}
 		}
 	}
@@ -127,8 +137,6 @@ const char *str_username = "apache";
 #define SOCKPROTOCOL 0
 #endif
 
-#define TEST 1
-
 int main(int argc, char **argv)
 {
 	int ret = -1;
@@ -137,7 +145,6 @@ int main(int argc, char **argv)
 	char *proto = "echo";
 	int maxclients = 50;
 	const char *username = str_username;
-	int mode = 0;
 
 	int opt;
 	do
@@ -217,14 +224,7 @@ int main(int argc, char **argv)
 				printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
 				if (newsock > 0)
 				{
-					if (mode != TEST)
-						start(echo, newsock);
-					else
-					{
-						ret = send(newsock, "hello\n", 7, MSG_DONTWAIT | MSG_NOSIGNAL);
-						close(newsock);
-						newsock = -1;
-					}
+					start(echo, newsock);
 				}
 			} while(newsock > 0);
 		}
