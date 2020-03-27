@@ -345,8 +345,10 @@ int main(int argc, char **argv)
 	int options = 0;
 	net_api_t *net = &direct;
 
+#ifndef DEBUG
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
+#endif
 
 #ifdef HAVE_GETOPT
 	int opt;
@@ -383,179 +385,82 @@ int main(int argc, char **argv)
 	sock = net->connect(serveraddr, port);
 
 	int state = CONNECTION_START;
-	int length;
+	int reqlength = 0;
+	char reqbuffer[512];
+	int resplength = 0;
+	char respbuffer[2048];
+	int headerlength = 0;
 	int ret = 0;
-	char content[249];
-	int contentlength = 0;
 	do
 	{
-		char buffer[512];
-#if 0
-		while ((state & REQUEST_END) == 0)
-		{
-			length = 511;
-			length = read(0, buffer, length);
-			if (length > 0)
-			{
-				int ret;
-//				ret = net->send(sock, buffer, length);
-
-				buffer[length] = 0;
-				//first read is blocking
-				int flags;
-				flags = fcntl(0, F_GETFL, 0);
-				fcntl(0, F_SETFL, flags | O_NONBLOCK);
-
-				state |= REQUEST_START;
-				int headerlength = length;
-				if (!(state & REQUEST_HEADER))
-				{
-					int i, emptyline = 0;
-					for (i = 0; i < length; i++)
-					{
-
-						if (buffer[i] == '\n')
-						{
-							if (emptyline > 0 && emptyline < 3)
-							{
-								headerlength = i + 1;
-								state |= REQUEST_HEADER;
-								break;
-							}
-							emptyline = 0;
-						}
-						emptyline++;
-					}
-				}
-				ret = net->send(sock, buffer, headerlength);
-				if (ret < 0)
-				{
-					state |= REQUEST_END;
-					state |= CONNECTION_END;
-				}
-				else if (ret != headerlength)
-				{
-					err("testclient: send error");
-					state |= CONNECTION_END;
-					ret = -1;
-				}
-				else if ((state & REQUEST_HEADER) && !(state & REQUEST_CONTENT))
-				{
-					dbg("testclient: send header (%d)", headerlength);
-					contentlength = length - headerlength;
-					if (options & OPT_WEBSOCKET)
-					{
-						state |= REQUEST_END;
-						memcpy(content, buffer + headerlength, contentlength);
-					}
-					else if (contentlength)
-					{
-
-						/// send content
-						usleep(50);
-						ret = net->send(sock, buffer + headerlength, contentlength);
-						dbg("testclient: send content (%d)", contentlength);
-						state |= REQUEST_CONTENT;
-					}
-				}
-
-			}
-			else if (length == 0)
-				state |= REQUEST_END;
-			else if (state > CONNECTION_START && !(state & REQUEST_END))
-			{
-				if (errno != EAGAIN)
-				{
-					if (length < 0)
-						err("testclient: request clomplete %s", strerror(errno));
-					state |= REQUEST_END;
-				}
-			}
-			if (state & REQUEST_START)
-				break;
-		}
-
-		if (state & REQUEST_END)
-		{
-			length = 511;
-			length = net->recv(sock, buffer, length);
-			if (length > 0)
-			{
-				ret += length;
-				state |= RESPONSE_START;
-				buffer[length] = 0;
-				write(1, buffer, length);
-			}
-			else if (length == 0)
-			{
-				state |= RESPONSE_END;
-			}
-			else
-			{
-				state |= CONNECTION_END;
-			}
-		}
-		if (state & RESPONSE_END)
-		{
-			if (options & OPT_WEBSOCKET)
-			{
-				ret = net->send(sock, content, contentlength - 1);
-				while ((state & CONNECTION_END) == 0)
-				{
-					length = 248;
-					contentlength = net->recv(sock, content, length);
-					if (contentlength <= 0)
-						state |= CONNECTION_END;
-					else
-					{
-						dbg("testclient: websocket receive (%d)", contentlength);
-						int i;
-						for (i = 0; i < contentlength; i++)
-						{
-							printf("%02hhX", content[i]);
-						}
-						printf("\n");
-					}
-				}
-			}
-			else if (options & OPT_PIPELINE)
-				state = CONNECTION_START;
-			else
-				state |= CONNECTION_END;
-		}
-
-#else
 		fd_set rfds;
 		FD_ZERO(&rfds);
 		if (!(state & REQUEST_END))
+		{
 			FD_SET(0, &rfds);
+		}
 		FD_SET(net->fd(sock), &rfds);
 
 		int ret;
-		ret = select(net->fd(sock) + 1, &rfds, NULL, NULL, NULL);
-		if ( ret > 0 && FD_ISSET(0, &rfds))
+		if (reqlength == 0 || (state & REQUEST_END))
 		{
-			length = 512;
-			length = read(0, buffer, length);
-			if (length > 0)
+			ret = select(net->fd(sock) + 1, &rfds, NULL, NULL, NULL);
+			if (ret > 0 && FD_ISSET(net->fd(sock), &rfds))
 			{
-				length = net->send(sock, buffer, length);
+				resplength = net->recv(sock, respbuffer + resplength, sizeof(respbuffer) - resplength);
+				if (resplength > 0)
+				{
+					dbg("testclient: recieve (%d)", resplength);
+					resplength -= write(1, respbuffer, resplength);
+					if (options & OPT_WEBSOCKET)
+					{
+						state &= ~REQUEST_END;
+					}
+				}
+				else if (!(options & OPT_WEBSOCKET))
+					state |= CONNECTION_END;
+				ret--;
 			}
-			else
-				state |= REQUEST_END;
 		}
-		if (ret > 0 && FD_ISSET(net->fd(sock), &rfds))
+		else
+			ret = 1;
+		if ( ret > 0)
 		{
-			length = 512;
-			length = net->recv(sock, buffer, length);
-			if (length > 0)
+			if (FD_ISSET(0, &rfds) && reqlength == 0)
 			{
-				length = write(1, buffer, length);
+				reqlength = read(0, reqbuffer, sizeof(reqbuffer));
+				headerlength = 0;
 			}
-			else
+			if (reqlength > 0)
+			{
+				int contentlength = 0;
+				char *content = NULL;
+				if (options & OPT_WEBSOCKET)
+					strstr(reqbuffer + headerlength, "\r\n\r\n");
+				if (content)
+				{
+					content += 4;
+					contentlength = reqlength + reqbuffer - content;
+					reqlength -= contentlength;
+					state |= REQUEST_CONTENT;
+				}
+				dbg("testclient: send (%d)", reqlength);
+				int length = net->send(sock, reqbuffer + headerlength, reqlength);
+				if (content || !(state && REQUEST_CONTENT))
+					headerlength = reqlength;
+				reqlength -= length;
+				if (options & OPT_WEBSOCKET && strstr(reqbuffer, "Upgrade: websocket"))
+					state |= REQUEST_END;
+				reqlength += contentlength;
+			}
+			else if (options & OPT_WEBSOCKET)
 				state |= CONNECTION_END;
+			else
+			{
+				state |= REQUEST_END;
+			}
+			ret--;
 		}
-#endif
 	} while (!(state & CONNECTION_END));
 	dbg("testclient: quit");
 	net->close(sock);
