@@ -75,6 +75,11 @@ do
 	unset TESTCODE
 	unset TESTHEADERLEN
 	unset TESTCONTENTLEN
+	unset TESTOPTION
+	unset ASYNC_PID
+	unset PREPARE_ASYNC
+	unset PREPARE
+	unset PID
 	TESTRESPONSE=$(basename ${TEST})_rs.txt
 	. $TEST
 
@@ -96,6 +101,7 @@ do
 
 	if [ -n "$PREPARE_ASYNC" ]; then
 		$PREPARE_ASYNC &
+		ASYNC_PID=$!
 		sleep 1
 	fi
 
@@ -138,7 +144,7 @@ do
 			echo "******************************"
 			echo
 		fi
-		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT > $TMPRESPONSE
+		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
 	if [ -n "$CMDREQUEST" ]; then
 		if [ -n "$INFO" ]; then
@@ -146,7 +152,7 @@ do
 			echo "******************************"
 			echo
 		fi
-		$CMDREQUEST | $TESTCLIENT > $TMPRESPONSE
+		$CMDREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
 	ERR=0
 	if [ -n "$INFO" ]; then
@@ -211,6 +217,9 @@ do
 		killall -9 $(echo $TARGET | ${AWK} '{print $1}')
 		sleep 1
 		#kill -9 $PID 2> /dev/null
+	fi
+	if [ x$ASYNC_PID != x ]; then
+		kill $ASYNC_PID
 	fi
 done
 if [ ${ALL} -eq 1 ]; then
