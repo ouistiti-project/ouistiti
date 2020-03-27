@@ -3,6 +3,7 @@ CONFIG=test6.conf
 #PREPARE_ASYNC="LD_PRELOAD=./utils/libouistiti_ws.so ./utils/websocket_echo -R /tmp -u $USER -t"
 PREPARE_ASYNC="./utils/websocket_echo -R /tmp -u $USER -t"
 #CLEAN="killall -9 websocket_echo"
+TESTOPTION="-w"
 TESTREQUEST=test24_rq.txt
 TESTRESPONSE=test24_rs.txt
 TESTCODE=101
