@@ -219,14 +219,18 @@ int main(int argc, char **argv)
 			chmod(addr.sun_path, 0777);
 			printf("echo: listen\n");
 			ret = listen(sock, maxclients);
+			printf("\b %d %s\n", ret, strerror(errno));
 		}
 		if ((mode & DAEMON) && (fork() != 0))
 		{
+
+			printf("echo: daemonize\n");
 			return 0;
 		}
 		if (ret == 0)
 		{
 			int newsock = 0;
+			printf("echo: main loop\n");
 			do
 			{
 				struct sockaddr_in addr;
