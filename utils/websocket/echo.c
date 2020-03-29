@@ -50,6 +50,7 @@
 #endif
 
 #define TEST 1
+#define DAEMON 2
 
 static int mode = 0;
 
@@ -149,7 +150,7 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:n:R:m:th");
+		opt = getopt(argc, argv, "u:n:R:m:thD");
 		switch (opt)
 		{
 			case 'R':
@@ -168,7 +169,10 @@ int main(int argc, char **argv)
 				proto = optarg;
 			break;
 			case 't':
-				mode = TEST;
+				mode |= TEST;
+			break;
+			case 'D':
+				mode |= DAEMON;
 			break;
 		}
 	} while(opt != -1);
@@ -198,6 +202,7 @@ int main(int argc, char **argv)
 			warn("user not found");
 	}
 
+	printf("echo: start\n");
 	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);
 	if (sock > 0)
 	{
@@ -212,6 +217,10 @@ int main(int argc, char **argv)
 		{
 			chmod(addr.sun_path, 0777);
 			ret = listen(sock, maxclients);
+		}
+		if ((mode & DAEMON) && (fork() != 0))
+		{
+			return 0;
 		}
 		if (ret == 0)
 		{
@@ -232,7 +241,7 @@ int main(int argc, char **argv)
 	}
 	if (ret)
 	{
-		fprintf(stderr, "error : %s\n", strerror(errno));
+		printf("echo: error %s\n", strerror(errno));
 	}
 	return ret;
 }
