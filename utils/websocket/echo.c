@@ -212,10 +212,12 @@ int main(int argc, char **argv)
 		snprintf(addr.sun_path, sizeof(addr.sun_path) - 1, "%s/%s", root, proto);
 		unlink(addr.sun_path);
 
+		printf("echo: bind\n");
 		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
 		if (ret == 0)
 		{
 			chmod(addr.sun_path, 0777);
+			printf("echo: listen\n");
 			ret = listen(sock, maxclients);
 		}
 		if ((mode & DAEMON) && (fork() != 0))
@@ -229,8 +231,11 @@ int main(int argc, char **argv)
 			{
 				struct sockaddr_in addr;
 				int addrsize = sizeof(addr);
-				newsock = accept(sock, (struct sockaddr *)&addr, &addrsize);
-				printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
+				printf("echo: wait\n");
+				//newsock = accept(sock, (struct sockaddr *)&addr, &addrsize);
+				//printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
+				newsock = accept(sock, NULL, NULL);
+				printf("echo: new connection \n");
 				if (newsock > 0)
 				{
 					start(echo, newsock);
