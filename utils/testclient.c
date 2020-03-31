@@ -345,10 +345,8 @@ int main(int argc, char **argv)
 	int options = 0;
 	net_api_t *net = &direct;
 
-#ifndef DEBUG
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
-#endif
 
 #ifdef HAVE_GETOPT
 	int opt;
@@ -415,6 +413,7 @@ int main(int argc, char **argv)
 					if (options & OPT_WEBSOCKET)
 					{
 						state &= ~REQUEST_END;
+						ret = 2;
 					}
 				}
 				else if (!(options & OPT_WEBSOCKET))
@@ -436,7 +435,9 @@ int main(int argc, char **argv)
 				int contentlength = 0;
 				char *content = NULL;
 				if (options & OPT_WEBSOCKET)
-					strstr(reqbuffer + headerlength, "\r\n\r\n");
+				{
+					content = strstr(reqbuffer + headerlength, "\r\n\r\n");
+				}
 				if (content)
 				{
 					content += 4;
