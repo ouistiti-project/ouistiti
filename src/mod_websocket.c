@@ -295,7 +295,7 @@ typedef struct _websocket_main_s _websocket_main_t;
 struct _websocket_main_s
 {
 	int client;
-	int socket;
+	int server;
 	http_recv_t recvreq;
 	http_send_t sendresp;
 	void *ctx;
@@ -325,20 +325,20 @@ static int websocket_ping(void *arg, char *data)
 }
 #endif
 
-static int _websocket_readclient(_websocket_main_t *info, char **buffer)
+static int _websocket_recieveclient(_websocket_main_t *info, char **buffer)
 {
 	int client = info->client;
-	int inlength;
+	int length;
 	int ret;
 
-	ret = ioctl(client, FIONREAD, &inlength);
-	if (ret == 0 && inlength > 0)
+	ret = ioctl(client, FIONREAD, &length);
+	if (ret == 0 && length > 0)
 	{
-		*buffer = calloc(1, inlength);
-		ret = recv(client, *buffer, inlength, MSG_NOSIGNAL);
+		*buffer = calloc(1, length);
+		ret = info->recvreq(info->ctx, *buffer, length);
 		if (ret > 0)
 		{
-			websocket_dbg("%s: u => ws: recv %d bytes", str_websocket, ret);
+			websocket_dbg("%s: ws => u: recv %d bytes", str_websocket, ret);
 		}
 		else
 		{
@@ -349,7 +349,7 @@ static int _websocket_readclient(_websocket_main_t *info, char **buffer)
 	return ret;
 }
 
-static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int size)
+static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int size)
 {
 	ssize_t length = size;
 	if (info->type == WS_TEXT)
@@ -382,25 +382,25 @@ static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int
 		length ++;
 		buffer += length;
 		size -= length;
-		length += _websocket_forwardtoserver(info, buffer, size);
+		length += _websocket_forwardtoclient(info, buffer, size);
 	}
 	return length;
 }
 
 static int _websocket_recieveserver(_websocket_main_t *info, char **buffer)
 {
-	int socket = info->socket;
+	int server = info->server;
 	int ret;
 	int length = 0;
 
-	ret = ioctl(socket, FIONREAD, &length);
+	ret = ioctl(server, FIONREAD, &length);
 	if (ret == 0 && length > 0)
 	{
 		*buffer = calloc(1, length);
-		ret = info->recvreq(info->ctx, *buffer, length);
+		ret = recv(server, *buffer, length, MSG_NOSIGNAL);
 		if (ret > 0)
 		{
-			websocket_dbg("%s: ws => u: recv %d bytes", str_websocket, ret);
+			websocket_dbg("%s: u => ws: recv %d bytes", str_websocket, ret);
 		}
 		else
 		{
@@ -411,22 +411,22 @@ static int _websocket_recieveserver(_websocket_main_t *info, char **buffer)
 	return ret;
 }
 
-static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int length)
+static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int length)
 {
-	int client = info->client;
+	int server = info->server;
 	int ret = 0;
 
 	char *out = calloc(1, length);
 	int outlength = websocket_unframed(buffer, length, out, (void *)info);
 	while (outlength > 0 && ret != -1)
 	{
-		ret = send(client, out, outlength, MSG_NOSIGNAL);
+		ret = send(server, out, outlength, MSG_NOSIGNAL);
 		if (ret == -1 && errno == EAGAIN)
 			ret = 0;
 		websocket_dbg("%s: ws => u: send %d bytes\n\t%s", str_websocket, ret, out);
 		outlength -= ret;
 	}
-	fsync(client);
+	fsync(server);
 	free(out);
 	if (ret == -1)
 	{
@@ -440,7 +440,7 @@ static void *_websocket_main(void *arg)
 {
 	_websocket_main_t *info = (_websocket_main_t *)arg;
 	/** socket to the webclient **/
-	int socket = info->socket;
+	int server = info->server;
 	/** socket to the unix server **/
 	int client = info->client;
 	int end = 0;
@@ -448,14 +448,14 @@ static void *_websocket_main(void *arg)
 	{
 		int ret;
 		fd_set rdfs;
-		int maxfd = socket;
+		int maxfd = server;
 		FD_ZERO(&rdfs);
-		FD_SET(socket, &rdfs);
+		FD_SET(server, &rdfs);
 		maxfd = (maxfd > client)?maxfd:client;
 		FD_SET(client, &rdfs);
 
 		ret = select(maxfd + 1, &rdfs, NULL, NULL, NULL);
-		if (ret > 0 && FD_ISSET(socket, &rdfs))
+		if (ret > 0 && FD_ISSET(server, &rdfs))
 		{
 			char *buffer = NULL;
 			int size = _websocket_recieveserver(info, &buffer);
@@ -474,7 +474,7 @@ static void *_websocket_main(void *arg)
 		else if (ret > 0 && FD_ISSET(client, &rdfs))
 		{
 			char *buffer = NULL;
-			int size = _websocket_readclient(info, &buffer);
+			int size = _websocket_recieveclient(info, &buffer);
 			if (size > 0 && buffer != NULL)
 			{
 				ret = _websocket_forwardtoserver(info, buffer, size);
@@ -494,8 +494,8 @@ static void *_websocket_main(void *arg)
 		}
 	}
 	warn("%s: server died", str_websocket);
-	shutdown(socket, SHUT_RDWR);
-	close(socket);
+	shutdown(server, SHUT_RDWR);
+	close(server);
 	close(client);
 	return 0;
 }
@@ -506,14 +506,14 @@ static websocket_t _wsdefaul_config =
 	.onping = websocket_pong,
 	.type = WS_TEXT,
 };
-int default_websocket_run(void *arg, int socket, const char *filepath, http_message_t *request)
+int default_websocket_run(void *arg, int sock, const char *filepath, http_message_t *request)
 {
 	pid_t pid = -1;
 	int wssock = _websocket_socket(filepath);
 
 	if (wssock > 0)
 	{
-		_websocket_main_t info = {.socket = socket, .client = wssock, .type = _wsdefaul_config.type};
+		_websocket_main_t info = {.client = sock, .server = wssock, .type = _wsdefaul_config.type};
 		http_client_t *ctl = httpmessage_client(request);
 		info.ctx = httpclient_context(ctl);
 		info.recvreq = httpclient_addreceiver(ctl, NULL, NULL);
