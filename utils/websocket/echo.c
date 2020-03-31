@@ -78,7 +78,7 @@ int echo(int *psock)
 				char *out = buffer;
 				ret = strlen(out);
 				ret = send(sock, out, ret, MSG_DONTWAIT | MSG_NOSIGNAL);
-				if (mode != TEST)
+				if (mode & TEST)
 				{
 					char ping[] = { 0x8A, 0x00};
 					ret = send(sock, ping, sizeof(ping), MSG_DONTWAIT | MSG_NOSIGNAL);
@@ -104,7 +104,15 @@ void help(char **argv)
 	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
 }
 
-#ifndef PTHREAD
+#ifdef USE_PTHREAD
+#include <pthread.h>
+pthread_t thread = 0;
+typedef void *(*start_routine_t)(void*);
+int start(server_t server, int newsock)
+{
+	pthread_create(&thread, NULL, (start_routine_t)server, (void *)&newsock);
+}
+#else
 int start(server_t server, int newsock)
 {
 	if (fork() == 0)
@@ -119,14 +127,6 @@ int start(server_t server, int newsock)
 	printf("close\n");
 	close(newsock);
 	return 0;
-}
-#else
-#include <pthread.h>
-typedef void *(*start_routine_t)(void*);
-int start(server_t server, int newsock)
-{
-	pthread_t thread;
-	pthread_create(&thread, NULL, (start_routine_t)server, (void *)&newsock);
 }
 #endif
 
@@ -146,6 +146,9 @@ int main(int argc, char **argv)
 	char *proto = "echo";
 	int maxclients = 50;
 	const char *username = str_username;
+
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	int opt;
 	do
@@ -177,9 +180,11 @@ int main(int argc, char **argv)
 		}
 	} while(opt != -1);
 
-	if (access(root, R_OK|W_OK|X_OK))
+	ret = access(root, R_OK|W_OK|X_OK);
+	if (ret < 0)
 	{
-		if (mkdir(root, 0777))
+		ret = mkdir(root, 0777);
+		if (ret)
 		{
 			err("access %s error %s", root, strerror(errno));
 			return -1;
@@ -187,7 +192,8 @@ int main(int argc, char **argv)
 		chmod(root, 0777);
 	}
 
-	if (getuid() == 0)
+	ret = getuid();
+	if (ret == 0)
 	{
 		struct passwd *user = NULL;
 		user = getpwnam(username);
@@ -202,7 +208,6 @@ int main(int argc, char **argv)
 			warn("user not found");
 	}
 
-	printf("echo: start\n");
 	sock = socket(SOCKDOMAIN, SOCK_STREAM, SOCKPROTOCOL);
 	if (sock > 0)
 	{
@@ -210,39 +215,46 @@ int main(int argc, char **argv)
 		memset(&addr, 0, sizeof(struct sockaddr_un));
 		addr.sun_family = AF_UNIX;
 		snprintf(addr.sun_path, sizeof(addr.sun_path) - 1, "%s/%s", root, proto);
-		unlink(addr.sun_path);
 
-		printf("echo: bind\n");
+		ret = access(addr.sun_path, R_OK);
+		if (ret == 0)
+			ret = unlink(addr.sun_path);
+
+		printf("echo: bind %s\n", addr.sun_path);
 		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
 		if (ret == 0)
 		{
 			chmod(addr.sun_path, 0777);
-			printf("echo: listen\n");
 			ret = listen(sock, maxclients);
-			printf("\b %d %s\n", ret, strerror(errno));
 		}
+		else
+			printf(" %d %s\n", ret, strerror(errno));
 		if ((mode & DAEMON) && (fork() != 0))
 		{
-
 			printf("echo: daemonize\n");
+			sched_yield();
 			return 0;
 		}
 		if (ret == 0)
 		{
 			int newsock = 0;
-			printf("echo: main loop\n");
 			do
 			{
 				struct sockaddr_in addr;
 				int addrsize = sizeof(addr);
-				printf("echo: wait\n");
 				//newsock = accept(sock, (struct sockaddr *)&addr, &addrsize);
 				//printf("echo: new connection from %s\n", inet_ntoa(addr.sin_addr));
 				newsock = accept(sock, NULL, NULL);
 				printf("echo: new connection \n");
 				if (newsock > 0)
 				{
-					start(echo, newsock);
+					if (mode & TEST)
+					{
+						echo(&newsock);
+						newsock = -1;
+					}
+					else
+						start(echo, newsock);
 				}
 			} while(newsock > 0);
 		}
@@ -252,5 +264,8 @@ int main(int argc, char **argv)
 	{
 		printf("echo: error %s\n", strerror(errno));
 	}
+#ifdef USE_PTHREAD
+	pthread_join(thread, NULL);
+#endif
 	return ret;
 }
