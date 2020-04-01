@@ -146,6 +146,7 @@ static int _document_docroot(_mod_document_mod_t *mod,
 	return fdroot;
 }
 
+#ifdef DOCUMENTREST
 static int _document_getconnnectorput(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
 		http_message_t *request, http_message_t *response,
@@ -253,6 +254,7 @@ static int _document_getconnnectordelete(_mod_document_mod_t *mod,
 	 */
 	return dup(fdroot);
 }
+#endif // DOCUMENTREST
 
 static int _document_getconnnectorget(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
