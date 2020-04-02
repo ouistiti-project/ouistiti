@@ -28,6 +28,7 @@
 #define _POSIX_C_SOURCE 199309L
 
 #include <stdio.h>
+#define __USE_GNU
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -43,6 +44,7 @@
 #include <dlfcn.h>
 #endif
 #include <time.h>
+#include <libgen.h>
 
 #include "../websocket.h"
 #include "jsonrpc.h"
@@ -55,7 +57,7 @@
 #define dbg(...)
 #endif
 
-typedef int (*server_t)(int sock);
+typedef int (*server_t)(int *sock);
 
 int jsonrpc_runner(int sock,
 	struct jsonrpc_method_entry_t *methods_table, void *methods_context)
@@ -78,16 +80,16 @@ int jsonrpc_runner(int sock,
 			{
 				// remove the null terminated
 				ret--;
-				printf("echo: receive %d %s\n", ret, buffer);
+				printf("jsonrpc: receive %d %s\n", ret, buffer);
 				char *out = jsonrpc_handler(buffer, ret, methods_table, methods_context);
 				ret = strlen(out) + 1;
-				printf("echo: send %d %s\n", ret, out);
+				printf("jsonrpc: send %d %s\n", ret, out);
 				ret = send(sock, out, ret, MSG_DONTWAIT | MSG_NOSIGNAL);
 			}
 		}
 		if (ret == 0)
 		{
-			printf("echo: close from server\n");
+			printf("jsonrpc: close from server\n");
 			close(sock);
 			sock = -1;
 		}
@@ -95,7 +97,7 @@ int jsonrpc_runner(int sock,
 		{
 			if (errno != EAGAIN)
 			{
-				printf("echo: close %s\n", strerror(errno));
+				printf("jsonrpc: close %s\n", strerror(errno));
 				close(sock);
 				sock = -1;
 			}
@@ -106,7 +108,14 @@ int jsonrpc_runner(int sock,
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s [-L <jsonlibrary>] [-C <jsonLibrary argument> [-R <socket directory>] [-n <socket name>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
+	fprintf(stderr, "%s [-L <jsonlibrary>][-C <jsonLibrary argument>][-R <socket directory>][-n <socket name>][-m <nb max clients>][-u <user>][ -h][-D]\n", argv[0]);
+	fprintf(stderr, "\t-L <lib>\tset the jsonrpc library\n");
+	fprintf(stderr, "\t-C <string>\tset the configuration string for the library\n");
+	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection (default: /var/run/websocket)\n");
+	fprintf(stderr, "\t-n <name>\tset the protocol (default: %s)\n", basename(argv[0]));
+	fprintf(stderr, "\t-m <num>\tset the maximum number of clients (default: 50)\n");
+	fprintf(stderr, "\t-u <name>\tset the user to run (default: current)\n");
+	fprintf(stderr, "\t-D \tdaemonize the server\n");
 }
 
 static char *g_library_config = NULL;
@@ -120,24 +129,24 @@ extern jsonrpc_init_t jsonrpc_init;
 extern jsonrpc_release_t jsonrpc_release;
 #endif
 
-int jsonrpc_server(int sock)
+int jsonrpc_server(int *psock)
 {
 	struct jsonrpc_method_entry_t *table;
 	dbg("jsonrpc: init");
 	void *ctx = jsonrpc_init(&table, g_library_config);
-	int ret = jsonrpc_runner(sock, table, ctx);
+	int ret = jsonrpc_runner(*psock, table, ctx);
 	dbg("jsonrpc: release");
 	jsonrpc_release(ctx);
 	return ret;
 }
 
-#ifndef PTHREAD
+#ifndef USE_PTHREAD
 int start(server_t server, int newsock)
 {
 	if (fork() == 0)
 	{
 		printf("run\n");
-		server(newsock);
+		server(&newsock);
 		exit(0);
 	}
 	sched_yield();
@@ -154,9 +163,11 @@ typedef void *(*start_routine_t)(void*);
 int start(server_t server, int newsock)
 {
 	pthread_t thread;
-	pthread_create(&thread, NULL, (start_routine_t)server, (void *)newsock);
+	pthread_create(&thread, NULL, (start_routine_t)server, (void *)&newsock);
 }
 #endif
+
+#define DAEMON 0x01
 
 #ifndef SOCKDOMAIN
 #define SOCKDOMAIN AF_UNIX
@@ -168,21 +179,22 @@ int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	const char *root = "/var/run/ouistiti";
-	const char *name = "jsonrpc";
+	const char *root = "/var/run/websocket";
+	const char *name = basename(argv[0]);
 	int maxclients = 50;
 	const char *username = NULL;
 	int domain = SOCKDOMAIN;
 	int proto = SOCKPROTOCOL;
 	void *lhandler = NULL;
+	int options = 0;
 
 	int opt;
 	do
 	{
 #ifdef WEBSOCKET_RT
-		opt = getopt(argc, argv, "u:n:R:m:hrL:C:");
+		opt = getopt(argc, argv, "u:n:R:m:hrL:C:D");
 #else
-		opt = getopt(argc, argv, "u:n:R:m:hL:C:");
+		opt = getopt(argc, argv, "u:n:R:m:hL:C:D");
 #endif
 		switch (opt)
 		{
@@ -221,6 +233,9 @@ int main(int argc, char **argv)
 			break;
 			case 'C':
 				g_library_config = optarg;
+			break;
+			case 'D':
+				options |= DAEMON;
 			break;
 		}
 	} while(opt != -1);
@@ -271,6 +286,12 @@ int main(int argc, char **argv)
 			chmod(addr.sun_path, 0777);
 			ret = listen(sock, maxclients);
 		}
+		if ((options & DAEMON) && (fork() != 0))
+		{
+			printf("jsonrpc: daemonize\n");
+			sched_yield();
+			return 0;
+		}
 		if (ret == 0)
 		{
 			int newsock = 0;
@@ -279,7 +300,7 @@ int main(int argc, char **argv)
 				struct sockaddr_un addr;
 				int addrsize = sizeof(addr);
 				newsock = accept(sock, (struct sockaddr *)&addr, &addrsize);
-				printf("echo: new connection from %s\n", addr.sun_path);
+				printf("jsonrpc: new connection from %s\n", addr.sun_path);
 				if (newsock > 0)
 				{
 					start(jsonrpc_server, newsock);
@@ -289,7 +310,7 @@ int main(int argc, char **argv)
 	}
 	if (ret)
 	{
-		fprintf(stderr, "error : %s\n", strerror(errno));
+		fprintf(stderr, "jsonrpc: error %s\n", strerror(errno));
 	}
 #ifdef MODULES
 	if (lhandler != NULL)

@@ -24,9 +24,9 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-#define _XOPEN_SOURCE 700
 
 #include <stdio.h>
+#define __USE_GNU
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -42,6 +42,7 @@
 #include <sys/stat.h>
 #include <pthread.h>
 #include <netdb.h>
+#include <libgen.h>
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -186,7 +187,7 @@ buffer_t *startgernerator(buffer_t *origin)
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>] [-w] [ -h]\n", argv[0]);
+	fprintf(stderr, "%s [-R <socket directory>][-m <nb max clients>][-u <user>][-w][-h][-D]\n", basename(argv[0]));
 	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection\n");
 	fprintf(stderr, "\t-m <num>\tset the maximum number of clients\n");
 	fprintf(stderr, "\t-u <name>\tset the user to run\n");
@@ -198,6 +199,7 @@ static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%2hd\"}";
 const char *str_username = "apache";
 
 #define OPTION_OUISTITI 0x01
+#define OPTION_DAEMON 0x02
 
 int multicast(buffer_t *buffer, int resume)
 {
@@ -403,7 +405,7 @@ int main(int argc, char **argv)
 	int ret = -1;
 	int sock = -1;
 	const char *root = "/var/run/ouistiti";
-	const char *proto = "stream";
+	const char *proto = basename(argv[0]);
 	int maxclients = 50;
 	const char *username = str_username;
 	int options = 0;
@@ -413,7 +415,7 @@ int main(int argc, char **argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "p:a:u:R:m:hon:");
+		opt = getopt(argc, argv, "p:a:u:R:m:hon:D");
 		switch (opt)
 		{
 			case 'R':
@@ -440,6 +442,9 @@ int main(int argc, char **argv)
 			break;
 			case 'o':
 				options |= OPTION_OUISTITI;
+			break;
+			case 'D':
+				options |= OPTION_DAEMON;
 			break;
 		}
 	} while(opt != -1);
@@ -483,6 +488,12 @@ int main(int argc, char **argv)
 		{
 			chmod(addr.sun_path, 0777);
 			ret = listen(sock, maxclients);
+		}
+		if ((options & OPTION_DAEMON) && (fork() != 0))
+		{
+			printf("udpgw: daemonize\n");
+			sched_yield();
+			return 0;
 		}
 		if (ret == 0)
 		{
