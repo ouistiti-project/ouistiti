@@ -397,11 +397,6 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 				ret = _cgi_parseresponse(ctx, response, ctx->chunk, size, rest);
 			}
 		}
-		/**
-		 * the request is completed to not wait more data the module
-		 * must returns ECONTINUE or ESUCCESS now
-		 */
-		ret = ECONTINUE;
 	}
 	else
 	{
@@ -434,7 +429,15 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	 */
 	if ((ctx->state & STATE_MASK) >= STATE_INFINISH && (ctx->state & STATE_MASK) < STATE_CONTENTCOMPLETE)
 	{
-		ret = _cgi_response(ctx, response);
+		do
+		{
+			ret = _cgi_response(ctx, response);
+		} while(ret == EINCOMPLETE);
+		/**
+		 * the request is completed to not wait more data the module
+		 * must returns ECONTINUE or ESUCCESS now
+		 */
+		ret = ECONTINUE;
 	}
 	else if ((ctx->state & STATE_MASK) == STATE_CONTENTCOMPLETE)
 	{
