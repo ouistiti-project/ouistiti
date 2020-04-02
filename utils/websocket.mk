@@ -18,10 +18,9 @@ endif
 
 bin-$(WS_ECHO)+=websocket_echo
 websocket_echo_SOURCES+=$(WS_SRC)echo.c
-websocket_echo_CFLAGS+=-DPTHREAD
 websocket_echo_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
 websocket_echo_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket c
-websocket_echo_LIBS+=pthread
+websocket_echo_LIBS-$(USE_PTHREAD)+=pthread
 
 websocket_echo_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -36,10 +35,8 @@ websocket_gps_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 bin-$(WS_CHAT)+=websocket_chat
 websocket_chat_SOURCES+=$(WS_SRC)chat.c
-websocket_chat_CFLAGS+=-DPTHREAD
 websocket_chat_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
 websocket_chat_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket
-websocket_chat_LIBS+=pthread
 
 websocket_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -56,8 +53,7 @@ websocket_jsonrpc_SOURCES+=jsonrpc/jsonrpc.c
 websocket_jsonrpc_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
 websocket_jsonrpc_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket c
 websocket_jsonrpc_LIBS+=dl jansson
-websocket_jsonrpc_CFLAGS-$(PTHREAD)+=-DPTHREAD
-websocket_jsonrpc_LIBS-$(PTHREAD)+=pthread
+websocket_jsonrpc_LIBS-$(USE_PTHREAD)+=pthread
 websocket_jsonrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 modules-$(WS_JSONRPC)+=jsonsql

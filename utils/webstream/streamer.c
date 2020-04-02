@@ -24,7 +24,9 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
+
 #include <stdio.h>
+#define __USE_GNU
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -39,6 +41,7 @@
 #include <sched.h>
 #include <sys/stat.h>
 #include <pthread.h>
+#include <libgen.h>
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -52,6 +55,7 @@
 
 #define OPTION_OUISTITI 0x01
 #define OPTION_TEST 0x02
+#define OPTION_DAEMON 0x04
 
 typedef int (*server_t)(int sock);
 
@@ -183,26 +187,26 @@ void startgernerator(buffer_t *origin, pthread_t *thread)
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>] [-w] [ -h]\n", argv[0]);
-	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection\n");
-	fprintf(stderr, "\t-m <num>\tset the maximum number of clients\n");
-	fprintf(stderr, "\t-u <name>\tset the user to run\n");
-	fprintf(stderr, "\t-w \tstart chat with specific ouistiti features\n");
-	fprintf(stderr, "\t-n <name> \tthe name of the stream\n");
+	fprintf(stderr, "%s [-R <socket directory>][-m <nb max clients>][-u <user>][-w][-h][-D]\n", basename(argv[0]));
+	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection (default: /var/run/webstream)\n");
+	fprintf(stderr, "\t-n <name>\tset the protocol (default: %s)\n", basename(argv[0]));
+	fprintf(stderr, "\t-m <num>\tset the maximum number of clients (default: 50)\n");
+	fprintf(stderr, "\t-u <name>\tset the user to run (default: current)\n");
+	fprintf(stderr, "\t-D \tdaemonize the server\n");
+	fprintf(stderr, "\t-w \tstart streamer with specific ouistiti features\n");
 	fprintf(stderr, "\t-t \ttest mode\n");
 }
 
 static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%2hd\"}";
-const char *str_username = "apache";
 
 int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/ouistiti";
-	char *proto = "dummy";
+	char *root = "/var/run/webstream";
+	char *proto = basename(argv[0]);
 	int maxclients = 50;
-	const char *username = str_username;
+	const char *username = NULL;
 	int options = 0;
 	pthread_t thread;
 	pthread_t streamthread;
@@ -211,7 +215,7 @@ int main(int argc, char **argv)
 
 	do
 	{
-		opt = getopt(argc, argv, "u:R:m:hon:ts:");
+		opt = getopt(argc, argv, "u:R:m:hon:ts:D");
 		switch (opt)
 		{
 			case 'R':
@@ -239,6 +243,9 @@ int main(int argc, char **argv)
 			case 't':
 				options |= OPTION_TEST;
 			break;
+			case 'D':
+				options |= OPTION_DAEMON;
+			break;
 		}
 	} while(opt != -1);
 
@@ -252,7 +259,7 @@ int main(int argc, char **argv)
 		chmod(root, 0777);
 	}
 
-	if (getuid() == 0)
+	if (getuid() == 0 && username != NULL)
 	{
 		int ret = 0;
 		struct passwd *user = NULL;
@@ -277,6 +284,12 @@ int main(int argc, char **argv)
 		{
 			chmod(addr.sun_path, 0777);
 			ret = listen(sock, maxclients);
+		}
+		if ((options & OPTION_DAEMON) && (fork() != 0))
+		{
+			printf("jsonrpc: daemonize\n");
+			sched_yield();
+			return 0;
 		}
 		if (ret == 0)
 		{
