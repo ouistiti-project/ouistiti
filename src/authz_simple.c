@@ -29,19 +29,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#  include <pwd.h>
+#include <pwd.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authz_simple.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 
@@ -53,15 +46,15 @@ static void *authz_simple_create(void *config)
 
 static const char *authz_simple_passwd(void *arg,const  char *user)
 {
-	authz_simple_t *ctx = (authz_simple_t *)arg;
+	const authz_simple_t *ctx = (const authz_simple_t *)arg;
 	if (!strcmp(user, ctx->user))
 		return ctx->passwd;
 	return NULL;
 }
 
-static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *token)
+static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))
 {
-	authz_simple_t *ctx = (authz_simple_t *)arg;
+	const authz_simple_t *ctx = (const authz_simple_t *)arg;
 
 	if (user != NULL && passwd != NULL && !strcmp(user, ctx->user) &&
 		ctx->passwd && (authz_checkpasswd(passwd, ctx->user, NULL,  ctx->passwd) == ESUCCESS))
@@ -73,7 +66,7 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 
 static const char *authz_simple_group(void *arg, const char *user)
 {
-	authz_simple_t *config = (authz_simple_t *)arg;
+	const authz_simple_t *config = (const authz_simple_t *)arg;
 	if (!strcmp(user, config->user) && config->group && config->group[0] != '\0')
 	{
 		return config->group;
@@ -85,7 +78,7 @@ static const char *authz_simple_group(void *arg, const char *user)
 
 static const char *authz_simple_home(void *arg, const char *user)
 {
-	authz_simple_t *config = (authz_simple_t *)arg;
+	const authz_simple_t *config = (const authz_simple_t *)arg;
 	if (!strcmp(user, config->user) && config->home && config->home[0] != '\0')
 	{
 		return config->home;

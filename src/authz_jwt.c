@@ -44,18 +44,11 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/hash.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authz_jwt.h"
 
 #define HASH_MAX_SIZE 32
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 
@@ -181,7 +174,7 @@ authsession_t *jwt_decode(const char *id_token)
 	json_t *jinfo = jwt_decode_json(id_token);
 	if (jinfo != NULL)
 	{
-		json_t *jexpire = json_object_get(jinfo, "exp");
+		const json_t *jexpire = json_object_get(jinfo, "exp");
 		if (jexpire && json_is_integer(jexpire))
 		{
 			time_t expire = json_integer_value(jexpire);
@@ -207,7 +200,7 @@ authsession_t *jwt_decode(const char *id_token)
 		}
 		authsession = calloc(1, sizeof(*authsession));
 		const char *user = NULL;
-		json_t *juser = json_object_get(jinfo, "preferred_username");
+		const json_t *juser = json_object_get(jinfo, "preferred_username");
 		if (juser && json_is_string(juser))
 			user = json_string_value(juser);
 		juser = json_object_get(jinfo, "username");
@@ -221,13 +214,13 @@ authsession_t *jwt_decode(const char *id_token)
 			user = str_anonymous;
 		strncpy(authsession->user, user, sizeof(authsession->user));
 
-		json_t *jhome = json_object_get(jinfo, "home");
+		const json_t *jhome = json_object_get(jinfo, "home");
 		if (jhome && json_is_string(jhome))
 		{
 			strncpy(authsession->home, json_string_value(jhome), sizeof(authsession->home));
 		}
 
-		json_t *jroles = json_object_get(jinfo, "roles");
+		const json_t *jroles = json_object_get(jinfo, "roles");
 		if (jroles && json_is_string(jroles))
 		{
 			strncpy(authsession->group, json_string_value(jroles), sizeof(authsession->group));
@@ -268,7 +261,7 @@ static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 	return NULL;
 }
 
-static const char *authz_jwt_check(void *arg, const char *user, const char *passwd, const char *token)
+static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const char *UNUSED(passwd), const char *token)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
 	return _authz_jwt_checktoken(ctx, token);
@@ -276,24 +269,24 @@ static const char *authz_jwt_check(void *arg, const char *user, const char *pass
 
 static const char *authz_jwt_group(void *arg, const char *user)
 {
-	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
 	if (ctx->token)
 		return ctx->token->group;
 	return NULL;
 }
 
-static const char *authz_jwt_home(void *arg, const char *user)
+static const char *authz_jwt_home(void *arg, const char *UNUSED(user))
 {
-	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
 	if (ctx->token)
 		return ctx->token->home;
 	return NULL;
 }
 
 #ifdef AUTH_TOKEN
-static int authz_jwt_join(void *arg, const char *user, const char *token, int expire)
+static int authz_jwt_join(void *arg, const char *UNUSED(user), const char *UNUSED(token), int UNUSED(expire))
 {
-	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
 	if (ctx->token == NULL)
 		return EREJECT;
 	return ESUCCESS;
