@@ -32,16 +32,9 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/hash.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authn_basic.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 
@@ -70,11 +63,10 @@ static void *authn_basic_create(const authn_t *authn, authz_t *authz, void *arg)
 	return mod;
 }
 
-static int authn_basic_challenge(void *arg, http_message_t *request, http_message_t *response)
+static int authn_basic_challenge(void *arg, http_message_t *UNUSED(request), http_message_t *response)
 {
 	int ret;
 	const authn_basic_t *mod = (authn_basic_t *)arg;
-	(void) request;
 
 	httpmessage_addheader(response, str_authenticate, mod->challenge);
 	ret = ECONTINUE;

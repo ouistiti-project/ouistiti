@@ -43,16 +43,9 @@
 
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authz_unix.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 
@@ -84,22 +77,27 @@ static void *authz_unix_create(void *arg)
 static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	authz_file_config_t *config = ctx->config;
 
 	if (ctx->user && !strcmp(user, ctx->user))
 		ret = 1;
 
 	struct passwd *pw = NULL;
+
+#ifdef USE_REENTRANT
+	struct spwd spwdstore;
+	char shadow[512];
 	struct passwd pwstore;
 	char buffer[512];
 
 	getpwnam_r(user, &pwstore, buffer, sizeof(buffer), &pw);
+#else
+	pw = getpwnam(user);
+#endif
 	if (passwd && pw)
 	{
-		char *cryptpasswd = pw->pw_passwd;
+		const char *cryptpasswd = pw->pw_passwd;
 		/* get the shadow password if possible */
 
-		char *testpasswd = NULL;
 		if (!strcmp(cryptpasswd, "x"))
 		{
 			uid_t uid;
@@ -109,7 +107,12 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			 */
 			if (seteuid(0) < 0)
 				warn("not enought rights to change user to root");
-			struct spwd *spasswd = getspnam(pw->pw_name);
+			struct spwd *spasswd;
+#ifdef USE_REENTRANT
+			getspnam_r(pw->pw_name, &spwdstore, shadow, sizeof(shadow), &spasswd);
+#else
+			spasswd = getspnam(pw->pw_name);
+#endif
 			/**
 			 * enable again the user
 			 */
@@ -132,6 +135,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			}
 		}
 
+		const char *testpasswd = NULL;
 #ifdef USE_REENTRANT
 		struct crypt_data crdata = {0};
 		testpasswd = crypt_r(passwd, cryptpasswd, &crdata);
@@ -163,7 +167,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 	return ret;
 }
 
-static const char *authz_unix_check(void *arg, const char *user, const char *passwd, const char *token)
+static const char *authz_unix_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 
@@ -174,8 +178,7 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 
 static const char *authz_unix_group(void *arg, const char *user)
 {
-	authz_unix_t *ctx = (authz_unix_t *)arg;
-	authz_file_config_t *config = ctx->config;
+	const authz_unix_t *ctx = (const authz_unix_t *)arg;
 
 	if (ctx->group[0] != '\0')
 		return ctx->group;
@@ -184,10 +187,9 @@ static const char *authz_unix_group(void *arg, const char *user)
 	return NULL;
 }
 
-static const char *authz_unix_home(void *arg, const char *user)
+static const char *authz_unix_home(void *arg, const char *UNUSED(user))
 {
-	authz_unix_t *ctx = (authz_unix_t *)arg;
-	authz_file_config_t *config = ctx->config;
+	const authz_unix_t *ctx = (const authz_unix_t *)arg;
 
 	if (ctx->home[0] != '\0')
 		return ctx->home;

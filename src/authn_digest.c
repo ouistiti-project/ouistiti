@@ -33,16 +33,9 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/hash.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authn_digest.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 
@@ -106,7 +99,6 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 static int authn_digest_noncetime(void *arg, char *nonce, int noncelen)
 {
 	const authn_digest_t *mod = (authn_digest_t *)arg;
-	struct tm nowtm;
 	int expire = 30;
 	if (mod->authn->config->expire != 0)
 		expire = mod->authn->config->expire;
@@ -171,12 +163,9 @@ static int authn_digest_nonce(void *arg, char *nonce, int noncelen)
 	return ret;
 }
 
-static int authn_digest_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static int authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct sockaddr *UNUSED(addr), int UNUSED(addrsize))
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
-	(void) ctl;
-	(void) addr;
-	(void) addrsize;
 
 	mod->stale = 0;
 	authn_digest_nonce(arg, mod->nonce, MAXNONCE);
@@ -196,7 +185,7 @@ static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * 
 				"\",stale=", (mod->stale)?"true":"false", NULL);
 }
 
-static int authn_digest_challenge(void *arg, http_message_t *request, http_message_t *response)
+static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), http_message_t *response)
 {
 	int ret;
 	authn_digest_t *mod = (authn_digest_t *)arg;
@@ -387,7 +376,7 @@ typedef struct chekcalgorithm_s chekcalgorithm_t;
 static int authn_digest_checkalgorithm(void *data, const char *algorithm, int algorithmlen)
 {
 	chekcalgorithm_t *info = (chekcalgorithm_t *)data;
-	authn_digest_t *mod = info->mod;
+	const authn_digest_t *mod = info->mod;
 
 	info->hash = hash_md5;
 
@@ -421,7 +410,7 @@ typedef struct checkstring_s checkstring_t;
 static int authn_digest_checkrealm(void *data, const char *value, int length)
 {
 	checkstring_t *info = (checkstring_t *)data;
-	authn_digest_t *mod = info->mod;
+	const authn_digest_t *mod = info->mod;
 
 	if (value != NULL && !strncmp(value, mod->config->realm, length))
 	{
@@ -455,7 +444,7 @@ static int authn_digest_checknonce(void *data, const char *value, int length)
 static int authn_digest_checkopaque(void *data, const char *value, int length)
 {
 	checkstring_t *info = (checkstring_t *)data;
-	authn_digest_t *mod = info->mod;
+	const authn_digest_t *mod = info->mod;
 
 	if (value != NULL && mod->opaque != NULL && !strncmp(value, mod->opaque, length))
 	{
@@ -473,7 +462,6 @@ static int authn_digest_checkopaque(void *data, const char *value, int length)
 static int authn_digest_checkcnonce(void *data, const char *value, int length)
 {
 	checkstring_t *info = (checkstring_t *)data;
-	authn_digest_t *mod = info->mod;
 
 	if (value != NULL)
 	{
@@ -489,7 +477,6 @@ static int authn_digest_checkcnonce(void *data, const char *value, int length)
 static int authn_digest_checkqop(void *data, const char *value, int length)
 {
 	checkstring_t *info = (checkstring_t *)data;
-	authn_digest_t *mod = info->mod;
 
 	if (value != NULL)
 	{
@@ -527,7 +514,6 @@ static int authn_digest_checknc(void *data, const char *value, int length)
 static int authn_digest_checkresponse(void *data, const char *value, int length)
 {
 	checkstring_t *info = (checkstring_t *)data;
-	authn_digest_t *mod = info->mod;
 
 	if (value != NULL)
 	{
@@ -551,7 +537,7 @@ typedef struct checkuser_s checkuser_t;
 static int authn_digest_checkuser(void *data, const char *value, int length)
 {
 	checkuser_t *info = (checkuser_t *)data;
-	authn_digest_t *mod = info->mod;
+	const authn_digest_t *mod = info->mod;
 
 	if (value != NULL)
 	{
