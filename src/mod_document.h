@@ -65,7 +65,7 @@ typedef int (*mod_transfer_t)(document_connector_t *private, http_message_t *res
 
 struct _mod_document_mod_s
 {
-	mod_document_t *config;
+	const mod_document_t *config;
 	void *vhost;
 	mod_transfer_t transfer;
 	int fdroot;

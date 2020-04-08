@@ -38,19 +38,14 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_document.h"
 
 #ifndef S_IFMT
 # define S_IFMT 0xF000
 #endif
 
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
+#define document_dbg(...)
 
 typedef struct _document_connector_s document_connector_t;
 
@@ -69,7 +64,9 @@ typedef struct _document_connector_s document_connector_t;
 \"result\":\"%s\"\
 }\n"
 
+#ifdef DIRLISTING_MOD
 static const char str_dirlisting[] = "dirlisting";
+#endif
 
 static const char *_sizeunit[] = {
 	"B",
@@ -78,7 +75,7 @@ static const char *_sizeunit[] = {
 	"GB",
 	"TB",
 };
-static int _dirlisting_connectorheader(_mod_document_mod_t *mod, http_message_t *request, http_message_t *response)
+static int _dirlisting_connectorheader(_mod_document_mod_t *UNUSED(mod), http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
@@ -120,7 +117,7 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *mod, http_message_t 
 	return ret;
 }
 
-static int _dirlisting_connectorcontent(_mod_document_mod_t *mod, http_message_t *request, http_message_t *response)
+static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
@@ -207,7 +204,6 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	int ret = EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	mod_document_t *config = (mod_document_t *)mod->config;
 
 	if (private->dir == NULL)
 	{
