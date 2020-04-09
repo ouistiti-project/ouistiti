@@ -45,16 +45,8 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_cgi.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define warn(...)
-#define dbg(...)
-#endif
 
 #define cgi_dbg(...)
 
@@ -96,7 +88,7 @@ struct mod_cgi_ctx_s
 struct _mod_cgi_s
 {
 	http_server_t *server;
-	mod_cgi_config_t *config;
+	const mod_cgi_config_t *config;
 	int rootfd;
 };
 
@@ -131,6 +123,7 @@ void mod_cgi_destroy(void *arg)
 	_mod_cgi_t *mod = (_mod_cgi_t *)arg;
 	// nothing to do
 	close(mod->rootfd);
+	free(mod);
 }
 
 static void _cgi_freectx(mod_cgi_ctx_t *ctx)
@@ -147,7 +140,7 @@ static void _cgi_freectx(mod_cgi_ctx_t *ctx)
 static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 {
 	_mod_cgi_t *mod = ctx->mod;
-	mod_cgi_config_t *config = mod->config;
+	const mod_cgi_config_t *config = mod->config;
 
 	if (pipe(ctx->tocgi) < 0)
 		return EREJECT;
@@ -214,7 +207,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return pid;
 }
 
-static int _cgi_checkname(const char *uri, mod_cgi_config_t *config, const char **path_info)
+static int _cgi_checkname(const char *uri, const mod_cgi_config_t *config, const char **path_info)
 {
 	if (uri[0] == '/')
 		uri++;
@@ -235,7 +228,7 @@ static int _cgi_checkname(const char *uri, mod_cgi_config_t *config, const char 
 
 static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *response)
 {
-	mod_cgi_config_t *config = mod->config;
+	const mod_cgi_config_t *config = mod->config;
 	int ret = EREJECT;
 	const char *url = httpmessage_REQUEST(request,"uri");
 	if (url && config->docroot)
@@ -289,8 +282,6 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		ctx->path_info = path_info;
 		ctx->pid = _mod_cgi_fork(ctx, request);
 		ctx->state = STATE_START;
-		if (config->chunksize == 0)
-			config->chunksize = 64;
 		ctx->chunk = malloc(config->chunksize + 1);
 		httpmessage_private(request, ctx);
 		ret = EINCOMPLETE;
@@ -301,7 +292,6 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 {
 	_mod_cgi_t *mod = ctx->mod;
-	mod_cgi_config_t *config = mod->config;
 	int ret = ECONTINUE;
 	char *input = NULL;
 	int inputlen;
@@ -330,7 +320,7 @@ static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return ret;
 }
 
-static int _cgi_parseresponse(mod_cgi_ctx_t *ctx, http_message_t *response, char * chunk, int size, int rest)
+static int _cgi_parseresponse(mod_cgi_ctx_t *ctx, http_message_t *response, char * chunk, int rest)
 {
 	int ret;
 
@@ -359,7 +349,7 @@ static int _cgi_parseresponse(mod_cgi_ctx_t *ctx, http_message_t *response, char
 static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 {
 	_mod_cgi_t *mod = ctx->mod;
-	mod_cgi_config_t *config = mod->config;
+	const mod_cgi_config_t *config = mod->config;
 	int ret = ECONTINUE;
 	int sret;
 	fd_set rfds;
@@ -395,7 +385,7 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 			int rest = size;
 			if (rest > 0)
 			{
-				ret = _cgi_parseresponse(ctx, response, ctx->chunk, size, rest);
+				ret = _cgi_parseresponse(ctx, response, ctx->chunk, rest);
 			}
 		}
 	}
@@ -413,7 +403,6 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	int ret = EINCOMPLETE;
 	mod_cgi_ctx_t *ctx = httpmessage_private(request, NULL);
 	_mod_cgi_t *mod = (_mod_cgi_t *)arg;
-	mod_cgi_config_t *config = mod->config;
 
 	if (ctx == NULL)
 	{
