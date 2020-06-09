@@ -354,7 +354,7 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	ssize_t length = size;
 	if (info->type == WS_TEXT)
 	{
-		length = strlen(buffer);
+		length = strlen(buffer) + 1;
 		if (length < size)
 		{
 			warn("%s: two messages in ONE", str_websocket);
@@ -367,7 +367,7 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	while (outlength > 0 && ret == EINCOMPLETE)
 	{
 		ret = info->sendresp(info->ctx, (char *)out, outlength);
-		websocket_dbg("%s: u => ws: send %d/%d bytes\n\t%.*s", str_websocket, ret, outlength, (int)length, buffer + size);
+		websocket_dbg("%s: u => ws: send %d/%d bytes\n\t%.*s", str_websocket, ret, outlength, (int)length, buffer);
 		if (ret > 0)
 			outlength -= ret;
 	}
@@ -463,11 +463,15 @@ static void *_websocket_main(void *arg)
 			{
 				ret = _websocket_forwardtoclient(info, buffer, size);
 				free(buffer);
+				if (ret == EREJECT)
+				{
+					warn("%s: client died", str_websocket);
+					end = 1;
+				}
 			}
 			else
-				ret = EREJECT;
-			if (ret == EREJECT)
 			{
+				warn("%s: server died", str_websocket);
 				end = 1;
 			}
 		}
@@ -479,11 +483,15 @@ static void *_websocket_main(void *arg)
 			{
 				ret = _websocket_forwardtoserver(info, buffer, size);
 				free(buffer);
+				if (ret == EREJECT)
+				{
+					warn("%s: server died", str_websocket);
+					end = 1;
+				}
 			}
 			else
-				ret = EREJECT;
-			if (ret == EREJECT)
 			{
+				warn("%s: client died", str_websocket);
 				end = 1;
 			}
 		}
@@ -493,7 +501,6 @@ static void *_websocket_main(void *arg)
 			end = 1;
 		}
 	}
-	warn("%s: server died", str_websocket);
 	shutdown(server, SHUT_RDWR);
 	close(server);
 	close(client);
