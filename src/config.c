@@ -908,7 +908,7 @@ static void config_mimes(config_setting_t *configmimes)
 
 	int count = config_setting_length(configmimes);
 	int i;
-	for (i = 0; i < count && i < MAX_SERVERS; i++)
+	for (i = 0; i < count; i++)
 	{
 		char *ext = NULL;
 		char *mime = NULL;
