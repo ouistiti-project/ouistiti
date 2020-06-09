@@ -356,7 +356,7 @@ static int _document_getconnnectorheader(_mod_document_mod_t *mod,
 	if (fdfile > 0)
 	{
 		document_connector_t *private = NULL;
-		const mod_document_t *config = (mod_document_t *)mod->config;
+		const mod_document_t *config = mod->config;
 
 		private = calloc(1, sizeof(*private));
 		httpmessage_private(request, private);
