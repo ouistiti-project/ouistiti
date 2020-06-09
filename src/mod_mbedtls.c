@@ -415,11 +415,14 @@ static int _tls_recv(void *vctx, char *data, int size)
 		ctx->state |= RECV_COMPLETE;
 		ret = EINCOMPLETE;
 	}
-	else if (ret < 0)
+	else if (ret <= 0)
 	{
-		char buffer[256];
-		mbedtls_strerror(ret, buffer, sizeof(buffer));
-		err("tls: recv error %s", buffer);
+		if (ret <0)
+		{
+			char buffer[256];
+			mbedtls_strerror(ret, buffer, sizeof(buffer));
+			err("tls: recv error %s", buffer);
+		}
 		ret = EREJECT;
 		ctx->state |= RECV_COMPLETE;
 	}
@@ -434,7 +437,7 @@ static int _tls_send(void *vctx, const char *data, int size)
 {
 	int ret;
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
-	ret = mbedtls_ssl_write(&ctx->ssl, (unsigned char *)data, size);
+	ret = mbedtls_ssl_write(&ctx->ssl, (const unsigned char *)data, size);
 	tls_dbg("tls send %d %.*s", ret, size, data);
 	if (ret == MBEDTLS_ERR_SSL_WANT_WRITE)
 		ret = EINCOMPLETE;
