@@ -24,9 +24,9 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-#define _XOPEN_SOURCE 700
 
 #include <stdio.h>
+#define __USE_GNU
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -40,6 +40,7 @@
 #include <arpa/inet.h>
 #include <sched.h>
 #include <sys/stat.h>
+#include <libgen.h>
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -67,6 +68,7 @@ int echo(int *psock)
 		FD_ZERO(&rfds);
 		FD_SET(sock, &rfds);
 
+		printf("echo: wait\n");
 		ret = select(sock + 1, &rfds, NULL, NULL, NULL);
 		if (ret > 0 && FD_ISSET(sock, &rfds))
 		{
@@ -96,12 +98,18 @@ int echo(int *psock)
 			}
 		}
 	}
+	printf("echo: thread end\n");
 	return ret;
 }
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>][ -h]\n", argv[0]);
+	fprintf(stderr, "%s [-R <socket directory>][-n< protocol>][-m <nb max clients>][-u <user>][-h][-D]\n", basename(argv[0]));
+	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection (default: /var/run/websocket)\n");
+	fprintf(stderr, "\t-n <name>\tset the protocol (default: %s)\n", basename(argv[0]));
+	fprintf(stderr, "\t-m <num>\tset the maximum number of clients (default: 50)\n");
+	fprintf(stderr, "\t-u <name>\tset the user to run (default: current)\n");
+	fprintf(stderr, "\t-D \tdaemonize the server\n");
 }
 
 #ifdef USE_PTHREAD
@@ -130,7 +138,6 @@ int start(server_t server, int newsock)
 }
 #endif
 
-const char *str_username = "apache";
 #ifndef SOCKDOMAIN
 #define SOCKDOMAIN AF_UNIX
 #endif
@@ -142,10 +149,10 @@ int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/ouistiti";
-	char *proto = "echo";
+	char *root = "/var/run/websocket";
+	char *proto = basename(argv[0]);
 	int maxclients = 50;
-	const char *username = str_username;
+	const char *username = NULL;
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -193,7 +200,7 @@ int main(int argc, char **argv)
 	}
 
 	ret = getuid();
-	if (ret == 0)
+	if (ret == 0 && username != NULL)
 	{
 		struct passwd *user = NULL;
 		user = getpwnam(username);

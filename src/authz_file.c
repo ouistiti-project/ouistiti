@@ -39,17 +39,10 @@
 #include <errno.h>
 
 #include "httpserver/httpserver.h"
-#include "httpserver/hash.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authz_file.h"
 
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 
@@ -147,7 +140,7 @@ static int _authz_file_parsestring(char *string,
 static const char *authz_file_passwd(void *arg, const char *user)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
-	authz_file_config_t *config = ctx->config;
+	const authz_file_config_t *config = ctx->config;
 
 #ifdef FILE_MMAP
 	char *line;
@@ -184,7 +177,7 @@ static const char *authz_file_passwd(void *arg, const char *user)
 			ctx->user[len - 1] = '\0';
 			len--;
 		}
-		char *end = strchr(ctx->user, ':');
+		const char *end = strchr(ctx->user, ':');
 		if (end)
 			len = end - ctx->user;
 
@@ -205,7 +198,6 @@ static const char *authz_file_passwd(void *arg, const char *user)
 static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	authz_file_config_t *config = ctx->config;
 
 	const char *checkpasswd = authz_file_passwd(ctx, user);
 	if (checkpasswd != NULL &&
@@ -216,7 +208,7 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 	return ret;
 }
 
-static const char *authz_file_check(void *arg, const char *user, const char *passwd, const char *token)
+static const char *authz_file_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 
@@ -227,8 +219,7 @@ static const char *authz_file_check(void *arg, const char *user, const char *pas
 
 static const char *authz_file_group(void *arg, const char *user)
 {
-	authz_file_t *ctx = (authz_file_t *)arg;
-	authz_file_config_t *config = ctx->config;
+	const authz_file_t *ctx = (const authz_file_t *)arg;
 
 	if (ctx->group && ctx->group[0] != '\0')
 		return ctx->group;
@@ -237,10 +228,9 @@ static const char *authz_file_group(void *arg, const char *user)
 	return NULL;
 }
 
-static const char *authz_file_home(void *arg, const char *user)
+static const char *authz_file_home(void *arg, const char *UNUSED(user))
 {
-	authz_file_t *ctx = (authz_file_t *)arg;
-	authz_file_config_t *config = ctx->config;
+	const authz_file_t *ctx = (const authz_file_t *)arg;
 
 	if (ctx->home && ctx->home[0] != '\0')
 		return ctx->home;

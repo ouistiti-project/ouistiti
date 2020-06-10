@@ -36,17 +36,10 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/hash.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authn_oauth2.h"
 #include "authz_jwt.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 

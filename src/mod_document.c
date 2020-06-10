@@ -38,21 +38,16 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_document.h"
 #include "mod_auth.h"
 
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
+#define document_dbg(...)
 
 /**
  * transfer function for getfile_connector
  */
-int mod_send_read(document_connector_t *private, http_message_t *response);
+static int mod_send_read(document_connector_t *private, http_message_t *response);
 #ifdef SENDFILE
 extern int mod_send_sendfile(document_connector_t *private, http_message_t *response);
 #endif
@@ -85,9 +80,9 @@ int document_close(document_connector_t *private, http_message_t *request)
 	free(private);
 }
 
-static int document_checkname(_mod_document_mod_t *mod, const char *uri, http_message_t *response)
+static int document_checkname(const _mod_document_mod_t *mod, const char *uri)
 {
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const mod_document_t *config = mod->config;
 
 	if (uri[0] == '.' && uri[1] != '/')
 	{
@@ -107,7 +102,7 @@ static int document_checkname(_mod_document_mod_t *mod, const char *uri, http_me
 static int _document_docroot(_mod_document_mod_t *mod,
 		http_message_t *request, const char *url)
 {
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const mod_document_t *config = mod->config;
 	int fdroot = mod->fdroot;
 
 #ifdef DOCUMENTHOME
@@ -152,7 +147,7 @@ static int _document_getconnnectorput(_mod_document_mod_t *mod,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector, struct stat *filestat)
 {
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const mod_document_t *config = mod->config;
 
 	if ((config->options & DOCUMENT_REST) == 0)
 	{
@@ -202,10 +197,10 @@ static int _document_getconnnectorput(_mod_document_mod_t *mod,
 #ifdef DOCUMENTREST
 static int _document_getconnnectorpost(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
-		http_message_t *request, http_message_t *response,
+		http_message_t *UNUSED(request), http_message_t *response,
 		http_connector_t *connector, struct stat *filestat)
 {
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const mod_document_t *config = mod->config;
 
 	if ((config->options & DOCUMENT_REST) == 0)
 	{
@@ -231,10 +226,10 @@ static int _document_getconnnectorpost(_mod_document_mod_t *mod,
 #ifdef DOCUMENTREST
 static int _document_getconnnectordelete(_mod_document_mod_t *mod,
 		int fdroot, int fdfile, const char *url,
-		http_message_t *request, http_message_t *response,
+		http_message_t *UNUSED(request), http_message_t *response,
 		http_connector_t *connector, struct stat *filestat)
 {
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const mod_document_t *config = mod->config;
 
 	if ((config->options & DOCUMENT_REST) == 0)
 	{
@@ -262,7 +257,7 @@ static int _document_getconnnectordelete(_mod_document_mod_t *mod,
 
 static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const char *url, http_message_t *response)
 {
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const mod_document_t *config = mod->config;
 	int fdfile = openat(fdroot, config->defaultpage, O_RDONLY);
 	if (fdfile > 0)
 	{
@@ -285,7 +280,7 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector, struct stat *filestat)
 {
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const mod_document_t *config = mod->config;
 
 	if (fstat(fdfile, filestat) == -1)
 	{
@@ -361,7 +356,7 @@ static int _document_getconnnectorheader(_mod_document_mod_t *mod,
 	if (fdfile > 0)
 	{
 		document_connector_t *private = NULL;
-		mod_document_t *config = (mod_document_t *)mod->config;
+		const mod_document_t *config = mod->config;
 
 		private = calloc(1, sizeof(*private));
 		httpmessage_private(request, private);
@@ -387,7 +382,6 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	int ret =  EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	mod_document_t *config = (mod_document_t *)mod->config;
 	http_connector_t connector = getfile_connector;
 
 	if (private != NULL)
@@ -399,7 +393,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	if (uri[0] == '/')
 		uri++;
 
-	if (document_checkname(mod, uri, response) == EREJECT)
+	if (document_checkname(mod, uri) == EREJECT)
 	{
 		dbg("document: %s forbidden extension", uri);
 		/**
@@ -510,8 +504,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 int getfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	mod_document_t *config = (mod_document_t *)mod->config;
+	const _mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	int ret;
 
 	ret = mod->transfer(private, response);
@@ -549,11 +542,13 @@ int getfile_connector(void *arg, http_message_t *request, http_message_t *respon
 	return ECONTINUE;
 }
 
-int mod_send_read(document_connector_t *private, http_message_t *response)
+static int mod_send_read(document_connector_t *private, http_message_t *response)
 {
-	int ret = 0, size, chunksize;
-
+	int ret = 0;
+	int size;
+	int chunksize;
 	char content[CONTENTCHUNK];
+
 	/**
 	 * check the size for the range support
 	 * the size may be different of the real size file
@@ -564,7 +559,7 @@ int mod_send_read(document_connector_t *private, http_message_t *response)
 	{
 		ret = size;
 		content[size] = 0;
-		size = httpmessage_addcontent(response, "none", content, size);
+		httpmessage_addcontent(response, "none", content, size);
 	}
 	else if (ret == 0)
 	{
@@ -575,7 +570,7 @@ int mod_send_read(document_connector_t *private, http_message_t *response)
 
 static int _transfer_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = (document_connector_t *)httpmessage_private(request, NULL);
+	const document_connector_t *private = httpmessage_private(request, NULL);
 
 	if (private && private->func)
 	{
@@ -586,8 +581,7 @@ static int _transfer_connector(void *arg, http_message_t *request, http_message_
 
 static int _mime_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
+	const document_connector_t *private = httpmessage_private(request, NULL);
 
 	if (private == NULL ||
 		(private->type & DOCUMENT_DIRLISTING) ||

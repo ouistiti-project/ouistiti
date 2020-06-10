@@ -51,14 +51,13 @@
 int range_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 
 	if (private == NULL || private->type & DOCUMENT_DIRLISTING || !(private->fdfile > 0))
 		return EREJECT;
 
 	int filesize = private->size;
 
-	char *rangesize = NULL;
+	const char *rangesize = NULL;
 	const char *range = httpmessage_REQUEST(request,"Range");
 	if (range != NULL && range[0] != '\0')
 		rangesize = strstr(range, "bytes=");
@@ -70,10 +69,10 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 		offset = atoi(rangesize);
 		if (offset > filesize)
 		{
-			goto notsatisfiable;
+			goto NOSATISFIABLE;
 		}
 		private->offset = offset;
-		char *end = strchr(rangesize, '-');
+		const char *end = strchr(rangesize, '-');
 		if (end != NULL)
 		{
 			offset = filesize;
@@ -83,7 +82,7 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 				offset = private->size - 1;
 			if (offset > (filesize - 1) || offset < private->offset)
 			{
-				goto notsatisfiable;
+				goto NOSATISFIABLE;
 			}
 			private->size = offset - private->offset + 1;
 		}
@@ -102,7 +101,7 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 
 	return EREJECT;
 
-notsatisfiable:
+NOSATISFIABLE:
 	{
 		char buffer[256];
 		snprintf(buffer, 256, "bytes */%d", filesize);

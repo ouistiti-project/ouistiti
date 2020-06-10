@@ -40,21 +40,13 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_document.h"
 #include "mod_auth.h"
 
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
+#define document_dbg(...)
 
 #define HAVE_SYMLINK
-
-static const char str_OK[] = "OK";
-static const char str_KO[] = "KO";
 
 static int restheader_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
 {
@@ -86,7 +78,6 @@ static int restheader_connector(document_connector_t *private, http_message_t *r
 static int putdir_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	const char *uri = httpmessage_REQUEST(request,"uri");
 
 	if (mkdirat(private->fdroot, private->url, 0777) > 0)
 	{
@@ -223,7 +214,7 @@ int _document_symlinkat(int fddir, const char *oldpath, const char *newpath)
 }
 
 typedef int (*changefunc)(int fddir, const char *oldpath, const char *newpath);
-static int changename(document_connector_t *private, http_message_t *request, const char *oldpath, const char *newname, changefunc func)
+static int changename(document_connector_t *private, http_message_t *UNUSED(request), const char *oldpath, const char *newname, changefunc func)
 {
 	int ret = -1;
 	if (newname && newname[0] != '\0')
@@ -239,9 +230,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	mod_document_t *config = (mod_document_t *)mod->config;
 
-	const char *uri = httpmessage_REQUEST(request,"uri");
 	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
 
 	if (cmd == NULL || cmd[0] == '\0')
@@ -250,11 +239,11 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	}
 	else if (cmd && !strcmp("mv", cmd))
 	{
-		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
-		if (arg[0] == '/')
-			arg++;
-		warn("move %s to %s", private->url, arg);
-		if (changename(private, request, private->url, arg, _document_renameat) == -1)
+		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
+		if (postarg[0] == '/')
+			postarg++;
+		warn("move %s to %s", private->url, postarg);
+		if (changename(private, request, private->url, postarg, _document_renameat) == -1)
 #if defined RESULT_405
 			httpmessage_result(response, RESULT_405);
 #else
@@ -264,8 +253,8 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 	else if (cmd && !strcmp("chmod", cmd))
 	{
 		warn("chmod %s", private->url);
-		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
-		int mod = strtol(arg, NULL, 8);
+		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
+		int mod = strtol(postarg, NULL, 8);
 		if (fchmodat(private->fdroot, private->url, mod, 0) == -1)
 #if defined RESULT_405
 			httpmessage_result(response, RESULT_405);
@@ -276,11 +265,11 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 #ifdef HAVE_SYMLINK
 	else if (cmd && !strcmp("ln", cmd))
 	{
-		const char *arg = httpmessage_REQUEST(request, "X-POST-ARG");
-		if (arg[0] == '/')
-			arg++;
-		warn("document: link %s to %s", private->url, arg);
-		if (changename(private, request, private->url, arg, _document_symlinkat) == -1)
+		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
+		if (postarg[0] == '/')
+			postarg++;
+		warn("document: link %s to %s", private->url, postarg);
+		if (changename(private, request, private->url, postarg, _document_symlinkat) == -1)
 #if defined RESULT_405
 			httpmessage_result(response, RESULT_405);
 #else
@@ -307,8 +296,6 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 int deletefile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	const char *uri = httpmessage_REQUEST(request,"uri");
 
 	int flags = 0;
 	if (private->type & DOCUMENT_DIRLISTING)

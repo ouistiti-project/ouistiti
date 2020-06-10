@@ -1,5 +1,5 @@
 if !BR2_PACKAGE_LIBCONFIG
-  comment "Ouistiti needs libconfig library to manage config file"
+comment "Ouistiti needs libconfig library to manage config file"
 endif
 
 menuconfig BR2_PACKAGE_OUISTITI
@@ -16,8 +16,8 @@ menuconfig BR2_PACKAGE_OUISTITI
 if BR2_PACKAGE_OUISTITI
 config BR2_PACKAGE_OUISTITI_TINYSVCMDNS
 	bool
-	depends on BR2_PACKAGE_TINYSVCMDNS
 	default BR2_PACKAGE_TINYSVCMDNS
+	depends on BR2_PACKAGE_TINYSVCMDNS
 
 choice
 	prompt "SSL/TLS library support"
@@ -31,7 +31,7 @@ config BR2_PACKAGE_OUISTITI_MBEDTLS
 	select BR2_PACKAGE_LIBOUISTITI_MBEDTLS
 
 if !BR2_PACKAGE_MBEDTLS
-  comment "mbedtls"
+comment "mbedtls"
 endif
 
 config BR2_PACKAGE_OUISTITI_OPENSSL
@@ -40,7 +40,7 @@ config BR2_PACKAGE_OUISTITI_OPENSSL
 	select BR2_PACKAGE_LIBOUISTITI_OPENSSL
 
 if !BR2_PACKAGE_OPENSSL
-  comment "openssl (experimental)"
+comment "openssl (experimental)"
 endif
 
 config BR2_PACKAGE_OUISTITI_WOLFSSL
@@ -49,7 +49,7 @@ config BR2_PACKAGE_OUISTITI_WOLFSSL
 	select BR2_PACKAGE_LIBOUISTITI_WOLFSSL
 
 if !BR2_PACKAGE_WOLFSSL
-  comment "wolfssl (experimental)"
+comment "wolfssl (experimental)"
 endif
 
 endchoice
@@ -88,7 +88,7 @@ config BR2_PACKAGE_OUISTITI_AUTH_JWT
 	  Generate and parse JsonWebToken for authenticate.
 
 if !BR2_PACKAGE_JANSSON
-  comment "JWT support: enable Jansson library"
+comment "JWT support: enable Jansson library"
 endif
 
 config BR2_PACKAGE_OUISTITI_AUTH_BASIC
@@ -114,7 +114,7 @@ config BR2_PACKAGE_OUISTITI_AUTH_OAUTH2
 	  oAuth2 Authentication RFC
 
 if !BR2_PACKAGE_OUISTITI_AUTH_JWT
-  comment "oAuth2 authentication: enable Auth JWT"
+comment "oAuth2 authentication: enable Auth JWT"
 endif
 
 endif

@@ -24,9 +24,9 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-#define _XOPEN_SOURCE 700
 
 #include <stdio.h>
+#define __USE_GNU
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -40,6 +40,7 @@
 #include <arpa/inet.h>
 #include <sched.h>
 #include <sys/stat.h>
+#include <libgen.h>
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -67,6 +68,7 @@ struct user_s
 };
 
 #define WS_MSG 0x01
+#define DAEMON 0x02
 
 static user_t *first_user = NULL;
 
@@ -217,15 +219,16 @@ int chat(user_t *user, char *buffer, int length)
 
 void help(char **argv)
 {
-	fprintf(stderr, "%s [-R <socket directory>] [-m <nb max clients>] [-u <user>] [-w] [ -h]\n", argv[0]);
-	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection\n");
-	fprintf(stderr, "\t-m <num>\tset the maximum number of clients\n");
-	fprintf(stderr, "\t-u <name>\tset the user to run\n");
+	fprintf(stderr, "%s [-R <socket directory>][-m <nb max clients>][-u <user>][-w][-h][-D]\n", basename(argv[0]));
+	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection (default: /var/run/websocket)\n");
+	fprintf(stderr, "\t-n <name>\tset the protocol (default: %s)\n", basename(argv[0]));
+	fprintf(stderr, "\t-m <num>\tset the maximum number of clients (default: 50)\n");
+	fprintf(stderr, "\t-u <name>\tset the user to run (default: current)\n");
 	fprintf(stderr, "\t-w \tstart chat with specific ouistiti features\n");
+	fprintf(stderr, "\t-D \tdaemonize the server\n");
 }
 
 static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%2hd\"}";
-const char *str_username = "apache";
 #ifndef SOCKDOMAIN
 #define SOCKDOMAIN AF_UNIX
 #endif
@@ -236,16 +239,16 @@ int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/ouistiti";
-	char *proto = "chat";
+	char *root = "/var/run/websocket";
+	char *proto = basename(argv[0]);
 	int maxclients = 50;
-	const char *username = str_username;
+	const char *username = NULL;
 	int options = 0;
 
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "u:n:R:m:wh");
+		opt = getopt(argc, argv, "u:n:R:m:wDh");
 		switch (opt)
 		{
 			case 'R':
@@ -265,6 +268,10 @@ int main(int argc, char **argv)
 			break;
 			case 'w':
 				options |= WS_MSG;
+			break;
+			case 'D':
+				options |= DAEMON;
+			break;
 		}
 	} while(opt != -1);
 
@@ -278,7 +285,7 @@ int main(int argc, char **argv)
 		chmod(root, 0777);
 	}
 
-	if (getuid() == 0)
+	if (getuid() == 0 && username != NULL)
 	{
 		struct passwd *user = NULL;
 		user = getpwnam(username);
@@ -307,6 +314,12 @@ int main(int argc, char **argv)
 		{
 			chmod(addr.sun_path, 0777);
 			ret = listen(sock, maxclients);
+		}
+		if ((options & DAEMON) && (fork() != 0))
+		{
+			printf("chat: daemonize\n");
+			sched_yield();
+			return 0;
 		}
 		if (ret == 0)
 		{

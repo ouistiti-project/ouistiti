@@ -41,16 +41,9 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/hash.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authz_sqlite.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 
@@ -126,9 +119,9 @@ static void *authz_sqlite_create(void *arg)
 	/** empty the session table */
 	sqlite3_stmt *statement;
 	const char *sql = "delete from session;";
-	ret = sqlite3_prepare_v2(db, sql, -1, &statement, NULL);
+	sqlite3_prepare_v2(db, sql, -1, &statement, NULL);
 
-	ret = sqlite3_step(statement);
+	sqlite3_step(statement);
 	sqlite3_finalize(statement);
 
 	ctx = calloc(1, sizeof(*ctx));
@@ -140,7 +133,6 @@ static void *authz_sqlite_create(void *arg)
 #define SEARCH_QUERY "select %s from users inner join groups on groups.id=users.groupid where users.name=@NAME;"
 static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
 {
-	authz_sqlite_config_t *config = ctx->config;
 	int ret;
 	const char *value = NULL;
 
@@ -150,11 +142,11 @@ static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, ch
 
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
-	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &ctx->statement, NULL);
+	sqlite3_prepare_v2(ctx->db, sql, -1, &ctx->statement, NULL);
 	int index;
 	index = sqlite3_bind_parameter_index(ctx->statement, "@NAME");
 	if (index > 0)
-		ret = sqlite3_bind_text(ctx->statement, index, user, -1, SQLITE_STATIC);
+		sqlite3_bind_text(ctx->statement, index, user, -1, SQLITE_STATIC);
 
 	ret = sqlite3_step(ctx->statement);
 	do
@@ -207,7 +199,6 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 	if (ret == SQLITE_ROW)
 	{
 		int i = 0;
-		const char *key = sqlite3_column_name(ctx->statement, i);
 		if (sqlite3_column_type(ctx->statement, i) == SQLITE_TEXT)
 		{
 			value = sqlite3_column_text(ctx->statement, i);
@@ -221,7 +212,6 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	authz_sqlite_config_t *config = ctx->config;
 
 	const char *checkpasswd = authz_sqlite_passwd(ctx, user);
 	if (checkpasswd != NULL &&
@@ -256,62 +246,68 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 }
 
 #ifdef AUTH_TOKEN
+static int authz_sqlite_userid(const authz_sqlite_t *ctx, const char *user)
+{
+	int userid = -1;
+	int ret;
+	sqlite3_stmt *statement;
+	const char *sql = "select id from users where name=@NAME;";
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@NAME");
+	ret = sqlite3_bind_text(statement, index, user, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	ret = sqlite3_step(statement);
+	if ((ret == SQLITE_ROW) &&
+		(sqlite3_column_type(statement, 0) == SQLITE_INTEGER))
+	{
+		userid = sqlite3_column_int(statement, 0);
+	}
+	sqlite3_finalize(statement);
+	return userid;
+}
+
+static int authz_sqlite_unjoin(const authz_sqlite_t *ctx, int userid, const char *token)
+{
+	int ret;
+	sqlite3_stmt *statement;
+	const char *sql = "delete from session where userid=@USERID or token=@TOKEN;";
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@TOKEN");
+	ret = sqlite3_bind_text(statement, index, token, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@USERID");
+	ret = sqlite3_bind_int(statement, index, userid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	ret = sqlite3_step(statement);
+	if ((ret == SQLITE_ROW) &&
+		(sqlite3_column_type(statement, 0) == SQLITE_INTEGER))
+	{
+		userid = sqlite3_column_int(statement, 0);
+	}
+	sqlite3_finalize(statement);
+	return userid;
+}
+
 static int authz_sqlite_join(void *arg, const char *user, const char *token, int expire)
 {
-	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-
-	int userid = -1;
-	{
-		int ret;
-		sqlite3_stmt *statement;
-		const char *sql = "select id from users where name=@NAME;";
-		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		int index;
-		index = sqlite3_bind_parameter_index(statement, "@NAME");
-		ret = sqlite3_bind_text(statement, index, user, -1, SQLITE_STATIC);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		ret = sqlite3_step(statement);
-		if ((ret == SQLITE_ROW) &&
-			(sqlite3_column_type(statement, 0) == SQLITE_INTEGER))
-		{
-			userid = sqlite3_column_int(statement, 0);
-		}
-		sqlite3_finalize(statement);
-	}
+	const authz_sqlite_t *ctx = (const authz_sqlite_t *)arg;
+	int userid = authz_sqlite_userid(ctx, user);
 
 	if (userid == -1)
 	{
 		err("authz associatie unknown user %s", user);
 		return EREJECT;
 	}
-
-	{
-		int ret;
-		sqlite3_stmt *statement;
-		const char *sql = "delete from session where userid=@USERID or token=@TOKEN;";
-		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		int index;
-		index = sqlite3_bind_parameter_index(statement, "@TOKEN");
-		ret = sqlite3_bind_text(statement, index, token, -1, SQLITE_STATIC);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		index = sqlite3_bind_parameter_index(statement, "@USERID");
-		ret = sqlite3_bind_int(statement, index, userid);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		ret = sqlite3_step(statement);
-		if ((ret == SQLITE_ROW) &&
-			(sqlite3_column_type(statement, 0) == SQLITE_INTEGER))
-		{
-			userid = sqlite3_column_int(statement, 0);
-		}
-		sqlite3_finalize(statement);
-	}
+	authz_sqlite_unjoin(ctx, userid, token);
 
 	int ret;
 	sqlite3_stmt *statement;

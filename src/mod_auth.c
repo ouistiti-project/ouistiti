@@ -47,6 +47,7 @@
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "httpserver/hash.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authn_none.h"
 #ifdef AUTHN_BASIC
@@ -67,14 +68,6 @@
 #include "authz_sqlite.h"
 #include "authz_jwt.h"
 
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
-
 #define auth_dbg(...)
 
 #ifndef RESULT_401
@@ -92,7 +85,9 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
+#ifndef AUTHZ_JWT
 static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info);
+#endif
 
 static const char str_auth[] = "auth";
 static const char str_cachecontrol[] = "Cache-Control";
@@ -123,9 +118,6 @@ static const char *str_xtoken = "X-Auth-Token";
 static const char *str_xuser = "X-Remote-User";
 static const char *str_xgroup = "X-Remote-Group";
 static const char *str_xhome = "X-Remote-Home";
-static const char *str_user = "USER";
-static const char *str_group = "GROUP";
-static const char *str_home = "HOME";
 static const char *str_wilcard = "*";
 
 authn_rules_t *authn_rules[] = {
@@ -203,17 +195,15 @@ static const hash_t *_mod_findhash(const char *name, int nameid)
 	for (i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
 	{
 		hash = hash_list[i];
-		if (hash != NULL)
-		{
-			if ((name != NULL && !strcmp(name, hash->name)) ||
-				(nameid == hash->nameid))
-				break;
-		}
+		if (hash != NULL &&
+			((name != NULL && !strcmp(name, hash->name)) ||
+				(nameid == hash->nameid)))
+			break;
 	}
 	return hash;
 }
 
-static int _mod_sethash(_mod_auth_t *mod, mod_auth_t *config)
+static int _mod_sethash(const _mod_auth_t *mod, const mod_auth_t *config)
 {
 	int ret = EREJECT;
 	if (config->algo)
@@ -383,7 +373,6 @@ static void _mod_auth_freectx(void *vctx)
 
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	int ret = EREJECT;
 	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL);
 
@@ -445,7 +434,7 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 		if (checkpasswd[1] == 'a')
 		{
 			hashtype = checkpasswd[2];
-			char *checkrealm = strstr(checkpasswd, "realm=");
+			const char *checkrealm = strstr(checkpasswd, "realm=");
 			if (checkrealm && !strncmp(checkrealm + 6, realm, strlen(realm)))
 			{
 				hash = _mod_findhash(NULL, hashtype);
@@ -476,7 +465,7 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 	return ret;
 }
 
-static authsession_t *_authn_setsession(_mod_auth_t *mod, const char * user)
+static authsession_t *_authn_setsession(const _mod_auth_t *mod, const char * user)
 {
 	authsession_t *info = NULL;
 
@@ -507,7 +496,8 @@ static authsession_t *_authn_setsession(_mod_auth_t *mod, const char * user)
 	return info;
 }
 
-char *authz_generatetoken(mod_auth_t *config, authsession_t *info)
+#ifndef AUTHZ_JWT
+static char *authz_generatetoken(mod_auth_t *config, authsession_t *UNUSED(info))
 {
 	int tokenlen = (((24 + 1 + sizeof(time_t)) * 1.5) + 1) + 1;
 	char *token = calloc(1, tokenlen);
@@ -523,13 +513,13 @@ char *authz_generatetoken(mod_auth_t *config, authsession_t *info)
 		expire = 60 * 30;
 	expire += time(NULL);
 	memcpy(&_nonce[25], &expire, sizeof(time_t));
-	int ret = 0;
-	ret = base64_urlencoding->encode(_nonce, 24, token, tokenlen);
+	base64_urlencoding->encode(_nonce, 24, token, tokenlen);
 	return token;
 }
+#endif
 
 #ifdef AUTH_TOKEN
-static const char *_authn_gettoken(_mod_auth_ctx_t *ctx, http_message_t *request)
+static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request)
 {
 	_mod_auth_t *mod = ctx->mod;
 	const char *authorization = NULL;
@@ -559,9 +549,14 @@ int authn_checksignature(const char *key,
 		{
 			hash_macsha256->update(ctx, data, datalen);
 			char signature[HASH_MAX_SIZE];
-			int signlen = hash_macsha256->finish(ctx, signature);
+			int len = hash_macsha256->finish(ctx, signature);
+			if (signlen < len)
+			{
+				err("auth: signature buffer too small");
+				len = signlen / 1.5;
+			}
 			char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
-			base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
+			base64_urlencoding->encode(signature, len, b64signature, sizeof(b64signature));
 			if (!strncmp(b64signature, sign, signlen))
 				return ESUCCESS;
 		}
@@ -645,8 +640,8 @@ static void _authn_cookie_set(http_message_t *request, const char *key, const ch
 	cookie_set(request, key, value, NULL);
 }
 
-static int _authn_setauthorization(_mod_auth_ctx_t *ctx,
-			const char *authorization, authsession_t *info,
+static int _authn_setauthorization(const _mod_auth_ctx_t *ctx,
+			const char *authorization, const authsession_t *info,
 			_httpmessage_set httpmessage_set, _httpmessage_append httpmessage_append,
 			http_message_t *response)
 {
@@ -689,7 +684,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
-	mod_auth_t *config = mod->config;
+	const mod_auth_t *config = mod->config;
 	const char *authentication = strchr(authorization, ' ');
 	const char *method = httpmessage_REQUEST(request, "method");
 	const char *uri = httpmessage_REQUEST(request, "uri");
@@ -737,8 +732,8 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
-	_mod_auth_t *mod = ctx->mod;
-	mod_auth_t *config = mod->config;
+	const _mod_auth_t *mod = ctx->mod;
+	const mod_auth_t *config = mod->config;
 	const char *uri = httpmessage_REQUEST(request, "uri");
 
 
@@ -795,7 +790,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	return ret;
 }
 
-static int _authn_checkuri(mod_auth_t *config, http_message_t *request)
+static int _authn_checkuri(const mod_auth_t *config, http_message_t *request)
 {
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	int ret = ECONTINUE;
@@ -820,7 +815,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 {
 	int ret = ECONTINUE;
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
-	_mod_auth_t *mod = ctx->mod;
+	const _mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
 	const char *authorization = NULL;
 
