@@ -22,6 +22,7 @@ ifeq ($(VTHREAD_TYPE),pthread)
 $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
+$(TARGET)_SOURCES+=daemonize.c
 $(TARGET)_LIBS+=$(LIBHTTPSERVER_NAME)
 $(TARGET)_LIBS+=ouiutils
 

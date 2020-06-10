@@ -64,8 +64,50 @@ CURLOUT="-o /dev/null"
 fi
 
 TESTERROR=""
-for TEST in ${TESTS}
-do
+
+rm -f ${TESTDIR}run.pid
+
+config () {
+	CONFIG=$1
+
+	cp ${TESTDIR}conf/${CONFIG}.in ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s/\%PWD\%/$(echo $PWD | ${SED} 's/\//\\\//g')/g" ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s/\%USER\%/$USER/g" ${TESTDIR}conf/${CONFIG}
+
+}
+
+start () {
+	TARGET=$1
+	CONFIG=$2
+
+	if [ -n "$INFO" ]; then
+		echo ${SRCDIR}${TARGET}
+		echo "******************************"
+		cat ${TESTDIR}conf/${CONFIG}
+	fi
+	${SRCDIR}${TARGET} -p ${TESTDIR}run.pid -D
+	PID=$(cat ${TESTDIR}run.pid)
+	echo "${TARGET} started with pid ${PID}"
+	sleep 1
+}
+
+stop () {
+	TARGET=$1
+
+	if [ -f ${TESTDIR}run.pid ]; then
+		${SRCDIR}${TARGET} -p ${TESTDIR}run.pid -K
+	else
+		killall $(echo $TARGET | ${AWK} '{print $1}')
+	fi
+	sleep 1
+	if [ -f ${TESTDIR}run.pid ]; then
+		killall -9 $(echo $TARGET | ${AWK} '{print $1}')
+		rm -f ${TESTDIR}run.pid
+	fi
+}
+
+test () {
+	TEST=$1
 
 	unset CMDREQUEST
 	unset FILEDATA
@@ -95,9 +137,8 @@ do
 		TESTCONTENTLEN=$(cat ${TESTDIR}htdocs/${FILE} | ${WC} -c)
 	fi
 
-	cp ${TESTDIR}conf/${CONFIG}.in ${TESTDIR}conf/${CONFIG}
-	${SED} -i "s/\%PWD\%/$(echo $PWD | ${SED} 's/\//\\\//g')/g" ${TESTDIR}conf/${CONFIG}
-	${SED} -i "s/\%USER\%/$USER/g" ${TESTDIR}conf/${CONFIG}
+	TARGET="ouistiti -s 1 -f ${TESTDIR}conf/${CONFIG}"
+	config $CONFIG
 
 	if [ -n "$PREPARE_ASYNC" ]; then
 		$PREPARE_ASYNC &
@@ -109,26 +150,10 @@ do
 		$PREPARE
 	fi
 
-	TARGET="ouistiti -s 1 -f ${TESTDIR}conf/${CONFIG}"
-
-	if [ -n "$INFO" ]; then
-		echo ${SRCDIR}${TARGET} -f ${TESTDIR}conf/${CONFIG}
+	if [ $CONTINUE -eq 0 ] && [ -z $DEBUG ]; then
+		start "$TARGET" $CONFIG
 	fi
 
-	if [ $CONTINUE -eq 0 -o ! -x ${TESTDIR}run.pid ]; then
-		if [ -z $DEBUG ]; then
-			${SRCDIR}${TARGET} &
-		fi
-		PID=$!
-		echo "${TARGET} started with pid ${PID}"
-		echo ${PID} > ${TESTDIR}run.pid
-		sleep 1
-	fi
-
-	if [ -n "$INFO" ]; then
-		echo "******************************"
-		cat ${TESTDIR}conf/${CONFIG}
-	fi
 	echo "******************************"
 	if [ -n "$CURLPARAM" ]; then
 		$CURL $CURLOUT -f -s -S $CURLPARAM > $TMPRESPONSE
@@ -196,9 +221,7 @@ do
 		if [ $NOERROR -eq 1 ]; then
 			TESTERROR="${TESTERROR} $TEST"
 		else
-			PID=$(cat ${TESTDIR}run.pid)
-			rm ${TESTDIR}run.pid
-			killall -9 $(echo $TARGET | ${AWK} '{print $1}')
+			stop $TARGET
 			exit 1
 		fi
 	else
@@ -212,16 +235,18 @@ do
 		fi
 	fi
 	if [ $CONTINUE -eq 0 ]; then
-		PID=$(cat ${TESTDIR}run.pid)
-		rm ${TESTDIR}run.pid
-		killall -9 $(echo $TARGET | ${AWK} '{print $1}')
-		sleep 1
-		#kill -9 $PID 2> /dev/null
+		stop $TARGET
 	fi
 	if [ x$ASYNC_PID != x ]; then
 		kill $ASYNC_PID
 	fi
+}
+
+for TEST in ${TESTS}
+do
+	test $TEST
 done
+
 if [ ${ALL} -eq 1 ]; then
 	./src/ouistiti -h
 	./src/ouistiti -V
