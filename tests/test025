@@ -6,5 +6,5 @@ PREPARE="./utils/websocket_echo -R /tmp -u $USER -t -D -n echo"
 #CLEAN="killall -9 websocket_echo"
 TESTOPTION="-w"
 TESTREQUEST=test24_rq.txt
-TESTRESPONSE=test24_rs.txt
+TESTRESPONSE=test024_rs.txt
 TESTCODE=101
