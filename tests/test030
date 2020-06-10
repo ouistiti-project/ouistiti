@@ -1,5 +1,5 @@
 DESC="test Range Request with bad offset"
 CONFIG=test1.conf
 TESTREQUEST=test30_rq.txt
-TESTRESPONSE=test29_rs.txt
+TESTRESPONSE=test029_rs.txt
 TESTCODE=416
