@@ -82,8 +82,8 @@ websocket_authrpc_LIBS+=ouihash
 websocket_authrpc_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 websocket_authrpc_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 websocket_authrpc_LIBS-$(MBEDTLS)+=mbedcrypto
-websocket_authrpc_CFLAGS-$(PTHREAD)+=-DPTHREAD
-websocket_authrpc_LIBS-$(PTHREAD)+=pthread
+websocket_authrpc_CFLAGS-$(USE_PTHREAD)+=-DPTHREAD
+websocket_authrpc_LIBS-$(USE_PTHREAD)+=pthread
 websocket_authrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 endif
