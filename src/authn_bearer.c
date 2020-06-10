@@ -33,16 +33,9 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_auth.h"
 #include "authn_bearer.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 #define auth_dbg(...)
 
@@ -73,7 +66,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 {
 	int ret = ECONTINUE;
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
-	authn_bearer_config_t *config = mod->config;
+	const authn_bearer_config_t *config = mod->config;
 
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	httpmessage_addheader(response, str_authenticate, "Bearer realm=\"");

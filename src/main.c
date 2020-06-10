@@ -241,19 +241,17 @@ static void _setpidfile(char *pidfile)
 		int pidfd = open(pidfile,O_RDWR|O_CREAT|O_TRUNC,0640);
 		if (pidfd > 0)
 		{
-			char buffer[32];
+			char buffer[12];
 			int length;
 			pid_t pid = 1;
 
-#ifdef HAVE_LOCKF
 			if (lockf(pidfd, F_TLOCK,0)<0)
 			{
 				err("server already running");
 				exit(0);
 			}
-#endif
 			pid = getpid();
-			length = snprintf(buffer, 32, "%d\n", pid);
+			length = snprintf(buffer, 12, "%.10d\n", pid);
 			int len = write(pidfd, buffer, length);
 			if (len != length)
 				err("pid file error %s", strerror(errno));
