@@ -1,5 +1,4 @@
 DESC="test request with empty URI"
 CONFIG=test1.conf
 TESTREQUEST=test6_rq.txt
-TESTRESPONCE=test4_rs.txt
 TESTCODE=301

@@ -1,5 +1,5 @@
 DESC="GET request with path backward '/test/../index.html'"
 CONFIG=test1.conf
 TESTREQUEST=test8_rq.txt
-TESTRESPONSE=test4_rs.txt
+TESTRESPONSE=test004_rs.txt
 TESTCODE=200
