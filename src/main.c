@@ -46,6 +46,7 @@
 #include <dlfcn.h>
 #endif
 
+#include "daemonize.h"
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
 
@@ -234,40 +235,6 @@ static void handler(int sig)
 	run = 'q';
 }
 
-static void _setpidfile(char *pidfile)
-{
-	if (pidfile[0] != '\0')
-	{
-		int pidfd = open(pidfile,O_RDWR|O_CREAT|O_TRUNC,0640);
-		if (pidfd > 0)
-		{
-			char buffer[12];
-			int length;
-			pid_t pid = 1;
-
-			if (lockf(pidfd, F_TLOCK,0)<0)
-			{
-				err("server already running");
-				exit(0);
-			}
-			pid = getpid();
-			length = snprintf(buffer, 12, "%.10d\n", pid);
-			int len = write(pidfd, buffer, length);
-			if (len != length)
-				err("pid file error %s", strerror(errno));
-			/**
-			 * the file must be open while the process is running
-			close(pidfd);
-			 */
-		}
-		else
-		{
-			err("pid file error %s", strerror(errno));
-			pidfile = NULL;
-		}
-	}
-}
-
 static void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
 {
 	void *mod = NULL;
@@ -430,13 +397,15 @@ static int main_run(server_t *first)
 	return 0;
 }
 
+#define DAEMONIZE 0x01
+#define KILLDAEMON 0x02
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
 	char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
 	char *pidfile = NULL;
-	int daemonize = 0;
+	int mode = 0;
 	int serverid = -1;
 
 	setbuf(stdout, NULL);
@@ -448,7 +417,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:hDV");
+		opt = getopt(argc, argv, "s:f:p:hDKV");
 		switch (opt)
 		{
 			case 's':
@@ -467,18 +436,16 @@ int main(int argc, char * const *argv)
 				printf("%s\n",PACKAGEVERSION);
 			return -1;
 			case 'D':
-				daemonize = 1;
+				mode |= DAEMONIZE;
+			break;
+			case 'K':
+				mode |= KILLDAEMON;
 			break;
 			default:
 			break;
 		}
 	} while(opt != -1);
 #endif
-
-	if (daemonize && fork() != 0)
-	{
-		return 0;
-	}
 
 #ifndef FILE_CONFIG
 	ouistiticonfig = &g_ouistiticonfig;
@@ -489,10 +456,18 @@ int main(int argc, char * const *argv)
 	if (ouistiticonfig == NULL)
 		return -1;
 
-	if (pidfile)
-		_setpidfile(pidfile);
-	else if (ouistiticonfig->pidfile)
-		_setpidfile(ouistiticonfig->pidfile);
+	if (mode & KILLDAEMON)
+	{
+		killdaemon(pidfile);
+		return 0;
+	}
+	if (mode & DAEMONIZE)
+	{
+		if (pidfile == NULL && ouistiticonfig->pidfile)
+			pidfile = ouistiticonfig->pidfile;
+		if (daemonize(pidfile) == -1)
+			return 0;
+	}
 
 #ifdef HAVE_SIGACTION
 	struct sigaction action;
@@ -532,6 +507,7 @@ int main(int argc, char * const *argv)
 #ifdef FILE_CONFIG
 	ouistiticonfig_destroy(ouistiticonfig);
 #endif
+	killdaemon(pidfile);
 	warn("good bye");
 	return 0;
 }

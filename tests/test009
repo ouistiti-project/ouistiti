@@ -1,5 +1,5 @@
 DESC="test a request on file with path backard out of the root documents"
 CONFIG=test1.conf
 TESTREQUEST=test9_rq.txt
-TESTRESPONSE=test5_rs.txt
+TESTRESPONSE=test005_rs.txt
 TESTCODE=404
