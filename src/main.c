@@ -453,21 +453,23 @@ int main(int argc, char * const *argv)
 	ouistiticonfig = ouistiticonfig_create(configfile);
 #endif
 
-	if (ouistiticonfig == NULL)
-		return -1;
-
 	if (mode & KILLDAEMON)
 	{
+		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
+			pidfile = ouistiticonfig->pidfile;
 		killdaemon(pidfile);
 		return 0;
 	}
 	if (mode & DAEMONIZE)
 	{
-		if (pidfile == NULL && ouistiticonfig->pidfile)
+		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
 			pidfile = ouistiticonfig->pidfile;
 		if (daemonize(pidfile) == -1)
 			return 0;
 	}
+
+	if (ouistiticonfig == NULL)
+		return -1;
 
 #ifdef HAVE_SIGACTION
 	struct sigaction action;
