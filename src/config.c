@@ -1010,7 +1010,7 @@ static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 }
 
 
-ouistiticonfig_t *ouistiticonfig_create(char *filepath)
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 {
 	int ret;
 

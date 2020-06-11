@@ -402,9 +402,9 @@ static int main_run(server_t *first)
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
-	char *configfile = DEFAULT_CONFIGPATH;
+	const char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
-	char *pidfile = NULL;
+	const char *pidfile = NULL;
 	int mode = 0;
 	int serverid = -1;
 
