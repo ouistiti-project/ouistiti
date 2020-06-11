@@ -1017,6 +1017,11 @@ ouistiticonfig_t *ouistiticonfig_create(char *filepath)
 	gethostname(str_hostname, HOST_NAME_MAX);
 	strncat(str_hostname, ".local", 7);
 
+	if (access(filepath, R_OK))
+	{
+		err("config file: %s not found", filepath);
+		return NULL;
+	}
 	config_init(&configfile);
 	dbg("config file: %s", filepath);
 	ret = config_read_file(&configfile, filepath);
