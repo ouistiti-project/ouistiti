@@ -178,7 +178,7 @@ ouistiticonfig_t g_ouistiticonfig =
 	},
 };
 #else
-ouistiticonfig_t *ouistiticonfig_create(char *filepath);
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
 #endif
