@@ -80,7 +80,9 @@ COOKIE=y
 #support Cross-Origin Resource Sharing (CORS)
 CORS=y
 #support of mDNS
-TINYSVCMDNS=y
+TINYSVCMDNS=n
+#support of upgrade and reverse-http
+UPGRADE=y
 
 CERTIFICATE=n
 
