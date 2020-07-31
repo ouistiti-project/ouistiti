@@ -1,0 +1,6 @@
+GET /reverse HTTP/1.1
+Host: localhost
+Upgrade: rhttp
+Connection: Upgrade
+
+

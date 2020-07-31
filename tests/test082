@@ -1,0 +1,6 @@
+DESC="open upgrade socket"
+PREPARE="./utils/streamer -R /tmp -n reverse -u $USER -s 10 -t -D"
+CONFIG=test5.conf
+TESTREQUEST=test082_rq.txt
+TESTCODE=404
+TESTRESPONSE=error404_rs.txt
