@@ -29,6 +29,9 @@
 #ifndef __MOD_WEBSOCKET_H__
 #define __MOD_WEBSOCKET_H__
 
+#define WEBSOCKET_REALTIME 0x01
+#define WEBSOCKET_TLS      0x02
+
 #ifdef __cplusplus
 extern "C"
 {
