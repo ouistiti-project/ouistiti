@@ -4,9 +4,8 @@
 #
 ################################################################################
 
-#OUISTITI_VERSION = 2.4
-#OUISTITI_SOURCE = v$(OUISTITI_VERSION).tar.gz
-#OUISTITI_SITE = https://github.com/ouistiti-project/ouistiti/archive
+#OUISTITI_VERSION = v2.4
+#OUISTITI_SITE = $(call github,ouistiti-project,ouistiti,$(OUISTITI_VERSION))
 OUISTITI_VERSION = HEAD
 OUISTITI_SITE = https://github.com/ouistiti-project/ouistiti.git
 OUISTITI_SITE_METHOD = git
