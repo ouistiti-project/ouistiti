@@ -1,6 +1,6 @@
 DESC="redirection on https"
 CONFIG=test16.conf
-TESTREQUEST=test4_rq.txt
+TESTREQUEST=test004_rq.txt
 TESTCODE=301
 TESTHEADERLEN=108
 TESTCONTENTLEN=40

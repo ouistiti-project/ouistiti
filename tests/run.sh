@@ -114,6 +114,7 @@ test () {
 	unset PREPARE
 	unset CURLPARAM
 	unset TESTREQUEST
+	unset TESTRESPONSE
 	unset TESTCODE
 	unset TESTHEADERLEN
 	unset TESTCONTENTLEN
@@ -123,13 +124,15 @@ test () {
 	unset PREPARE
 	unset PID
 	TESTRESPONSE=$(basename ${TEST})_rs.txt
+	if [ -e ${TESTDIR}$(basename ${TEST})_rq.txt ]; then
+		TESTREQUEST=$(basename ${TEST})_rq.txt
+	fi
 	. $TEST
 
 	echo
 	echo "******************************"
 	echo $TEST
 	echo $DESC
-
 
 	if [ -n "$FILEDATA" ]; then
 		cp ${TESTDIR}htdocs/${FILE}.in ${TESTDIR}htdocs/${FILE}

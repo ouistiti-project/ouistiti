@@ -1,5 +1,4 @@
 DESC="test Range Request with the wildcard"
 CONFIG=test1.conf
-TESTREQUEST=test28_rq.txt
 TESTCODE=206
 TESTCONTENTLEN=20

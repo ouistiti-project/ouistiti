@@ -1,4 +1,4 @@
 DESC="test a request with a bad Basic authentication (simple credential storage)"
 CONFIG=test2.conf
-TESTREQUEST=test11_rq.txt
 TESTCODE=401
+TESTRESPONSE=error401Basic_rs.txt

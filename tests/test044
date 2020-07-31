@@ -1,5 +1,4 @@
 DESC="test to access to user s $HOME directory"
 CONFIG=test11.conf
-TESTREQUEST=test44_rq.txt
 TESTCODE=200
 TESTCONTENTLEN=63

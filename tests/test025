@@ -5,6 +5,6 @@ CONFIG=test6.conf
 PREPARE="./utils/websocket_echo -R /tmp -u $USER -t -D -n echo"
 #CLEAN="killall -9 websocket_echo"
 TESTOPTION="-w"
-TESTREQUEST=test24_rq.txt
+TESTREQUEST=test024_rq.txt
 TESTRESPONSE=test024_rs.txt
 TESTCODE=101

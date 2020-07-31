@@ -1,5 +1,4 @@
 PREPARE="rm -rf ${TESTDIR}/htdocs/newdir"
 DESC="test a PUT request with good authentication"
 CONFIG=test4.conf
-TESTREQUEST=test19_rq.txt
 TESTCODE=200

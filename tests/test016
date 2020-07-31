@@ -1,5 +1,4 @@
 DESC="test a request with bad Digest authentication"
 CONFIG=test4.conf
-TESTREQUEST=test16_rq.txt
-TESTRESPONSE=test015_rs.txt
+TESTRESPONSE=error401Digest_rs.txt
 TESTCODE=401
