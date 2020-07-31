@@ -4,5 +4,4 @@ CONFIG=test5.conf
 PREPARE="./utils/websocket_echo -R /tmp -u $USER -t -D -n echo"
 #CLEAN="killall -9 websocket_echo"
 TESTOPTION="-w"
-TESTREQUEST=test24_rq.txt
 TESTCODE=101

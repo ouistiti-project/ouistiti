@@ -1,6 +1,5 @@
 DESC="redirection on error page"
 CONFIG=test15.conf
-TESTREQUEST=test69_rq.txt
 TESTCODE=302
 TESTHEADERLEN=108
 TESTCONTENTLEN=40
