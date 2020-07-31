@@ -34,8 +34,8 @@ extern "C"
 {
 #endif
 
-#define WEBSOCKET_REALTIME 0x01
-#define WEBSOCKET_TLS 0x02
+#define WEBSTREAM_REALTIME 0x01
+#define WEBSTREAM_TLS      0x02
 
 typedef struct mod_webstream_s mod_webstream_t;
 struct mod_webstream_s
