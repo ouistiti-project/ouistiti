@@ -1,5 +1,4 @@
 DESC="test to POST to create symlink of a file"
 PREPARE="rm ${TESTDIR}/htdocs/empty.link"
 CONFIG=test10.conf
-TESTREQUEST=test63_rq.txt
 TESTCODE=200

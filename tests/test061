@@ -1,5 +1,4 @@
 DESC="test to POST to rename file"
 PREPARE="touch ${TESTDIR}/htdocs/test41.txt"
 CONFIG=test10.conf
-TESTREQUEST=test61_rq.txt
 TESTCODE=200

@@ -1,5 +1,4 @@
 DESC="test a DELETE request with good authentication"
 PREPARE="mkdir ${TESTDIR}/htdocs/newdir"
 CONFIG=test4.conf
-TESTREQUEST=test60_rq.txt
 TESTCODE=200

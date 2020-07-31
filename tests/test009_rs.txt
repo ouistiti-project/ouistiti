@@ -1,6 +1,0 @@
-HTTP/1.1 404 File Not Found
-Content-Type: text/plain
-Content-Length: 21
-
- 404 File Not Found
-

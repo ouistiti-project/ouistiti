@@ -1,6 +1,6 @@
 LD_LIBRARY_PATH=libhttpserver/src ./host/utils/ouipasswd -u foo -p bar -R "ouistiti" -A SHA-256 > ./tests/conf/passwd
 DESC="test a request with a good Basic authentication"
 CONFIG=test8.conf
-TESTREQUEST=test12_rq.txt
+TESTREQUEST=test012_rq.txt
 TESTRESPONSE=test004_rs.txt
 TESTCODE=200
