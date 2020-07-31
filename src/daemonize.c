@@ -46,7 +46,7 @@ static void _setpidfile(const char *pidfile)
 {
 	if (pidfile[0] != '\0')
 	{
-		int _pidfd = open(pidfile,O_WRONLY|O_CREAT|O_TRUNC,0644);
+		_pidfd = open(pidfile,O_WRONLY|O_CREAT|O_TRUNC,0644);
 		if (_pidfd > 0)
 		{
 			char buffer[12];
@@ -73,7 +73,7 @@ static void _setpidfile(const char *pidfile)
 			fsync(_pidfd);
 			/**
 			 * the file must be open while the process is running
-			close(pidfd);
+			close pidfd ;
 			 */
 		}
 		else
@@ -87,16 +87,18 @@ static void _setpidfile(const char *pidfile)
 
 int daemonize(const char *pidfile)
 {
-	pid_t pid = getpid();
+	pid_t pid;
 	if ( getppid() == 1 )
 	{
 		return -1;
 	}
 	if ((pid = fork()) > 0)
 	{
+		dbg("start daemon on pid %d", pid);
 		return -1;
 	}
 	int sid = setsid();
+	dbg("start daemon sid %d", sid);
 
 	if (pidfile != NULL)
 	{
@@ -109,12 +111,11 @@ void killdaemon(const char *pidfile)
 {
 	if (_pidfd > 0)
 	{
-		unlink(pidfile);
 		close(_pidfd);
 	}
 	else if (pidfile != NULL)
 	{
-		int _pidfd = open(pidfile,O_RDWR);
+		_pidfd = open(pidfile,O_RDWR);
 		if (_pidfd > 0)
 		{
 			struct flock fl;
@@ -131,7 +132,7 @@ void killdaemon(const char *pidfile)
 			kill(fl.l_pid, SIGTERM);
 			close(_pidfd);
 		}
-		if (!access(pidfile, W_OK))
-			unlink(pidfile);
 	}
+	if (pidfile && !access(pidfile, W_OK))
+		unlink(pidfile);
 }

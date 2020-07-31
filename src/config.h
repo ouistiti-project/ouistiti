@@ -43,6 +43,7 @@
 #include "mod_cors.h"
 #include "mod_websocket.h"
 #include "mod_tls.h"
+#include "mod_upgrade.h"
 #define WEBSOCKET_REALTIME 0x01
 
 typedef struct modulesconfig_s
@@ -55,6 +56,7 @@ typedef struct modulesconfig_s
 	mod_redirect_t *redirect;
 	mod_webstream_t *webstream;
 	mod_cors_t *cors;
+	mod_upgrade_t *upgrade;
 } modulesconfig_t;
 
 typedef struct serverconfig_s
@@ -178,7 +180,7 @@ ouistiticonfig_t g_ouistiticonfig =
 	},
 };
 #else
-ouistiticonfig_t *ouistiticonfig_create(char *filepath);
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
 #endif

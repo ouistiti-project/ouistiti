@@ -81,6 +81,8 @@ COOKIE=y
 CORS=y
 #support of mDNS
 TINYSVCMDNS=y
+#support of upgrade and reverse-http
+UPGRADE=y
 
 CERTIFICATE=n
 

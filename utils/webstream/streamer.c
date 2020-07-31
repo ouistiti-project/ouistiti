@@ -100,11 +100,18 @@ void *runstream(void *arg)
 		ret = send(stream->sock, buffer->data, buffer->size, MSG_NOSIGNAL);
 		if (ret < 0 && errno != EAGAIN)
 		{
-			dbg("send error %d %s", ret, strerror(errno));
+			err("send error %d %s", ret, strerror(errno));
 			run = 0;
 		}
+		else
+		{
+			dbg("send %d", ret);
+		}
 		if (stream->options & OPTION_TEST)
+		{
+			usleep(5000);
 			run--;
+		}
 	}
 	if (stream->options & OPTION_TEST)
 	{

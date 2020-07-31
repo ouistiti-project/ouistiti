@@ -99,6 +99,7 @@ static const char str_redirect[] = "redirect";
 static const char str_redirect404[] = "redirect404";
 static const char str_cors[] = "cors";
 static const char str_tinysvcmdns[] = "tinysvcmdns";
+static const char str_upgrade[] = "upgrade";
 
 const char *auth_info(http_message_t *request, const char *key)
 {
@@ -341,6 +342,10 @@ static int server_setmodules(server_t *server)
 		server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
 	if (server->config->modules.webstream)
 		server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
+	if (server->config->modules.upgrade)
+	{
+		server->modules[j].config = loadmodule(str_upgrade, server->server, server->config->modules.upgrade, &server->modules[j++].destroy);
+	}
 	if (server->config->modules.websocket)
 	{
 #ifdef WEBSOCKET_RT
@@ -402,9 +407,9 @@ static int main_run(server_t *first)
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
-	char *configfile = DEFAULT_CONFIGPATH;
+	const char *configfile = DEFAULT_CONFIGPATH;
 	ouistiticonfig_t *ouistiticonfig;
-	char *pidfile = NULL;
+	const char *pidfile = NULL;
 	int mode = 0;
 	int serverid = -1;
 
