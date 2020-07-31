@@ -1,6 +1,0 @@
-HTTP/1.1 400 Bad Request
-Content-Type: text/plain
-Content-Length: 18
-
- 400 Bad Request
-

@@ -1,4 +1,3 @@
 DESC="POST request to CGI with a small content"
 CONFIG=test3.conf
-TESTREQUEST=test20_rq.txt
 TESTCODE=200

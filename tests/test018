@@ -1,5 +1,4 @@
 DESC="test a PUT request with bad authentication"
 CONFIG=test4.conf
-TESTREQUEST=test18_rq.txt
-TESTRESPONSE=test015_rs.txt
+TESTRESPONSE=error401Digest_rs.txt
 TESTCODE=401
