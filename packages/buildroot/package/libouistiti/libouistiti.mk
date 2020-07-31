@@ -4,9 +4,8 @@
 #
 ################################################################################
 
-#LIBOUISTITI_VERSION = 2.4
-#LIBOUISTITI_SOURCE = v$(LIBOUISTITI_VERSION).tar.gz
-#LIBOUISTITI_SITE = https://github.com/ouistiti-project/libhttpserver/archive
+#LIBOUISTITI_VERSION = v2.4
+#LIBOUISTITI_SITE = $(call github,ouistiti-project,libhttpserver,$(LIBOUISTITI_VERSION))
 LIBOUISTITI_VERSION = HEAD
 LIBOUISTITI_SITE = https://github.com/ouistiti-project/libhttpserver.git
 LIBOUISTITI_SITE_METHOD = git
