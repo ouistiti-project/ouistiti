@@ -246,6 +246,13 @@ static void _mod_websocket_freectx(void *arg)
 
 void *mod_websocket_create(http_server_t *server, mod_websocket_t *config)
 {
+	int fdroot = open(config->docroot, O_DIRECTORY);
+	if (fdroot == -1)
+	{
+		err("websocket: docroot %s not found", config->docroot);
+		return NULL;
+	}
+
 	_mod_websocket_t *mod = calloc(1, sizeof(*mod));
 
 	mod_websocket_run_t run = config->run;
@@ -254,9 +261,8 @@ void *mod_websocket_create(http_server_t *server, mod_websocket_t *config)
 	mod->config = config;
 	mod->run = run;
 	mod->runarg = config;
-	mod->fdroot = open(config->docroot, O_DIRECTORY);
+	mod->fdroot = fdroot;
 	httpserver_addmod(server, _mod_websocket_getctx, _mod_websocket_freectx, mod, str_websocket);
-	warn("%s: support %s", str_websocket, mod->config->docroot);
 	return mod;
 }
 
@@ -521,10 +527,10 @@ int default_websocket_run(void *arg, int sock, const char *filepath, http_messag
 	if (wssock > 0)
 	{
 		_websocket_main_t info = {.client = sock, .server = wssock, .type = _wsdefaul_config.type};
-		http_client_t *ctl = httpmessage_client(request);
-		info.ctx = httpclient_context(ctl);
-		info.recvreq = httpclient_addreceiver(ctl, NULL, NULL);
-		info.sendresp = httpclient_addsender(ctl, NULL, NULL);
+		http_client_t *clt = httpmessage_client(request);
+		info.ctx = httpclient_context(clt);
+		info.recvreq = httpclient_addreceiver(clt, NULL, NULL);
+		info.sendresp = httpclient_addsender(clt, NULL, NULL);
 
 		websocket_init(&_wsdefaul_config);
 
