@@ -47,6 +47,7 @@
 #include "mod_auth.h"
 #include "mod_vhosts.h"
 #include "mod_cors.h"
+#include "mod_upgrade.h"
 
 #include "config.h"
 
@@ -716,6 +717,48 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 #define webstream_config(...) NULL
 #endif
 
+#ifdef UPGRADE
+static void upgrade_optionscb(void *arg, const char *option, int length)
+{
+	mod_upgrade_t *conf = (mod_upgrade_t *)arg;
+#ifdef WEBSOCKET_RT
+	if (!strncmp(option, "direct", length))
+	{
+		if (!(conf->options & WEBSOCKET_TLS))
+			conf->options |= WEBSOCKET_REALTIME;
+		else
+			warn("realtime configuration is not allowed with tls");
+	}
+#endif
+}
+
+static mod_upgrade_t *upgrade_config(config_setting_t *iterator, int tls)
+{
+	mod_upgrade_t *conf = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configws = config_setting_get_member(iterator, "upgrade");
+#else
+	config_setting_t *configws = config_setting_lookup(iterator, "upgrade");
+#endif
+	if (configws)
+	{
+		char *mode = NULL;
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
+		config_setting_lookup_string(configws, "upgrade", (const char **)&conf->upgrade);
+		config_setting_lookup_string(configws, "options", (const char **)&mode);
+		if (tls)
+			conf->options |= UPGRADE_TLS;
+		config_parseoptions(mode, &upgrade_optionscb, conf);
+	}
+	return conf;
+}
+#else
+#define upgrade_config(...) NULL
+#endif
+
 #ifdef REDIRECT
 static int redirect_mode(const char *option, int length)
 {
@@ -889,6 +932,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 		vhost->modules.websocket = websocket_config(iterator, tls);
 		vhost->modules.redirect = redirect_config(iterator,tls);
 		vhost->modules.cors = cors_config(iterator, tls);
+		vhost->modules.upgrade = upgrade_config(iterator, tls);
 	}
 	else
 	{
@@ -989,6 +1033,7 @@ static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 	config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
 	config->modules.cors = cors_config(iterator,(config->tls!=NULL));
 	config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
+	config->modules.upgrade = upgrade_config(iterator,(config->tls!=NULL));
 #ifdef VHOSTS
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
@@ -1010,7 +1055,7 @@ static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 }
 
 
-ouistiticonfig_t *ouistiticonfig_create(char *filepath)
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 {
 	int ret;
 

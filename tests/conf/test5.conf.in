@@ -14,4 +14,10 @@ servers= ({
 			deny = "*";
 			allow = "dummy";
 		};
+		upgrade = {
+			docroot = "/tmp";
+			deny = "*";
+			allow = "reverse";
+			upgrade = "rhttp";
+		};
 	});

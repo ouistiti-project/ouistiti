@@ -1,0 +1,6 @@
+GET /reversefoo HTTP/1.1
+Host: localhost
+Upgrade: PTTH/1.0
+Connection: Upgrade
+
+

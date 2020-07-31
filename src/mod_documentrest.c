@@ -169,6 +169,10 @@ static int putcontent_connector(document_connector_t *private, http_message_t *r
 				httpmessage_result(response, RESULT_400);
 #endif
 #endif
+#if defined RESULT_201
+			else
+				httpmessage_result(response, RESULT_201);
+#endif
 			close(private->fdfile);
 		}
 		private->fdfile = 0;

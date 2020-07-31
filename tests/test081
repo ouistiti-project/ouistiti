@@ -1,0 +1,5 @@
+DESC="open upgrade socket"
+PREPARE="./utils/streamer -R /tmp -n reverse -u $USER -s 10 -t -D"
+CONFIG=test5.conf
+TESTREQUEST=test081_rq.txt
+TESTCODE=101

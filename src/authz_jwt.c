@@ -101,7 +101,7 @@ char *authz_generatejwtoken(mod_auth_t *config, authsession_t *info)
 	auth_dbg("jwt: encode %s", ttoken);
 
 	int ret;
-	int length = (strlen(theader) * 1.5) + 1 + (strlen(ttoken) * 1.5) + 1;
+	int length = (int)(strlen(theader) * 1.5) + 1 + (int)(strlen(ttoken) * 1.5) + 1;
 
 	char *token = calloc(2, length + 1);
 	char *offset = token;
