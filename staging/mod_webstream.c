@@ -134,7 +134,7 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 			if (fchdir(ctx->mod->fdroot) == -1)
 				warn("webstream: impossible to change directory");
 			int wssock;
-			if (config->options & WEBSOCKET_REALTIME)
+			if (config->options & WEBSTREAM_REALTIME)
 			{
 				wssock = ouistiti_websocket_run(NULL, ctx->socket, uri, request);
 			}
@@ -158,7 +158,7 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 	}
 	else
 	{
-		if (!(config->options & WEBSOCKET_REALTIME))
+		if (!(config->options & WEBSTREAM_REALTIME))
 		{
 			ctx->pid = _webstream_run(ctx, request);
 		}
@@ -209,10 +209,17 @@ static void _mod_webstream_freectx(void *arg)
 
 void *mod_webstream_create(http_server_t *server, mod_webstream_t *config)
 {
+	int fdroot = open(config->docroot, O_DIRECTORY);
+	if (fdroot == -1)
+	{
+		err("webstream: docroot %s not found", config->docroot);
+		return NULL;
+	}
+
 	_mod_webstream_t *mod = calloc(1, sizeof(*mod));
 
 	mod->config = config;
-	mod->fdroot = open(config->docroot, O_DIRECTORY);
+	mod->fdroot = fdroot;
 	httpserver_addmod(server, _mod_webstream_getctx, _mod_webstream_freectx, mod, str_webstream);
 	return mod;
 }
