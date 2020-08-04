@@ -111,7 +111,7 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 	const char *sign = strrchr(string, '.');
 	if (sign != NULL)
 	{
-		int datalen = sign - data;
+		size_t datalen = sign - data;
 		sign++;
 		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{

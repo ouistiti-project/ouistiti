@@ -73,7 +73,7 @@ static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata
 
 	while (ext != NULL)
 	{
-		int length = strlen(ext);
+		size_t length = strlen(ext);
 		const char *ext_end = strchr(ext, ',');
 		if (ext_end)
 		{

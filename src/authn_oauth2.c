@@ -123,7 +123,7 @@ static authsession_t *_oauth2_checkidtoken(authn_oauth2_t *mod, json_t *json_idt
 	const char *sign = strrchr(id_token, '.');
 	if (sign != NULL)
 	{
-		int datalen = sign - data;
+		size_t datalen = sign - data;
 		sign++;
 		if (authn_checksignature(config->client_passwd, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{

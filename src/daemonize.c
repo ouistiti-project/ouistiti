@@ -67,7 +67,7 @@ static void _setpidfile(const char *pidfile)
 
 			pid = getpid();
 			length = snprintf(buffer, 12, "%.10d\n", pid);
-			int len = write(_pidfd, buffer, length);
+			ssize_t len = write(_pidfd, buffer, length);
 			if (len != length)
 				err("pid file error %s", strerror(errno));
 			fsync(_pidfd);
