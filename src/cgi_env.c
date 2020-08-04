@@ -429,7 +429,7 @@ char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, con
 	for (i = 0; i < nbenvs; i++)
 	{
 		int options = cgi_env[i].options;
-		int length = strlen(cgi_env[i].target) + cgi_env[i].length;
+		size_t length = strlen(cgi_env[i].target) + cgi_env[i].length;
 		env[i] = (char *)calloc(1, length + 1);
 		const char *value = NULL;
 		int valuelength = -1;
@@ -438,7 +438,7 @@ char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, con
 			case SCRIPT_NAME:
 				value = cgi_path;
 				if (path_info != NULL)
-					valuelength = strlen(path_info);
+					valuelength = (int)strlen(path_info);
 			break;
 			case SCRIPT_FILENAME:
 				value = cgi_path;
@@ -462,7 +462,7 @@ char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, con
 		if (value != NULL)
 		{
 			if (valuelength == -1)
-				valuelength = strlen(value);
+				valuelength = (int)strlen(value);
 			snprintf(env[j], length + 1, "%s%.*s", cgi_env[i].target, valuelength, value);
 			j++;
 		}

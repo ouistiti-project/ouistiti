@@ -58,9 +58,9 @@ struct authn_digest_s
 	int encode;
 };
 
-static char *utils_stringify(const unsigned char *data, int len)
+static char *utils_stringify(const unsigned char *data, size_t len)
 {
-	int i;
+	size_t i;
 	char *result = calloc(2, len + 1);
 	for (i = 0; i < len; i++)
 	{
@@ -96,7 +96,7 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 	return mod;
 }
 
-static int authn_digest_noncetime(void *arg, char *nonce, int noncelen)
+static int authn_digest_noncetime(void *arg, char *nonce, size_t noncelen)
 {
 	const authn_digest_t *mod = (authn_digest_t *)arg;
 	int expire = 30;
@@ -113,7 +113,7 @@ static int authn_digest_noncetime(void *arg, char *nonce, int noncelen)
 		{
 			hash_macsha256->update(ctx, (char*)&now, sizeof(now));
 			char signature[HASH_MAX_SIZE];
-			int signlen = HASH_MAX_SIZE;
+			size_t signlen = HASH_MAX_SIZE;
 			signlen = hash_macsha256->finish(ctx, signature);
 #if 0
 			if ((signlen * 1.5) > noncelen)
@@ -126,7 +126,7 @@ static int authn_digest_noncetime(void *arg, char *nonce, int noncelen)
 	return EREJECT;
 }
 
-static int authn_digest_nonce(void *arg, char *nonce, int noncelen)
+static int authn_digest_nonce(void *arg, char *nonce, size_t noncelen)
 {
 	int ret = EREJECT;
 	const authn_digest_t *mod = (authn_digest_t *)arg;
@@ -219,12 +219,12 @@ static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), ht
 
 struct authn_digest_computing_s
 {
-	char *(*digest)(const hash_t * hash, const char *a1, const char *nonce, int noncelen, const char *nc, int nclen, const char *cnonce, int cnoncelen, const char *qop, int qoplen, const char *a2);
-	char *(*a1)(const hash_t * hash, const char *user, int userlen, const char *realm, int realmlen, const char *passwd, int passwdlen);
-	char *(*a2)(const hash_t * hash, const char *method, int methodlen, const char *uri, int urilen, const char *entity, int entitylen);
+	char *(*digest)(const hash_t * hash, const char *a1, const char *nonce, size_t noncelen, const char *nc, size_t nclen, const char *cnonce, size_t cnoncelen, const char *qop, size_t qoplen, const char *a2);
+	char *(*a1)(const hash_t * hash, const char *user, size_t userlen, const char *realm, size_t realmlen, const char *passwd, size_t passwdlen);
+	char *(*a2)(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen);
 };
 
-static char *authn_digest_digest(const hash_t * hash, const char *a1, const char *nonce, int noncelen, const char *nc, int nclen, const char *cnonce, int cnoncelen, const char *qop, int qoplen, const char *a2)
+static char *authn_digest_digest(const hash_t * hash, const char *a1, const char *nonce, size_t noncelen, const char *nc, size_t nclen, const char *cnonce, size_t cnoncelen, const char *qop, size_t qoplen, const char *a2)
 {
 	if (a1 && a2)
 	{
@@ -258,7 +258,7 @@ static char *authn_digest_digest(const hash_t * hash, const char *a1, const char
 	return NULL;
 }
 
-static char *authn_digest_a1(const hash_t * hash, const char *user, int userlen, const char *realm, int realmlen, const char *passwd, int passwdlen)
+static char *authn_digest_a1(const hash_t * hash, const char *user, size_t userlen, const char *realm, size_t realmlen, const char *passwd, size_t passwdlen)
 {
 	if (passwd[0] != '$')
 	{
@@ -306,7 +306,7 @@ static char *authn_digest_a1(const hash_t * hash, const char *user, int userlen,
 	return NULL;
 }
 
-static char *authn_digest_a2(const hash_t * hash, const char *method, int methodlen, const char *uri, int urilen, const char *entity, int entitylen)
+static char *authn_digest_a2(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen)
 {
 	char A2[32];
 	void *ctx;
@@ -337,17 +337,17 @@ struct checkuri_s
 	authn_digest_t *mod;
 	const char *url;
 	const char *value;
-	int length;
+	size_t length;
 };
 typedef struct checkuri_s checkuri_t;
 
-static int authn_digest_checkuri(void *data, const char *uri, int urilen)
+static int authn_digest_checkuri(void *data, const char *uri, size_t urilen)
 {
 	checkuri_t *info = (checkuri_t *)data;
 
 	if (uri != NULL)
 	{
-		int urichecklen = 0;
+		size_t urichecklen = 0;
 		const char *query = strchr(uri, '?');
 		if (query != NULL)
 			urichecklen = query - uri;
@@ -373,7 +373,7 @@ struct chekcalgorithm_s
 };
 typedef struct chekcalgorithm_s chekcalgorithm_t;
 
-static int authn_digest_checkalgorithm(void *data, const char *algorithm, int algorithmlen)
+static int authn_digest_checkalgorithm(void *data, const char *algorithm, size_t algorithmlen)
 {
 	chekcalgorithm_t *info = (chekcalgorithm_t *)data;
 	const authn_digest_t *mod = info->mod;
@@ -404,10 +404,10 @@ struct checkstring_s
 {
 	authn_digest_t *mod;
 	const char *value;
-	int length;
+	size_t length;
 };
 typedef struct checkstring_s checkstring_t;
-static int authn_digest_checkrealm(void *data, const char *value, int length)
+static int authn_digest_checkrealm(void *data, const char *value, size_t length)
 {
 	checkstring_t *info = (checkstring_t *)data;
 	const authn_digest_t *mod = info->mod;
@@ -423,7 +423,7 @@ static int authn_digest_checkrealm(void *data, const char *value, int length)
 	return EREJECT;
 }
 
-static int authn_digest_checknonce(void *data, const char *value, int length)
+static int authn_digest_checknonce(void *data, const char *value, size_t length)
 {
 	checkstring_t *info = (checkstring_t *)data;
 	authn_digest_t *mod = info->mod;
@@ -441,7 +441,7 @@ static int authn_digest_checknonce(void *data, const char *value, int length)
 	return EREJECT;
 }
 
-static int authn_digest_checkopaque(void *data, const char *value, int length)
+static int authn_digest_checkopaque(void *data, const char *value, size_t length)
 {
 	checkstring_t *info = (checkstring_t *)data;
 	const authn_digest_t *mod = info->mod;
@@ -459,7 +459,7 @@ static int authn_digest_checkopaque(void *data, const char *value, int length)
 	return ECONTINUE;
 }
 
-static int authn_digest_checkcnonce(void *data, const char *value, int length)
+static int authn_digest_checkcnonce(void *data, const char *value, size_t length)
 {
 	checkstring_t *info = (checkstring_t *)data;
 
@@ -474,7 +474,7 @@ static int authn_digest_checkcnonce(void *data, const char *value, int length)
 	return ESUCCESS;
 }
 
-static int authn_digest_checkqop(void *data, const char *value, int length)
+static int authn_digest_checkqop(void *data, const char *value, size_t length)
 {
 	checkstring_t *info = (checkstring_t *)data;
 
@@ -489,7 +489,7 @@ static int authn_digest_checkqop(void *data, const char *value, int length)
 	return EREJECT;
 }
 
-static int authn_digest_checknc(void *data, const char *value, int length)
+static int authn_digest_checknc(void *data, const char *value, size_t length)
 {
 	checkstring_t *info = (checkstring_t *)data;
 	authn_digest_t *mod = info->mod;
@@ -511,7 +511,7 @@ static int authn_digest_checknc(void *data, const char *value, int length)
 	return ESUCCESS;
 }
 
-static int authn_digest_checkresponse(void *data, const char *value, int length)
+static int authn_digest_checkresponse(void *data, const char *value, size_t length)
 {
 	checkstring_t *info = (checkstring_t *)data;
 
@@ -530,11 +530,11 @@ struct checkuser_s
 {
 	authn_digest_t *mod;
 	const char *value;
-	int length;
+	size_t length;
 	const char *passwd;
 };
 typedef struct checkuser_s checkuser_t;
-static int authn_digest_checkuser(void *data, const char *value, int length)
+static int authn_digest_checkuser(void *data, const char *value, size_t length)
 {
 	checkuser_t *info = (checkuser_t *)data;
 	const authn_digest_t *mod = info->mod;
