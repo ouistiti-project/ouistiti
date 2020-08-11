@@ -12,6 +12,12 @@ servers= ({
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "trust/signin.html";
 		};
+		userfilter = {
+			dbname = "%PWD%/tests/conf/filter.db";
+			allow = "trust/*,^index.html";
+			superuser = "root";
+			configuri = "^filter/config$";
+		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";

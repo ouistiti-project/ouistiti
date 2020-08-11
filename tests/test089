@@ -1,0 +1,3 @@
+DESC="get user file after filtering without rights"
+CONFIG=test12.conf
+TESTCODE=403
