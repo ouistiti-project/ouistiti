@@ -200,7 +200,7 @@ typedef struct mod_s
 	void (*destroy)(void*);
 } mod_t;
 
-#define MAX_MODULES 12
+#define MAX_MODULES 14
 typedef struct server_s
 {
 	serverconfig_t *config;
@@ -344,38 +344,51 @@ static server_t *main_set(ouistiticonfig_t *config, int serverid)
 static int server_setmodules(server_t *server)
 {
 	int j = 0;
-	server->modules[j].config = loadmodule(str_tinysvcmdns, server->server, NULL, &server->modules[j++].destroy);
+	server->modules[j].config = loadmodule(str_tinysvcmdns, server->server, NULL, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	/**
 	 * TLS must be first to free the connection after all others modules
 	 */
 	if (server->config->tls)
-		server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	/**
 	 * clientfilter must be at the beginning to stop the connection if necessary
 	 */
 	if (server->config->modules.clientfilter)
-		server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 
 	int i;
 	for (i = 0; i < (MAX_SERVERS - 1); i++)
 	{
 		if (server->config->vhosts[i])
-			server->modules[j].config = loadmodule(str_vhosts, server->server, server->config->vhosts[i], &server->modules[j++].destroy);
+			server->modules[j].config = loadmodule(str_vhosts, server->server, server->config->vhosts[i], &server->modules[j].destroy);
+		if (server->modules[j].config) j++;
 	}
-	server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j++].destroy);
+	server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	if (server->config->modules.cors)
-		server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	if (server->config->modules.auth)
-		server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
-	server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
+	server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	if (server->config->modules.redirect)
-		server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
-	server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j++].destroy);
-	server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
+	server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
+	server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	if (server->config->modules.cgi)
-		server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	if (server->config->modules.webstream)
-		server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	if (server->config->modules.websocket)
 	{
 #ifdef WEBSOCKET_RT
@@ -385,10 +398,12 @@ static int server_setmodules(server_t *server)
 			warn("server %p runs realtime websocket!", server->server);
 		}
 #endif
-		server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j].destroy);
+		if (server->modules[j].config) j++;
 	}
 	if (server->config->modules.document)
-		server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j++].destroy);
+		server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j].destroy);
+	if (server->modules[j].config) j++;
 	server->modules[j].config = NULL;
 	return 0;
 }
@@ -410,8 +425,6 @@ static int main_run(server_t *first)
 		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
 			break;
 	}
-
-	kill(0, SIGPIPE);
 
 	server = first;
 	while (server != NULL)

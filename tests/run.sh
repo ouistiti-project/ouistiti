@@ -199,6 +199,8 @@ do
 	if [ $CONTINUE -eq 0 ]; then
 		PID=$(cat ${TESTDIR}run.pid)
 		rm ${TESTDIR}run.pid
+		killall $(echo $TARGET | ${AWK} '{print $1}')
+		sleep 1
 		killall -9 $(echo $TARGET | ${AWK} '{print $1}')
 		sleep 1
 		#kill -9 $PID 2> /dev/null
