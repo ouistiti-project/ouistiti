@@ -89,6 +89,7 @@ static const char str_vhosts[] = "vhosts";
 static const char str_clientfilter[] = "clientfilter";
 static const char str_cookie[] = "cookie";
 static const char str_auth[] = "auth";
+static const char str_userfilter[] = "userfilter";
 static const char str_methodlock[] = "methodlock";
 static const char str_serverheader[] = "server";
 static const char str_cgi[] = "cgi";
@@ -163,6 +164,9 @@ static const module_t *modules[] =
 #endif
 #if defined AUTH
 	&mod_auth,
+#endif
+#if defined USERFILTER
+	&mod_userfilter,
 #endif
 #if defined METHODLOCK
 	&mod_methodlock,
@@ -333,6 +337,8 @@ static int server_setmodules(server_t *server)
 		server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j++].destroy);
 	if (server->config->modules.auth)
 		server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j++].destroy);
+	if (server->config->modules.userfilter)
+		server->modules[j].config = loadmodule(str_userfilter, server->server, server->config->modules.userfilter, &server->modules[j++].destroy);
 	server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j++].destroy);
 	if (server->config->modules.redirect)
 		server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j++].destroy);
