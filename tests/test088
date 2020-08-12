@@ -1,3 +1,4 @@
 DESC="get user file after filtering with rights"
 CONFIG=test12.conf
+TESTRESPONSE=error404_rs.txt
 TESTCODE=404

@@ -14,7 +14,7 @@ servers= ({
 		};
 		userfilter = {
 			dbname = "%PWD%/tests/conf/filter.db";
-			allow = "trust/*,^index.html";
+			allow = "^token$,^trust/,^index.html$";
 			superuser = "root";
 			configuri = "^filter/config$";
 		};
