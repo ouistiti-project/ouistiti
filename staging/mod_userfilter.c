@@ -189,6 +189,10 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 	ret = sqlite3_bind_int(statement, index, groupid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
+	userfilter_dbg("select exp from rules \
+			where methodid=%d and \
+			(roleid=%d or roleid=%d or roleid=2);",
+			methodid, userid, groupid);
 	ret = EREJECT;
 	int step = sqlite3_step(statement);
 	while (step == SQLITE_ROW)
@@ -198,6 +202,7 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 		{
 			const char *value = NULL;
 			value = sqlite3_column_text(statement, i);
+			userfilter_dbg("=> %s", value);
 			if (!ctx->cmp(ctx, value, user, group, home, uri))
 			{
 				ret = ESUCCESS;
@@ -277,6 +282,8 @@ static int _insert_rules(_mod_userfilter_t *ctx, int methodid, int roleid, const
 	ret = sqlite3_bind_text(statement, index, exp, -1, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
+	userfilter_dbg("insert into rules (exp,methodid,roleid) values(%s,%d,%d);",
+		exp, methodid, roleid);
 	int step = sqlite3_step(statement);
 	if (step == SQLITE_DONE)
 	{
@@ -323,7 +330,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 		 */
 		ret = EREJECT;
 	}
-	if (_request(ctx, method, user,
+	else if (_request(ctx, method, user,
 				auth_info(request, "group"),
 				auth_info(request, "home"),
 				uri) == 0)
