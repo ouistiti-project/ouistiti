@@ -339,7 +339,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	}
 	else
 	{
-		warn("userfilter: role %s forbidden", user);
+		warn("userfilter: role %s forbidden for %s", user, uri);
 		if (user == str_annonymous)
 			httpmessage_result(response, RESULT_401);
 		else

@@ -207,7 +207,6 @@ static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int t
 static mod_userfilter_t *userfilter_config(config_setting_t *iterator, int tls)
 {
 	mod_userfilter_t *modconfig = NULL;
-	warn("%s", __FUNCTION__);
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *config = config_setting_get_member(iterator, "userfilter");
 #else

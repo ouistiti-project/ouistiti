@@ -86,10 +86,6 @@ static int _checkname(_mod_webstream_ctx_t *ctx, const char *pathname)
 {
 	_mod_webstream_t *mod = ctx->mod;
 	mod_webstream_t *config = (mod_webstream_t *)mod->config;
-	if (pathname[0] == '.')
-	{
-		return  EREJECT;
-	}
 	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
 		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
 	{
