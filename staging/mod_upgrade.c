@@ -84,10 +84,6 @@ const char str_rhttp[] = "PTTH/1.0";
 
 static int _checkname(mod_upgrade_t *config, const char *pathname)
 {
-	if (pathname[0] == '.')
-	{
-		return  EREJECT;
-	}
 	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
 		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
 	{
