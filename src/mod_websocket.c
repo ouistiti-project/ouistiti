@@ -107,10 +107,6 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *ctx, http_message_t *
 
 static int _checkname(mod_websocket_t *config, const char *pathname)
 {
-	if (pathname[0] == '.')
-	{
-		return  EREJECT;
-	}
 	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
 		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
 	{

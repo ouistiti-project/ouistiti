@@ -1,4 +1,4 @@
 DESC="test a request on file with path backard out of the root documents"
 CONFIG=test1.conf
-TESTRESPONSE=error404_rs.txt
-TESTCODE=404
+TESTRESPONSE=index_rs.txt
+TESTCODE=200

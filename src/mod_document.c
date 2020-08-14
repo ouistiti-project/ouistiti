@@ -84,10 +84,6 @@ static int document_checkname(const _mod_document_mod_t *mod, const char *uri)
 {
 	const mod_document_t *config = mod->config;
 
-	if (uri[0] == '.' && uri[1] != '/')
-	{
-		return  EREJECT;
-	}
 	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
 		return  EREJECT;

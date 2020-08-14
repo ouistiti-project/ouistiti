@@ -211,10 +211,6 @@ static int _cgi_checkname(const char *uri, const mod_cgi_config_t *config, const
 {
 	if (uri[0] == '/')
 		uri++;
-	if (uri[0] == '.' && uri[1] != '/')
-	{
-		return  EREJECT;
-	}
 	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
 		return  EREJECT;
