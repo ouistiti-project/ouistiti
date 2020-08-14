@@ -323,7 +323,8 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	if (user == NULL)
 		user = str_annonymous;
 
-	if (utils_searchexp(uri, config->allow, NULL) == ESUCCESS)
+	if ((utils_searchexp(uri, config->allow, NULL) == ESUCCESS) &&
+		(utils_searchexp(uri, config->configuri, NULL) != ESUCCESS))
 	{
 		/**
 		 * this path is always allowed

@@ -75,6 +75,12 @@ It is useless to manage the authentication by your-self.
 
    The server may start with a __blacklist__ and a __whitelist__ of IP address.
 
+## Users filtering
+
+   The server stores a database with rules about the user's "role", the request method and
+   an expression on the URI. Each request is checked after authentication and before
+   accessing to the ressource.
+
 ## Mono threading or multi threading:
 
    *Ouistiti* may be build to manage client connections with only one process, to
