@@ -48,6 +48,7 @@
 #include "mod_vhosts.h"
 #include "mod_cors.h"
 #include "mod_upgrade.h"
+#include "mod_userfilter.h"
 
 #include "config.h"
 
@@ -60,6 +61,7 @@
 #endif
 
 char str_hostname[HOST_NAME_MAX + 7];
+char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
 static config_t configfile;
 static char *logfile = NULL;
@@ -73,7 +75,7 @@ static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata
 
 	while (ext != NULL)
 	{
-		int length = strlen(ext);
+		size_t length = strlen(ext);
 		const char *ext_end = strchr(ext, ',');
 		if (ext_end)
 		{
@@ -199,6 +201,31 @@ static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int t
 }
 #else
 #define clientfilter_config(...) NULL
+#endif
+
+#ifdef USERFILTER
+static mod_userfilter_t *userfilter_config(config_setting_t *iterator, int tls)
+{
+	mod_userfilter_t *modconfig = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "userfilter");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "userfilter");
+#endif
+	if (config)
+	{
+		modconfig = calloc(1, sizeof(*modconfig));
+		config_setting_lookup_string(config, "superuser", &modconfig->superuser);
+		config_setting_lookup_string(config, "allow", &modconfig->allow);
+		config_setting_lookup_string(config, "configuri", &modconfig->configuri);
+		config_setting_lookup_string(config, "dbname", &modconfig->dbname);
+		if (modconfig->dbname == NULL || modconfig->dbname[0] == '\0')
+			modconfig->dbname = str_userfilterpath;
+	}
+	return modconfig;
+}
+#else
+#define userfilter_config(...) NULL
 #endif
 
 #ifdef AUTH
@@ -1028,6 +1055,7 @@ static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 	}
 	config->modules.auth = auth_config(iterator,(config->tls!=NULL));
 	config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
+	config->modules.userfilter = userfilter_config(iterator,(config->tls!=NULL));
 	config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
 	config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
 	config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));

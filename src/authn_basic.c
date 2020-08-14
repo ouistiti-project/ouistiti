@@ -54,7 +54,7 @@ static void *authn_basic_create(const authn_t *authn, authz_t *authz, void *arg)
 	mod->config = (authn_basic_config_t *)arg;
 	if (mod->config->realm == NULL)
 		mod->config->realm = httpserver_INFO(authn->server, "host");
-	int length = sizeof(FORMAT) - 2
+	size_t length = sizeof(FORMAT) - 2
 					+ strlen(mod->config->realm) + 1;
 	mod->challenge = calloc(1, length);
 	if (mod->challenge)

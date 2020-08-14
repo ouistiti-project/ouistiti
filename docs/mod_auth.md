@@ -63,7 +63,7 @@ the authentication method:
  * "None" : this is not a real login and just set the process owner after client connection.
  * "Basic" : this is described into [RFC 7617](https://tools.ietf.org/html/rfc7617).
  * "Digest" : this is described into [RFC 7616](https://tools.ietf.org/html/rfc7616).
- * "Bearer" : this is described into [RFC 6750](https://tools.ietf.org/html/rfc6750).
+ * "[Bearer](auth_bearer.md)" : this is described into [RFC 6750](https://tools.ietf.org/html/rfc6750).
  * "oAuth2" : this is described into [RFC 6749](https://tools.ietf.org/html/rfc6749).
 
 Example:

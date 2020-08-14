@@ -6,7 +6,7 @@
 To use correctly the *Bearer* authentication the JWT support must be enabled during the *Ouistiti*'s build.
 
 ```bash
-$ make AUTH=y AUTHN_BEARER=y AUTHZ_JWT=y
+$ make AUTH=y AUTHN_BEARER=y AUTHZ_JWT=y REDIRECT=y
 ```
 
 ## "Bearer" authentication:
@@ -22,7 +22,7 @@ server = ({
 		auth = {
 			realm = "ouistiti";
 			type = "Bearer";
-      options = "token";
+			options = "token";
 		};
 		tls = {
 			...
@@ -102,7 +102,7 @@ server = ({
 		version="HTTP11";
 		redirect = {
 			links =  ({
-				origin = "^redirect*";
+				origin = "^token$";
 				options = "temporary";
 			});
 		};

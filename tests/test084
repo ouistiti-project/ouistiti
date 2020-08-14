@@ -1,0 +1,4 @@
+DESC="Add userfilter without rights"
+CONFIG=test12.conf
+TESTRESPONSE=error403_rs.txt
+TESTCODE=403

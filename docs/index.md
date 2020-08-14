@@ -71,9 +71,32 @@ It is useless to manage the authentication by your-self.
 
    **CGI scripts** may be call from the client.
 
+## Redirect
+
+	Some URI must be redirected on another URI. This module does that with only
+	configuration file.
+
 ## Connection filtering:
 
    The server may start with a __blacklist__ and a __whitelist__ of IP address.
+
+## Users filtering
+
+   The server stores a database with [rules](mod_userfilter.md) about the user's "role",
+   the request method and an expression on the URI. Each request is checked after
+   authentication and before accessing to the ressource.
+
+## Upgrade
+
+	*Ouistiti* is able to upgrade a connection and transfer data between
+	the opened socket and a UNIX socket server.
+
+	The UNIX server may send and receive any kind of data on the socket.
+	It allows to reuse an unsecure server and uses the HTTP features like
+	authentication and TLS connection.
+
+	This module is close to the websocket module, but it may usefull to use some
+	protocol over HTTP.
 
 ## Mono threading or multi threading:
 

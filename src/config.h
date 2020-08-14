@@ -37,6 +37,7 @@
 #include "mod_cgi.h"
 #include "mod_auth.h"
 #include "mod_clientfilter.h"
+#include "mod_userfilter.h"
 #include "mod_redirect404.h"
 #include "mod_redirect.h"
 #include "mod_webstream.h"
@@ -57,6 +58,7 @@ typedef struct modulesconfig_s
 	mod_webstream_t *webstream;
 	mod_cors_t *cors;
 	mod_upgrade_t *upgrade;
+	mod_userfilter_t *userfilter;
 } modulesconfig_t;
 
 typedef struct serverconfig_s

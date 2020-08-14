@@ -1,0 +1,3 @@
+DESC="get file after filtering with rights"
+CONFIG=test12.conf
+TESTCODE=200
