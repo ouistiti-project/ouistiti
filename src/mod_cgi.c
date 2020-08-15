@@ -189,7 +189,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 
 		close(sock);
 
-		setbuf(stdout, 0);
+		setlinebuf(stdout);
 		sched_yield();
 		/**
 		 * cgipath is absolute, but in fact execveat runs in docroot.
