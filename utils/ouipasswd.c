@@ -183,7 +183,7 @@ int main(int argc, char * const *argv)
 		}
 	} while(opt != -1);
 #endif
-	setbuf(stdout, NULL);
+	setlinebuf(stdout);
 	if (user != NULL)
 	{
 		if (passwd == NULL)
