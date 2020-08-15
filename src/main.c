@@ -435,8 +435,8 @@ int main(int argc, char * const *argv)
 	int mode = 0;
 	int serverid = -1;
 
-	setbuf(stdout, NULL);
-	setbuf(stderr, NULL);
+	setlinebuf(stdout);
+	setlinebuf(stderr);
 
 	httpserver_software = servername;
 
