@@ -67,7 +67,7 @@ static config_t configfile;
 static char *logfile = NULL;
 static int logfd = 0;
 
-typedef void (*_parsercb_t)(void *arg, const char *option, int length);
+typedef void (*_parsercb_t)(void *arg, const char *option, size_t length);
 
 static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata)
 {
@@ -89,7 +89,7 @@ static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata
 }
 
 #ifdef DOCUMENT
-static void document_optioncb(void *arg, const char *option, int length)
+static void document_optioncb(void *arg, const char *option, size_t length)
 {
 	mod_document_t *static_file = (mod_document_t *)arg;
 
@@ -526,7 +526,7 @@ struct _authz_s *authz_list[] =
 	NULL
 };
 
-static void authz_optionscb(void *arg, const char *option, int length)
+static void authz_optionscb(void *arg, const char *option, size_t length)
 {
 	mod_auth_t *auth = (mod_auth_t *)arg;
 
@@ -662,7 +662,7 @@ static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
 #endif
 
 #ifdef WEBSOCKET
-static void websocket_optionscb(void *arg, const char *option, int length)
+static void websocket_optionscb(void *arg, const char *option, size_t length)
 {
 	mod_websocket_t *conf = (mod_websocket_t *)arg;
 #ifdef WEBSOCKET_RT
@@ -703,7 +703,7 @@ static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
 #endif
 
 #ifdef WEBSTREAM
-static void webstream_optionscb(void *arg, const char *option, int length)
+static void webstream_optionscb(void *arg, const char *option, size_t length)
 {
 	mod_webstream_t *conf = (mod_webstream_t *)arg;
 #ifdef WEBSOCKET_RT
@@ -745,7 +745,7 @@ static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
 #endif
 
 #ifdef UPGRADE
-static void upgrade_optionscb(void *arg, const char *option, int length)
+static void upgrade_optionscb(void *arg, const char *option, size_t length)
 {
 	mod_upgrade_t *conf = (mod_upgrade_t *)arg;
 #ifdef WEBSOCKET_RT
@@ -787,7 +787,7 @@ static mod_upgrade_t *upgrade_config(config_setting_t *iterator, int tls)
 #endif
 
 #ifdef REDIRECT
-static int redirect_mode(const char *option, int length)
+static int redirect_mode(const char *option, size_t length)
 {
 	int options = 0;
 	if (!strncmp(option, "generate_204", length))
@@ -813,13 +813,13 @@ static int redirect_mode(const char *option, int length)
 	return options;
 }
 
-static void redirect_optionscb(void *arg, const char *option, int length)
+static void redirect_optionscb(void *arg, const char *option, size_t length)
 {
 	mod_redirect_t *conf = (mod_redirect_t *)arg;
 	conf->options = redirect_mode(option, length);
 }
 
-static void redirect_linkoptionscb(void *arg, const char *option, int length)
+static void redirect_linkoptionscb(void *arg, const char *option, size_t length)
 {
 	mod_redirect_link_t *link = (mod_redirect_link_t *)arg;
 	link->options = redirect_mode(option, length);
