@@ -549,11 +549,11 @@ int authn_checksignature(const char *key,
 		{
 			hash_macsha256->update(ctx, data, datalen);
 			char signature[HASH_MAX_SIZE];
-			int len = hash_macsha256->finish(ctx, signature);
+			size_t len = hash_macsha256->finish(ctx, signature);
 			if (signlen < len)
 			{
 				err("auth: signature buffer too small");
-				len = signlen / 1.5;
+				len = signlen / 3 * 2;
 			}
 			char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 			base64_urlencoding->encode(signature, len, b64signature, sizeof(b64signature));
@@ -735,7 +735,6 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 	const char *uri = httpmessage_REQUEST(request, "uri");
-
 
 	ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 	if (ret == ECONTINUE)
