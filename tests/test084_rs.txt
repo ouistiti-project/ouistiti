@@ -1,0 +1,17 @@
+HTTP/1.1 403 Forbidden
+Server: ouistiti/2.5
+X-Frame-Options: DENY
+Cache-Control: no-cache,no-store,max-age=0,must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Content-Type-Options: nosniff
+Referrer-Policy: origin-when-cross-origin
+Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogImZvbyIsICJyb2xlcyI6ICJ1c2VycyIsICJleHAiOiAxODAwfQ.9y7krxxJ_n1Mmq8yhSfwkKw5Mx1Ycwht0nWjLBjJB90; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-User=foo; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-Group=users; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-Home=~/; Path=/; Domain=.ouistiti.net
+Content-Type: text/plain
+Content-Length: 16
+
+ 403 Forbidden
+
