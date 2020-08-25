@@ -1,5 +1,5 @@
 DESC="Add userfilter"
 #TESTREQUEST=test085b_rq.txt
-TESTREQUEST=test085t_rq.txt
+TESTREQUEST=test085_rq.txt
 CONFIG=test12.conf
 TESTCODE=204
