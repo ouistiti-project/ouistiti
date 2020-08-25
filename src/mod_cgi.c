@@ -209,8 +209,6 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 
 static int _cgi_checkname(const char *uri, const mod_cgi_config_t *config, const char **path_info)
 {
-	if (uri[0] == '/')
-		uri++;
 	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
 		return  EREJECT;
@@ -226,24 +224,34 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 {
 	const mod_cgi_config_t *config = mod->config;
 	int ret = EREJECT;
-	const char *url = httpmessage_REQUEST(request,"uri");
-	if (url && config->docroot)
+	const char *uri = httpmessage_REQUEST(request,"uri");
+	if (uri && config->docroot)
 	{
 		const char *path_info = NULL;
-		if (_cgi_checkname(url, config, &path_info) != ESUCCESS)
+		if (_cgi_checkname(uri, config, &path_info) != ESUCCESS)
 		{
-			dbg("cgi: %s forbidden extension", url);
+			dbg("cgi: %s forbidden extension", uri);
 			return EREJECT;
 		}
 
+		while (*uri == '/' && *uri != '\0') uri++;
+		/**
+		 * split the URI between the CGI script path and the
+		 * path_info for the CGI.
+		 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
+		 */
 		char cgipath[256];
 		int length = 256;
-		if (path_info != NULL && (path_info - url) < length)
+		if (path_info != NULL && (path_info - uri) < length)
 		{
-			length = path_info - url;
+			length = path_info - uri;
 		}
-		strncpy(cgipath, url + 1, length);
-		cgipath[length - 1] = '\0';
+		strncpy(cgipath, uri, length);
+		cgipath[length] = '\0';
+
+		/**
+		 * check the path access
+		 */
 		int scriptfd = -1;
 		scriptfd = openat(mod->rootfd, cgipath, O_PATH);
 		if (scriptfd < 0)
@@ -258,7 +266,7 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 
 		if (S_ISDIR(filestat.st_mode))
 		{
-			dbg("cgi: %s is directory", url);
+			dbg("cgi: %s is directory", uri);
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
@@ -271,7 +279,7 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		}
 
 		mod_cgi_ctx_t *ctx;
-		dbg("cgi: run %s", url);
+		dbg("cgi: run %s", uri);
 		ctx = calloc(1, sizeof(*ctx));
 		strncpy(ctx->cgipath, cgipath, length);
 		ctx->mod = mod;
