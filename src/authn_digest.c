@@ -347,13 +347,7 @@ static int authn_digest_checkuri(void *data, const char *uri, size_t urilen)
 
 	if (uri != NULL)
 	{
-		size_t urichecklen = 0;
-		const char *query = strchr(uri, '?');
-		if (query != NULL)
-			urichecklen = query - uri;
-		else
-			urichecklen = urilen;
-		if (!strncmp(info->url, uri, urichecklen))
+		if (!strncmp(info->url, uri, urilen))
 		{
 			info->value = uri;
 			info->length = urilen;
@@ -362,7 +356,8 @@ static int authn_digest_checkuri(void *data, const char *uri, size_t urilen)
 		}
 		warn("try connection on %s with authorization on %s", info->url, uri);
 	}
-	warn("auth: uri is unset");
+	else
+		warn("auth: uri is unset");
 	return EREJECT;
 }
 
