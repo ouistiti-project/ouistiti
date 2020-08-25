@@ -107,6 +107,7 @@ static int _mod_redirect_connectorlinkquery(_mod_redirect_t *mod, http_message_t
 									const char *search)
 {
 	char *redirect = NULL;
+
 	if (search)
 		redirect = strstr(search, "redirect_uri=");
 	if (redirect != NULL)
@@ -133,6 +134,7 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 {
 	int ret = ECONTINUE;
 	const char *path_info = NULL;
+
 	if (utils_searchexp(uri, link->origin, &path_info) == ESUCCESS)
 	{
 		if (link->destination != NULL &&
@@ -186,7 +188,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 			scheme = str_https;
 			const char *host = httpmessage_SERVER(request, "host");
 			const char *port = httpmessage_SERVER(request, "port");
-			const char *path = httpmessage_REQUEST(request, "uri");
+			const char *uri = httpmessage_REQUEST(request, "uri");
 			const char *portseparator = "";
 			if (port[0] != '\0')
 				portseparator = ":";
@@ -196,7 +198,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 			{
 				char location[1024];
 				httpmessage_addheader(response, str_location, scheme);
-				httpmessage_appendheader(response, str_location, "://", host, portseparator, port, path, NULL);
+				httpmessage_appendheader(response, str_location, "://", host, portseparator, port, uri, NULL);
 				httpmessage_addheader(response, "Vary", str_upgrade_insec_req);
 				httpmessage_result(response, RESULT_301);
 				return ESUCCESS;
@@ -209,8 +211,8 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 	}
 	if (config->options & REDIRECT_GENERATE204)
 	{
-		const char *path = httpmessage_REQUEST(request, "uri");
-		if (utils_searchexp(path, "generate_204", NULL) == ESUCCESS)
+		const char *uri = httpmessage_REQUEST(request, "uri");
+		if (utils_searchexp(uri, "generate_204", NULL) == ESUCCESS)
 		{
 			httpmessage_result(response, RESULT_204);
 			return ESUCCESS;
