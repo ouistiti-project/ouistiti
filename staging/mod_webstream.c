@@ -104,13 +104,12 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 	if (ctx->client == 0)
 	{
 		const char *uri = httpmessage_REQUEST(request, "uri");
-		if (uri[0] == '/')
-			uri++;
 		if (_checkname(ctx, uri) != ESUCCESS)
 		{
 			return ret;
 		}
 
+		while (*uri == '/' && *uri != '\0') uri++;
 		int fdfile = openat(mod->fdroot, uri, O_PATH);
 		if (fdfile == -1)
 		{
