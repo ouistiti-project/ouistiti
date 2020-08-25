@@ -96,44 +96,48 @@ static int document_checkname(const _mod_document_mod_t *mod, const char *uri)
 }
 
 static int _document_docroot(_mod_document_mod_t *mod,
-		http_message_t *request, const char *url)
+		http_message_t *request, const char **uri)
 {
 	const mod_document_t *config = mod->config;
-	int fdroot = mod->fdroot;
+	int fdroot = -1;
+	int i = 0;
+	while ((*uri)[i] == '/' && (*uri)[0] != '\0') i++;
 
 #ifdef DOCUMENTHOME
-	if (url[0] == '~' && mod->fdhome != 0)
+	if ((*uri)[i] == '~')
 	{
-		fdroot = mod->fdhome;
-#ifdef AUTH
-		if (url[1] == '/')
-		{
-			const char *userhome = auth_info(request, "user");
-			fdroot = openat(fdroot, userhome, O_DIRECTORY);
-			if (fdroot == -1)
-			{
-				err("document: user %s home directory not found", userhome);
-				fdroot = mod->fdhome;
-			}
-		}
-#endif
-	}
-#ifdef AUTH
-	else if (config->options & DOCUMENT_HOME)
-	{
+		i++;
+		const char *user = auth_info(request, "user");
 		const char *home = auth_info(request, "home");
-		if (home != NULL)
+		if ((config->options & DOCUMENT_HOME) && (home != NULL))
 		{
 			fdroot = open(home, O_DIRECTORY);
-			if (fdroot == -1)
-			{
-				err("document: user %s home directory not found", home);
-				fdroot = mod->fdroot;
-			}
+		}
+		if ((fdroot == -1) && (home != NULL) && (mod->fdhome > 0))
+		{
+			fdroot = openat(mod->fdhome, home, O_DIRECTORY);
+		}
+		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
+		{
+			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
+		}
+		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
+		{
+			mkdirat(mod->fdhome, user, 0644);
+			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
+		}
+		if (fdroot == -1)
+		{
+			err("document: user %s home directory not found", user);
+			fdroot = EREJECT;
 		}
 	}
+	while ((*uri)[i] == '/' && (*uri)[0] != '\0') i++;
 #endif
-#endif
+	*uri += i;
+	if (fdroot == -1)
+		fdroot = mod->fdroot;
+
 	return fdroot;
 }
 
@@ -386,8 +390,6 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		return EREJECT;
 	}
 	const char *uri = httpmessage_REQUEST(request,"uri");
-	if (uri[0] == '/')
-		uri++;
 
 	if (document_checkname(mod, uri) == EREJECT)
 	{
@@ -400,22 +402,20 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		return  EREJECT;
 	}
 
-	int fdroot = dup(_document_docroot(mod, request, uri));
+	int fdroot = dup(_document_docroot(mod, request, &uri));
+	if (fdroot == EREJECT)
+	{
+		httpmessage_result(response, RESULT_404);
+		return  ESUCCESS;
+	}
 
-	const char *url = uri;
-	if (url[0] == '~')
-		url++;
-
-	while (url[0] == '/' && url[0] != '\0')
-		url++;
-
-	int length = strlen(url);
+	int length = strlen(uri);
 
 	int fdfile = 0;
 	if (length > 0)
 	{
-		dbg("document: open %s", url);
-		fdfile = openat(fdroot, url, O_RDONLY );
+		dbg("document: open %s", uri);
+		fdfile = openat(fdroot, uri, O_RDONLY );
 	}
 	else
 		fdfile = dup(fdroot);
@@ -427,19 +427,19 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #ifdef DOCUMENTREST
 	if (!strcmp(method, str_put))
 	{
-		fdfile = _document_getconnnectorput(mod, fdroot, fdfile, url,
+		fdfile = _document_getconnnectorput(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 		type |= DOCUMENT_REST;
 	}
 	else if (!strcmp(method, "POST"))
 	{
-		fdfile = _document_getconnnectorpost(mod, fdroot, fdfile, url,
+		fdfile = _document_getconnnectorpost(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 		type |= DOCUMENT_REST;
 	}
 	else if (!strcmp(method, str_delete))
 	{
-		fdfile = _document_getconnnectordelete(mod, fdroot, fdfile, url,
+		fdfile = _document_getconnnectordelete(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 		type |= DOCUMENT_REST;
 	}
@@ -447,12 +447,12 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #endif
 	if (!strcmp(method, str_get))
 	{
-		fdfile = _document_getconnnectorget(mod, fdroot, fdfile, url,
+		fdfile = _document_getconnnectorget(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 	}
 	else if (!strcmp(method, str_head))
 	{
-		fdfile = _document_getconnnectorheader(mod, fdroot, fdfile, url,
+		fdfile = _document_getconnnectorheader(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 	}
 	else
@@ -484,7 +484,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	private->ctl = httpmessage_client(request);
 	private->fdfile = fdfile;
 	private->fdroot = fdroot;
-	private->url = url;
+	private->url = uri;
 	private->func = connector;
 	private->size = filestat.st_size;
 	private->offset = 0;
