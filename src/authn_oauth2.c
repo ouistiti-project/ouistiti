@@ -255,8 +255,8 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 					if (json_username != NULL && json_is_string(json_username))
 					{
 						authsession_t authinfo = {0};
-						strncpy(authinfo.user, json_string_value(json_username), sizeof(authinfo.user));
-						strncpy(authinfo.group, "users", sizeof(authinfo.group));
+						authinfo.user = (char *)json_string_value(json_username);
+						authinfo.group = (char *)"users";
 						mod->authz->rules->adduser(mod->authz->ctx, &authinfo);
 					}
 					json_t *json_expire = json_object_get(json_authtokens, "expires_in");

@@ -94,34 +94,37 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 		const char *home = NULL;
 		const char *token = NULL;
 		const char *passwd = NULL;
-		const char *mquery = httpmessage_REQUEST(request, "query");
-		char *query = strdup(mquery);
-		int add_passwd = 0;
+
+		authsession_t session;
+		memset(&session, 0, sizeof(session));
+		const char *query = httpmessage_REQUEST(request, "query");
+
+		char *storage = strdup(query);
+		user = strstr(storage, "user=");
+		group = strstr(storage, "group=");
+		home = strstr(storage, "home=");
+		passwd = strstr(storage, "passwd=");
+		if (user != NULL)
+		{
+			user += 5;
+			char *end = strchr(user, '&');
+			if (end != NULL)
+				*end = '\0';
+		}
+
 		if (!strcmp(method, str_get))
 		{
 			ret = ESUCCESS;
-			user = auth_info(request, "user");
-			group = auth_info(request, "group");
-			token = auth_info(request, "token");
+			if (user == NULL)
+				user = auth_info(request, "user");
 		}
 		else
 		{
-			authsession_t session;
-			memset(&session, 0, sizeof(session));
-			char *queryend = query + strlen(query);
-			user = strstr(query, "user=");
-			group = strstr(query, "group=");
-			home = strstr(query, "home=");
-			passwd = strstr(query, "passwd=");
+			int add_passwd = 0;
+
 			if (user != NULL)
 			{
-				user += 5;
-				char *end = strchr(user, '&');
-				if (end != NULL)
-					*end = '\0';
-				else
-					end = queryend;
-				strncpy(session.user, user, end - user);
+				session.user = (char *)user;
 			}
 			if (group != NULL)
 			{
@@ -129,9 +132,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 				char *end = strchr(group, '&');
 				if (end != NULL)
 					*end = '\0';
-				else
-					end = queryend;
-				strncpy(session.group, group, end - group);
+				session.group = (char *)group;
 			}
 			if (home != NULL)
 			{
@@ -139,9 +140,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 				char *end = strchr(home, '&');
 				if (end != NULL)
 					*end = '\0';
-				else
-					end = queryend;
-				strncpy(session.home, home, end - home);
+				session.home = (char *)home;
 			}
 			if (passwd != NULL)
 			{
@@ -149,9 +148,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 				char *end = strchr(passwd, '&');
 				if (end != NULL)
 					*end = '\0';
-				else
-					end = queryend;
-				strncpy(session.passwd, passwd, end - passwd);
+				session.passwd = (char *)passwd;
 			}
 			if (!strcmp(method, str_put) && user && group)
 			{
@@ -190,7 +187,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 			}
 			httpmessage_appendcontent(response, "\n", -1);
 		}
-		free(query);
+		free(storage);
 	}
 	return ret;
 }

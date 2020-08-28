@@ -361,6 +361,14 @@ static void _mod_auth_freectx(void *vctx)
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
 	if (ctx->info)
 	{
+		if (ctx->info->user)
+			free(ctx->info->user);
+		if (ctx->info->type)
+			free(ctx->info->type);
+		if (ctx->info->group)
+			free(ctx->info->group);
+		if (ctx->info->home)
+			free(ctx->info->home);
 		if (ctx->info->token)
 			free(ctx->info->token);
 		free(ctx->info);
@@ -376,7 +384,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 	int ret = EREJECT;
 	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL);
 
-	if (info)
+	if (info && info->home)
 	{
 		const char *home = info->home;
 		/**
@@ -467,32 +475,35 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 
 static authsession_t *_authn_setsession(const _mod_auth_t *mod, const char * user)
 {
+	const char *group = NULL;
+	const char *home = NULL;
+	char *token = NULL;
 	authsession_t *info = NULL;
 
+	if (user == NULL)
+		return NULL;
+
 	info = calloc(1, sizeof(*info));
-	strncpy(info->user, user, sizeof(info->user));
-	strncpy(info->type, mod->type, sizeof(info->type));
 	if (mod->authz->rules->group)
 	{
-		const char *group = NULL;
 		group = mod->authz->rules->group(mod->authz->ctx, user);
-		if (group)
-			strncpy(info->group, group, sizeof(info->group));
 	}
 	if (mod->authz->rules->home)
 	{
-		const char *home = NULL;
 		home = mod->authz->rules->home(mod->authz->ctx, user);
-		if (home)
-			strncpy(info->home, home, sizeof(info->home));
 	}
 	if (mod->authz->rules->token)
 	{
-		char *token = NULL;
 		token = mod->authz->rules->token(mod->authz->ctx, user);
-		if (token)
-			info->token = token;
 	}
+	info->user = strdup(user);
+	info->type = strdup(mod->type);
+	if (group)
+		info->group = strdup(mod->authz->rules->group(mod->authz->ctx, user));
+	if (home)
+		info->home = strdup(mod->authz->rules->home(mod->authz->ctx, user));
+	if (token)
+		info->token = strdup(mod->authz->rules->token(mod->authz->ctx, user));
 	return info;
 }
 
@@ -723,7 +734,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 			ctx->info->token = token;
 		}
 #endif
-		warn("user \"%s\" accepted from %p", user, ctx->ctl);
+		warn("user \"%s\" accepted from %p", ctx->info->user, ctx->ctl);
 		ret = EREJECT;
 	}
 	return ret;

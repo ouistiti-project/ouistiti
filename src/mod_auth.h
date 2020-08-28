@@ -44,11 +44,11 @@ typedef struct mod_auth_s mod_auth_t;
 
 typedef struct authsession_s
 {
-	char type[10];
-	char user[32];
-	char group[32];
-	char home[PATH_MAX];
-	char passwd[256];
+	char *type;
+	char *user;
+	char *group;
+	char *home;
+	char *passwd;
 	char *urlspace;
 	char *token;
 } authsession_t;

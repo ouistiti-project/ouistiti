@@ -212,26 +212,26 @@ authsession_t *jwt_decode(const char *id_token)
 
 		if (user == NULL)
 			user = str_anonymous;
-		strncpy(authsession->user, user, sizeof(authsession->user));
+		authsession->user = strdup(user);
 
 		const json_t *jhome = json_object_get(jinfo, "home");
 		if (jhome && json_is_string(jhome))
 		{
-			strncpy(authsession->home, json_string_value(jhome), sizeof(authsession->home));
+			authsession->home = strdup(json_string_value(jhome));
 		}
 
 		const json_t *jroles = json_object_get(jinfo, "roles");
 		if (jroles && json_is_string(jroles))
 		{
-			strncpy(authsession->group, json_string_value(jroles), sizeof(authsession->group));
+			authsession->group = strdup(json_string_value(jroles));
 		}
 		else if (jroles && json_is_array(jroles))
 		{
-			strncpy(authsession->group, json_string_value(json_array_get(jroles, 0)), sizeof(authsession->group));
+			authsession->group = strdup(json_string_value(json_array_get(jroles, 0)));
 		}
 		else
 		{
-			strncpy(authsession->group, "anonymous", sizeof(authsession->group));
+			authsession->group = strdup("anonymous");
 		}
 
 		json_decref(jinfo);
