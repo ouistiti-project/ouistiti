@@ -11,6 +11,7 @@ servers= ({
 			options = "token,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "/trust/signin.html";
+			configuri = "/token";
 		};
 		userfilter = {
 			dbname = "%PWD%/tests/conf/filter.db";
