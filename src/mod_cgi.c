@@ -241,7 +241,7 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
 		 */
 		char cgipath[256];
-		int length = 256;
+		int length = 255;
 		if (path_info != NULL && (path_info - uri) < length)
 		{
 			length = path_info - uri;
