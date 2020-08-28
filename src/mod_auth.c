@@ -275,7 +275,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		mod->authz->generatetoken = authz_generatetoken;
 #endif
 
-	mod->authz->ctx = mod->authz->rules->create(config->authz.config);
+	mod->authz->ctx = mod->authz->rules->create(server, config->authz.config);
 	if (mod->authz->ctx == NULL)
 	{
 		free(mod->authz);
