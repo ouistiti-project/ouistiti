@@ -39,7 +39,7 @@
 #define auth_dbg(...)
 
 typedef authz_simple_config_t authz_simple_t;
-static void *authz_simple_create(void *config)
+static void *authz_simple_create(http_server_t *server, void *config)
 {
 	return config;
 }

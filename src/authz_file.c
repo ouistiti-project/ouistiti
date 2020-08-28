@@ -64,7 +64,7 @@ struct authz_file_s
 #endif
 };
 
-static void *authz_file_create(void *arg)
+static void *authz_file_create(http_server_t *server, void *arg)
 {
 	authz_file_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;

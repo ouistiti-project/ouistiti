@@ -57,24 +57,15 @@
 #define SQLITE3_CHECK(...)
 #endif
 
-typedef struct authz_sqlite_user_s authz_sqlite_user_t;
-struct authz_sqlite_user_s
-{
-	char *name;
-	char *group;
-	char *home;
-};
-
 typedef struct authz_sqlite_s authz_sqlite_t;
 struct authz_sqlite_s
 {
 	authz_sqlite_config_t *config;
 	sqlite3 *db;
 	sqlite3_stmt *statement;
-	authz_sqlite_user_t user;
 };
 
-static void *authz_sqlite_create(void *arg)
+static void *authz_sqlite_create(http_server_t *server, void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
 	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
