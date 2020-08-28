@@ -100,8 +100,6 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 	const char *connection = httpmessage_REQUEST(request, str_connection);
 	const char *upgrade = httpmessage_REQUEST(request, str_upgrade);
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (uri[0] == '/')
-		uri++;
 
 	if (ctx->socket == 0 &&
 		connection != NULL && (strcasestr(connection, str_upgrade) != NULL) &&
@@ -117,6 +115,7 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 		/**
 		 * use openat + fstat instead fstatat
 		 */
+		while (*uri == '/' && *uri != '\0') uri++;
 		int fdfile = openat(mod->fdroot, uri, O_PATH);
 		if (fdfile == -1)
 		{
@@ -154,7 +153,10 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 			err("upgrade: ");
 		}
 		else
+		{
+			while (*uri == '/' && *uri != '\0') uri++;
 			ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, uri, request);
+		}
 		ret = ESUCCESS;
 	}
 	return ret;

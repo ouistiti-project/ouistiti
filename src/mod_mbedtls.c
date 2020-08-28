@@ -102,6 +102,46 @@ static http_server_config_t mod_mbedtls_config;
 static const httpclient_ops_t *_tlsclient_ops;
 static const httpclient_ops_t *_tlsserver_ops;
 
+static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modconfig)
+{
+	int ret;
+	int is_set_pemkey = 0;
+
+	ret = mbedtls_x509_crt_parse_file(&config->srvcert, (const char *) modconfig->crtfile);
+	if (ret)
+		err("mbedtls_x509_crt_parse_file %d\n", ret);
+	else
+		is_set_pemkey++;
+	mbedtls_pk_init(&config->pkey);
+	if (modconfig->pemfile)
+	{
+		ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->pemfile, NULL);
+		if (ret)
+			err("mbedtls_pk_parse_keyfile pem %d\n", ret);
+		else
+			is_set_pemkey++;
+	}
+	else
+	{
+		ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->crtfile, NULL);
+		if (ret)
+			err("mbedtls_pk_parse_keyfile crt %d\n", ret);
+		else
+			is_set_pemkey++;
+	}
+	if (is_set_pemkey == 2)
+	{
+		ret = mbedtls_ssl_conf_own_cert(&config->conf, &config->srvcert, &config->pkey);
+		if (ret)
+			err("mbedtls_ssl_conf_own_cert %d\n", ret);
+		else
+			ret = EREJECT;
+	}
+	else
+		ret = EREJECT;
+	return ret;
+}
+
 void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 {
 	int ret;
@@ -129,28 +169,7 @@ void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 
 	if (modconfig->crtfile)
 	{
-		ret = mbedtls_x509_crt_parse_file(&config->srvcert, (const char *) modconfig->crtfile);
-		if (ret)
-			err("mbedtls_x509_crt_parse_file %d\n", ret);
-		else
-			is_set_pemkey++;
-		mbedtls_pk_init(&config->pkey);
-		if (modconfig->pemfile)
-		{
-			ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->pemfile, NULL);
-			if (ret)
-				err("mbedtls_pk_parse_keyfile pem %d\n", ret);
-			else
-				is_set_pemkey++;
-		}
-		else
-		{
-			ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->crtfile, NULL);
-			if (ret)
-				err("mbedtls_pk_parse_keyfile crt %d\n", ret);
-			else
-				is_set_pemkey++;
-		}
+		ret = _mod_mbedtls_crtfile(config, modconfig);
 	}
 	if (modconfig->cachain)
 	{
@@ -176,12 +195,6 @@ void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 			mbedtls_ssl_conf_rng(&config->conf, mbedtls_ctr_drbg_random, &config->ctr_drbg );
 	}
 
-	if (is_set_pemkey == 2)
-	{
-		ret = mbedtls_ssl_conf_own_cert(&config->conf, &config->srvcert, &config->pkey);
-		if (ret)
-			err("mbedtls_ssl_conf_own_cert %d\n", ret);
-	}
 
 	if (modconfig->dhmfile)
 	{

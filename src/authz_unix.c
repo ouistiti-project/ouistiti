@@ -64,7 +64,7 @@ struct authz_unix_s
 	char home[128];
 };
 
-static void *authz_unix_create(void *arg)
+static void *authz_unix_create(http_server_t *server, void *arg)
 {
 	authz_unix_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;
@@ -79,7 +79,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 	int ret = 0;
 
 	if (ctx->user && !strcmp(user, ctx->user))
-		ret = 1;
+		return 1;
 
 	struct passwd *pw = NULL;
 

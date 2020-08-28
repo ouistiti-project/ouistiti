@@ -317,14 +317,12 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	int ret = ESUCCESS;
 	const char *uri = httpmessage_REQUEST(request,"uri");
 	const char *method = httpmessage_REQUEST(request, "method");
-	if (uri[0] == '/')
-		uri++;
 	const char *user = auth_info(request, "user");
 	if (user == NULL)
 		user = str_annonymous;
 
 	if ((utils_searchexp(uri, config->allow, NULL) == ESUCCESS) &&
-		(utils_searchexp(uri, config->configuri, NULL) != ESUCCESS))
+		(strcmp(uri, config->configuri) != 0))
 	{
 		/**
 		 * this path is always allowed
@@ -360,9 +358,7 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	mod_userfilter_t *config = ctx->config;
 	int ret = EREJECT;
 	const char *uri = httpmessage_REQUEST(request,"uri");
-	if (uri[0] == '/')
-		uri++;
-	if (utils_searchexp(uri, config->configuri, NULL) == ESUCCESS)
+	if (!strcmp(uri, config->configuri))
 	{
 		const char *method = httpmessage_REQUEST(request, "method");
 		const char *query = httpmessage_REQUEST(request, "query");
@@ -454,6 +450,8 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			NULL,
 		};
 		char *error = NULL;
+		char *configuriexp = calloc(1, strlen(config->configuri) + 2 + 1);
+		sprintf(configuriexp, "^%s$", config->configuri);
 		int i = 0;
 		while (query[i] != NULL)
 		{
@@ -465,7 +463,7 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			ret = sqlite3_bind_text(statement, index, config->superuser, -1, SQLITE_STATIC);
 
 			index = sqlite3_bind_parameter_index(statement, "@CONFIGURI");
-			ret = sqlite3_bind_text(statement, index, config->configuri, -1, SQLITE_STATIC);
+			ret = sqlite3_bind_text(statement, index, configuriexp, -1, SQLITE_STATIC);
 
 			ret = sqlite3_step(statement);
 			sqlite3_finalize(statement);
@@ -476,6 +474,7 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			}
 			i++;
 		}
+		free(configuriexp);
 		sqlite3_close(db);
 		chmod(config->dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
 	}
