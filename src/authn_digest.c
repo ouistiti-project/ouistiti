@@ -53,7 +53,7 @@ struct authn_digest_s
 	const hash_t *hash;
 	const char *opaque;
 	char nonce[MAXNONCE];
-	char user[MAXUSER];
+	char *user;
 	int stale;
 	int encode;
 };
@@ -536,10 +536,9 @@ static int authn_digest_checkuser(void *data, const char *value, size_t length)
 
 	if (value != NULL)
 	{
-		char user[MAXUSER];
-		length = (length < MAXUSER - 1)? length: MAXUSER - 1;
+		char user[MAXUSER] = {0};
+		length = (length > (MAXUSER - 1))? MAXUSER - 1: length;
 		strncpy(user, value, length);
-		user[length] = '\0';
 		info->passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 		if (info->passwd != NULL)
 		{
@@ -603,14 +602,15 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 						a2);
 
 		auth_dbg("Digest:\n\t%.*s\n\t%s", response.length, response.value, digest);
+		if (mod->user != NULL)
+			free(mod->user);
 		if (digest && !strncmp(digest, response.value, response.length))
 		{
-			strncpy(mod->user, user.value, user.length);
-			mod->user[user.length] = '\0';
+			mod->user = strndup(user.value, user.length);
 			user_ret = mod->user;
 		}
 		else
-			memset(mod->user, 0 , MAXUSER);
+			mod->user = NULL;
 		free (a1);
 		free (a2);
 		free (digest);
@@ -621,6 +621,8 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 static void authn_digest_destroy(void *arg)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
+	if (mod->user != NULL)
+		free(mod->user);
 	free(mod);
 }
 
