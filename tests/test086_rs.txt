@@ -1,0 +1,4 @@
+HTTP/1.1 200 OK
+Set-Cookie: X-Remote-User=foo; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-Group=users; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-Home=~/; Path=/; Domain=.ouistiti.net

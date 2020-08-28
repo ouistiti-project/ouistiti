@@ -48,6 +48,7 @@ typedef struct authsession_s
 	char user[32];
 	char group[32];
 	char home[PATH_MAX];
+	char passwd[256];
 	char *urlspace;
 	char *token;
 } authsession_t;
@@ -71,6 +72,7 @@ typedef struct authz_sqlite_config_s authz_sqlite_config_t;
 struct authz_sqlite_config_s
 {
 	const char *dbname;
+	const char *configuri;
 };
 
 typedef struct authz_jwt_config_s authz_jwt_config_t;
@@ -79,7 +81,7 @@ struct authz_jwt_config_s
 	const char *none;
 };
 
-typedef void *(*authz_rule_create_t)(void *config);
+typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
 typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);

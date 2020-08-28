@@ -101,7 +101,7 @@ char *authz_generatejwtoken(mod_auth_t *config, authsession_t *info)
 	auth_dbg("jwt: encode %s", ttoken);
 
 	int ret;
-	unsigned int length = (strlen(theader) + 1 + strlen(ttoken) + 1) * 3 / 2;
+	size_t length = (strlen(theader) + 1 + strlen(ttoken) + 1) * 3 / 2;
 
 	char *token = calloc(2, length + 1);
 	char *offset = token;
@@ -239,7 +239,7 @@ authsession_t *jwt_decode(const char *id_token)
 	return authsession;
 }
 
-static void *authz_jwt_create(void *arg)
+static void *authz_jwt_create(http_server_t *server, void *arg)
 {
 	authz_jwt_t *ctx = NULL;
 	authz_jwt_config_t *config = (authz_jwt_config_t *)arg;

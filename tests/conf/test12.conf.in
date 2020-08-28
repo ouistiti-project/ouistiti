@@ -10,13 +10,14 @@ servers= ({
 			dbname="%PWD%/tests/conf/passwd.db";
 			options = "token,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
-			signin = "trust/signin.html";
+			signin = "/trust/signin.html";
+			configuri = "/token";
 		};
 		userfilter = {
 			dbname = "%PWD%/tests/conf/filter.db";
-			allow = "^token$,^trust/,^index.html$";
+			allow = "^/token$,^/trust/,^/index.html$";
 			superuser = "root";
-			configuri = "^filter/config$";
+			configuri = "/filter/config";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
@@ -25,7 +26,7 @@ servers= ({
 		};
 		redirect = {
 			links = ({
-				origin = "token";
+				origin = "^/token";
 			});
 		};
 	});

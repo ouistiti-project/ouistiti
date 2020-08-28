@@ -122,8 +122,6 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 	const char *connection = httpmessage_REQUEST(request, str_connection);
 	const char *upgrade = httpmessage_REQUEST(request, str_upgrade);
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (uri[0] == '/')
-		uri++;
 
 	if (ctx->socket == 0 &&
 		connection != NULL && (strcasestr(connection, str_upgrade) != NULL) &&
@@ -138,6 +136,7 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 		}
 		const char *protocol = httpmessage_REQUEST(request, str_protocol);
 
+		while (*uri == '/' && *uri != '\0') uri++;
 		int fdfile = openat(ctx->mod->fdroot, uri, O_PATH);
 		if (fdfile == -1 && protocol != NULL && protocol[0] != '\0')
 		{
@@ -199,7 +198,10 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 			err("websocket: ");
 		}
 		else
+		{
+			while (*uri == '/' && *uri != '\0') uri++;
 			ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, uri, request);
+		}
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -275,7 +277,7 @@ static int _websocket_socket(const char *filepath)
 	addr.sun_family = AF_UNIX;
 	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
 
-	warn("%s: open %s", str_websocket, addr.sun_path);
+	warn("websocket: open %s", addr.sun_path);
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock > 0)
 	{
