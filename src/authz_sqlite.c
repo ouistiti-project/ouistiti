@@ -63,7 +63,136 @@ struct authz_sqlite_s
 	authz_sqlite_config_t *config;
 	sqlite3 *db;
 	sqlite3_stmt *statement;
+	const char *configuri;
 };
+
+static const char str_put[] = "PUT";
+static const char str_delete[] = "DELETE";
+
+static const char *authz_sqlite_group(void *arg, const char *user);
+static const char *authz_sqlite_home(void *arg, const char *user);
+
+static int authz_sqlite_userid(const authz_sqlite_t *ctx, const char *user);
+static int authz_sqlite_groupid(const authz_sqlite_t *ctx, const char *group);
+
+static int authz_sqlite_adduser(void *arg, authsession_t *authinfo);
+static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo);
+static int authz_sqlite_removeuser(void *arg, authsession_t *authinfo);
+
+static int _authz_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret = EREJECT;
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+
+	const char *uri = httpmessage_REQUEST(request, "uri");
+	const char *method = httpmessage_REQUEST(request, "method");
+	if (!strcmp(uri, ctx->configuri))
+	{
+		const char *user = NULL;
+		const char *group = NULL;
+		const char *home = NULL;
+		const char *token = NULL;
+		const char *passwd = NULL;
+		const char *mquery = httpmessage_REQUEST(request, "query");
+		char *query = strdup(mquery);
+		int add_passwd = 0;
+		if (!strcmp(method, str_get))
+		{
+			ret = ESUCCESS;
+			user = auth_info(request, "user");
+			group = auth_info(request, "group");
+			token = auth_info(request, "token");
+		}
+		else
+		{
+			authsession_t session;
+			memset(&session, 0, sizeof(session));
+			char *queryend = query + strlen(query);
+			user = strstr(query, "user=");
+			group = strstr(query, "group=");
+			home = strstr(query, "home=");
+			passwd = strstr(query, "passwd=");
+			if (user != NULL)
+			{
+				user += 5;
+				char *end = strchr(user, '&');
+				if (end != NULL)
+					*end = '\0';
+				else
+					end = queryend;
+				strncpy(session.user, user, end - user);
+			}
+			if (group != NULL)
+			{
+				group += 6;
+				char *end = strchr(group, '&');
+				if (end != NULL)
+					*end = '\0';
+				else
+					end = queryend;
+				strncpy(session.group, group, end - group);
+			}
+			if (home != NULL)
+			{
+				home += 5;
+				char *end = strchr(home, '&');
+				if (end != NULL)
+					*end = '\0';
+				else
+					end = queryend;
+				strncpy(session.home, home, end - home);
+			}
+			if (passwd != NULL)
+			{
+				passwd += 7;
+				char *end = strchr(passwd, '&');
+				if (end != NULL)
+					*end = '\0';
+				else
+					end = queryend;
+				strncpy(session.passwd, passwd, end - passwd);
+			}
+			if (!strcmp(method, str_put) && user && group)
+			{
+				if ((ret = authz_sqlite_adduser(ctx, &session)) == ESUCCESS)
+					add_passwd = 1;
+			}
+			if ((add_passwd || !strcmp(method, str_post)) && user && passwd)
+			{
+				ret = authz_sqlite_changepasswd(ctx, &session);
+			}
+			if (!strcmp(method, str_delete) && user)
+			{
+				ret = authz_sqlite_removeuser(ctx, &session);
+			}
+		}
+		if (ret != ESUCCESS)
+		{
+			httpmessage_result(response, RESULT_500);
+			ret = ESUCCESS;
+		}
+		else if (user != NULL)
+		{
+			httpmessage_addcontent(response, "application/x-www-form-urlencoded",
+				"user=", -1);
+			httpmessage_appendcontent(response, user, -1);
+			group = authz_sqlite_group(ctx, user);
+			if (group != NULL)
+			{
+				httpmessage_appendcontent(response, "&group=", -1);
+				httpmessage_appendcontent(response, group, -1);
+			}
+			if (token != NULL)
+			{
+				httpmessage_appendcontent(response, "&token=", -1);
+				httpmessage_appendcontent(response, token, -1);
+			}
+			httpmessage_appendcontent(response, "\n", -1);
+		}
+		free(query);
+	}
+	return ret;
+}
 
 static void *authz_sqlite_create(http_server_t *server, void *arg)
 {
@@ -118,6 +247,13 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->db = db;
 	ctx->config = config;
+	if (config->configuri != NULL && config->configuri[0] == '/')
+	{
+		ctx->configuri = config->configuri;
+		httpserver_addconnector(server, _authz_connector, ctx, CONNECTOR_DOCUMENT, "authz");
+		httpserver_addmethod(server, str_put, MESSAGE_ALLOW_CONTENT);
+		httpserver_addmethod(server, str_delete, MESSAGE_ALLOW_CONTENT);
+	}
 	return ctx;
 }
 
@@ -236,20 +372,22 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 	return NULL;
 }
 
-#ifdef AUTH_TOKEN
-static int authz_sqlite_userid(const authz_sqlite_t *ctx, const char *user)
+static int authz_sqlite_getid(const authz_sqlite_t *ctx, const char *name, int group)
 {
 	int userid = -1;
 	int ret;
 	sqlite3_stmt *statement;
-	const char *sql = "select id from users where name=@NAME;";
-	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-	SQLITE3_CHECK(ret, EREJECT, sql);
+	const char *sql[] = {
+		"select id from users where name=@NAME;",
+		"select id from groups where name=@NAME;"
+	};
+	ret = sqlite3_prepare_v2(ctx->db, sql[group], -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql[group]);
 
 	int index;
 	index = sqlite3_bind_parameter_index(statement, "@NAME");
-	ret = sqlite3_bind_text(statement, index, user, -1, SQLITE_STATIC);
-	SQLITE3_CHECK(ret, EREJECT, sql);
+	ret = sqlite3_bind_text(statement, index, name, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql[group]);
 
 	ret = sqlite3_step(statement);
 	if ((ret == SQLITE_ROW) &&
@@ -261,6 +399,17 @@ static int authz_sqlite_userid(const authz_sqlite_t *ctx, const char *user)
 	return userid;
 }
 
+static int authz_sqlite_userid(const authz_sqlite_t *ctx, const char *name)
+{
+	return authz_sqlite_getid(ctx, name, 0);
+}
+
+static int authz_sqlite_groupid(const authz_sqlite_t *ctx, const char *name)
+{
+	return authz_sqlite_getid(ctx, name, 1);
+}
+
+#ifdef AUTH_TOKEN
 static int authz_sqlite_unjoin(const authz_sqlite_t *ctx, int userid, const char *token)
 {
 	int ret;
@@ -358,49 +507,41 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 #define authz_sqlite_join NULL
 #endif
 
-#ifdef AUTHN_OAUTH2
+static int _compute_passwd(const char *input, char *output, int outlen)
+{
+	if (input == NULL)
+		return -1;
+	const hash_t *hash = NULL;
+	hash = hash_sha256;
+
+	if (hash != NULL)
+	{
+		char *hashpasswd = malloc(hash->size);
+		void *ctx;
+		ctx = hash->init();
+		hash->update(ctx, input, strlen(input));
+		hash->finish(ctx, hashpasswd);
+
+		size_t cnt = 0;
+		strcpy(output, "$a5$");
+		base64->encode(hashpasswd, hash->size, output + 4, outlen - 4);
+		free(hashpasswd);
+	}
+	else
+	{
+		strncpy(output, input, outlen);
+	}
+	return 0;
+}
+
 static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int groupid = 0;
 
-	{
-		int ret;
-		sqlite3_stmt *statement;
-		const char *sql = "select id from users where name = @NAME";
-		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		int index;
-		index = sqlite3_bind_parameter_index(statement, "@NAME");
-		ret = sqlite3_bind_text(statement, index, authinfo->user, -1, SQLITE_STATIC);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		ret = sqlite3_step(statement);
-		sqlite3_finalize(statement);
-		if (ret == SQLITE_ROW)
-			return ESUCCESS;
-	}
-	{
-		int ret;
-		sqlite3_stmt *statement;
-		const char *sql = "select id from groups where name = @GROUP";
-		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		int index;
-		index = sqlite3_bind_parameter_index(statement, "@GROUP");
-		ret = sqlite3_bind_text(statement, index, authinfo->group, -1, SQLITE_STATIC);
-		SQLITE3_CHECK(ret, EREJECT, sql);
-
-		ret = sqlite3_step(statement);
-		if (ret == SQLITE_ROW)
-		{
-			if (sqlite3_column_type(statement, 0) == SQLITE_INTEGER)
-				groupid = sqlite3_column_int(statement, 0);
-		}
-		sqlite3_finalize(statement);
-	}
+	if (authz_sqlite_userid(ctx, authinfo->user) != -1)
+		return ESUCCESS;
+	groupid = authz_sqlite_groupid(ctx, authinfo->group);
 
 	int ret;
 	sqlite3_stmt *statement;
@@ -429,7 +570,71 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	sqlite3_finalize(statement);
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
-#endif
+
+static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	int userid = 0;
+	int groupid = 0;
+
+	userid = authz_sqlite_userid(ctx, authinfo->user);
+	if (userid == -1)
+		return EREJECT;
+	const char *group = authinfo->group;
+	if (strlen(group) == 0)
+		group = authz_sqlite_group(ctx, authinfo->user);
+	groupid = authz_sqlite_groupid(ctx, group);
+
+	int ret;
+	sqlite3_stmt *statement;
+	const char sql[] = "update users set passwd=@PASSWD, groupid=@GROUP where id=@USERID";
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@PASSWD");
+	char b64passwd[4 + 100];
+	_compute_passwd(authinfo->passwd, b64passwd, 4 + 100);
+	ret = sqlite3_bind_text(statement, index, b64passwd, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@USERID");
+	ret = sqlite3_bind_int(statement, index, userid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@GROUP");
+	ret = sqlite3_bind_int(statement, index, groupid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	ret = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
+}
+
+static int authz_sqlite_removeuser(void *arg, authsession_t *authinfo)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	int userid = 0;
+
+	userid = authz_sqlite_userid(ctx, authinfo->user);
+	if (userid == -1)
+		return EREJECT;
+
+	int ret;
+	sqlite3_stmt *statement;
+	const char *sql = "delete from users where id=@USERID;";
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@USERID");
+	ret = sqlite3_bind_int(statement, index, userid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	ret = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
+}
 
 static const char *authz_sqlite_group(void *arg, const char *user)
 {
