@@ -103,7 +103,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 		user = strstr(storage, "user=");
 		group = strstr(storage, "group=");
 		home = strstr(storage, "home=");
-		passwd = strstr(storage, "passwd=");
+		passwd = strstr(storage, "password=");
 		if (user != NULL)
 		{
 			user += 5;
