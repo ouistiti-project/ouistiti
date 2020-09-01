@@ -591,7 +591,15 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 		sign++;
 		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{
-			user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
+#ifdef AUTHZ_JWT
+			ctx->info = jwt_decode(string);
+			if (ctx->info != NULL)
+			{
+				user = ctx->info->user;
+			}
+#endif
+			if (user == NULL)
+				user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 			if (user == NULL)
 			{
 				user = str_anonymous;
