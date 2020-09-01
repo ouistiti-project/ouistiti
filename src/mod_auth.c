@@ -740,6 +740,38 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	return ret;
 }
 
+int auth_redirect_uri(const char *location, http_message_t *request, http_message_t *response)
+{
+	int ret;
+
+	const char *uri = httpmessage_REQUEST(request, "uri");
+	http_server_t *server = httpclient_server(httpmessage_client(request));
+	const char *scheme = httpserver_INFO(server, "scheme");
+	const char *host = httpserver_INFO(server, "host");
+	if (host == NULL)
+	{
+		host = httpmessage_SERVER(request, "addr");
+	}
+	const char *port = httpserver_INFO(server, "port");
+	const char *portseparator = "";
+	if (port[0] != '\0')
+		portseparator = ":";
+	const char *query = httpmessage_REQUEST(request, "query");
+	const char *queryseparator = "";
+	if (query[0] != '\0')
+		queryseparator = "?";
+	httpmessage_addheader(response, str_location, location);
+	httpmessage_appendheader(response, str_location, "?redirect_uri=",
+		scheme, "://", host, portseparator, port, uri, queryseparator, query, NULL);
+
+	httpmessage_addheader(response, str_cachecontrol, "no-cache");
+
+	httpmessage_result(response, RESULT_302);
+	ret = ESUCCESS;
+
+	return ret;
+}
+
 static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -787,9 +819,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			}
 			else
 			{
-				httpmessage_addheader(response, str_location, config->redirect);
-				httpmessage_addheader(response, str_cachecontrol, "no-cache");
-				httpmessage_result(response, RESULT_302);
+				ret = auth_redirect_uri(config->redirect, request, response);
 			}
 		}
 		else

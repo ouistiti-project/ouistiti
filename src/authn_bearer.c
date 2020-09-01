@@ -68,32 +68,12 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
 	const authn_bearer_config_t *config = mod->config;
 
-	const char *uri = httpmessage_REQUEST(request, "uri");
 	httpmessage_addheader(response, str_authenticate, "Bearer realm=\"");
 	httpmessage_appendheader(response, str_authenticate, config->realm, "\"", NULL);
 
 	if (config->token_ep != NULL && config->token_ep[0] != '\0')
 	{
-		http_server_t *server = httpclient_server(httpmessage_client(request));
-		const char *scheme = httpserver_INFO(server, "scheme");
-		const char *host = httpserver_INFO(server, "host");
-		if (host == NULL)
-		{
-			host = httpmessage_SERVER(request, "addr");
-		}
-		const char *port = httpserver_INFO(server, "port");
-		const char *portseparator = "";
-		if (port[0] != '\0')
-			portseparator = ":";
-		const char *query = httpmessage_REQUEST(request, "query");
-		const char *queryseparator = "";
-		if (query[0] != '\0')
-			queryseparator = "?";
-		httpmessage_addheader(response, str_location, config->token_ep);
-		httpmessage_appendheader(response, str_location, "?redirect_uri=",
-			scheme, "://", host, portseparator, port, uri, queryseparator, query, NULL);
-		httpmessage_result(response, RESULT_302);
-		ret = ESUCCESS;
+		ret = auth_redirect_uri(config->token_ep, request, response);
 	}
 	return ret;
 }

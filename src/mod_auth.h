@@ -241,6 +241,7 @@ int authn_checksignature(const char *key,
 
 const char *auth_info(http_message_t *request, const char *key);
 int auth_setowner(const char *user);
+int auth_redirect_uri(const char *location, http_message_t *request, http_message_t *response);
 
 #ifdef __cplusplus
 }
