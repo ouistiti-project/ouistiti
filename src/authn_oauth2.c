@@ -397,17 +397,14 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 		const char *portseparator = "";
 		if (port[0] != '\0')
 			portseparator = ":";
-		char location[256];
-		snprintf(location, 256, "%s?" \
-								"response_type=%s&" \
-								"scope=openid roles&" \
-								"client_id=%s&" \
-								"redirect_uri=%s://%s%s%s/%s",
-								config->auth_ep,
-								"code",
-								config->client_id,
-								scheme, host, portseparator, port, str_authresp);
-		httpmessage_addheader(response, (char *)str_location, location);
+		httpmessage_addheader(response, str_location, config->auth_ep);
+		httpmessage_appendheader(response, str_location, "?",
+								"response_type=code&",
+								"scope=openid roles&",
+								"client_id=",config->client_id,"&",
+								"redirect_uri=", scheme, host, portseparator, port, "/", str_authresp,
+								NULL
+								);
 		httpmessage_result(response, RESULT_302);
 		ret = ESUCCESS;
 	}
