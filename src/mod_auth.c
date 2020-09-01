@@ -668,6 +668,7 @@ static int _authn_setauthorization(const _mod_auth_ctx_t *ctx,
 #ifdef AUTH_TOKEN
 	if (info->token)
 	{
+		httpmessage_set(response, str_xtoken, info->token);
 		const char *key = ctx->mod->config->secret;
 		if (hash_macsha256 != NULL && key != NULL)
 		{
@@ -679,11 +680,9 @@ static int _authn_setauthorization(const _mod_auth_ctx_t *ctx,
 				int signlen = hash_macsha256->finish(ctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
-				httpmessage_append(response, str_xtoken, info->token, ".", b64signature, NULL);
+				httpmessage_append(response, str_xtoken, ".", b64signature, NULL);
 			}
 		}
-		else
-			httpmessage_set(response, str_xtoken, info->token);
 	}
 	else
 #endif
