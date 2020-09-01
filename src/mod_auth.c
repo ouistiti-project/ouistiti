@@ -543,7 +543,7 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	{
 		authorization = httpmessage_REQUEST(request, str_xtoken);
 	}
-	else
+	if (authorization == NULL)
 	{
 		authorization = cookie_get(request, str_xtoken);
 	}
