@@ -312,11 +312,12 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		free(mod);
 		mod = NULL;
 	}
-
-	if (mod != NULL && (!config->protect || config->protect[0] == '\0'))
+	if ((mod->authn->config->secret == NULL || strlen(mod->authn->config->secret) == 0) &&
+		(config->authz.type & AUTHZ_TOKEN_E))
 	{
-		config->protect = str_wilcard;
+		err("auth: to enable the token, set the \"secret\" into configuration");
 	}
+
 	return mod;
 }
 
@@ -830,7 +831,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	return ret;
 }
 
-static int _authn_checkuri(const mod_auth_t *config, http_message_t *request)
+static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, http_message_t *response)
 {
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	int ret = ECONTINUE;
@@ -846,8 +847,10 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request)
 	protect = utils_searchexp(uri, config->protect, NULL);
 	if (protect == ESUCCESS)
 	{
-		ret = ECONTINUE;
+		httpmessage_result(response, RESULT_403);
+		ret = ESUCCESS;
 	}
+
 	return ret;
 }
 
@@ -904,7 +907,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 
 	if (ret != EREJECT)
-		ret = _authn_checkuri(config, request);
+		ret = _authn_checkuri(config, request, response);
 
 	if (ret != EREJECT)
 	{
