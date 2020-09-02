@@ -441,7 +441,6 @@ static void *authz_sqlite_config(config_setting_t *configauth)
 	{
 		authz_config = calloc(1, sizeof(*authz_config));
 		authz_config->dbname = path;
-		config_setting_lookup_string(configauth, "configuri", (const char **)&authz_config->configuri);
 	}
 	return authz_config;
 }

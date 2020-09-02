@@ -63,137 +63,13 @@ struct authz_sqlite_s
 	authz_sqlite_config_t *config;
 	sqlite3 *db;
 	sqlite3_stmt *statement;
-	const char *configuri;
 };
-
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
 
 static const char *authz_sqlite_group(void *arg, const char *user);
 static const char *authz_sqlite_home(void *arg, const char *user);
 
 static int authz_sqlite_userid(authz_sqlite_t *ctx, const char *user);
 static int authz_sqlite_groupid(authz_sqlite_t *ctx, const char *group);
-
-#ifdef AUTHZ_SQLITE_MANAGER
-static int authz_sqlite_adduser(void *arg, authsession_t *authinfo);
-static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo);
-static int authz_sqlite_removeuser(void *arg, authsession_t *authinfo);
-
-static int _authz_connector(void *arg, http_message_t *request, http_message_t *response)
-{
-	int ret = EREJECT;
-	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	const char *method = httpmessage_REQUEST(request, "method");
-	if (!strcmp(uri, ctx->configuri))
-	{
-		const char *user = NULL;
-		const char *group = NULL;
-		const char *home = NULL;
-		const char *token = NULL;
-		const char *passwd = NULL;
-
-		authsession_t session;
-		memset(&session, 0, sizeof(session));
-		const char *query = httpmessage_REQUEST(request, "query");
-
-		char *storage = strdup(query);
-		user = strstr(storage, "user=");
-		group = strstr(storage, "group=");
-		home = strstr(storage, "home=");
-		passwd = strstr(storage, "password=");
-		if (user != NULL)
-		{
-			user += 5;
-			char *end = strchr(user, '&');
-			if (end != NULL)
-				*end = '\0';
-		}
-
-		if (!strcmp(method, str_get))
-		{
-			ret = ESUCCESS;
-			if (user == NULL)
-				user = auth_info(request, "user");
-		}
-		else
-		{
-			int add_passwd = 0;
-
-			if (user != NULL)
-			{
-				session.user = (char *)user;
-			}
-			if (group != NULL)
-			{
-				group += 6;
-				char *end = strchr(group, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.group = (char *)group;
-			}
-			if (home != NULL)
-			{
-				home += 5;
-				char *end = strchr(home, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.home = (char *)home;
-			}
-			if (passwd != NULL)
-			{
-				passwd += 9;
-				char *end = strchr(passwd, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.passwd = (char *)passwd;
-			}
-
-			if (!strcmp(method, str_put) && session.user && session.group)
-			{
-				if ((ret = authz_sqlite_adduser(ctx, &session)) == ESUCCESS)
-					add_passwd = 1;
-			}
-			if ((add_passwd || !strcmp(method, str_post)) && session.user && session.passwd)
-			{
-				ret = authz_sqlite_changepasswd(ctx, &session);
-			}
-			if (!strcmp(method, str_delete) && session.user)
-			{
-				ret = authz_sqlite_removeuser(ctx, &session);
-			}
-		}
-		if (ret != ESUCCESS)
-		{
-			httpmessage_result(response, RESULT_500);
-			ret = ESUCCESS;
-		}
-		else if (user != NULL)
-		{
-			httpmessage_addcontent(response, "application/x-www-form-urlencoded",
-				"user=", -1);
-			httpmessage_appendcontent(response, user, -1);
-			group = authz_sqlite_group(ctx, user);
-			if (group != NULL)
-			{
-				httpmessage_appendcontent(response, "&group=", -1);
-				httpmessage_appendcontent(response, group, -1);
-			}
-			if (token != NULL)
-			{
-				httpmessage_appendcontent(response, "&token=", -1);
-				httpmessage_appendcontent(response, token, -1);
-			}
-			httpmessage_appendcontent(response, "\n", -1);
-		}
-		free(storage);
-	}
-	return ret;
-}
-
-#endif
 
 static void *authz_sqlite_create(http_server_t *server, void *arg)
 {
@@ -248,15 +124,6 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->db = db;
 	ctx->config = config;
-#ifdef AUTHZ_SQLITE_MANAGER
-	if (config->configuri != NULL && config->configuri[0] == '/')
-	{
-		ctx->configuri = config->configuri;
-		httpserver_addconnector(server, _authz_connector, ctx, CONNECTOR_DOCUMENT, "authz");
-		httpserver_addmethod(server, str_put, MESSAGE_ALLOW_CONTENT);
-		httpserver_addmethod(server, str_delete, MESSAGE_ALLOW_CONTENT);
-	}
-#endif
 	return ctx;
 }
 
@@ -591,7 +458,7 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
 
-#ifdef AUTHZ_SQLITE_MANAGER
+#ifdef AUTHZ_MANAGER
 static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -699,8 +566,10 @@ authz_rules_t authz_sqlite_rules =
 	.group = &authz_sqlite_group,
 	.home = &authz_sqlite_home,
 	.join = &authz_sqlite_join,
-#ifdef AUTHN_OAUTH2
 	.adduser = &authz_sqlite_adduser,
+#ifdef AUTHZ_MANAGER
+	.changepasswd = &authz_sqlite_changepasswd,
+	.removeuser = &authz_sqlite_removeuser,
 #endif
 	.destroy = &authz_sqlite_destroy,
 };
