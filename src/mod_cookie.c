@@ -266,6 +266,8 @@ int cookie_set(http_message_t *response, const char *key, const char *value, ...
 	}
 	va_end(ap);
 #endif
+	const char * sameSite = "strict";
+	ret = httpmessage_appendheader(response, str_SetCookie, "; SameSite=", sameSite, NULL);
 	const char *path = "/";
 	ret = httpmessage_appendheader(response, str_SetCookie, "; Path=", path, NULL);
 
