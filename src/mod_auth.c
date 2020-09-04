@@ -821,6 +821,9 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 	if (ret == ECONTINUE)
 	{
+		if (mod->authz->type & AUTHZ_COOKIE_E)
+			cookie_set(response, "X-Auth-Token", "", ";Max-Age=0", NULL);
+
 		ret = ESUCCESS;
 		auth_dbg("auth challenge failed");
 		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
