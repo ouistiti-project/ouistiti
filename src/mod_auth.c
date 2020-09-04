@@ -1028,14 +1028,18 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	mod_auth_t *config = mod->config;
 	const char *authorization = NULL;
 
+	ret = _authn_checkuri(config, request, response);
+#if 0
 	/**
 	 * If ctx->info is set, this connection has been already authenticated.
-	 * It is useless to authenticate again.
+	 * It should be useless to authenticate again, but if another connection
+	 * try to unauthenticate, this may break the security.
 	 */
-	if (ctx->info != NULL)
+	if (ret == ECONTINUE && ctx->info != NULL)
 	{
 		ret = EREJECT;
 	}
+#endif
 
 	/**
 	 * The header WWW-Authenticate inside the request
@@ -1071,9 +1075,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			ret = _authn_checkauthorization( ctx, authorization, request);
 		}
 	}
-
-	if (ret != EREJECT)
-		ret = _authn_checkuri(config, request, response);
 
 	if (ret != EREJECT)
 	{
