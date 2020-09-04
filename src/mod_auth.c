@@ -778,7 +778,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 
 int auth_redirect_uri(const char *location, http_message_t *request, http_message_t *response)
 {
-	int ret;
+	int ret = ESUCCESS;
 
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	http_server_t *server = httpclient_server(httpmessage_client(request));
@@ -797,8 +797,11 @@ int auth_redirect_uri(const char *location, http_message_t *request, http_messag
 	if (query[0] != '\0')
 		queryseparator = "?";
 	httpmessage_addheader(response, str_location, location);
-	httpmessage_appendheader(response, str_location, "?redirect_uri=",
-		scheme, "://", host, portseparator, port, uri, queryseparator, query, NULL);
+	if (utils_searchexp(query, "noredirect", NULL) != ESUCCESS)
+	{
+		httpmessage_appendheader(response, str_location, "?redirect_uri=",
+			scheme, "://", host, portseparator, port, uri, queryseparator, query, NULL);
+	}
 
 	httpmessage_addheader(response, str_cachecontrol, "no-cache");
 
