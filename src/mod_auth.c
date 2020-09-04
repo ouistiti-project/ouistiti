@@ -458,14 +458,27 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 		if (checkpasswd[1] == 'a')
 		{
 			hashtype = checkpasswd[2];
-			const char *checkrealm = strstr(checkpasswd, "realm=");
-			if (checkrealm && !strncmp(checkrealm + 6, realm, strlen(realm)))
-			{
-				hash = _mod_findhash(NULL, hashtype);
-			}
+		}
+		const char *checkrealm = NULL;
+		int realmlength = 0;
+		/**
+		 * If the realm is linked to the password,
+		 * it must be the same as the requested realm.
+		 * If no realm is available with the password,
+		 * we check directly the password
+		 */
+		checkrealm = strstr(checkpasswd, "realm=");
+		if (checkrealm)
+		{
+			checkrealm += 6;
+			realmlength = strpbrk(checkrealm, ";$") - checkrealm - 1;
+			if (strncmp(checkrealm, realm, realmlength))
+				return ret;
 		}
 		else
-			hash = _mod_findhash(NULL, hashtype);
+			realm = NULL;
+
+		hash = _mod_findhash(NULL, hashtype);
 
 		checkpasswd = strrchr(checkpasswd + 1, '$');
 		if (checkpasswd)
