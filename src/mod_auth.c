@@ -119,7 +119,7 @@ const char str_anonymous[] = "anonymous";
 static const char str_put[] = "PUT";
 static const char str_delete[] = "DELETE";
 
-static const char str_authmngt[] = "/authmngt";
+static const char str_authmngt[] = "^/auth/mngt*";
 #endif
 
 static const char *str_xtoken = "X-Auth-Token";
@@ -871,17 +871,20 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	int ret = ECONTINUE;
 	int protect = 1;
+
 	/**
 	 * check uri
 	 */
 	protect = utils_searchexp(uri, config->unprotect, NULL);
 	if (protect == ESUCCESS)
 	{
+		auth_dbg("unprotected uri %s", config->unprotect);
 		ret = EREJECT;
 	}
 	protect = utils_searchexp(uri, config->protect, NULL);
 	if (protect == ESUCCESS)
 	{
+		auth_dbg("protected uri %s", config->protect);
 		httpmessage_result(response, RESULT_403);
 		ret = ESUCCESS;
 	}
@@ -899,9 +902,9 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	const char *method = httpmessage_REQUEST(request, "method");
-	if (!strcmp(uri, str_authmngt))
+	const char *user = NULL;
+	if (!utils_searchexp(uri, str_authmngt, &user))
 	{
-		const char *user = NULL;
 		const char *group = NULL;
 		const char *home = NULL;
 		const char *token = NULL;
@@ -912,7 +915,14 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 		const char *query = httpmessage_REQUEST(request, "query");
 
 		char *storage = strdup(query);
-		user = strstr(storage, "user=");
+		if (user == NULL)
+			user = strstr(storage, "user=");
+		else
+		{
+			int i = 0;
+			while (user[i] == '/') i++;
+			user += i;
+		}
 		group = strstr(storage, "group=");
 		home = strstr(storage, "home=");
 		passwd = strstr(storage, "password=");
@@ -962,7 +972,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 					*end = '\0';
 				session.passwd = (char *)passwd;
 			}
-
+			auth_dbg("authmngt: on %s %s %s", session.user, session.group, session.passwd);
 			if (!strcmp(method, str_put) && session.user && session.group)
 			{
 				if ((mod->authz->rules->adduser != NULL) &&
