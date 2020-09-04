@@ -1,4 +1,4 @@
-GET /token HTTP/1.1
+GET /auth/mngt/root HTTP/1.1
 HOST: 127.0.0.1
 Authorization: Basic cm9vdDp0ZXN0
 

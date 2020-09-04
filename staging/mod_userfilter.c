@@ -109,6 +109,7 @@ int _exp_cmp(_mod_userfilter_t *ctx, const char *value,
 		free(valuefree);
 		return EREJECT;
 	}
+	userfilter_dbg("userfilter: check %s %s", uri, checking);
 	if (utils_searchexp(uri, checking, NULL) == ESUCCESS)
 		ret = ESUCCESS;
 	free(valuefree);
@@ -210,9 +211,9 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 			}
 		}
 		step = sqlite3_step(statement);
-		if (step == SQLITE_DONE)
-			break;
 	}
+	if (step != SQLITE_DONE && ret != ESUCCESS)
+		err("request %d %s", ret, sqlite3_errmsg(ctx->db));
 	sqlite3_finalize(statement);
 	return ret;
 }
@@ -327,6 +328,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 		/**
 		 * this path is always allowed
 		 */
+		userfilter_dbg("userfilter: forward to allowed path %s", config->allow);
 		ret = EREJECT;
 	}
 	else if (_request(ctx, method, user,
@@ -447,6 +449,13 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			"insert into roles (id, name) values(2, \"*\");",
 			"create table rules (\"exp\" TEXT NOT NULL, \"methodid\" INTEGER NOT NULL,\"roleid\" INTEGER NOT NULL, FOREIGN KEY (methodid) REFERENCES methods(id) ON UPDATE SET NULL, FOREIGN KEY (roleid) REFERENCES roles(id) ON UPDATE SET NULL);",
 			"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"POST\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"GET\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"PUT\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"POST\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"DELETE\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"GET\"),2);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"POST\"),2);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"DELETE\"),2);",
 			NULL,
 		};
 		char *error = NULL;
