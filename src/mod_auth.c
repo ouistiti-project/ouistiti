@@ -1063,6 +1063,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	const char *authorization = NULL;
 
 	ret = _authn_checkuri(config, request, response);
+	auth_dbg("auth: checkuri %d", ret);
 #if 0
 	/**
 	 * If ctx->info is set, this connection has been already authenticated.
@@ -1084,6 +1085,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		ret = ESUCCESS;
 	}
+	auth_dbg("auth: authenticate %d", ret);
 
 #ifdef AUTH_TOKEN
 	if (ret == ECONTINUE && mod->authz->type & AUTHZ_TOKEN_E)
@@ -1101,14 +1103,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 	}
 #endif
-	if (ret == ECONTINUE)
+	auth_dbg("auth: gettoken %d", ret);
+	authorization = _authn_getauthorization(ctx, request);
+	if (mod->authn->ctx && authorization != NULL)
 	{
-		authorization = _authn_getauthorization(ctx, request);
-		if (mod->authn->ctx && authorization != NULL)
-		{
-			ret = _authn_checkauthorization( ctx, authorization, request);
-		}
+		ret = _authn_checkauthorization( ctx, authorization, request);
 	}
+	auth_dbg("auth: getauthorization %d", ret);
 
 	if (ret != EREJECT)
 	{
