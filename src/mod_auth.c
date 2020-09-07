@@ -934,6 +934,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	const char *method = httpmessage_REQUEST(request, "method");
 	const char *user = NULL;
+
 	if (!utils_searchexp(uri, str_authmngt, &user))
 	{
 		const char *group = NULL;
@@ -947,24 +948,26 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 
 		char *storage = strdup(query);
 		if (user == NULL)
+		{
 			user = strstr(storage, "user=");
+			if (user == NULL)
+			{
+				user += 5;
+				char *end = strchr(user, '&');
+				if (end != NULL)
+					*end = '\0';
+			}
+		}
 		else
 		{
 			int i = 0;
 			while (user[i] == '/') i++;
 			user += i;
 		}
+
 		group = strstr(storage, "group=");
 		home = strstr(storage, "home=");
 		passwd = strstr(storage, "password=");
-		if (user != NULL)
-		{
-			user += 5;
-			char *end = strchr(user, '&');
-			if (end != NULL)
-				*end = '\0';
-		}
-
 		if (!strcmp(method, str_get))
 		{
 			ret = ESUCCESS;
