@@ -407,7 +407,7 @@ static int _compute_passwd(const char *input, char *output, int outlen)
 		hash->finish(ctx, hashpasswd);
 
 		size_t cnt = 0;
-		strcpy(output, "$a5$");
+		strcpy(output, "$5$");
 		base64->encode(hashpasswd, hash->size, output + 4, outlen - 4);
 		free(hashpasswd);
 	}
@@ -455,6 +455,8 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	ret = sqlite3_step(ctx->statement);
 	sqlite3_finalize(ctx->statement);
 	ctx->statement = NULL;
+	if (ret != SQLITE_DONE)
+		err("auth: add user error %d %s", ret, sqlite3_errmsg(ctx->db));
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
 
