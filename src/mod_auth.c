@@ -678,25 +678,13 @@ static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t 
 	return authorization;
 }
 
-typedef void (*_httpmessage_set)(http_message_t *, const char *, const char *);
-typedef int (*_httpmessage_append)(http_message_t *, const char *, const char *, ...);
-static void _authn_cookie_set(http_message_t *request, const char *key, const char *value)
-{
-	/**
-	 * this facade allows to extend the parameters
-	 */
-	cookie_set(request, key, value, NULL);
-}
-
-static int _authn_setauthorization(const _mod_auth_ctx_t *ctx,
+static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 			const char *authorization, const authsession_t *info,
-			_httpmessage_set httpmessage_set, _httpmessage_append httpmessage_append,
 			http_message_t *response)
 {
 #ifdef AUTH_TOKEN
 	if (info->token)
 	{
-		httpmessage_set(response, str_xtoken, info->token);
 		const char *key = ctx->mod->config->secret;
 		if (hash_macsha256 != NULL && key != NULL)
 		{
@@ -708,7 +696,7 @@ static int _authn_setauthorization(const _mod_auth_ctx_t *ctx,
 				int signlen = hash_macsha256->finish(ctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
-				httpmessage_append(response, str_xtoken, ".", b64signature, NULL);
+				cookie_set(response, str_xtoken, info->token, ".", b64signature, NULL);
 			}
 		}
 	}
@@ -716,13 +704,50 @@ static int _authn_setauthorization(const _mod_auth_ctx_t *ctx,
 #endif
 	if (authorization != NULL)
 	{
-		httpmessage_set(response, str_authorization, authorization);
+		cookie_set(response, str_authorization, authorization, NULL);
 	}
-	httpmessage_set(response, str_xuser, info->user);
+	cookie_set(response, str_xuser, info->user, NULL);
 	if (info->group)
-		httpmessage_set(response, str_xgroup, info->group);
+		cookie_set(response, str_xgroup, info->group, NULL);
 	if (info->home)
-		httpmessage_set(response, str_xhome, "~/");
+		cookie_set(response, str_xhome, "~/", NULL);
+	return ESUCCESS;
+}
+
+static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
+			const char *authorization, const authsession_t *info,
+			http_message_t *response)
+{
+#ifdef AUTH_TOKEN
+	if (info->token)
+	{
+		httpmessage_addheader(response, str_xtoken, info->token);
+		const char *key = ctx->mod->config->secret;
+		if (hash_macsha256 != NULL && key != NULL)
+		{
+			void *ctx = hash_macsha256->initkey(key, strlen(key));
+			if (ctx)
+			{
+				hash_macsha256->update(ctx, info->token, strlen(info->token));
+				char signature[HASH_MAX_SIZE];
+				int signlen = hash_macsha256->finish(ctx, signature);
+				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
+				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
+				httpmessage_appendheader(response, str_xtoken, ".", b64signature, NULL);
+			}
+		}
+	}
+	else
+#endif
+	if (authorization != NULL)
+	{
+		httpmessage_addheader(response, str_authorization, authorization);
+	}
+	httpmessage_addheader(response, str_xuser, info->user);
+	if (info->group)
+		httpmessage_addheader(response, str_xgroup, info->group);
+	if (info->home)
+		httpmessage_addheader(response, str_xhome, "~/");
 	return ESUCCESS;
 }
 
@@ -1091,16 +1116,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		httpmessage_SESSION(request, str_auth, ctx->info);
 		if (ctx->info && mod->authz->type & AUTHZ_HEADER_E)
 		{
-			_authn_setauthorization(ctx,
+			_authn_setauthorization_header(ctx,
 					authorization, ctx->info,
-					httpmessage_addheader, httpmessage_appendheader,
 					response);
 		}
 		else if (ctx->info && mod->authz->type & AUTHZ_COOKIE_E)
 		{
-			_authn_setauthorization(ctx,
+			_authn_setauthorization_cookie(ctx,
 					authorization, ctx->info,
-					_authn_cookie_set, cookie_set,
 					response);
 		}
 
