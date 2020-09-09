@@ -115,8 +115,6 @@ typedef enum
 	AUTHZ_JWT_E,
 	AUTHZ_TYPE_MASK = 0x0F,
 	AUTHZ_HOME_E = 0x10,
-	AUTHZ_COOKIE_E = 0x20,
-	AUTHZ_HEADER_E = 0x40,
 	AUTHZ_TOKEN_E = 0x80,
 	AUTHZ_CHOWN_E = 0x100,
 	AUTHZ_TLS_E = 0x200,
@@ -200,6 +198,10 @@ typedef enum
 	AUTHN_DIGEST_E,
 	AUTHN_BEARER_E,
 	AUTHN_OAUTH2_E,
+	AUTHN_TYPE_MASK = 0x0F,
+	AUTHN_REDIRECT_E = 0x10,
+	AUTHN_COOKIE_E = 0x20,
+	AUTHN_HEADER_E = 0x40,
 } authn_type_t;
 
 typedef struct hash_s hash_t;

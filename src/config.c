@@ -393,7 +393,7 @@ static int authn_config(config_setting_t *configauth, mod_authn_t *mod)
 	}
 	if (authn != NULL)
 	{
-		mod->type = authn->type;
+		mod->type |= authn->type;
 		mod->name = authn->name;
 		ret = ESUCCESS;
 	}
@@ -532,14 +532,17 @@ static void authz_optionscb(void *arg, const char *option, size_t length)
 
 	if (!strncmp(option, "home", length))
 		auth->authz.type |= AUTHZ_HOME_E;
-	if (!strncmp(option, "cookie", length))
-		auth->authz.type |= AUTHZ_COOKIE_E;
-	if (!strncmp(option, "header", length))
-		auth->authz.type |= AUTHZ_HEADER_E;
 	if (!strncmp(option, "token", length))
 		auth->authz.type |= AUTHZ_TOKEN_E;
 	if (!strncmp(option, "chown", length))
 		auth->authz.type |= AUTHZ_CHOWN_E;
+
+	if (!strncmp(option, "cookie", length))
+		auth->authn.type |= AUTHN_COOKIE_E;
+	if (!strncmp(option, "header", length))
+		auth->authn.type |= AUTHN_HEADER_E;
+	if (!strncmp(option, "redirect", length))
+		auth->authn.type |= AUTHN_REDIRECT_E;
 }
 
 static int authz_config(config_setting_t *configauth, mod_authz_t *mod)
@@ -561,6 +564,7 @@ static int authz_config(config_setting_t *configauth, mod_authz_t *mod)
 	{
 		mod->type |= authz->type;
 		mod->name = authz->name;
+		ret = ESUCCESS;
 	}
 	return ret;
 }

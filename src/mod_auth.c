@@ -295,7 +295,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->authn->config = config;
 	mod->authn->server = server;
 	mod->authn->type = config->authn.type;
-	mod->authn->rules = authn_rules[config->authn.type];
+	mod->authn->rules = authn_rules[config->authn.type & AUTHN_TYPE_MASK];
 
 	_mod_sethash(mod, config);
 
@@ -567,7 +567,7 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	 * The authorization may be accepted and replaced by a token.
 	 * This token is available inside the cookie.
 	 */
-	if (mod->authz->type & AUTHZ_HEADER_E)
+	if (mod->authn->type & AUTHN_HEADER_E)
 	{
 		authorization = httpmessage_REQUEST(request, str_xtoken);
 	}
@@ -773,7 +773,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	 * only the method HEAD is used to login and the client must send
 	 * same autorization for all files to download.
 	 * WARNING: It is incorrect to use this method for security.
-	 * The autorization is always acceptable and it is dangerous.
+	 * The authorization is always acceptable and it is dangerous.
 	 */
 	if (config->redirect)
 		method = str_head;
@@ -846,7 +846,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
 	if (ret == ECONTINUE)
 	{
-		if (mod->authz->type & AUTHZ_COOKIE_E)
+		if (mod->authn->type & AUTHN_COOKIE_E)
 			cookie_set(response, "X-Auth-Token", "", ";Max-Age=0", NULL);
 
 		ret = ESUCCESS;
@@ -884,9 +884,16 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 				httpmessage_result(response, RESULT_200);
 				ret = EREJECT;
 			}
-			else
+			else if (config->authn.type & AUTHN_REDIRECT_E)
 			{
 				ret = auth_redirect_uri(config->redirect, request, response);
+			}
+			else
+			{
+				httpmessage_addheader(response, str_location, config->redirect);
+				httpmessage_addheader(response, str_cachecontrol, "no-cache");
+				httpmessage_result(response, RESULT_302);
+				ret = ESUCCESS;
 			}
 		}
 		else
@@ -1118,13 +1125,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	else
 	{
 		httpmessage_SESSION(request, str_auth, ctx->info);
-		if (ctx->info && mod->authz->type & AUTHZ_HEADER_E)
+		if (ctx->info && mod->authn->type & AUTHN_HEADER_E)
 		{
 			_authn_setauthorization_header(ctx,
 					authorization, ctx->info,
 					response);
 		}
-		else if (ctx->info && mod->authz->type & AUTHZ_COOKIE_E)
+		else if (ctx->info && mod->authn->type & AUTHN_COOKIE_E)
 		{
 			_authn_setauthorization_cookie(ctx,
 					authorization, ctx->info,
