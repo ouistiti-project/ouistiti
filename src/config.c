@@ -276,9 +276,6 @@ static void *authn_bearer_config(config_setting_t *configauth)
 	authn_bearer_config_t *authn_config = NULL;
 
 	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "token_ep", (const char **)&authn_config->token_ep);
-	if (authn_config->token_ep == NULL)
-		config_setting_lookup_string(configauth, "signin", (const char **)&authn_config->token_ep);
 	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
 	return authn_config;
 }
@@ -289,17 +286,14 @@ static void *authn_oauth2_config(config_setting_t *configauth)
 {
 	authn_oauth2_config_t *authn_config = NULL;
 	const char *auth_ep = NULL;
-	const char *token_ep = NULL;
 	const char *discovery = NULL;
 
 	config_setting_lookup_string(configauth, "discovery", (const char **)&discovery);
 	config_setting_lookup_string(configauth, "auth_ep", (const char **)&auth_ep);
-	config_setting_lookup_string(configauth, "token_ep", (const char **)&token_ep);
 
 	authn_config = calloc(1, sizeof(*authn_config));
 	authn_config->discovery = discovery;
 	authn_config->auth_ep = auth_ep;
-	authn_config->token_ep = token_ep;
 
 	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
 
@@ -346,14 +340,14 @@ struct _authn_s *authn_list[] =
 #ifdef AUTHN_BEARER
 	&(struct _authn_s){
 		.config = &authn_bearer_config,
-		.type = AUTHN_BEARER_E,
+		.type = AUTHN_BEARER_E | AUTHN_REDIRECT_E,
 		.name = "Bearer",
 	},
 #endif
 #ifdef AUTHN_OAUTH2
 	&(struct _authn_s){
 		.config = &authn_oauth2_config,
-		.type = AUTHN_OAUTH2_E,
+		.type = AUTHN_OAUTH2_E | AUTHN_REDIRECT_E,
 		.name = "oAuth2",
 	},
 #endif
@@ -584,6 +578,8 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 		 * signin URI allowed to access to the signin page
 		 */
 		config_setting_lookup_string(configauth, "signin", &auth->redirect);
+		if (auth->redirect == NULL || auth->redirect[0] == '\0')
+			config_setting_lookup_string(configauth, "token_ep", &auth->redirect);
 		config_setting_lookup_string(configauth, "protect", &auth->protect);
 		config_setting_lookup_string(configauth, "unprotect", &auth->unprotect);
 		/**
