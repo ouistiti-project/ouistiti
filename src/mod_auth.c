@@ -801,7 +801,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	return ret;
 }
 
-int auth_redirect_uri(const char *location, http_message_t *request, http_message_t *response)
+static int auth_redirect_uri(const char *location, http_message_t *request, http_message_t *response)
 {
 	int ret = ESUCCESS;
 

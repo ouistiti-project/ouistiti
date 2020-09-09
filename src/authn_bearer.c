@@ -70,11 +70,6 @@ static int authn_bearer_challenge(void *arg, http_message_t *request, http_messa
 
 	httpmessage_addheader(response, str_authenticate, "Bearer realm=\"");
 	httpmessage_appendheader(response, str_authenticate, config->realm, "\"", NULL);
-
-	if (config->token_ep != NULL && config->token_ep[0] != '\0')
-	{
-		ret = auth_redirect_uri(config->token_ep, request, response);
-	}
 	return ret;
 }
 
