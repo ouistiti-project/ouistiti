@@ -33,41 +33,40 @@
 #define MAX_SERVERS 4
 #endif
 
-#include "mod_document.h"
-#include "mod_cgi.h"
-#include "mod_auth.h"
-#include "mod_clientfilter.h"
-#include "mod_userfilter.h"
-#include "mod_redirect404.h"
-#include "mod_redirect.h"
-#include "mod_webstream.h"
-#include "mod_cors.h"
-#include "mod_websocket.h"
-#include "mod_tls.h"
-#include "mod_upgrade.h"
+typedef struct module_s module_t;
+typedef struct modulesconfig_s modulesconfig_t;
+
 #define WEBSOCKET_REALTIME 0x01
 
-typedef struct modulesconfig_s
+typedef void *(*module_create_t)(http_server_t *server, void *config);
+struct module_s
 {
-	mod_document_t *document;
-	mod_cgi_config_t *cgi;
-	mod_auth_t *auth;
-	mod_clientfilter_t *clientfilter;
-	mod_websocket_t *websocket;
-	mod_redirect_t *redirect;
-	mod_webstream_t *webstream;
-	mod_cors_t *cors;
-	mod_upgrade_t *upgrade;
-	mod_userfilter_t *userfilter;
-} modulesconfig_t;
+	const char *name;
+	void *(*create)(http_server_t *server, void *config);
+	void (*destroy)(void*);
+};
+
+struct modulesconfig_s
+{
+	void *document;
+	void *cgi;
+	void *auth;
+	void *clientfilter;
+	void *websocket;
+	void *redirect;
+	void *webstream;
+	void *cors;
+	void *upgrade;
+	void *userfilter;
+};
 
 typedef struct serverconfig_s
 {
 	http_server_config_t *server;
 	char *unlock_groups;
-	mod_tls_t *tls;
+	void *tls;
 	modulesconfig_t modules;
-	mod_vhost_t *vhosts[MAX_SERVERS - 1];
+	void *vhosts[MAX_SERVERS - 1];
 } serverconfig_t;
 
 typedef struct ouistiticonfig_s

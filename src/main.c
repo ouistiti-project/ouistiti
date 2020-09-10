@@ -67,7 +67,7 @@
 #include "mod_webstream.h"
 #include "mod_tinysvcmdns.h"
 
-#include "config.h"
+#include "ouistiti.h"
 
 #if defined WEBSOCKET || defined WEBSTREAM
 extern int ouistiti_websocket_run(void *arg, int socket, const char *protocol, http_message_t *request);
