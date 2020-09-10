@@ -47,7 +47,7 @@
 const httpclient_ops_t *tlsclient_ops;
 #endif
 
-static const char *str_authresp = "authresp";
+static const char *str_authresp = "/auth/resp";
 static const char *str_oauth2 = "oauth2";
 
 static const char *str_authorization_code = "code";
@@ -207,7 +207,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 							"code=%s&" \
 							"client_id=%s&" \
 							"scope=openid roles profile&" \
-							"redirect_uri=%s://%s%s%s/%s&" \
+							"redirect_uri=%s://%s%s%s%s&" \
 							"state=%.3d\r\n",
 							type,
 							code,
