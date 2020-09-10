@@ -42,6 +42,7 @@
 
 #include "mod_tls.h"
 #include "mod_websocket.h"
+#include "mod_webstream.h"
 #include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
@@ -49,8 +50,10 @@
 #include "mod_cors.h"
 #include "mod_upgrade.h"
 #include "mod_userfilter.h"
+#include "mod_clientfilter.h"
+#include "mod_redirect.h"
 
-#include "config.h"
+#include "ouistiti.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -1155,7 +1158,7 @@ static void _modulesconfig_destroy(modulesconfig_t *config)
 		free(config->websocket);
 	if (config->redirect)
 	{
-		mod_redirect_link_t *link = config->redirect->links;
+		mod_redirect_link_t *link = ((mod_redirect_t*)config->redirect)->links;
 		while (link != NULL)
 		{
 			mod_redirect_link_t *old = link->next;
@@ -1166,16 +1169,18 @@ static void _modulesconfig_destroy(modulesconfig_t *config)
 	}
 	if (config->auth)
 	{
-		if (config->auth->authn.config)
-			free(config->auth->authn.config);
-		if (config->auth->authz.config)
-			free(config->auth->authz.config);
+		mod_auth_t *auth = config->auth;
+		if (auth->authn.config)
+			free(auth->authn.config);
+		if (auth->authz.config)
+			free(auth->authz.config);
 		free(config->auth);
 	}
 	if (config->cgi)
 	{
-		if (config->cgi->env)
-			free(config->cgi->env);
+		mod_cgi_config_t *cgi = config->cgi;
+		if (cgi->env)
+			free(cgi->env);
 		free(config->cgi);
 	}
 }
