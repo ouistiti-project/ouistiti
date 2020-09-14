@@ -240,6 +240,8 @@ static void handler(int sig)
 	run = 'q';
 }
 
+static int ouistiti_setmodules(server_t *server);
+
 int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 {
 	int i = 0;
@@ -311,13 +313,15 @@ static server_t *main_set(ouistiticonfig_t *config, int serverid)
 		server->config = it;
 
 		server->server = httpserver;
+		ouistiti_setmodules(server);
+
 		server->next = first;
 		first = server;
 	}
 	return first;
 }
 
-static int server_setmodules(server_t *server)
+static int ouistiti_setmodules(server_t *server)
 {
 	int j = 0;
 	ouistiti_loadmodule(server, str_tinysvcmdns, NULL);
@@ -502,16 +506,6 @@ int main(int argc, char * const *argv)
 #endif
 
 	first = main_set(ouistiticonfig, serverid);
-
-	server_t *server = first;
-	while (server != NULL)
-	{
-		if (server->server)
-		{
-			server_setmodules(server);
-		}
-		server = server->next;
-	}
 
 	if (auth_setowner(ouistiticonfig->user) == EREJECT)
 		err("Error: user %s not found\n", ouistiticonfig->user);
