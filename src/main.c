@@ -211,7 +211,7 @@ typedef struct server_s
 {
 	serverconfig_t *config;
 	http_server_t *server;
-	mod_t *modules[MAX_MODULES + MAX_SERVERS];
+	mod_t modules[MAX_MODULES + MAX_SERVERS];
 
 	struct server_s *next;
 } server_t;
@@ -240,17 +240,22 @@ static void handler(int sig)
 	run = 'q';
 }
 
-void *ouistiti_loadmodule(const char *name, http_server_t *server, void *config)
+int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 {
-	mod_t *mod = NULL;
+	int i = 0;
+	mod_t *mod = &server->modules[i];
+	while (i < MAX_MODULES && server->modules[i].config != NULL)
+		mod = &server->modules[++i];
+	if (i == MAX_MODULES)
+		return EREJECT;
+
 #ifndef MODULES
 	int i = 0;
 	while (modules[i] != NULL)
 	{
 		if (!strcmp(modules[i]->name, name))
 		{
-			mod = calloc(1, sizeof(*mod));
-			mod->config = modules[i]->create(server, config);
+			mod->config = modules[i]->create(server->server, config);
 			mod->data = modules[i];
 			break;
 		}
@@ -265,8 +270,7 @@ void *ouistiti_loadmodule(const char *name, http_server_t *server, void *config)
 		module_t *module = dlsym(dh, "mod_info");
 		if (module && !strcmp(module->name, name))
 		{
-			mod = calloc(1, sizeof(*mod));
-			mod->config = module->create(server, config);
+			mod->config = module->create(server->server, config);
 			mod->data = module;
 			dbg("module %s loaded", name);
 		}
@@ -280,7 +284,7 @@ void *ouistiti_loadmodule(const char *name, http_server_t *server, void *config)
 		err("module %s loading error: %s", file, dlerror());
 	}
 #endif
-	return mod;
+	return (mod->config != NULL)?ESUCCESS:EREJECT;
 }
 
 static server_t *main_set(ouistiticonfig_t *config, int serverid)
@@ -316,60 +320,42 @@ static server_t *main_set(ouistiticonfig_t *config, int serverid)
 static int server_setmodules(server_t *server)
 {
 	int j = 0;
-	server->modules[j] = ouistiti_loadmodule(str_tinysvcmdns, server->server, NULL);
-	if (server->modules[j] != NULL) j++;
+	ouistiti_loadmodule(server, str_tinysvcmdns, NULL);
 	/**
 	 * TLS must be first to free the connection after all others modules
 	 */
 	if (server->config->tls)
-		server->modules[j] = ouistiti_loadmodule(str_tls, server->server, server->config->tls);
-	if (server->modules[j] != NULL) j++;
+		ouistiti_loadmodule(server, str_tls, server->config->tls);
 	/**
 	 * clientfilter must be at the beginning to stop the connection if necessary
 	 */
 	if (server->config->modules.clientfilter)
-		server->modules[j] = ouistiti_loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter);
-	if (server->modules[j] != NULL) j++;
+		ouistiti_loadmodule(server, str_clientfilter, server->config->modules.clientfilter);
 
 	int i;
 	for (i = 0; i < (MAX_SERVERS - 1); i++)
 	{
 		if (server->config->vhosts[i])
-			server->modules[j] = ouistiti_loadmodule(str_vhosts, server->server, server->config->vhosts[i]);
-		if (server->modules[j] != NULL) j++;
+			ouistiti_loadmodule(server, str_vhosts, server->config->vhosts[i]);
 	}
-	server->modules[j] = ouistiti_loadmodule(str_cookie, server->server, NULL);
-	if (server->modules[j] != NULL) j++;
+	ouistiti_loadmodule(server, str_cookie, NULL);
 	if (server->config->modules.cors)
-		server->modules[j] = ouistiti_loadmodule(str_cors, server->server, server->config->modules.cors);
-	if (server->modules[j] != NULL) j++;
+		ouistiti_loadmodule(server, str_cors, server->config->modules.cors);
 	if (server->config->modules.auth)
-		server->modules[j] = ouistiti_loadmodule(str_auth, server->server, server->config->modules.auth);
-	if (server->modules[j] != NULL) j++;
+		ouistiti_loadmodule(server, str_auth, server->config->modules.auth);
 	if (server->config->modules.userfilter)
-		server->modules[j] = ouistiti_loadmodule(str_userfilter, server->server, server->config->modules.userfilter);
-	if (server->modules[j] != NULL) j++;
-	server->modules[j] = ouistiti_loadmodule(str_redirect404, server->server, NULL);
-	if (server->modules[j] != NULL) j++;
+		ouistiti_loadmodule(server, str_userfilter, server->config->modules.userfilter);
+	ouistiti_loadmodule(server, str_redirect404, NULL);
 	if (server->config->modules.redirect)
-		server->modules[j] = ouistiti_loadmodule(str_redirect, server->server, server->config->modules.redirect);
-	if (server->modules[j] != NULL) j++;
-	server->modules[j] = ouistiti_loadmodule(str_methodlock, server->server, server->config->unlock_groups);
-	if (server->modules[j] != NULL) j++;
-	server->modules[j] = ouistiti_loadmodule(str_serverheader, server->server, NULL);
-	if (server->modules[j] != NULL) j++;
+		ouistiti_loadmodule(server, str_redirect, server->config->modules.redirect);
+	ouistiti_loadmodule(server, str_methodlock, server->config->unlock_groups);
+	ouistiti_loadmodule(server, str_serverheader, NULL);
 	if (server->config->modules.cgi)
-		server->modules[j] = ouistiti_loadmodule(str_cgi, server->server, server->config->modules.cgi);
-	if (server->modules[j] != NULL) j++;
+		ouistiti_loadmodule(server, str_cgi, server->config->modules.cgi);
 	if (server->config->modules.webstream)
-		server->modules[j] = ouistiti_loadmodule(str_webstream, server->server, server->config->modules.webstream);
-	if (server->modules[j] != NULL) j++;
-
+		ouistiti_loadmodule(server, str_webstream, server->config->modules.webstream);
 	if (server->config->modules.upgrade)
-	{
-		server->modules[j] = ouistiti_loadmodule(str_upgrade, server->server, server->config->modules.upgrade);
-		if (server->modules[j] != NULL) j++;
-	}
+		ouistiti_loadmodule(server, str_upgrade, server->config->modules.upgrade);
 	if (server->config->modules.websocket)
 	{
 #ifdef WEBSOCKET_RT
@@ -379,13 +365,10 @@ static int server_setmodules(server_t *server)
 			warn("server %p runs realtime websocket!", server->server);
 		}
 #endif
-		server->modules[j] = ouistiti_loadmodule(str_websocket, server->server, server->config->modules.websocket);
-		if (server->modules[j] != NULL) j++;
+		ouistiti_loadmodule(server, str_websocket, server->config->modules.websocket);
 	}
 	if (server->config->modules.document)
-		server->modules[j] = ouistiti_loadmodule(str_document, server->server, server->config->modules.document);
-	if (server->modules[j] != NULL) j++;
-	server->modules[j] = NULL;
+		ouistiti_loadmodule(server, str_document, server->config->modules.document);
 	return 0;
 }
 
@@ -412,10 +395,10 @@ static int main_run(server_t *first)
 	{
 		server_t *next = server->next;
 		int j = 0;
-		while (server->modules[j])
+		while (server->modules[j].config)
 		{
-			if (server->modules[j]->data->destroy && server->modules[j]->config)
-				server->modules[j]->data->destroy(server->modules[j]->config);
+			if (server->modules[j].data->destroy)
+				server->modules[j].data->destroy(server->modules[j].config);
 			j++;
 		}
 		httpserver_disconnect(server->server);

@@ -33,6 +33,8 @@
 #define MAX_SERVERS 4
 #endif
 
+typedef struct server_s server_t;
+
 typedef struct module_s module_t;
 typedef struct modulesconfig_s modulesconfig_t;
 
@@ -184,7 +186,8 @@ ouistiticonfig_t g_ouistiticonfig =
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
-void *ouistiti_loadmodule(const char *name, http_server_t *server, void *config);
+int ouistiti_loadmodule(server_t *server, const char *name, void *config)
+;
 
 #endif
 #endif
