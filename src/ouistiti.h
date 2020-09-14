@@ -184,5 +184,7 @@ ouistiticonfig_t g_ouistiticonfig =
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
+void *ouistiti_loadmodule(const char *name, http_server_t *server, void *config);
+
 #endif
 #endif
