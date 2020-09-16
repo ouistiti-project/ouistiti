@@ -1083,7 +1083,7 @@ static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 }
 
 
-ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 {
 	int ret;
 
@@ -1126,9 +1126,17 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 	if (configservers)
 	{
 		int count = config_setting_length(configservers);
-		int i;
+		int i = 0;
 
-		for (i = 0; i < count && i < MAX_SERVERS; i++)
+		if (serverid != -1)
+		{
+			i = serverid;
+			count = 1;
+			if (serverid < count)
+				serverid = 0;
+		}
+
+		for (i; i < count && i < MAX_SERVERS; i++)
 		{
 			config_setting_t *iterator = config_setting_get_elem(configservers, i);
 			if (iterator)
