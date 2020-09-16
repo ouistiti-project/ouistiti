@@ -183,7 +183,7 @@ ouistiticonfig_t g_ouistiticonfig =
 	},
 };
 #else
-ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
 int ouistiti_loadmodule(server_t *server, const char *name, void *config)

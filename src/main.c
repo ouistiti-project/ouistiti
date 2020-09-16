@@ -289,6 +289,17 @@ int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 	return (mod->config != NULL)?ESUCCESS:EREJECT;
 }
 
+static int ouistiti_loadserver(server_t *server, serverconfig_t *config)
+{
+	http_server_t *httpserver = httpserver_create(config->server);
+	if (httpserver == NULL)
+		return EREJECT;
+
+	server->config = config;
+	server->server = httpserver;
+	return ouistiti_setmodules(server);
+}
+
 static server_t *main_set(ouistiticonfig_t *config, int serverid)
 {
 	server_t *first = NULL;
@@ -303,18 +314,14 @@ static server_t *main_set(ouistiticonfig_t *config, int serverid)
 		if (serverid > -1 && serverid != i)
 			continue;
 
-		http_server_t *httpserver = httpserver_create(it->server);
-		if (httpserver == NULL)
-			continue;
-
 		server_t *server;
 
 		server = calloc(1, sizeof(*server));
-		server->config = it;
-
-		server->server = httpserver;
-		ouistiti_setmodules(server);
-
+		if (ouistiti_loadserver(server, it) == EREJECT)
+		{
+			free(server);
+			continue;
+		}
 		server->next = first;
 		first = server;
 	}
