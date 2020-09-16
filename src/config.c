@@ -154,6 +154,8 @@ static mod_document_t *document_config(config_setting_t *iterator, int tls, char
 			static_file->options |= DOCUMENT_TLS;
 		config_setting_lookup_string(configstaticfile, "options", (const char **)&transfertype);
 		config_parseoptions(transfertype, &document_optioncb, static_file);
+		if (!strcmp(config_setting_name(configstaticfile), "filestorage"))
+			static_file->options |= DOCUMENT_REST;
 	}
 	return static_file;
 }
@@ -955,11 +957,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 		if (vhost->modules.document == NULL)
 			vhost->modules.document = document_config(iterator, tls, "static_file");
 		if (vhost->modules.document == NULL)
-		{
 			vhost->modules.document = document_config(iterator, tls, "filestorage");
-			if (vhost->modules.document != NULL)
-				vhost->modules.document->options |= DOCUMENT_REST;
-		}
 		vhost->modules.auth = auth_config(iterator, tls);
 		vhost->modules.cgi = cgi_config(iterator, tls);
 		vhost->modules.websocket = websocket_config(iterator, tls);
@@ -1054,11 +1052,7 @@ static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 	if (config->modules.document == NULL)
 		config->modules.document = document_config(iterator,(config->tls!=NULL), "static_file");
 	if (config->modules.document == NULL)
-	{
 		config->modules.document = document_config(iterator,(config->tls!=NULL), "filestorage");
-		if (config->modules.document != NULL)
-			config->modules.document->options |= DOCUMENT_REST;
-	}
 	config->modules.auth = auth_config(iterator,(config->tls!=NULL));
 	config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
 	config->modules.userfilter = userfilter_config(iterator,(config->tls!=NULL));
