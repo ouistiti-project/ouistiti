@@ -199,6 +199,9 @@ static void _mod_upgrade_freectx(void *arg)
 
 void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
 {
+	if (config == NULL)
+		return NULL;
+
 	int fdroot = open(config->docroot, O_DIRECTORY);
 	if (fdroot == -1)
 	{

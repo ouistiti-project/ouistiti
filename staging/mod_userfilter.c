@@ -429,6 +429,9 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 void *mod_userfilter_create(http_server_t *server, void *arg)
 {
 	mod_userfilter_t *config = (mod_userfilter_t *)arg;
+	if (config == NULL)
+		return NULL;
+
 	_mod_userfilter_t *mod = calloc(1, sizeof(*mod));
 	sqlite3 *db;
 	int ret;
