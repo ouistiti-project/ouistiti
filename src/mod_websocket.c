@@ -53,6 +53,12 @@
 #include "httpserver/utils.h"
 #include "httpserver/websocket.h"
 
+typedef int (*mod_websocket_run_t)(void *arg, int socket, const char *filepath, http_message_t *request);
+int default_websocket_run(void *arg, int socket, const char *filepath, http_message_t *request);
+#ifdef WEBSOCKET_RT
+extern int ouistiti_websocket_run(void *arg, int socket, const char *protocol, http_message_t *request);
+#endif
+
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
@@ -244,6 +250,8 @@ static void _mod_websocket_freectx(void *arg)
 
 void *mod_websocket_create(http_server_t *server, mod_websocket_t *config)
 {
+	if (config == NULL)
+		return NULL;
 	int fdroot = open(config->docroot, O_DIRECTORY);
 	if (fdroot == -1)
 	{
@@ -253,11 +261,17 @@ void *mod_websocket_create(http_server_t *server, mod_websocket_t *config)
 
 	_mod_websocket_t *mod = calloc(1, sizeof(*mod));
 
-	mod_websocket_run_t run = config->run;
-	if (run == NULL)
-		run = default_websocket_run;
 	mod->config = config;
-	mod->run = run;
+#ifdef WEBSOCKET_RT
+	if (config->options & WEBSOCKET_REALTIME)
+	{
+		mod->run = ouistiti_websocket_run;
+		warn("server %p runs realtime websocket!", server);
+	}
+	else
+#endif
+	mod->run = default_websocket_run;
+
 	mod->runarg = config;
 	mod->fdroot = fdroot;
 	httpserver_addmod(server, _mod_websocket_getctx, _mod_websocket_freectx, mod, str_websocket);

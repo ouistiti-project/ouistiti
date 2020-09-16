@@ -204,6 +204,9 @@ static void _mod_webstream_freectx(void *arg)
 
 void *mod_webstream_create(http_server_t *server, mod_webstream_t *config)
 {
+	if (config == NULL)
+		return NULL;
+
 	int fdroot = open(config->docroot, O_DIRECTORY);
 	if (fdroot == -1)
 	{

@@ -69,10 +69,6 @@
 
 #include "ouistiti.h"
 
-#if defined WEBSOCKET || defined WEBSTREAM
-extern int ouistiti_websocket_run(void *arg, int socket, const char *protocol, http_message_t *request);
-#endif
-
 #define PACKAGEVERSION PACKAGE "/" VERSION
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -335,51 +331,30 @@ static int ouistiti_setmodules(server_t *server)
 	/**
 	 * TLS must be first to free the connection after all others modules
 	 */
-	if (server->config->tls)
-		ouistiti_loadmodule(server, str_tls, server->config->tls);
+	ouistiti_loadmodule(server, str_tls, server->config->tls);
 	/**
 	 * clientfilter must be at the beginning to stop the connection if necessary
 	 */
-	if (server->config->modules.clientfilter)
-		ouistiti_loadmodule(server, str_clientfilter, server->config->modules.clientfilter);
+	ouistiti_loadmodule(server, str_clientfilter, server->config->modules.clientfilter);
 
 	int i;
 	for (i = 0; i < (MAX_SERVERS - 1); i++)
 	{
-		if (server->config->vhosts[i])
-			ouistiti_loadmodule(server, str_vhosts, server->config->vhosts[i]);
+		ouistiti_loadmodule(server, str_vhosts, server->config->vhosts[i]);
 	}
 	ouistiti_loadmodule(server, str_cookie, NULL);
-	if (server->config->modules.cors)
-		ouistiti_loadmodule(server, str_cors, server->config->modules.cors);
-	if (server->config->modules.auth)
-		ouistiti_loadmodule(server, str_auth, server->config->modules.auth);
-	if (server->config->modules.userfilter)
-		ouistiti_loadmodule(server, str_userfilter, server->config->modules.userfilter);
+	ouistiti_loadmodule(server, str_cors, server->config->modules.cors);
+	ouistiti_loadmodule(server, str_auth, server->config->modules.auth);
+	ouistiti_loadmodule(server, str_userfilter, server->config->modules.userfilter);
 	ouistiti_loadmodule(server, str_redirect404, NULL);
-	if (server->config->modules.redirect)
-		ouistiti_loadmodule(server, str_redirect, server->config->modules.redirect);
+	ouistiti_loadmodule(server, str_redirect, server->config->modules.redirect);
 	ouistiti_loadmodule(server, str_methodlock, server->config->unlock_groups);
 	ouistiti_loadmodule(server, str_serverheader, NULL);
-	if (server->config->modules.cgi)
-		ouistiti_loadmodule(server, str_cgi, server->config->modules.cgi);
-	if (server->config->modules.webstream)
-		ouistiti_loadmodule(server, str_webstream, server->config->modules.webstream);
-	if (server->config->modules.upgrade)
-		ouistiti_loadmodule(server, str_upgrade, server->config->modules.upgrade);
-	if (server->config->modules.websocket)
-	{
-#ifdef WEBSOCKET_RT
-		if (((mod_websocket_t*)server->config->modules.websocket)->options & WEBSOCKET_REALTIME)
-		{
-			((mod_websocket_t*)server->config->modules.websocket)->run = ouistiti_websocket_run;
-			warn("server %p runs realtime websocket!", server->server);
-		}
-#endif
-		ouistiti_loadmodule(server, str_websocket, server->config->modules.websocket);
-	}
-	if (server->config->modules.document)
-		ouistiti_loadmodule(server, str_document, server->config->modules.document);
+	ouistiti_loadmodule(server, str_cgi, server->config->modules.cgi);
+	ouistiti_loadmodule(server, str_webstream, server->config->modules.webstream);
+	ouistiti_loadmodule(server, str_upgrade, server->config->modules.upgrade);
+	ouistiti_loadmodule(server, str_websocket, server->config->modules.websocket);
+	ouistiti_loadmodule(server, str_document, server->config->modules.document);
 	return 0;
 }
 

@@ -142,6 +142,9 @@ static void _mod_cors_freectx(void *arg)
 
 void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 {
+	if (config == NULL)
+		return NULL;
+
 	_mod_cors_t *mod = calloc(1, sizeof(*mod));
 
 	mod->config = config;
