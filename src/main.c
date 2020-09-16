@@ -463,11 +463,13 @@ int main(int argc, char * const *argv)
 	} while(opt != -1);
 #endif
 
-#ifndef FILE_CONFIG
+#ifdef STATIC_CONFIG
 	ouistiticonfig = &g_ouistiticonfig;
 #else
-	ouistiticonfig = ouistiticonfig_create(configfile);
+	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
 #endif
+	first = main_set(ouistiticonfig, serverid);
+
 
 	if (mode & KILLDAEMON)
 	{
@@ -504,8 +506,6 @@ int main(int argc, char * const *argv)
 
 	signal(SIGPIPE, SIG_IGN);
 #endif
-
-	first = main_set(ouistiticonfig, serverid);
 
 	if (auth_setowner(ouistiticonfig->user) == EREJECT)
 		err("Error: user %s not found\n", ouistiticonfig->user);
