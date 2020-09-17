@@ -186,8 +186,8 @@ ouistiticonfig_t g_ouistiticonfig =
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
-int ouistiti_loadmodule(server_t *server, const char *name, void *config)
-;
+int ouistiti_loadserver(serverconfig_t *config);
+int ouistiti_loadmodule(server_t *server, const char *name, void *config);
 
 #endif
 #endif
