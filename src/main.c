@@ -203,14 +203,15 @@ typedef struct mod_s
 } mod_t;
 
 #define MAX_MODULES 16
-typedef struct server_s
+struct server_s
 {
 	serverconfig_t *config;
 	http_server_t *server;
 	mod_t modules[MAX_MODULES + MAX_SERVERS];
 
 	struct server_s *next;
-} server_t;
+	unsigned int id;
+};
 
 void display_help(char * const *argv)
 {
@@ -285,43 +286,34 @@ int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 	return (mod->config != NULL)?ESUCCESS:EREJECT;
 }
 
-static int ouistiti_loadserver(server_t *server, serverconfig_t *config)
+static int _ouistiti_loadserver(server_t *server, serverconfig_t *config)
 {
 	http_server_t *httpserver = httpserver_create(config->server);
 	if (httpserver == NULL)
 		return EREJECT;
+	server->server = httpserver;
 
 	server->config = config;
-	server->server = httpserver;
 	return ouistiti_setmodules(server);
 }
 
-static server_t *main_set(ouistiticonfig_t *config, int serverid)
+int ouistiti_loadserver(serverconfig_t *config)
 {
-	server_t *first = NULL;
-	int i;
-	for (i = 0; i < MAX_SERVERS; i++)
+	if (first != NULL && first->id == MAX_SERVERS)
+		return EREJECT;
+
+	server_t *server = NULL;
+	server = calloc(1, sizeof(*server));
+	if (_ouistiti_loadserver(server, config) == EREJECT)
 	{
-		serverconfig_t *it;
-
-		it = config->servers[i];
-		if (it == NULL)
-			break;
-		if (serverid > -1 && serverid != i)
-			continue;
-
-		server_t *server;
-
-		server = calloc(1, sizeof(*server));
-		if (ouistiti_loadserver(server, it) == EREJECT)
-		{
-			free(server);
-			continue;
-		}
-		server->next = first;
-		first = server;
+		free(server);
+		return EREJECT;
 	}
-	return first;
+	server->next = first;
+	if (first != NULL)
+		server->id = first->id + 1;
+	first = server;
+	return ESUCCESS;
 }
 
 static int ouistiti_setmodules(server_t *server)
@@ -445,21 +437,27 @@ int main(int argc, char * const *argv)
 	} while(opt != -1);
 #endif
 
+	if (mode & KILLDAEMON)
+	{
+		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
+		{
+#ifdef STATIC_CONFIG
+			ouistiticonfig = &g_ouistiticonfig;
+#else
+			ouistiticonfig = ouistiticonfig_create(configfile, serverid);
+#endif
+			pidfile = ouistiticonfig->pidfile;
+		}
+		killdaemon(pidfile);
+		return 0;
+	}
+
 #ifdef STATIC_CONFIG
 	ouistiticonfig = &g_ouistiticonfig;
 #else
 	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
 #endif
-	first = main_set(ouistiticonfig, serverid);
 
-
-	if (mode & KILLDAEMON)
-	{
-		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
-			pidfile = ouistiticonfig->pidfile;
-		killdaemon(pidfile);
-		return 0;
-	}
 	if (mode & DAEMONIZE)
 	{
 		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
