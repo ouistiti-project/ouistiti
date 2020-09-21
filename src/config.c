@@ -1142,8 +1142,9 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 			if (iterator)
 			{
 				serverconfig_t *config = config_server(iterator);
+				server_t *server = ouistiti_loadserver(config);
 				config_modules(iterator, config);
-				ouistiti_loadserver(config);
+				ouistiti_setmodules(server);
 			}
 		}
 		ouistiticonfig->servers[i] = NULL;

@@ -237,8 +237,6 @@ static void handler(int sig)
 	run = 'q';
 }
 
-static int ouistiti_setmodules(server_t *server);
-
 int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 {
 	int i = 0;
@@ -286,7 +284,7 @@ int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 	return (mod->config != NULL)?ESUCCESS:EREJECT;
 }
 
-static int ouistiti_setmodules(server_t *server)
+int ouistiti_setmodules(server_t *server)
 {
 	int j = 0;
 	ouistiti_loadmodule(server, str_tinysvcmdns, NULL);
@@ -320,34 +318,25 @@ static int ouistiti_setmodules(server_t *server)
 	return 0;
 }
 
-static int _ouistiti_loadserver(server_t *server, serverconfig_t *config)
-{
-	http_server_t *httpserver = httpserver_create(config->server);
-	if (httpserver == NULL)
-		return EREJECT;
-	server->server = httpserver;
-
-	server->config = config;
-	return ouistiti_setmodules(server);
-}
-
-int ouistiti_loadserver(serverconfig_t *config)
+server_t *ouistiti_loadserver(serverconfig_t *config)
 {
 	if (first != NULL && first->id == MAX_SERVERS)
-		return EREJECT;
+		return NULL;
+
+	http_server_t *httpserver = httpserver_create(config->server);
+	if (httpserver == NULL)
+		return NULL;
 
 	server_t *server = NULL;
 	server = calloc(1, sizeof(*server));
-	if (_ouistiti_loadserver(server, config) == EREJECT)
-	{
-		free(server);
-		return EREJECT;
-	}
+
+	server->server = httpserver;
+	server->config = config;
 	server->next = first;
 	if (first != NULL)
 		server->id = first->id + 1;
 	first = server;
-	return ESUCCESS;
+	return server;
 }
 
 static int main_run(server_t *first)
