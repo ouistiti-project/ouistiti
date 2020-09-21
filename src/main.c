@@ -286,36 +286,6 @@ int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 	return (mod->config != NULL)?ESUCCESS:EREJECT;
 }
 
-static int _ouistiti_loadserver(server_t *server, serverconfig_t *config)
-{
-	http_server_t *httpserver = httpserver_create(config->server);
-	if (httpserver == NULL)
-		return EREJECT;
-	server->server = httpserver;
-
-	server->config = config;
-	return ouistiti_setmodules(server);
-}
-
-int ouistiti_loadserver(serverconfig_t *config)
-{
-	if (first != NULL && first->id == MAX_SERVERS)
-		return EREJECT;
-
-	server_t *server = NULL;
-	server = calloc(1, sizeof(*server));
-	if (_ouistiti_loadserver(server, config) == EREJECT)
-	{
-		free(server);
-		return EREJECT;
-	}
-	server->next = first;
-	if (first != NULL)
-		server->id = first->id + 1;
-	first = server;
-	return ESUCCESS;
-}
-
 static int ouistiti_setmodules(server_t *server)
 {
 	int j = 0;
@@ -348,6 +318,36 @@ static int ouistiti_setmodules(server_t *server)
 	ouistiti_loadmodule(server, str_websocket, server->config->modules.websocket);
 	ouistiti_loadmodule(server, str_document, server->config->modules.document);
 	return 0;
+}
+
+static int _ouistiti_loadserver(server_t *server, serverconfig_t *config)
+{
+	http_server_t *httpserver = httpserver_create(config->server);
+	if (httpserver == NULL)
+		return EREJECT;
+	server->server = httpserver;
+
+	server->config = config;
+	return ouistiti_setmodules(server);
+}
+
+int ouistiti_loadserver(serverconfig_t *config)
+{
+	if (first != NULL && first->id == MAX_SERVERS)
+		return EREJECT;
+
+	server_t *server = NULL;
+	server = calloc(1, sizeof(*server));
+	if (_ouistiti_loadserver(server, config) == EREJECT)
+	{
+		free(server);
+		return EREJECT;
+	}
+	server->next = first;
+	if (first != NULL)
+		server->id = first->id + 1;
+	first = server;
+	return ESUCCESS;
 }
 
 static int main_run(server_t *first)
