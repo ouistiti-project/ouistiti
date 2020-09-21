@@ -28,6 +28,8 @@
 #ifndef __MOD_USERFILTER_H__
 #define __MOD_USERFILTER_H__
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {

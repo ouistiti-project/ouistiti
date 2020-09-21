@@ -38,6 +38,8 @@
 #define DOCUMENT_HOME 0x10
 #define DOCUMENT_TLS 0x20
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {

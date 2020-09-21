@@ -32,6 +32,8 @@
 #define WEBSOCKET_REALTIME 0x01
 #define WEBSOCKET_TLS      0x02
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {
