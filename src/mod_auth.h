@@ -31,6 +31,8 @@
 
 #include <linux/limits.h>
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {

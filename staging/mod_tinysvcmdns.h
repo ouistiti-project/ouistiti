@@ -29,6 +29,8 @@
 #ifndef __MOD_TINYSVCMDNS_H__
 #define __MOD_TINYSVCMDNS_H__
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {

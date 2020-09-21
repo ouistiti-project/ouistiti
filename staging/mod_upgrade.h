@@ -29,6 +29,7 @@
 #ifndef __MOD_UPGRADE_H__
 #define __MOD_UPGRADE_H__
 
+#include "ouistiti.h"
 #include "mod_websocket.h"
 
 #define UPGRADE_REALTIME 0x01
