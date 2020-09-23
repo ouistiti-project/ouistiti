@@ -198,8 +198,8 @@ static const module_t *modules[] =
 
 typedef struct mod_s
 {
-	void *config;
-	module_t *data;
+	void *obj;
+	module_t *ops;
 } mod_t;
 
 #define MAX_MODULES 16
@@ -237,11 +237,16 @@ static void handler(int sig)
 	run = 'q';
 }
 
-int ouistiti_loadmodule(server_t *server, const char *name, void *config)
+int ouistiti_issecure(server_t *server)
+{
+	return (server->config->tls != NULL);
+}
+
+int ouistiti_loadmodule(server_t *server, const char *name, configure_t configure, void *parser)
 {
 	int i = 0;
 	mod_t *mod = &server->modules[i];
-	while (i < MAX_MODULES && server->modules[i].config != NULL)
+	while (i < MAX_MODULES && server->modules[i].obj != NULL)
 		mod = &server->modules[++i];
 	if (i == MAX_MODULES)
 		return EREJECT;
@@ -252,8 +257,13 @@ int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 	{
 		if (!strcmp(modules[i]->name, name))
 		{
-			mod->config = modules[i]->create(server->server, config);
-			mod->data = modules[i];
+			void *config = NULL;
+			if (modules[i]->configure != NULL)
+				config = modules[i]->configure(parser, server->config);
+			else
+				config = configure(parser, name, server->config);
+			mod->obj = modules[i]->create(server->server, config);
+			mod->ops = modules[i];
 			break;
 		}
 		i++;
@@ -267,8 +277,13 @@ int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 		module_t *module = dlsym(dh, "mod_info");
 		if (module && !strcmp(module->name, name))
 		{
-			mod->config = module->create(server->server, config);
-			mod->data = module;
+			void *config = NULL;
+			if (module->configure != NULL)
+				config = module->configure(parser, server);
+			else
+				config = configure(parser, name, server);
+			mod->obj = module->create(server->server, config);
+			mod->ops = module;
 			dbg("module %s loaded", name);
 		}
 		else if (module)
@@ -281,58 +296,39 @@ int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 		err("module %s loading error: %s", file, dlerror());
 	}
 #endif
-	return (mod->config != NULL)?ESUCCESS:EREJECT;
+	return (mod->obj != NULL)?ESUCCESS:EREJECT;
 }
 
-int ouistiti_setmodules(server_t *server, configure_t configure, void *data)
+int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
 {
-	void *config;
-
-	config = configure(data, str_tinysvcmdns, server->config);
-	ouistiti_loadmodule(server, str_tinysvcmdns, config);
+	ouistiti_loadmodule(server, str_tinysvcmdns, configure, parser);
 	/**
 	 * TLS must be first to free the connection after all others modules
 	 */
-	config = configure(data, str_tls, server->config);
-	ouistiti_loadmodule(server, str_tls, config);
+	ouistiti_loadmodule(server, str_tls, configure, parser);
 	/**
 	 * clientfilter must be at the beginning to stop the connection if necessary
 	 */
-	config = configure(data, str_clientfilter, server->config);
-	ouistiti_loadmodule(server, str_clientfilter, config);
+	ouistiti_loadmodule(server, str_clientfilter, configure, parser);
 
 	int i;
 	for (i = 0; i < (MAX_SERVERS - 1); i++)
 	{
-		config = configure(data, str_vhosts, server->config);
-		ouistiti_loadmodule(server, str_vhosts, config);
+		ouistiti_loadmodule(server, str_vhosts, configure, parser);
 	}
-	config = configure(data, str_cookie, server->config);
-	ouistiti_loadmodule(server, str_cookie, config);
-	config = configure(data, str_cors, server->config);
-	ouistiti_loadmodule(server, str_cors, config);
-	config = configure(data, str_auth, server->config);
-	ouistiti_loadmodule(server, str_auth, config);
-	config = configure(data, str_userfilter, server->config);
-	ouistiti_loadmodule(server, str_userfilter, config);
-	config = configure(data, str_redirect404, server->config);
-	ouistiti_loadmodule(server, str_redirect404, config);
-	config = configure(data, str_redirect, server->config);
-	ouistiti_loadmodule(server, str_redirect, config);
-	config = configure(data, str_methodlock, server->config);
-	ouistiti_loadmodule(server, str_methodlock, config);
-	config = configure(data, str_serverheader, server->config);
-	ouistiti_loadmodule(server, str_serverheader, config);
-	config = configure(data, str_cgi, server->config);
-	ouistiti_loadmodule(server, str_cgi, config);
-	config = configure(data, str_webstream, server->config);
-	ouistiti_loadmodule(server, str_webstream, config);
-	config = configure(data, str_upgrade, server->config);
-	ouistiti_loadmodule(server, str_upgrade, config);
-	config = configure(data, str_websocket, server->config);
-	ouistiti_loadmodule(server, str_websocket, config);
-	config = configure(data, str_document, server->config);
-	ouistiti_loadmodule(server, str_document, config);
+	ouistiti_loadmodule(server, str_cookie, configure, parser);
+	ouistiti_loadmodule(server, str_cors, configure, parser);
+	ouistiti_loadmodule(server, str_auth, configure, parser);
+	ouistiti_loadmodule(server, str_userfilter, configure, parser);
+	ouistiti_loadmodule(server, str_redirect404, configure, parser);
+	ouistiti_loadmodule(server, str_redirect, configure, parser);
+	ouistiti_loadmodule(server, str_methodlock, configure, parser);
+	ouistiti_loadmodule(server, str_serverheader, configure, parser);
+	ouistiti_loadmodule(server, str_cgi, configure, parser);
+	ouistiti_loadmodule(server, str_webstream, configure, parser);
+	ouistiti_loadmodule(server, str_upgrade, configure, parser);
+	ouistiti_loadmodule(server, str_websocket, configure, parser);
+	ouistiti_loadmodule(server, str_document, configure, parser);
 	return 0;
 }
 
@@ -380,10 +376,10 @@ static int main_run(server_t *first)
 	{
 		server_t *next = server->next;
 		int j = 0;
-		while (server->modules[j].config)
+		while (server->modules[j].obj)
 		{
-			if (server->modules[j].data->destroy)
-				server->modules[j].data->destroy(server->modules[j].config);
+			if (server->modules[j].ops->destroy)
+				server->modules[j].ops->destroy(server->modules[j].obj);
 			j++;
 		}
 		httpserver_disconnect(server->server);
