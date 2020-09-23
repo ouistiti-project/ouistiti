@@ -130,14 +130,30 @@ static void document_optioncb(void *arg, const char *option, size_t length)
 }
 
 static const char *str_index = "index.html";
-static mod_document_t *document_config(config_setting_t *iterator, int tls, char *entry)
+static void *document_config(config_setting_t *iterator, int tls)
 {
+	const char *entries[] = {
+		"document", "filestorage", "static_file"
+	};
 	mod_document_t * static_file = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configstaticfile = config_setting_get_member(iterator, entry);
+	config_setting_t *configstaticfile = config_setting_get_member(iterator, entries[0]);
 #else
-	config_setting_t *configstaticfile = config_setting_lookup(iterator, entry);
+	config_setting_t *configstaticfile = config_setting_lookup(iterator, entries[0]);
 #endif
+	if (configstaticfile == NULL)
+#if LIBCONFIG_VER_MINOR < 5
+		configstaticfile = config_setting_get_member(iterator, entries[1]);
+#else
+		configstaticfile = config_setting_lookup(iterator, entries[1]);
+#endif
+	if (configstaticfile == NULL)
+#if LIBCONFIG_VER_MINOR < 5
+		configstaticfile = config_setting_get_member(iterator, entries[2]);
+#else
+		configstaticfile = config_setting_lookup(iterator, entries[2]);
+#endif
+
 	if (configstaticfile)
 	{
 		int length;
@@ -953,11 +969,7 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 	{
 		vhost = calloc(1, sizeof(*vhost));
 		vhost->hostname = hostname;
-		vhost->modules.document = document_config(iterator, tls, "document");
-		if (vhost->modules.document == NULL)
-			vhost->modules.document = document_config(iterator, tls, "static_file");
-		if (vhost->modules.document == NULL)
-			vhost->modules.document = document_config(iterator, tls, "filestorage");
+		vhost->modules.document = document_config(iterator, tls);
 		vhost->modules.auth = auth_config(iterator, tls);
 		vhost->modules.cgi = cgi_config(iterator, tls);
 		vhost->modules.websocket = websocket_config(iterator, tls);
@@ -1041,18 +1053,14 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 		}
 	}
 	config->server->versionstr = httpversion[config->server->version];
+	config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
+	config->tls = tls_config(iterator);
 	return config;
 }
 
 static void config_modules(config_setting_t *iterator, serverconfig_t *config)
 {
-	config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
-	config->tls = tls_config(iterator);
-	config->modules.document = document_config(iterator,(config->tls!=NULL), "document");
-	if (config->modules.document == NULL)
-		config->modules.document = document_config(iterator,(config->tls!=NULL), "static_file");
-	if (config->modules.document == NULL)
-		config->modules.document = document_config(iterator,(config->tls!=NULL), "filestorage");
+	config->modules.document = document_config(iterator,(config->tls!=NULL));
 	config->modules.auth = auth_config(iterator,(config->tls!=NULL));
 	config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
 	config->modules.userfilter = userfilter_config(iterator,(config->tls!=NULL));
