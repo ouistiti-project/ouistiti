@@ -130,7 +130,7 @@ static void document_optioncb(void *arg, const char *option, size_t length)
 }
 
 static const char *str_index = "index.html";
-static void *document_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *document_config(config_setting_t *iterator, server_t *server)
 {
 	const char *entries[] = {
 		"document", "filestorage", "static_file"
@@ -166,7 +166,7 @@ static void *document_config(config_setting_t *iterator, serverconfig_t *sconfig
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
 		if (static_file->defaultpage == NULL)
 			static_file->defaultpage = str_index;
-		if (sconfig->tls != NULL)
+		if (ouistiti_issecure(server))
 			static_file->options |= DOCUMENT_TLS;
 		config_setting_lookup_string(configstaticfile, "options", (const char **)&transfertype);
 		config_parseoptions(transfertype, &document_optioncb, static_file);
@@ -204,7 +204,7 @@ static void *tls_config(config_setting_t *iterator, serverconfig_t *config)
 #endif
 
 #ifdef CLIENTFILTER
-static void *clientfilter_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *clientfilter_config(config_setting_t *iterator, server_t *server)
 {
 	mod_clientfilter_t *clientfilter = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -225,7 +225,7 @@ static void *clientfilter_config(config_setting_t *iterator, serverconfig_t *sco
 #endif
 
 #ifdef USERFILTER
-static void *userfilter_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *userfilter_config(config_setting_t *iterator, server_t *server)
 {
 	mod_userfilter_t *modconfig = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -584,7 +584,7 @@ static int authz_config(config_setting_t *configauth, mod_authz_t *mod)
 	return ret;
 }
 
-static void *auth_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *auth_config(config_setting_t *iterator, server_t *server)
 {
 	mod_auth_t *auth = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -614,7 +614,7 @@ static void *auth_config(config_setting_t *iterator, serverconfig_t *sconfig)
 
 		char *mode = NULL;
 		config_setting_lookup_string(configauth, "options", (const char **)&mode);
-		if (sconfig->tls != NULL)
+		if (ouistiti_issecure(server))
 			auth->authz.type |= AUTHZ_TLS_E;
 		if (mode != NULL)
 		{
@@ -642,7 +642,7 @@ static void *auth_config(config_setting_t *iterator, serverconfig_t *sconfig)
 #endif
 
 #ifdef CGI
-static void *cgi_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *cgi_config(config_setting_t *iterator, server_t *server)
 {
 	mod_cgi_config_t *cgi = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -700,7 +700,7 @@ static void websocket_optionscb(void *arg, const char *option, size_t length)
 #endif
 }
 
-static void *websocket_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *websocket_config(config_setting_t *iterator, server_t *server)
 {
 	mod_websocket_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -716,7 +716,7 @@ static void *websocket_config(config_setting_t *iterator, serverconfig_t *sconfi
 		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
 		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		if (sconfig->tls != NULL)
+		if (ouistiti_issecure(server))
 			conf->options |= WEBSOCKET_TLS;
 		config_parseoptions(mode, &websocket_optionscb, conf);
 	}
@@ -741,7 +741,7 @@ static void webstream_optionscb(void *arg, const char *option, size_t length)
 #endif
 }
 
-static void *webstream_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *webstream_config(config_setting_t *iterator, server_t *server)
 {
 	mod_webstream_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -758,7 +758,7 @@ static void *webstream_config(config_setting_t *iterator, serverconfig_t *sconfi
 		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
 		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		if (sconfig->tls != NULL)
+		if (ouistiti_issecure(server))
 			conf->options |= WEBSOCKET_TLS;
 		config_parseoptions(mode, &webstream_optionscb, conf);
 	}
@@ -783,7 +783,7 @@ static void upgrade_optionscb(void *arg, const char *option, size_t length)
 #endif
 }
 
-static void *upgrade_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *upgrade_config(config_setting_t *iterator, server_t *server)
 {
 	mod_upgrade_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -800,7 +800,7 @@ static void *upgrade_config(config_setting_t *iterator, serverconfig_t *sconfig)
 		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
 		config_setting_lookup_string(configws, "upgrade", (const char **)&conf->upgrade);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		if (sconfig->tls != NULL)
+		if (ouistiti_issecure(server))
 			conf->options |= UPGRADE_TLS;
 		config_parseoptions(mode, &upgrade_optionscb, conf);
 	}
@@ -910,7 +910,7 @@ static int redirect_linksconfig(config_setting_t *configlinks, mod_redirect_t *c
 	return count;
 }
 
-static void *redirect_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *redirect_config(config_setting_t *iterator, server_t *server)
 {
 	mod_redirect_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -938,7 +938,7 @@ static void *redirect_config(config_setting_t *iterator, serverconfig_t *sconfig
 #endif
 
 #ifdef CORS
-static void *cors_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *cors_config(config_setting_t *iterator, server_t *server)
 {
 	mod_cors_t *config = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -959,7 +959,7 @@ static void *cors_config(config_setting_t *iterator, serverconfig_t *sconfig)
 
 #ifdef VHOSTS
 #warning VHOSTS is deprecated
-static void *vhost_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *vhost_config(config_setting_t *iterator, server_t *server)
 {
 	mod_vhost_t *vhost = NULL;
 	char *hostname = NULL;
@@ -990,7 +990,7 @@ static void *vhost_config(config_setting_t *iterator, serverconfig_t *sconfig)
 
 #ifdef METHODLOCK
 #warning METHODLOCK is deprecated
-static void *methodlock_config(config_setting_t *iterator, serverconfig_t *sconfig)
+static void *methodlock_config(config_setting_t *iterator, server_t *server)
 {
 
 	return NULL;
@@ -1072,7 +1072,7 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 static struct _config_module_s
 {
 	const char *name;
-	void *(*configure)(config_setting_t *iterator, serverconfig_t *sconfig);
+	void *(*configure)(config_setting_t *iterator, server_t *server);
 } list_config_modules [] =
 {
 	{
@@ -1139,7 +1139,7 @@ static struct _config_module_s
 		.name = "end",
 	}
 };
-static void *_config_modules(void *data, const char *name, serverconfig_t *config)
+static void *_config_modules(void *data, const char *name, server_t *server)
 {
 	config_setting_t *iterator = (config_setting_t *)data;
 	void *mod = NULL;
@@ -1147,7 +1147,7 @@ static void *_config_modules(void *data, const char *name, serverconfig_t *confi
 	for (i = 0; i < sizeof(list_config_modules)/ sizeof(struct _config_module_s); i++)
 	{
 		if (!strcmp(name, list_config_modules[i].name))
-			mod = list_config_modules[i].configure(iterator, config);
+			mod = list_config_modules[i].configure(iterator, server);
 	}
 	return mod;
 }

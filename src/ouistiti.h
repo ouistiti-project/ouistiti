@@ -44,6 +44,7 @@ typedef void *(*module_create_t)(http_server_t *server, void *config);
 struct module_s
 {
 	const char *name;
+	void *(*configure)(void *parser, server_t *server);
 	void *(*create)(http_server_t *server, void *config);
 	void (*destroy)(void*);
 };
@@ -187,9 +188,10 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
 server_t *ouistiti_loadserver(serverconfig_t *config);
-typedef void *(*configure_t)(void *data, const char *name, serverconfig_t *config);
+typedef void *(*configure_t)(void *data, const char *name, server_t *server);
 int ouistiti_setmodules(server_t *server, configure_t configure, void *data);
-int ouistiti_loadmodule(server_t *server, const char *name, void *config);
+int ouistiti_loadmodule(server_t *server, const char *name, configure_t configure, void *parser);
+int ouistiti_issecure(server_t *server);
 
 #endif
 #endif
