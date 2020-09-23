@@ -181,7 +181,7 @@ static void *document_config(config_setting_t *iterator, int tls)
 
 
 #if defined(TLS)
-static mod_tls_t *tls_config(config_setting_t *iterator)
+static void *tls_config(config_setting_t *iterator)
 {
 	mod_tls_t *tls = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -204,7 +204,7 @@ static mod_tls_t *tls_config(config_setting_t *iterator)
 #endif
 
 #ifdef CLIENTFILTER
-static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int tls)
+static void *clientfilter_config(config_setting_t *iterator, int tls)
 {
 	mod_clientfilter_t *clientfilter = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -225,7 +225,7 @@ static mod_clientfilter_t *clientfilter_config(config_setting_t *iterator, int t
 #endif
 
 #ifdef USERFILTER
-static mod_userfilter_t *userfilter_config(config_setting_t *iterator, int tls)
+static void *userfilter_config(config_setting_t *iterator, int tls)
 {
 	mod_userfilter_t *modconfig = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -584,7 +584,7 @@ static int authz_config(config_setting_t *configauth, mod_authz_t *mod)
 	return ret;
 }
 
-static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
+static void *auth_config(config_setting_t *iterator, int tls)
 {
 	mod_auth_t *auth = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -642,7 +642,7 @@ static mod_auth_t *auth_config(config_setting_t *iterator, int tls)
 #endif
 
 #ifdef CGI
-static mod_cgi_config_t *cgi_config(config_setting_t *iterator, int tls)
+static void *cgi_config(config_setting_t *iterator, int tls)
 {
 	mod_cgi_config_t *cgi = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -700,7 +700,7 @@ static void websocket_optionscb(void *arg, const char *option, size_t length)
 #endif
 }
 
-static mod_websocket_t *websocket_config(config_setting_t *iterator, int tls)
+static void *websocket_config(config_setting_t *iterator, int tls)
 {
 	mod_websocket_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -741,7 +741,7 @@ static void webstream_optionscb(void *arg, const char *option, size_t length)
 #endif
 }
 
-static mod_webstream_t *webstream_config(config_setting_t *iterator, int tls)
+static void *webstream_config(config_setting_t *iterator, int tls)
 {
 	mod_webstream_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -783,7 +783,7 @@ static void upgrade_optionscb(void *arg, const char *option, size_t length)
 #endif
 }
 
-static mod_upgrade_t *upgrade_config(config_setting_t *iterator, int tls)
+static void *upgrade_config(config_setting_t *iterator, int tls)
 {
 	mod_upgrade_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -910,7 +910,7 @@ static int redirect_linksconfig(config_setting_t *configlinks, mod_redirect_t *c
 	return count;
 }
 
-static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
+static void *redirect_config(config_setting_t *iterator, int tls)
 {
 	mod_redirect_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -938,7 +938,7 @@ static mod_redirect_t *redirect_config(config_setting_t *iterator, int tls)
 #endif
 
 #ifdef CORS
-static mod_cors_t *cors_config(config_setting_t *iterator, int tls)
+static void *cors_config(config_setting_t *iterator, int tls)
 {
 	mod_cors_t *config = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -959,7 +959,7 @@ static mod_cors_t *cors_config(config_setting_t *iterator, int tls)
 
 #ifdef VHOSTS
 #warning VHOSTS is deprecated
-static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
+static void *vhost_config(config_setting_t *iterator, int tls)
 {
 	mod_vhost_t *vhost = NULL;
 	char *hostname = NULL;
@@ -986,6 +986,17 @@ static mod_vhost_t *vhost_config(config_setting_t *iterator, int tls)
 }
 #else
 #define vhost_config(...) NULL
+#endif
+
+#ifdef METHODLOCK
+#warning METHODLOCK is deprecated
+static void *methodlock_config(config_setting_t *iterator, int tls)
+{
+
+	return NULL;
+}
+#else
+#define methodlock_config(...) NULL
 #endif
 
 static void config_mimes(config_setting_t *configmimes)
@@ -1058,38 +1069,88 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 	return config;
 }
 
-static void config_modules(config_setting_t *iterator, serverconfig_t *config)
+static struct _config_module_s
 {
-	config->modules.document = document_config(iterator,(config->tls!=NULL));
-	config->modules.auth = auth_config(iterator,(config->tls!=NULL));
-	config->modules.clientfilter = clientfilter_config(iterator,(config->tls!=NULL));
-	config->modules.userfilter = userfilter_config(iterator,(config->tls!=NULL));
-	config->modules.cgi = cgi_config(iterator,(config->tls!=NULL));
-	config->modules.websocket = websocket_config(iterator,(config->tls!=NULL));
-	config->modules.redirect = redirect_config(iterator,(config->tls!=NULL));
-	config->modules.cors = cors_config(iterator,(config->tls!=NULL));
-	config->modules.webstream = webstream_config(iterator,(config->tls!=NULL));
-	config->modules.upgrade = upgrade_config(iterator,(config->tls!=NULL));
-#ifdef VHOSTS
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configvhosts = config_setting_get_member(iterator, "vhosts");
-#else
-	config_setting_t *configvhosts = config_setting_lookup(iterator, "vhosts");
-#endif
-	if (configvhosts)
+	const char *name;
+	void *(*configure)(config_setting_t *iterator, int tls);
+} list_config_modules [] =
+{
 	{
-		int count = config_setting_length(configvhosts);
-		int j;
-
-		for (j = 0; j < count && j < MAX_SERVERS; j++)
-		{
-			config_setting_t *iterator = config_setting_get_elem(configvhosts, j);
-			config->vhosts[j] = vhost_config(iterator,(config->tls!=NULL));
-		}
-	}
+#ifdef VHOST
+		.name = "vhosts",
+		.configure = vhost_config,
+	},{
 #endif
+#ifdef DOCUMENT
+		.name = "document",
+		.configure = document_config,
+	},{
+#endif
+#ifdef AUTH
+		.name = "auth",
+		.configure = auth_config,
+	},{
+#endif
+#ifdef CLIENTFILTER
+		.name = "clientfilter",
+		.configure = clientfilter_config,
+	},{
+#endif
+#ifdef USERFILTER
+		.name = "userfilter",
+		.configure = userfilter_config,
+	},{
+#endif
+#ifdef CGI
+		.name = "cgi",
+		.configure = cgi_config,
+	},{
+#endif
+#ifdef WEBSOCKET
+		.name = "websocket",
+		.configure = websocket_config,
+	},{
+#endif
+#ifdef REDIRECT
+		.name = "redirect",
+		.configure = redirect_config,
+	},{
+#endif
+#ifdef CORS
+		.name = "cors",
+		.configure = cors_config,
+	},{
+#endif
+#ifdef WEBSTREAM
+		.name = "webstream",
+		.configure = webstream_config,
+	},{
+#endif
+#ifdef UPGRADE
+		.name = "upgrade",
+		.configure = upgrade_config,
+	},{
+#endif
+#ifdef METHODLOCK
+		.name = "methodlock",
+		.configure = methodlock_config,
+	},{
+#endif
+		.name = "end",
+	}
+};
+static void *_config_modules(void *data, const char *name, serverconfig_t *config)
+{
+	config_setting_t *iterator = (config_setting_t *)data;
+	void *mod = NULL;
+	int i;
+	for (i = 0; i < sizeof(list_config_modules)/ sizeof(struct _config_module_s); i++)
+	{
+		if (!strcmp(name, list_config_modules[i].name))
+			mod = list_config_modules[i].configure(iterator, (config->tls!=NULL));
+	}
+	return mod;
 }
-
 
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 {
@@ -1151,8 +1212,7 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 			{
 				serverconfig_t *config = config_server(iterator);
 				server_t *server = ouistiti_loadserver(config);
-				config_modules(iterator, config);
-				ouistiti_setmodules(server);
+				ouistiti_setmodules(server, _config_modules, iterator);
 			}
 		}
 		ouistiticonfig->servers[i] = NULL;
