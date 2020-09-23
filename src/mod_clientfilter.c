@@ -63,7 +63,38 @@ struct _mod_clientfilter_s
 static const char *str_wilcard = "*";
 static const char *str_empty = "";
 
-void *mod_clientfilter_create(http_server_t *server, mod_clientfilter_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *mod_clientfilter_config(config_setting_t *iterator, server_t *server)
+{
+	mod_clientfilter_t *clientfilter = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "clientfilter");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "clientfilter");
+#endif
+	if (config)
+	{
+		clientfilter = calloc(1, sizeof(*clientfilter));
+		config_setting_lookup_string(config, "allow", (const char **)&clientfilter->accept);
+		config_setting_lookup_string(config, "deny", (const char **)&clientfilter->deny);
+	}
+	return clientfilter;
+}
+#else
+static const mod_clientfilter_t g_clientfilter_config =
+{
+	.accept = "*",
+};
+
+static void *mod_clientfilter_config(void *iterator, server_t *server)
+{
+	return (void *)&g_clientfilter_config;
+}
+#endif
+
+static void *mod_clientfilter_create(http_server_t *server, mod_clientfilter_t *config)
 {
 	_mod_clientfilter_t *mod;
 
@@ -77,7 +108,7 @@ void *mod_clientfilter_create(http_server_t *server, mod_clientfilter_t *config)
 	return mod;
 }
 
-void mod_clientfilter_destroy(void *arg)
+static void mod_clientfilter_destroy(void *arg)
 {
 	_mod_clientfilter_t *mod = (_mod_clientfilter_t *)arg;
 	free(mod);
@@ -131,6 +162,7 @@ static void _mod_clientfilter_freectx(void *vctx)
 const module_t mod_clientfilter =
 {
 	.name = str_clientfilter,
+	.configure = (module_configure_t)&mod_clientfilter_config,
 	.create = (module_create_t)&mod_clientfilter_create,
 	.destroy = &mod_clientfilter_destroy
 };

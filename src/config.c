@@ -114,27 +114,6 @@ static void *tls_config(config_setting_t *iterator, serverconfig_t *config)
 #define tls_config(...) NULL
 #endif
 
-#ifdef CLIENTFILTER
-static void *clientfilter_config(config_setting_t *iterator, server_t *server)
-{
-	mod_clientfilter_t *clientfilter = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *config = config_setting_get_member(iterator, "clientfilter");
-#else
-	config_setting_t *config = config_setting_lookup(iterator, "clientfilter");
-#endif
-	if (config)
-	{
-		clientfilter = calloc(1, sizeof(*clientfilter));
-		config_setting_lookup_string(config, "allow", (const char **)&clientfilter->accept);
-		config_setting_lookup_string(config, "deny", (const char **)&clientfilter->deny);
-	}
-	return clientfilter;
-}
-#else
-#define clientfilter_config(...) NULL
-#endif
-
 #ifdef USERFILTER
 static void *userfilter_config(config_setting_t *iterator, server_t *server)
 {
@@ -995,11 +974,6 @@ static struct _config_module_s
 #ifdef AUTH
 		.name = "auth",
 		.configure = auth_config,
-	},{
-#endif
-#ifdef CLIENTFILTER
-		.name = "clientfilter",
-		.configure = clientfilter_config,
 	},{
 #endif
 #ifdef USERFILTER
