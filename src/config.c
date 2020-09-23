@@ -91,95 +91,6 @@ static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata
 	return 0;
 }
 
-#ifdef DOCUMENT
-static void document_optioncb(void *arg, const char *option, size_t length)
-{
-	mod_document_t *static_file = (mod_document_t *)arg;
-
-#ifdef DIRLISTING
-	if (!strncmp(option, "dirlisting", length))
-		static_file->options |= DOCUMENT_DIRLISTING;
-#endif
-#ifdef SENDFILE
-	if (!strncmp(option, "sendfile", length))
-	{
-		if (!(static_file->options & DOCUMENT_TLS))
-			static_file->options |= DOCUMENT_SENDFILE;
-		else
-			warn("sendfile configuration is not allowed with tls");
-	}
-#endif
-#ifdef RANGEREQUEST
-	if (!strncmp(option, "range", length))
-	{
-		static_file->options |= DOCUMENT_RANGE;
-	}
-#endif
-#ifdef DOCUMENTREST
-	if (!strncmp(option, "rest", length))
-	{
-		static_file->options |= DOCUMENT_REST;
-	}
-#endif
-#ifdef DOCUMENTHOME
-	if (!strncmp(option, "home", length))
-	{
-		static_file->options |= DOCUMENT_HOME;
-	}
-#endif
-}
-
-static const char *str_index = "index.html";
-static void *document_config(config_setting_t *iterator, server_t *server)
-{
-	const char *entries[] = {
-		"document", "filestorage", "static_file"
-	};
-	mod_document_t * static_file = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configstaticfile = config_setting_get_member(iterator, entries[0]);
-#else
-	config_setting_t *configstaticfile = config_setting_lookup(iterator, entries[0]);
-#endif
-	if (configstaticfile == NULL)
-#if LIBCONFIG_VER_MINOR < 5
-		configstaticfile = config_setting_get_member(iterator, entries[1]);
-#else
-		configstaticfile = config_setting_lookup(iterator, entries[1]);
-#endif
-	if (configstaticfile == NULL)
-#if LIBCONFIG_VER_MINOR < 5
-		configstaticfile = config_setting_get_member(iterator, entries[2]);
-#else
-		configstaticfile = config_setting_lookup(iterator, entries[2]);
-#endif
-
-	if (configstaticfile)
-	{
-		int length;
-		char *transfertype = NULL;
-		static_file = calloc(1, sizeof(*static_file));
-		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
-		config_setting_lookup_string(configstaticfile, "dochome", (const char **)&static_file->dochome);
-		config_setting_lookup_string(configstaticfile, "allow", (const char **)&static_file->allow);
-		config_setting_lookup_string(configstaticfile, "deny", (const char **)&static_file->deny);
-		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
-		if (static_file->defaultpage == NULL)
-			static_file->defaultpage = str_index;
-		if (ouistiti_issecure(server))
-			static_file->options |= DOCUMENT_TLS;
-		config_setting_lookup_string(configstaticfile, "options", (const char **)&transfertype);
-		config_parseoptions(transfertype, &document_optioncb, static_file);
-		if (!strcmp(config_setting_name(configstaticfile), "filestorage"))
-			static_file->options |= DOCUMENT_REST;
-	}
-	return static_file;
-}
-#else
-#define document_config(...) NULL
-#endif
-
-
 #if defined(TLS)
 static void *tls_config(config_setting_t *iterator, serverconfig_t *config)
 {
@@ -1079,11 +990,6 @@ static struct _config_module_s
 #ifdef VHOST
 		.name = "vhosts",
 		.configure = vhost_config,
-	},{
-#endif
-#ifdef DOCUMENT
-		.name = "document",
-		.configure = document_config,
 	},{
 #endif
 #ifdef AUTH
