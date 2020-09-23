@@ -284,37 +284,55 @@ int ouistiti_loadmodule(server_t *server, const char *name, void *config)
 	return (mod->config != NULL)?ESUCCESS:EREJECT;
 }
 
-int ouistiti_setmodules(server_t *server)
+int ouistiti_setmodules(server_t *server, configure_t configure, void *data)
 {
-	int j = 0;
-	ouistiti_loadmodule(server, str_tinysvcmdns, NULL);
+	void *config;
+
+	config = configure(data, str_tinysvcmdns, server->config);
+	ouistiti_loadmodule(server, str_tinysvcmdns, config);
 	/**
 	 * TLS must be first to free the connection after all others modules
 	 */
-	ouistiti_loadmodule(server, str_tls, server->config->tls);
+	config = configure(data, str_tls, server->config);
+	ouistiti_loadmodule(server, str_tls, config);
 	/**
 	 * clientfilter must be at the beginning to stop the connection if necessary
 	 */
-	ouistiti_loadmodule(server, str_clientfilter, server->config->modules.clientfilter);
+	config = configure(data, str_clientfilter, server->config);
+	ouistiti_loadmodule(server, str_clientfilter, config);
 
 	int i;
 	for (i = 0; i < (MAX_SERVERS - 1); i++)
 	{
-		ouistiti_loadmodule(server, str_vhosts, server->config->vhosts[i]);
+		config = configure(data, str_vhosts, server->config);
+		ouistiti_loadmodule(server, str_vhosts, config);
 	}
-	ouistiti_loadmodule(server, str_cookie, NULL);
-	ouistiti_loadmodule(server, str_cors, server->config->modules.cors);
-	ouistiti_loadmodule(server, str_auth, server->config->modules.auth);
-	ouistiti_loadmodule(server, str_userfilter, server->config->modules.userfilter);
-	ouistiti_loadmodule(server, str_redirect404, NULL);
-	ouistiti_loadmodule(server, str_redirect, server->config->modules.redirect);
-	ouistiti_loadmodule(server, str_methodlock, server->config->unlock_groups);
-	ouistiti_loadmodule(server, str_serverheader, NULL);
-	ouistiti_loadmodule(server, str_cgi, server->config->modules.cgi);
-	ouistiti_loadmodule(server, str_webstream, server->config->modules.webstream);
-	ouistiti_loadmodule(server, str_upgrade, server->config->modules.upgrade);
-	ouistiti_loadmodule(server, str_websocket, server->config->modules.websocket);
-	ouistiti_loadmodule(server, str_document, server->config->modules.document);
+	config = configure(data, str_cookie, server->config);
+	ouistiti_loadmodule(server, str_cookie, config);
+	config = configure(data, str_cors, server->config);
+	ouistiti_loadmodule(server, str_cors, config);
+	config = configure(data, str_auth, server->config);
+	ouistiti_loadmodule(server, str_auth, config);
+	config = configure(data, str_userfilter, server->config);
+	ouistiti_loadmodule(server, str_userfilter, config);
+	config = configure(data, str_redirect404, server->config);
+	ouistiti_loadmodule(server, str_redirect404, config);
+	config = configure(data, str_redirect, server->config);
+	ouistiti_loadmodule(server, str_redirect, config);
+	config = configure(data, str_methodlock, server->config);
+	ouistiti_loadmodule(server, str_methodlock, config);
+	config = configure(data, str_serverheader, server->config);
+	ouistiti_loadmodule(server, str_serverheader, config);
+	config = configure(data, str_cgi, server->config);
+	ouistiti_loadmodule(server, str_cgi, config);
+	config = configure(data, str_webstream, server->config);
+	ouistiti_loadmodule(server, str_webstream, config);
+	config = configure(data, str_upgrade, server->config);
+	ouistiti_loadmodule(server, str_upgrade, config);
+	config = configure(data, str_websocket, server->config);
+	ouistiti_loadmodule(server, str_websocket, config);
+	config = configure(data, str_document, server->config);
+	ouistiti_loadmodule(server, str_document, config);
 	return 0;
 }
 
