@@ -40,6 +40,7 @@ typedef struct modulesconfig_s modulesconfig_t;
 
 #define WEBSOCKET_REALTIME 0x01
 
+typedef void *(*module_configure_t)(void *parser, server_t *server);
 typedef void *(*module_create_t)(http_server_t *server, void *config);
 struct module_s
 {

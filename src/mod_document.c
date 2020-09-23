@@ -594,7 +594,102 @@ static int _mime_connector(void *arg, http_message_t *request, http_message_t *r
 	return EREJECT;
 }
 
-void *mod_document_create(http_server_t *server, mod_document_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static const char *str_index = "index.html";
+static void *document_config(config_setting_t *iterator, server_t *server)
+{
+	const char *entries[] = {
+		"document", "filestorage", "static_file"
+	};
+	mod_document_t * static_file = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configstaticfile = config_setting_get_member(iterator, entries[0]);
+#else
+	config_setting_t *configstaticfile = config_setting_lookup(iterator, entries[0]);
+#endif
+	if (configstaticfile == NULL)
+#if LIBCONFIG_VER_MINOR < 5
+		configstaticfile = config_setting_get_member(iterator, entries[1]);
+#else
+		configstaticfile = config_setting_lookup(iterator, entries[1]);
+#endif
+	if (configstaticfile == NULL)
+#if LIBCONFIG_VER_MINOR < 5
+		configstaticfile = config_setting_get_member(iterator, entries[2]);
+#else
+		configstaticfile = config_setting_lookup(iterator, entries[2]);
+#endif
+
+	if (configstaticfile)
+	{
+		int length;
+		static_file = calloc(1, sizeof(*static_file));
+		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
+		config_setting_lookup_string(configstaticfile, "dochome", (const char **)&static_file->dochome);
+		config_setting_lookup_string(configstaticfile, "allow", (const char **)&static_file->allow);
+		config_setting_lookup_string(configstaticfile, "deny", (const char **)&static_file->deny);
+		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
+		if (static_file->defaultpage == NULL)
+			static_file->defaultpage = str_index;
+
+		char *options = NULL;
+		config_setting_lookup_string(configstaticfile, "options", (const char **)&options);
+#ifdef DIRLISTING
+		if (utils_searchexp("dirlisting", options, NULL) == ESUCCESS)
+			static_file->options |= DOCUMENT_DIRLISTING;
+#endif
+#ifdef SENDFILE
+		if (utils_searchexp("sendfile", options, NULL) == ESUCCESS)
+		{
+			if (ouistiti_issecure(server))
+				static_file->options |= DOCUMENT_SENDFILE;
+			else
+				warn("sendfile configuration is not allowed with tls");
+		}
+#endif
+#ifdef RANGEREQUEST
+		if (utils_searchexp("range", options, NULL) == ESUCCESS)
+		{
+			static_file->options |= DOCUMENT_RANGE;
+		}
+#endif
+#ifdef DOCUMENTREST
+		if (utils_searchexp("rest", options, NULL) == ESUCCESS)
+		{
+			static_file->options |= DOCUMENT_REST;
+		}
+#endif
+#ifdef DOCUMENTHOME
+		if (utils_searchexp("home", options, NULL) == ESUCCESS)
+		{
+			static_file->options |= DOCUMENT_HOME;
+		}
+#endif
+
+		if (!strcmp(config_setting_name(configstaticfile), "filestorage"))
+			static_file->options |= DOCUMENT_REST;
+	}
+	return static_file;
+}
+#else
+static const mod_document_t g_document_config =
+{
+	.docroot = "/srv/www/htdocs",
+	.defaultpage = "index.html",
+	.allow = ".html,.htm,.css,.js,.txt",
+	.deny = ".htaccess,.php",
+	.options = DOCUMENT_RANGE | DOCUMENT_DIRLISTING | DOCUMENT_REST,
+};
+
+static void *document_config(void *iterator, server_t *server)
+{
+	return (void *)&g_document_config;
+}
+#endif
+
+static void *mod_document_create(http_server_t *server, mod_document_t *config)
 {
 	if (!config)
 	{
@@ -637,7 +732,7 @@ void *mod_document_create(http_server_t *server, mod_document_t *config)
 	return mod;
 }
 
-void mod_document_destroy(void *data)
+static void mod_document_destroy(void *data)
 {
 	free(data);
 }
@@ -645,6 +740,7 @@ void mod_document_destroy(void *data)
 const module_t mod_document =
 {
 	.name = str_document,
+	.configure = (module_configure_t)&document_config,
 	.create = (module_create_t)&mod_document_create,
 	.destroy = &mod_document_destroy
 };
