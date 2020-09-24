@@ -140,7 +140,32 @@ static void _mod_cors_freectx(void *arg)
 }
 #endif
 
-void *mod_cors_create(http_server_t *server, mod_cors_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *cors_config(config_setting_t *iterator, server_t *server)
+{
+	mod_cors_t *config = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config_set = config_setting_get_member(iterator, "cors");
+#else
+	config_setting_t *config_set = config_setting_lookup(iterator, "cors");
+#endif
+	if (config_set)
+	{
+		config = calloc(1, sizeof(*config));
+		config_setting_lookup_string(config_set, "origin", (const char **)&config->origin);
+	}
+	return config;
+}
+#else
+static void *cors_config(void *iterator, server_t *server)
+{
+	return NULL;
+}
+#endif
+
+static void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 {
 	if (config == NULL)
 		return NULL;
@@ -158,14 +183,19 @@ void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 	return mod;
 }
 
-void mod_cors_destroy(void *data)
+static void mod_cors_destroy(void *data)
 {
+	_mod_cors_t *mod = (_mod_cors_t *)data;
+#if FILE_CONFIG
+	free(mod->config);
+#endif
 	free(data);
 }
 
 const module_t mod_cors =
 {
 	.name = str_cors,
+	.configure = (module_configure_t)&cors_config,
 	.create = (module_create_t)&mod_cors_create,
 	.destroy = &mod_cors_destroy
 };

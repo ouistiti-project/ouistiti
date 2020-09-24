@@ -547,26 +547,6 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 #define webstream_config(...) NULL
 #endif
 
-#ifdef CORS
-static void *cors_config(config_setting_t *iterator, server_t *server)
-{
-	mod_cors_t *config = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *config_set = config_setting_get_member(iterator, "cors");
-#else
-	config_setting_t *config_set = config_setting_lookup(iterator, "cors");
-#endif
-	if (config_set)
-	{
-		config = calloc(1, sizeof(*config));
-		config_setting_lookup_string(config_set, "origin", (const char **)&config->origin);
-	}
-	return config;
-}
-#else
-#define cors_config(...) NULL
-#endif
-
 #ifdef VHOSTS
 #warning VHOSTS is deprecated
 static void *vhost_config(config_setting_t *iterator, server_t *server)
@@ -694,11 +674,6 @@ static struct _config_module_s
 #ifdef AUTH
 		.name = "auth",
 		.configure = auth_config,
-	},{
-#endif
-#ifdef CORS
-		.name = "cors",
-		.configure = cors_config,
 	},{
 #endif
 #ifdef WEBSTREAM
