@@ -505,47 +505,6 @@ static void *auth_config(config_setting_t *iterator, server_t *server)
 #define auth_config(...) NULL
 #endif
 
-#ifdef WEBSOCKET
-static void websocket_optionscb(void *arg, const char *option, size_t length)
-{
-	mod_websocket_t *conf = (mod_websocket_t *)arg;
-#ifdef WEBSOCKET_RT
-	if (!strncmp(option, "direct", length))
-	{
-		if (!(conf->options & WEBSOCKET_TLS))
-			conf->options |= WEBSOCKET_REALTIME;
-		else
-			warn("realtime configuration is not allowed with tls");
-	}
-#endif
-}
-
-static void *websocket_config(config_setting_t *iterator, server_t *server)
-{
-	mod_websocket_t *conf = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configws = config_setting_get_member(iterator, "websocket");
-#else
-	config_setting_t *configws = config_setting_lookup(iterator, "websocket");
-#endif
-	if (configws)
-	{
-		char *mode = NULL;
-		conf = calloc(1, sizeof(*conf));
-		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
-		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
-		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
-		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		if (ouistiti_issecure(server))
-			conf->options |= WEBSOCKET_TLS;
-		config_parseoptions(mode, &websocket_optionscb, conf);
-	}
-	return conf;
-}
-#else
-#define websocket_config(...) NULL
-#endif
-
 #ifdef WEBSTREAM
 static void webstream_optionscb(void *arg, const char *option, size_t length)
 {
@@ -904,11 +863,6 @@ static struct _config_module_s
 #ifdef AUTH
 		.name = "auth",
 		.configure = auth_config,
-	},{
-#endif
-#ifdef WEBSOCKET
-		.name = "websocket",
-		.configure = websocket_config,
 	},{
 #endif
 #ifdef REDIRECT
