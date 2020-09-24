@@ -505,37 +505,6 @@ static void *auth_config(config_setting_t *iterator, server_t *server)
 #define auth_config(...) NULL
 #endif
 
-#ifdef VHOSTS
-#warning VHOSTS is deprecated
-static void *vhost_config(config_setting_t *iterator, server_t *server)
-{
-	mod_vhost_t *vhost = NULL;
-	char *hostname = NULL;
-
-	config_setting_lookup_string(iterator, "hostname", (const char **)&hostname);
-	if (hostname && hostname[0] != '0')
-	{
-		vhost = calloc(1, sizeof(*vhost));
-		vhost->hostname = hostname;
-		vhost->modules.document = document_config(iterator, tls);
-		vhost->modules.auth = auth_config(iterator, tls);
-		vhost->modules.cgi = cgi_config(iterator, tls);
-		vhost->modules.websocket = websocket_config(iterator, tls);
-		vhost->modules.redirect = redirect_config(iterator,tls);
-		vhost->modules.cors = cors_config(iterator, tls);
-		vhost->modules.upgrade = upgrade_config(iterator, tls);
-	}
-	else
-	{
-		warn("vhost configuration without hostname");
-	}
-
-	return vhost;
-}
-#else
-#define vhost_config(...) NULL
-#endif
-
 static void config_mimes(config_setting_t *configmimes)
 {
 	if (configmimes == NULL)
@@ -613,11 +582,6 @@ static struct _config_module_s
 } list_config_modules [] =
 {
 	{
-#ifdef VHOST
-		.name = "vhosts",
-		.configure = vhost_config,
-	},{
-#endif
 #ifdef AUTH
 		.name = "auth",
 		.configure = auth_config,
