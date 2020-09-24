@@ -202,7 +202,58 @@ static void _mod_webstream_freectx(void *arg)
 	free(ctx);
 }
 
-void *mod_webstream_create(http_server_t *server, mod_webstream_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void webstream_optionscb(void *arg, const char *option, size_t length)
+{
+	mod_webstream_t *conf = (mod_webstream_t *)arg;
+#ifdef WEBSOCKET_RT
+	if (!strncmp(option, "direct", length))
+	{
+		if (!(conf->options & WEBSOCKET_TLS))
+			conf->options |= WEBSOCKET_REALTIME;
+		else
+			warn("realtime configuration is not allowed with tls");
+	}
+#endif
+}
+
+static void *webstream_config(config_setting_t *iterator, server_t *server)
+{
+	mod_webstream_t *conf = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configws = config_setting_get_member(iterator, "webstream");
+#else
+	config_setting_t *configws = config_setting_lookup(iterator, "webstream");
+#endif
+	if (configws)
+	{
+		char *url = NULL;
+		char *mode = NULL;
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
+		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		config_setting_lookup_string(configws, "options", (const char **)&mode);
+		if (utils_searchexp("direct", mode, NULL) == ESUCCESS && ouistiti_issecure(server))
+			conf->options |= WEBSOCKET_REALTIME;
+	}
+	return conf;
+}
+#else
+static const mod_webstream_t g_webstream_config =
+{
+	.docroot = "/srv/www""/webstream",
+};
+
+static void *webstream_config(void *iterator, server_t *server)
+{
+	return (void *)&g_webstream_config;
+}
+#endif
+
+static void *mod_webstream_create(http_server_t *server, mod_webstream_t *config)
 {
 	if (config == NULL)
 		return NULL;
@@ -222,9 +273,12 @@ void *mod_webstream_create(http_server_t *server, mod_webstream_t *config)
 	return mod;
 }
 
-void mod_webstream_destroy(void *data)
+static void mod_webstream_destroy(void *data)
 {
 	_mod_webstream_t *mod = (_mod_webstream_t *)data;
+#ifdef FILE_CONFIG
+	free(mod->config);
+#endif
 	close(mod->fdroot);
 	free(data);
 }
@@ -313,6 +367,7 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 const module_t mod_webstream =
 {
 	.name = str_webstream,
+	.configure = (module_configure_t)&webstream_config,
 	.create = (module_create_t)&mod_webstream_create,
 	.destroy = &mod_webstream_destroy
 };
