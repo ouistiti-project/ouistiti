@@ -248,7 +248,50 @@ static void _mod_websocket_freectx(void *arg)
 	free(ctx);
 }
 
-void *mod_websocket_create(http_server_t *server, mod_websocket_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *websocket_config(config_setting_t *iterator, server_t *server)
+{
+	mod_websocket_t *conf = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configws = config_setting_get_member(iterator, "websocket");
+#else
+	config_setting_t *configws = config_setting_lookup(iterator, "websocket");
+#endif
+	if (configws)
+	{
+		char *mode = NULL;
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
+		config_setting_lookup_string(configws, "options", (const char **)&mode);
+#ifdef WEBSOCKET_RT
+		if (utils_searchexp("direct", option, NULL) == ESUCCESS)
+		{
+			if (!ouistiti_issecure(server))
+				conf->options |= WEBSOCKET_REALTIME;
+			else
+				warn("realtime configuration is not allowed with tls");
+		}
+#endif
+	}
+	return conf;
+}
+#else
+static const mod_websocket_t g_websocket_config =
+{
+	.docroot = "/srv/www""/websocket",
+};
+
+static void *websocket_config(void *iterator, server_t *server)
+{
+	return (void *)&g_websocket_config;
+}
+#endif
+
+static void *mod_websocket_create(http_server_t *server, mod_websocket_t *config)
 {
 	if (config == NULL)
 		return NULL;
@@ -278,8 +321,13 @@ void *mod_websocket_create(http_server_t *server, mod_websocket_t *config)
 	return mod;
 }
 
-void mod_websocket_destroy(void *data)
+static void mod_websocket_destroy(void *data)
 {
+	_mod_websocket_t *mod = (_mod_websocket_t *)data;
+#ifdef FILE_CONFIG
+	free(mod->config);
+#endif
+	close(mod->fdroot);
 	free(data);
 }
 
@@ -560,6 +608,7 @@ int default_websocket_run(void *arg, int sock, const char *filepath, http_messag
 const module_t mod_websocket =
 {
 	.name = str_websocket,
+	.configure = (module_configure_t)&websocket_config,
 	.create = (module_create_t)mod_websocket_create,
 	.destroy = mod_websocket_destroy
 };
