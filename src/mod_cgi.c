@@ -92,7 +92,63 @@ struct _mod_cgi_s
 	int rootfd;
 };
 
-void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *cgi_config(config_setting_t *iterator, server_t *server)
+{
+	mod_cgi_config_t *cgi = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configcgi = config_setting_get_member(iterator, "cgi");
+#else
+	config_setting_t *configcgi = config_setting_lookup(iterator, "cgi");
+#endif
+	if (configcgi)
+	{
+		cgi = calloc(1, sizeof(*cgi));
+		config_setting_lookup_string(configcgi, "docroot", (const char **)&cgi->docroot);
+		config_setting_lookup_string(configcgi, "allow", (const char **)&cgi->allow);
+		config_setting_lookup_string(configcgi, "deny", (const char **)&cgi->deny);
+		cgi->nbenvs = 0;
+		cgi->chunksize = 64;
+		cgi->options |= CGI_OPTION_TLS;
+		cgi->chunksize = DEFAULT_CHUNKSIZE;
+		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);
+#if LIBCONFIG_VER_MINOR < 5
+		config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
+#else
+		config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
+#endif
+		if (cgienv)
+		{
+			int count = config_setting_length(cgienv);
+			int i;
+			cgi->env = calloc(sizeof(char *), count);
+			for (i = 0; i < count; i++)
+			{
+				config_setting_t *iterator = config_setting_get_elem(cgienv, i);
+				cgi->env[i] = config_setting_get_string(iterator);
+			}
+			cgi->nbenvs = count;
+		}
+	}
+	return cgi;
+}
+#else
+static const mod_cgi_config_t g_cgi_config =
+{
+	.docroot = "/srv/www""/cig-bin",
+	.deny = "*",
+	.allow = "*.cgi*",
+};
+
+static void *cgi_config(void *iterator, server_t *server)
+{
+	return (void *)&g_cgi_config;
+}
+#endif
+
+static void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
 {
 	_mod_cgi_t *mod;
 
@@ -118,7 +174,7 @@ void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
 	return mod;
 }
 
-void mod_cgi_destroy(void *arg)
+static void mod_cgi_destroy(void *arg)
 {
 	_mod_cgi_t *mod = (_mod_cgi_t *)arg;
 	// nothing to do
@@ -469,6 +525,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 const module_t mod_cgi =
 {
 	.name = str_cgi,
+	.configure = (module_configure_t)&cgi_config,
 	.create = (module_create_t)&mod_cgi_create,
 	.destroy = &mod_cgi_destroy
 };
