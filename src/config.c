@@ -536,17 +536,6 @@ static void *vhost_config(config_setting_t *iterator, server_t *server)
 #define vhost_config(...) NULL
 #endif
 
-#ifdef METHODLOCK
-#warning METHODLOCK is deprecated
-static void *methodlock_config(config_setting_t *iterator, server_t *server)
-{
-
-	return NULL;
-}
-#else
-#define methodlock_config(...) NULL
-#endif
-
 static void config_mimes(config_setting_t *configmimes)
 {
 	if (configmimes == NULL)
@@ -632,11 +621,6 @@ static struct _config_module_s
 #ifdef AUTH
 		.name = "auth",
 		.configure = auth_config,
-	},{
-#endif
-#ifdef METHODLOCK
-		.name = "methodlock",
-		.configure = methodlock_config,
 	},{
 #endif
 		.name = "end",

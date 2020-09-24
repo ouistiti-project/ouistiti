@@ -39,6 +39,8 @@
 #include "mod_auth.h"
 #include "mod_methodlock.h"
 
+#warning METHODLOCK is deprecated
+
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
@@ -134,7 +136,31 @@ static void *_mod_methodlock_getctx(void *arg, http_client_t *ctl, struct sockad
 	return arg;
 }
 
-void *mod_methodlock_create(http_server_t *server, void *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *methodlock_config(config_setting_t *iterator, server_t *server)
+{
+	const char *group = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configcgi = config_setting_get_member(iterator, "unlock_groups");
+#else
+	config_setting_t *configcgi = config_setting_lookup(iterator, "unlock_groups");
+#endif
+	if (configcgi)
+		group = config_setting_get_string(configcgi);
+
+	return (void *)group;
+}
+#else
+static const char group[] = "root";
+static void *methodlock_config(void *iterator, server_t *server)
+{
+	return (void *)&group;
+}
+#endif
+
+static void *mod_methodlock_create(http_server_t *server, void *config)
 {
 	_mod_methodlock_t *mod = calloc(1, sizeof(*mod));
 
@@ -144,7 +170,7 @@ void *mod_methodlock_create(http_server_t *server, void *config)
 	return mod;
 }
 
-void mod_methodlock_destroy(void *data)
+static void mod_methodlock_destroy(void *data)
 {
 	free(data);
 }
@@ -152,6 +178,7 @@ void mod_methodlock_destroy(void *data)
 const module_t mod_methodlock =
 {
 	.name = str_methodlock,
+	.configure = (module_configure_t)&methodlock_config,
 	.create = (module_create_t)&mod_methodlock_create,
 	.destroy = &mod_methodlock_destroy
 };
