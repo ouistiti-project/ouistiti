@@ -197,7 +197,42 @@ static void _mod_upgrade_freectx(void *arg)
 	free(ctx);
 }
 
-void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *upgrade_config(config_setting_t *iterator, server_t *server)
+{
+	mod_upgrade_t *conf = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configws = config_setting_get_member(iterator, "upgrade");
+#else
+	config_setting_t *configws = config_setting_lookup(iterator, "upgrade");
+#endif
+	if (configws)
+	{
+		char *mode = NULL;
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
+		config_setting_lookup_string(configws, "upgrade", (const char **)&conf->upgrade);
+		config_setting_lookup_string(configws, "options", (const char **)&mode);
+	}
+	return conf;
+}
+#else
+static mod_upgrade_t g_upgrade_config =
+{
+	.docroot = "/srv/www""/upgrade",
+	.upgrade = "test",
+};
+static void *upgrade_config(void *iterator, server_t *server)
+{
+	return &g_upgrade_config;
+}
+#endif
+
+static void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
 {
 	if (config == NULL)
 		return NULL;
@@ -228,6 +263,11 @@ void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
 
 void mod_upgrade_destroy(void *data)
 {
+	_mod_upgrade_t *mod = (_mod_upgrade_t *)data;
+#ifdef FILE_CONFIG
+	free(mod->config);
+#endif
+	close(mod->fdroot);
 	free(data);
 }
 
@@ -392,6 +432,7 @@ int default_upgrade_run(void *arg, int sock, const char *filepath, http_message_
 const module_t mod_upgrade =
 {
 	.name = "upgrade",
+	.configure = (module_configure_t)&upgrade_config,
 	.create = (module_create_t)mod_upgrade_create,
 	.destroy = mod_upgrade_destroy
 };

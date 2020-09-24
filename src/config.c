@@ -547,48 +547,6 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 #define webstream_config(...) NULL
 #endif
 
-#ifdef UPGRADE
-static void upgrade_optionscb(void *arg, const char *option, size_t length)
-{
-	mod_upgrade_t *conf = (mod_upgrade_t *)arg;
-#ifdef WEBSOCKET_RT
-	if (!strncmp(option, "direct", length))
-	{
-		if (!(conf->options & WEBSOCKET_TLS))
-			conf->options |= WEBSOCKET_REALTIME;
-		else
-			warn("realtime configuration is not allowed with tls");
-	}
-#endif
-}
-
-static void *upgrade_config(config_setting_t *iterator, server_t *server)
-{
-	mod_upgrade_t *conf = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configws = config_setting_get_member(iterator, "upgrade");
-#else
-	config_setting_t *configws = config_setting_lookup(iterator, "upgrade");
-#endif
-	if (configws)
-	{
-		char *mode = NULL;
-		conf = calloc(1, sizeof(*conf));
-		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
-		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
-		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
-		config_setting_lookup_string(configws, "upgrade", (const char **)&conf->upgrade);
-		config_setting_lookup_string(configws, "options", (const char **)&mode);
-		if (ouistiti_issecure(server))
-			conf->options |= UPGRADE_TLS;
-		config_parseoptions(mode, &upgrade_optionscb, conf);
-	}
-	return conf;
-}
-#else
-#define upgrade_config(...) NULL
-#endif
-
 #ifdef CORS
 static void *cors_config(config_setting_t *iterator, server_t *server)
 {
@@ -746,11 +704,6 @@ static struct _config_module_s
 #ifdef WEBSTREAM
 		.name = "webstream",
 		.configure = webstream_config,
-	},{
-#endif
-#ifdef UPGRADE
-		.name = "upgrade",
-		.configure = upgrade_config,
 	},{
 #endif
 #ifdef METHODLOCK
