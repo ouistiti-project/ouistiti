@@ -54,6 +54,7 @@
 
 static const char str_userfilter[] = "userfilter";
 static const char str_annonymous[] = "annonymous";
+static const char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
 typedef struct _mod_userfilter_s _mod_userfilter_t;
 
@@ -426,6 +427,43 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	return ret;
 }
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *userfilter_config(config_setting_t *iterator, server_t *server)
+{
+	mod_userfilter_t *modconfig = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "userfilter");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "userfilter");
+#endif
+	if (config)
+	{
+		modconfig = calloc(1, sizeof(*modconfig));
+		config_setting_lookup_string(config, "superuser", &modconfig->superuser);
+		config_setting_lookup_string(config, "allow", &modconfig->allow);
+		config_setting_lookup_string(config, "configuri", &modconfig->configuri);
+		config_setting_lookup_string(config, "dbname", &modconfig->dbname);
+		if (modconfig->dbname == NULL || modconfig->dbname[0] == '\0')
+			modconfig->dbname = str_userfilterpath;
+	}
+	return modconfig;
+}
+#else
+mod_userfilter_t g_userfilter_config =
+{
+	.superuser = "root",
+	.configuri = "auth/filter",
+	.dbname = str_userfilterpath,
+};
+
+static void *userfilter_config(void *iterator, server_t *server)
+{
+	return &g_userfilter_config;
+}
+#endif
+
 void *mod_userfilter_create(http_server_t *server, void *arg)
 {
 	mod_userfilter_t *config = (mod_userfilter_t *)arg;
@@ -509,14 +547,18 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 
 void mod_userfilter_destroy(void *arg)
 {
-	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
-	sqlite3_close(ctx->db);
+	_mod_userfilter_t *mod = (_mod_userfilter_t *)arg;
+	sqlite3_close(mod->db);
+#ifdef FILE_CONFIG
+	free(mod->config);
+#endif
 	free(arg);
 }
 
 const module_t mod_userfilter =
 {
 	.name = str_userfilter,
+	.configure = (module_configure_t)&userfilter_config,
 	.create = (module_create_t)&mod_userfilter_create,
 	.destroy = &mod_userfilter_destroy
 };

@@ -64,7 +64,6 @@
 #endif
 
 char str_hostname[HOST_NAME_MAX + 7];
-char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
 static config_t configfile;
 static char *logfile = NULL;
@@ -112,31 +111,6 @@ static void *tls_config(config_setting_t *iterator, serverconfig_t *config)
 }
 #else
 #define tls_config(...) NULL
-#endif
-
-#ifdef USERFILTER
-static void *userfilter_config(config_setting_t *iterator, server_t *server)
-{
-	mod_userfilter_t *modconfig = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *config = config_setting_get_member(iterator, "userfilter");
-#else
-	config_setting_t *config = config_setting_lookup(iterator, "userfilter");
-#endif
-	if (config)
-	{
-		modconfig = calloc(1, sizeof(*modconfig));
-		config_setting_lookup_string(config, "superuser", &modconfig->superuser);
-		config_setting_lookup_string(config, "allow", &modconfig->allow);
-		config_setting_lookup_string(config, "configuri", &modconfig->configuri);
-		config_setting_lookup_string(config, "dbname", &modconfig->dbname);
-		if (modconfig->dbname == NULL || modconfig->dbname[0] == '\0')
-			modconfig->dbname = str_userfilterpath;
-	}
-	return modconfig;
-}
-#else
-#define userfilter_config(...) NULL
 #endif
 
 #ifdef AUTH
@@ -974,11 +948,6 @@ static struct _config_module_s
 #ifdef AUTH
 		.name = "auth",
 		.configure = auth_config,
-	},{
-#endif
-#ifdef USERFILTER
-		.name = "userfilter",
-		.configure = userfilter_config,
 	},{
 #endif
 #ifdef CGI
