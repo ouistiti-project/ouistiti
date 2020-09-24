@@ -505,50 +505,6 @@ static void *auth_config(config_setting_t *iterator, server_t *server)
 #define auth_config(...) NULL
 #endif
 
-#ifdef CGI
-static void *cgi_config(config_setting_t *iterator, server_t *server)
-{
-	mod_cgi_config_t *cgi = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configcgi = config_setting_get_member(iterator, "cgi");
-#else
-	config_setting_t *configcgi = config_setting_lookup(iterator, "cgi");
-#endif
-	if (configcgi)
-	{
-		cgi = calloc(1, sizeof(*cgi));
-		config_setting_lookup_string(configcgi, "docroot", (const char **)&cgi->docroot);
-		config_setting_lookup_string(configcgi, "allow", (const char **)&cgi->allow);
-		config_setting_lookup_string(configcgi, "deny", (const char **)&cgi->deny);
-		cgi->nbenvs = 0;
-		cgi->chunksize = 64;
-		cgi->options |= CGI_OPTION_TLS;
-		cgi->chunksize = DEFAULT_CHUNKSIZE;
-		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);
-#if LIBCONFIG_VER_MINOR < 5
-		config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
-#else
-		config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
-#endif
-		if (cgienv)
-		{
-			int count = config_setting_length(cgienv);
-			int i;
-			cgi->env = calloc(sizeof(char *), count);
-			for (i = 0; i < count; i++)
-			{
-				config_setting_t *iterator = config_setting_get_elem(cgienv, i);
-				cgi->env[i] = config_setting_get_string(iterator);
-			}
-			cgi->nbenvs = count;
-		}
-	}
-	return cgi;
-}
-#else
-#define cgi_config(...) NULL
-#endif
-
 #ifdef WEBSOCKET
 static void websocket_optionscb(void *arg, const char *option, size_t length)
 {
@@ -948,11 +904,6 @@ static struct _config_module_s
 #ifdef AUTH
 		.name = "auth",
 		.configure = auth_config,
-	},{
-#endif
-#ifdef CGI
-		.name = "cgi",
-		.configure = cgi_config,
 	},{
 #endif
 #ifdef WEBSOCKET
