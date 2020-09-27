@@ -242,7 +242,422 @@ static int _mod_sethash(const _mod_auth_t *mod, const mod_auth_t *config)
 	return ret;
 }
 
-void *mod_auth_create(http_server_t *server, mod_auth_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+#ifdef AUTHN_NONE
+static void *authn_none_config(config_setting_t *configauth)
+{
+	authn_none_config_t *authn_config = NULL;
+	const char *user = NULL;
+
+	config_setting_lookup_string(configauth, "user", (const char **)&user);
+	if (user != NULL)
+	{
+		authn_config = calloc(1, sizeof(*authn_config));
+		authn_config->user = user;
+	}
+	else
+		warn("config: authn_none needs to set the user");
+	return authn_config;
+}
+#endif
+
+#ifdef AUTHN_BASIC
+static void *authn_basic_config(config_setting_t *configauth)
+{
+	authn_basic_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	return authn_config;
+}
+#endif
+
+#ifdef AUTHN_DIGEST
+static void *authn_digest_config(config_setting_t *configauth)
+{
+	authn_digest_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
+	return authn_config;
+}
+#endif
+
+#ifdef AUTHN_BEARER
+static void *authn_bearer_config(config_setting_t *configauth)
+{
+	authn_bearer_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	return authn_config;
+}
+#endif
+
+#ifdef AUTHN_OAUTH2
+static void *authn_oauth2_config(config_setting_t *configauth)
+{
+	authn_oauth2_config_t *authn_config = NULL;
+	const char *auth_ep = NULL;
+	const char *discovery = NULL;
+
+	config_setting_lookup_string(configauth, "discovery", (const char **)&discovery);
+	config_setting_lookup_string(configauth, "auth_ep", (const char **)&auth_ep);
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	authn_config->discovery = discovery;
+	authn_config->auth_ep = auth_ep;
+
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+
+	config_setting_lookup_string(configauth, "client_id", (const char **)&authn_config->client_id);
+	if (authn_config->client_id == NULL)
+		authn_config->client_id = authn_config->realm;
+
+	config_setting_lookup_string(configauth, "client_passwd", (const char **)&authn_config->client_passwd);
+	if (authn_config->client_passwd == NULL)
+	{
+		config_setting_lookup_string(configauth, "secret", (const char **)&authn_config->client_passwd);
+	}
+
+	if (authn_config->iss == NULL)
+		authn_config->iss = authn_config->realm;
+
+	return authn_config;
+}
+#endif
+
+struct _authn_s
+{
+	void *(*config)(config_setting_t *);
+	authn_type_t type;
+	const char *name;
+};
+
+struct _authn_s *authn_list[] =
+{
+#ifdef AUTHN_BASIC
+	&(struct _authn_s){
+		.config = &authn_basic_config,
+		.type = AUTHN_BASIC_E,
+		.name = "Basic",
+	},
+#endif
+#ifdef AUTHN_DIGEST
+	&(struct _authn_s){
+		.config = &authn_digest_config,
+		.type = AUTHN_DIGEST_E,
+		.name = "Digest",
+	},
+#endif
+#ifdef AUTHN_BEARER
+	&(struct _authn_s){
+		.config = &authn_bearer_config,
+		.type = AUTHN_BEARER_E | AUTHN_REDIRECT_E,
+		.name = "Bearer",
+	},
+#endif
+#ifdef AUTHN_OAUTH2
+	&(struct _authn_s){
+		.config = &authn_oauth2_config,
+		.type = AUTHN_OAUTH2_E | AUTHN_REDIRECT_E,
+		.name = "oAuth2",
+	},
+#endif
+#ifdef AUTHN_NONE
+	&(struct _authn_s){
+		.config = &authn_none_config,
+		.type = AUTHN_NONE_E,
+		.name = "None",
+	},
+#endif
+	NULL
+};
+
+static int authn_config(config_setting_t *configauth, mod_authn_t *mod)
+{
+	int ret = EREJECT;
+
+	char *type = NULL;
+	config_setting_lookup_string(configauth, "type", (const char **)&type);
+	if (type == NULL)
+	{
+		return ret;
+	}
+
+	int i = 0;
+	struct _authn_s *authn = authn_list[i];
+	while (authn != NULL && authn->config != NULL)
+	{
+		if (!strcmp(type, authn->name))
+			mod->config = authn->config(configauth);
+		if (mod->config != NULL)
+		{
+			break;
+		}
+		i++;
+		authn = authn_list[i];
+	}
+	if (authn != NULL)
+	{
+		mod->type |= authn->type;
+		mod->name = authn->name;
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+#ifdef AUTHZ_UNIX
+static void *authz_unix_config(config_setting_t *configauth)
+{
+	authz_file_config_t *authz_config = NULL;
+	char *path = NULL;
+
+	config_setting_lookup_string(configauth, "file", (const char **)&path);
+	if (path != NULL && path[0] != '0' && strstr(path, "shadow"))
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->path = path;
+	}
+	return authz_config;
+}
+#endif
+#ifdef AUTHZ_FILE
+static void *authz_file_config(config_setting_t *configauth)
+{
+	authz_file_config_t *authz_config = NULL;
+	char *path = NULL;
+
+	config_setting_lookup_string(configauth, "file", (const char **)&path);
+	if (path != NULL && path[0] != '0')
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->path = path;
+	}
+	return authz_config;
+}
+#endif
+#ifdef AUTHZ_SQLITE
+static void *authz_sqlite_config(config_setting_t *configauth)
+{
+	authz_sqlite_config_t *authz_config = NULL;
+	char *path = NULL;
+
+	config_setting_lookup_string(configauth, "dbname", (const char **)&path);
+	if (path != NULL && path[0] != '0')
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->dbname = path;
+	}
+	return authz_config;
+}
+#endif
+#ifdef AUTHZ_SIMPLE
+static void *authz_simple_config(config_setting_t *configauth)
+{
+	authz_simple_config_t *authz_config = NULL;
+	char *user = NULL;
+	config_setting_lookup_string(configauth, "user", (const char **)&user);
+	if (user != NULL && user[0] != '0')
+	{
+		char *passwd = NULL;
+		char *group = NULL;
+		char *home = NULL;
+		config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
+		config_setting_lookup_string(configauth, "group", (const char **)&group);
+		config_setting_lookup_string(configauth, "home", (const char **)&home);
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->user = user;
+		authz_config->group = group;
+		authz_config->home = home;
+		authz_config->passwd = passwd;
+	}
+	return authz_config;
+}
+#endif
+#ifdef AUTHZ_JWT
+	/**
+	 * defautl configuration
+	 */
+static void *authz_jwt_config(config_setting_t *configauth)
+{
+	authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
+	return authz_config;
+}
+#endif
+
+struct _authz_s
+{
+	void *(*config)(config_setting_t *);
+	authz_type_t type;
+	const char *name;
+};
+
+struct _authz_s *authz_list[] =
+{
+#ifdef AUTHZ_UNIX
+	&(struct _authz_s){
+		.config = &authz_unix_config,
+		.type = AUTHZ_UNIX_E,
+		.name = "unix",
+	},
+#endif
+#ifdef AUTHZ_FILE
+	&(struct _authz_s){
+		.config = &authz_file_config,
+		.type = AUTHZ_FILE_E,
+		.name = "file",
+	},
+#endif
+#ifdef AUTHZ_SQLITE
+	&(struct _authz_s){
+		.config = &authz_sqlite_config,
+		.type = AUTHZ_SQLITE_E,
+		.name = "sqlite",
+	},
+#endif
+#ifdef AUTHZ_SIMPLE
+	&(struct _authz_s){
+		.config = &authz_simple_config,
+		.type = AUTHZ_SIMPLE_E,
+		.name = "simple",
+	},
+#endif
+#ifdef AUTHZ_JWT
+	&(struct _authz_s){
+		.config = &authz_jwt_config,
+		.type = AUTHZ_JWT_E,
+		.name = "jwt",
+	},
+#endif
+	NULL
+};
+
+static void authz_optionscb(void *arg, const char *option)
+{
+	mod_auth_t *auth = (mod_auth_t *)arg;
+
+	if (utils_searchexp("home", option, NULL) == ESUCCESS)
+		auth->authz.type |= AUTHZ_HOME_E;
+	if (utils_searchexp("token", option, NULL) == ESUCCESS)
+		auth->authz.type |= AUTHZ_TOKEN_E;
+	if (utils_searchexp("chown", option, NULL) == ESUCCESS)
+		auth->authz.type |= AUTHZ_CHOWN_E;
+
+	if (utils_searchexp("cookie", option, NULL) == ESUCCESS)
+		auth->authn.type |= AUTHN_COOKIE_E;
+	if (utils_searchexp("header", option, NULL) == ESUCCESS)
+		auth->authn.type |= AUTHN_HEADER_E;
+	if (utils_searchexp("redirect", option, NULL) == ESUCCESS)
+		auth->authn.type |= AUTHN_REDIRECT_E;
+}
+
+static int authz_config(config_setting_t *configauth, mod_authz_t *mod)
+{
+	int ret = EREJECT;
+	int i = 0;
+	struct _authz_s *authz = authz_list[i];
+	while (authz != NULL && authz->config != NULL)
+	{
+		mod->config = authz->config(configauth);
+		if (mod->config != NULL)
+		{
+			break;
+		}
+		i++;
+		authz = authz_list[i];
+	}
+	if (authz != NULL)
+	{
+		mod->type |= authz->type;
+		mod->name = authz->name;
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+static void *auth_config(config_setting_t *iterator, server_t *server)
+{
+	mod_auth_t *auth = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configauth = config_setting_get_member(iterator, "auth");
+#else
+	config_setting_t *configauth = config_setting_lookup(iterator, "auth");
+#endif
+	if (configauth)
+	{
+		auth = calloc(1, sizeof(*auth));
+		/**
+		 * signin URI allowed to access to the signin page
+		 */
+		config_setting_lookup_string(configauth, "signin", &auth->redirect);
+		if (auth->redirect == NULL || auth->redirect[0] == '\0')
+			config_setting_lookup_string(configauth, "token_ep", &auth->redirect);
+		config_setting_lookup_string(configauth, "protect", &auth->protect);
+		config_setting_lookup_string(configauth, "unprotect", &auth->unprotect);
+		/**
+		 * algorithm allow to change secret algorithm used during authentication default is md5. (see authn_digest.c)
+		 */
+		config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);
+		/**
+		 * secret is the secret used during the token generation. (see authz_jwt.c)
+		 */
+		config_setting_lookup_string(configauth, "secret", (const char **)&auth->secret);
+
+		char *mode = NULL;
+		config_setting_lookup_string(configauth, "options", (const char **)&mode);
+		if (ouistiti_issecure(server))
+			auth->authz.type |= AUTHZ_TLS_E;
+		if (mode != NULL)
+		{
+			authz_optionscb(auth, mode);
+		}
+		config_setting_lookup_int(configauth, "expire", &auth->expire);
+
+		int ret;
+		ret = authz_config(configauth, &auth->authz);
+		if (ret == EREJECT)
+		{
+			err("config: authz is not set");
+		}
+
+		ret = authn_config(configauth, &auth->authn);
+		if (ret == EREJECT)
+		{
+			err("config: authn type is not set");
+		}
+	}
+	return auth;
+}
+#else
+static const mod_auth_t g_auth_config =
+{
+	.authz = &(mod_authz_t){
+		.config = &(authz_sqlite_config_t){
+			.dbname = "/etc/ouistiti/auth.db",
+		},
+		.type = AUTHZ_SQLITE_E,
+		.name = "sqlite",
+	},
+	.authn = &(mod_authn_t){
+		.config = &(authn_basic_config_t){
+			.realm = NULL,
+		},
+		.type = AUTHN_BASIC_E,
+		.name = "Basic",
+	},
+};
+
+static void *auth_config(void *iterator, server_t *server)
+{
+	return (void *)&g_auth_config;
+}
+#endif
+
+static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
 
@@ -333,7 +748,7 @@ void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	return mod;
 }
 
-void mod_auth_destroy(void *arg)
+static void mod_auth_destroy(void *arg)
 {
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
 	if (mod->authn->ctx  && mod->authn->rules->destroy)
@@ -346,6 +761,9 @@ void mod_auth_destroy(void *arg)
 	}
 	free(mod->authn);
 	free(mod->authz);
+#ifdef FILE_CONFIG
+	free(mod->config);
+#endif
 	free(mod);
 }
 
@@ -1149,6 +1567,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 const module_t mod_auth =
 {
 	.name = str_auth,
+	.configure = (module_configure_t)&auth_config,
 	.create = (module_create_t)&mod_auth_create,
 	.destroy = &mod_auth_destroy
 };
