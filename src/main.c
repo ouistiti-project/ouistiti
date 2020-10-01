@@ -495,9 +495,6 @@ int main(int argc, char * const *argv)
 
 	main_run(first);
 
-#ifdef FILE_CONFIG
-	ouistiticonfig_destroy(ouistiticonfig);
-#endif
 	killdaemon(pidfile);
 	warn("good bye");
 	return 0;
