@@ -90,29 +90,6 @@ static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata
 	return 0;
 }
 
-#if defined(TLS)
-static void *tls_config(config_setting_t *iterator, serverconfig_t *config)
-{
-	mod_tls_t *tls = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configtls = config_setting_get_member(iterator, "tls");
-#else
-	config_setting_t *configtls = config_setting_lookup(iterator, "tls");
-#endif
-	if (configtls)
-	{
-		tls = calloc(1, sizeof(*tls));
-		config_setting_lookup_string(configtls, "crtfile", (const char **)&tls->crtfile);
-		config_setting_lookup_string(configtls, "pemfile",(const char **) &tls->pemfile);
-		config_setting_lookup_string(configtls, "cachain", (const char **)&tls->cachain);
-		config_setting_lookup_string(configtls, "dhmfile", (const char **)&tls->dhmfile);
-	}
-	return tls;
-}
-#else
-#define tls_config(...) NULL
-#endif
-
 static void config_mimes(config_setting_t *configmimes)
 {
 	if (configmimes == NULL)
@@ -179,7 +156,6 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 	}
 	config->server->versionstr = httpversion[config->server->version];
 	config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
-	config->tls = tls_config(iterator, config);
 	return config;
 }
 
