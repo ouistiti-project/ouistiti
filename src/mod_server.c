@@ -124,7 +124,7 @@ static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *
 	return mod;
 }
 
-void *mod_server_create(http_server_t *server, void *config)
+static void *mod_server_create(http_server_t *server, void *config)
 {
 	_mod_server_t *mod = calloc(1, sizeof(*mod));
 
@@ -134,7 +134,7 @@ void *mod_server_create(http_server_t *server, void *config)
 	return mod;
 }
 
-void mod_server_destroy(void *data)
+static void mod_server_destroy(void *data)
 {
 	free(data);
 }
