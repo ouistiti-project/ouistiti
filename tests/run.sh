@@ -221,10 +221,10 @@ test () {
 	fi
 	if [ ! $ERR -eq 0 ]; then
 		echo "$TEST quits on error"
+		stop $TARGET
 		if [ $NOERROR -eq 1 ]; then
 			TESTERROR="${TESTERROR} $TEST"
 		else
-			stop $TARGET
 			exit 1
 		fi
 	else
