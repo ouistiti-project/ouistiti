@@ -63,7 +63,7 @@ struct _mod_cookie_s
 	char *vhost; //Useless only to create a structure
 };
 
-void *mod_cookie_create(http_server_t *server, char *vhost, mod_cookie_t *modconfig)
+static void *mod_cookie_create(http_server_t *server, char *vhost, mod_cookie_t *modconfig)
 {
 	_mod_cookie_t *mod = NULL;
 
@@ -76,7 +76,7 @@ void *mod_cookie_create(http_server_t *server, char *vhost, mod_cookie_t *modcon
 	return mod;
 }
 
-void mod_cookie_destroy(void *arg)
+static void mod_cookie_destroy(void *arg)
 {
 	_mod_cookie_t *mod = (_mod_cookie_t *)arg;
 	if (mod != NULL)
