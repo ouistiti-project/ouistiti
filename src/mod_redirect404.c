@@ -58,13 +58,13 @@ struct _mod_redirect404_s
 	char *nothing;
 };
 
-void *mod_redirect404_create(http_server_t *server, mod_redirect404_t *config)
+static void *mod_redirect404_create(http_server_t *server, mod_redirect404_t *config)
 {
 	httpserver_addconnector(server, _mod_redirect404_connector, config, CONNECTOR_ERROR, str_redirect404);
 	return config;
 }
 
-void mod_redirect404_destroy(void *arg)
+static void mod_redirect404_destroy(void *arg)
 {
 	// nothing to do
 }
