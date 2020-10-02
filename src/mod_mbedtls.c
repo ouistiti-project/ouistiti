@@ -523,6 +523,7 @@ static const httpclient_ops_t *_tlsserver_ops = &(httpclient_ops_t)
 {
 	.scheme = str_https,
 	.default_port = 443,
+	.type = HTTPCLIENT_TYPE_SECURE,
 	.create = &_tlsserver_create,
 	.recvreq = &_tls_recv,
 	.sendresp = &_tls_send,
@@ -537,6 +538,7 @@ static const httpclient_ops_t *_tlsclient_ops = &(httpclient_ops_t)
 {
 	.scheme = str_https,
 	.default_port = 443,
+	.type = HTTPCLIENT_TYPE_SECURE,
 	.create = &_tlsclient_create,
 	.connect = &_tls_connect,
 	.recvreq = &_tls_recv,
