@@ -241,6 +241,11 @@ static void handler(int sig)
 	run = 'q';
 }
 
+http_server_t *ouistiti_httpserver(server_t *server)
+{
+	return server->server;
+}
+
 int ouistiti_issecure(server_t *server)
 {
 	return (server->config->tls != NULL);
