@@ -231,6 +231,7 @@ void display_help(char * const *argv)
 
 static server_t *first = NULL;
 static char run = 0;
+static int g_default_port = 80;
 #ifdef HAVE_SIGACTION
 static void handler(int sig, siginfo_t *si, void *arg)
 #else
@@ -340,6 +341,8 @@ server_t *ouistiti_loadserver(serverconfig_t *config)
 	if (first != NULL && first->id == MAX_SERVERS)
 		return NULL;
 
+	if (config->server->port == 0)
+		config->server->port = g_default_port;
 	http_server_t *httpserver = httpserver_create(config->server);
 	if (httpserver == NULL)
 		return NULL;
@@ -459,7 +462,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:hDKV");
+		opt = getopt(argc, argv, "s:f:p:P:hDKV");
 		switch (opt)
 		{
 			case 's':
@@ -470,6 +473,9 @@ int main(int argc, char * const *argv)
 			break;
 			case 'p':
 				pidfile = optarg;
+			break;
+			case 'P':
+				g_default_port = atoi(optarg);
 			break;
 			case 'h':
 				display_help(argv);
