@@ -40,8 +40,6 @@ struct mod_vhost_s
 {
 	/** @param name of the server */
 	char *hostname;
-
-	modulesconfig_t modules;
 };
 
 extern const module_t mod_vhosts;

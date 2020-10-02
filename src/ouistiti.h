@@ -50,27 +50,9 @@ struct module_s
 	void (*destroy)(void*);
 };
 
-struct modulesconfig_s
-{
-	void *document;
-	void *cgi;
-	void *auth;
-	void *clientfilter;
-	void *websocket;
-	void *redirect;
-	void *webstream;
-	void *cors;
-	void *upgrade;
-	void *userfilter;
-};
-
 typedef struct serverconfig_s
 {
 	http_server_config_t *server;
-	char *unlock_groups;
-	void *tls;
-	modulesconfig_t modules;
-	void *vhosts[MAX_SERVERS - 1];
 } serverconfig_t;
 
 typedef struct ouistiticonfig_s
