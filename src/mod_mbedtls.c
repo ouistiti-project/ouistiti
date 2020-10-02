@@ -133,7 +133,12 @@ static const mod_tls_t g_tls_config = {
 
 static void *tls_config(void *iterator, server_t *server)
 {
-	return (void *) &g_tls_config;
+	http_server_t *httpserver = ouistiti_httpserver(server);
+	const char *port = httpserver_INFO(httpserver, "port");
+
+	if (strstr(port, "443") != NULL)
+		return (void *) &g_tls_config;
+	return NULL;
 }
 #endif
 
