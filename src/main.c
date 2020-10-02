@@ -53,18 +53,21 @@
 #ifndef FILE_CONFIG
 #define STATIC_CONFIG
 #endif
+#include "mod_clientfilter.h"
 #include "mod_tls.h"
-#include "mod_websocket.h"
-#include "mod_cookie.h"
-#include "mod_document.h"
-#include "mod_cgi.h"
+#include "mod_cors.h"
 #include "mod_auth.h"
-#include "mod_vhosts.h"
 #include "mod_methodlock.h"
 #include "mod_server.h"
+#include "mod_cookie.h"
+#include "mod_userfilter.h"
+#include "mod_document.h"
+#include "mod_cgi.h"
+#include "mod_websocket.h"
+#include "mod_webstream.h"
+#include "mod_vhosts.h"
 #include "mod_redirect404.h"
 #include "mod_redirect.h"
-#include "mod_webstream.h"
 #include "mod_tinysvcmdns.h"
 
 #include "ouistiti.h"
@@ -144,7 +147,7 @@ int auth_setowner(const char *user)
 }
 
 #ifndef MODULES
-static const module_t *modules[] =
+static const module_t *g_modules[] =
 {
 #if defined TLS
 	&mod_tls,
@@ -252,18 +255,18 @@ int ouistiti_loadmodule(server_t *server, const char *name, configure_t configur
 		return EREJECT;
 
 #ifndef MODULES
-	int i = 0;
-	while (modules[i] != NULL)
+	i = 0;
+	while (g_modules[i] != NULL)
 	{
-		if (!strcmp(modules[i]->name, name))
+		if (!strcmp(g_modules[i]->name, name))
 		{
 			void *config = NULL;
-			if (modules[i]->configure != NULL)
-				config = modules[i]->configure(parser, server->config);
+			if (g_modules[i]->configure != NULL)
+				config = g_modules[i]->configure(parser, server);
 			else
-				config = configure(parser, name, server->config);
-			mod->obj = modules[i]->create(server->server, config);
-			mod->ops = modules[i];
+				config = configure(parser, name, server);
+			mod->obj = g_modules[i]->create(server->server, config);
+			mod->ops = g_modules[i];
 			break;
 		}
 		i++;
@@ -352,6 +355,52 @@ server_t *ouistiti_loadserver(serverconfig_t *config)
 	first = server;
 	return server;
 }
+
+#ifdef STATIC_CONFIG
+static ouistiticonfig_t g_ouistiti_config =
+{
+	.user = "www-data",
+	.pidfile = "/var/run/ouistiti.pid",
+	.servers = {
+		&(serverconfig_t){
+			.server = &(http_server_config_t){
+				.port = 0,
+				.chunksize = DEFAULT_CHUNKSIZE,
+				.maxclients = DEFAULT_MAXCLIENTS,
+				.version = HTTP11,
+			}
+		},
+		NULL
+	},
+};
+
+static void *_config_modules(void *data, const char *name, server_t *server)
+{
+	return NULL;
+}
+
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
+{
+	int count = 1;
+	int i = 0;
+
+	if (serverid != -1)
+	{
+		i = serverid;
+		count = 1;
+		if (serverid < count)
+			serverid = 0;
+	}
+
+	ouistiticonfig_t *ouistiticonfig = &g_ouistiti_config;
+	for (i; i < count && i < MAX_SERVERS; i++)
+	{
+		server_t *server = ouistiti_loadserver(g_ouistiti_config.servers[i]);
+		ouistiti_setmodules(server, _config_modules, NULL);
+	}
+	return ouistiticonfig;
+}
+#endif
 
 static int main_run(server_t *first)
 {
@@ -444,22 +493,14 @@ int main(int argc, char * const *argv)
 	{
 		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
 		{
-#ifdef STATIC_CONFIG
-			ouistiticonfig = &g_ouistiticonfig;
-#else
 			ouistiticonfig = ouistiticonfig_create(configfile, serverid);
-#endif
 			pidfile = ouistiticonfig->pidfile;
 		}
 		killdaemon(pidfile);
 		return 0;
 	}
 
-#ifdef STATIC_CONFIG
-	ouistiticonfig = &g_ouistiticonfig;
-#else
 	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
-#endif
 
 	if (mode & DAEMONIZE)
 	{

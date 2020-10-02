@@ -80,111 +80,6 @@ typedef struct ouistiticonfig_s
 	serverconfig_t *servers[MAX_SERVERS];
 } ouistiticonfig_t;
 
-/**
-user="apache";
-servers={
-	({
-		server = {
-			hostname = "www.ouistiti.net";
-			port = 80;
-			keepalive = true;
-			maxclients = 10;
-		};
-		static_file = {
-			docroot = "/srv/www/htdocs";
-			accepted_ext = ".html,.htm,.css,.js,.txt";
-			ignored_ext = ".htaccess,.php";
-		};
-		cgi = {
-			docroot = "/srv/www/cgi-bin";
-			accepted_ext = ",.cgi,.sh";
-			ignored_ext = ".htaccess";
-		};
-	},
-	{
-		server = {
-			hostname = "www.ouistiti.net";
-			port = 443;
-			keepalive = true;
-		};
-		mbedtls =  {
-			crtfile = "/etc/ssl/private/server.pem",
-			dhmfile = "/etc/ssl/private/dhparam.pem",
-		};
-		document = {
-			docroot = "/srv/www/htdocs";
-			accepted_ext = ".html,.htm,.css,.js,.txt";
-			ignored_ext = ".htaccess,.php";
-		};
-		cgi = {
-			docroot = "/srv/www/cgi-bin";
-			accepted_ext = ",.cgi,.sh";
-			ignored_ext = ".htaccess";
-		};
-	})
-};
-**/
-#ifdef STATIC_CONFIG
-ouistiticonfig_t g_ouistiticonfig =
-{
-	.user = "www-data",
-	.servers =
-	{
-		&(serverconfig_t) {
-		.server =
-			&(http_server_config_t) {
-				.hostname = "www.ouistiti.net",
-				.port = 80,
-				.addr = NULL,
-				.keepalive = 10,
-				.maxclients = 10,
-				.version = HTTP11,
-			},
-		.tls = NULL,
-		.modules = {
-			.document =
-				&(mod_document_t) {
-					.docroot = "/srv/www/htdocs",
-					.allow = ".html,.htm,.css,.js,.txt",
-					.deny = ".htaccess,.php"
-				},
-			.cgi =
-				&(mod_cgi_config_t) {
-					.docroot = "/srv/www/cgi-bin",
-					.allow = ",.cgi,.sh",
-					.deny = ".htaccess"
-				},
-			},
-		},
-		&(serverconfig_t) {
-		.server =
-			&(http_server_config_t) {
-				.port = 443,
-				.addr = NULL,
-				.keepalive = 10,
-				.version = HTTP11,
-				.maxclients = 10,
-			},
-		.tls =
-			&(mod_tls_t) {
-				.crtfile = "/etc/ssl/private/server.pem",
-				.pemfile = NULL,
-				.cachain = NULL,
-				.dhmfile = "/etc/ssl/private/dhparam.pem",
-			},
-		.modules = {
-			.document =
-				&(mod_document_t) {
-					.docroot = "/srv/wwwS/htdocs",
-					.allow = ".html,.htm,.css,.js,.txt",
-					.deny = ".htaccess,.php"
-				},
-			},
-		},
-		NULL,
-	},
-};
-#else
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
@@ -193,6 +88,4 @@ typedef void *(*configure_t)(void *data, const char *name, server_t *server);
 int ouistiti_setmodules(server_t *server, configure_t configure, void *data);
 int ouistiti_loadmodule(server_t *server, const char *name, configure_t configure, void *parser);
 int ouistiti_issecure(server_t *server);
-
-#endif
 #endif
