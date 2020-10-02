@@ -248,14 +248,15 @@ http_server_t *ouistiti_httpserver(server_t *server)
 
 int ouistiti_issecure(server_t *server)
 {
-	return (server->config->tls != NULL);
+	const char *secure = httpserver_INFO(server->server, "secure");
+	return !!!strcmp(secure, "true");
 }
 
 int ouistiti_loadmodule(server_t *server, const char *name, configure_t configure, void *parser)
 {
 	int i = 0;
 	mod_t *mod = &server->modules[i];
-	while (i < MAX_MODULES && server->modules[i].obj != NULL)
+	while (i < MAX_MODULES && mod->obj != NULL)
 		mod = &server->modules[++i];
 	if (i == MAX_MODULES)
 		return EREJECT;
@@ -404,7 +405,8 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 	for (i; i < count && i < MAX_SERVERS; i++)
 	{
 		server_t *server = ouistiti_loadserver(g_ouistiti_config.servers[i]);
-		ouistiti_setmodules(server, _config_modules, NULL);
+		if (server != NULL)
+			ouistiti_setmodules(server, _config_modules, NULL);
 	}
 	return ouistiticonfig;
 }
