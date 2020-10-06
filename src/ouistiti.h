@@ -40,6 +40,8 @@ typedef struct modulesconfig_s modulesconfig_t;
 
 #define WEBSOCKET_REALTIME 0x01
 
+#define MODULE_VERSION_CURRENT 0x0000
+#define MODULE_VERSION_DEPRECATED 0x8000
 typedef void *(*module_configure_t)(void *parser, server_t *server);
 typedef void *(*module_create_t)(http_server_t *server, void *config);
 struct module_s
@@ -48,6 +50,7 @@ struct module_s
 	void *(*configure)(void *parser, server_t *server);
 	void *(*create)(http_server_t *server, void *config);
 	void (*destroy)(void*);
+	unsigned short version;
 };
 
 typedef struct serverconfig_s
