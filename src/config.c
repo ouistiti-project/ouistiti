@@ -155,7 +155,6 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 		}
 	}
 	config->server->versionstr = httpversion[config->server->version];
-	config_setting_lookup_string(iterator, "unlock_groups", (const char **)&config->unlock_groups);
 	return config;
 }
 
@@ -251,41 +250,6 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 	return ouistiticonfig;
 }
 
-static void _modulesconfig_destroy(modulesconfig_t *config)
-{
-	if (config->document)
-		free(config->document);
-	if (config->websocket)
-		free(config->websocket);
-	if (config->redirect)
-	{
-		mod_redirect_link_t *link = ((mod_redirect_t*)config->redirect)->links;
-		while (link != NULL)
-		{
-			mod_redirect_link_t *old = link->next;
-			free(link);
-			link = old;
-		}
-		free(config->redirect);
-	}
-	if (config->auth)
-	{
-		mod_auth_t *auth = config->auth;
-		if (auth->authn.config)
-			free(auth->authn.config);
-		if (auth->authz.config)
-			free(auth->authz.config);
-		free(config->auth);
-	}
-	if (config->cgi)
-	{
-		mod_cgi_config_t *cgi = config->cgi;
-		if (cgi->env)
-			free(cgi->env);
-		free(config->cgi);
-	}
-}
-
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
 	int i;
@@ -299,9 +263,6 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 		serverconfig_t *config = ouistiticonfig->servers[i];
 		if (config)
 		{
-			_modulesconfig_destroy(&config->modules);
-			if (config->tls)
-				free(config->tls);
 			free(config->server);
 			free(config);
 			ouistiticonfig->servers[i] = NULL;
