@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #ifndef WIN32
 # include <sys/socket.h>
@@ -43,6 +44,8 @@
 # include <winsock2.h>
 #endif
 #ifdef MODULES
+#include <fcntl.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #endif
 
@@ -146,58 +149,7 @@ int auth_setowner(const char *user)
 	return ret;
 }
 
-#ifdef MODULES
-static const char *default_modules[] =
-{
-#if defined TLS
-	str_tls,
-#endif
-#if defined VHOSTS_DEPRECATED
-	str_vhosts,
-#endif
-#if defined CLIENTFILTER
-	str_clientfilter,
-#endif
-#if defined COOKIE
-	str_cookie,
-#endif
-#if defined AUTH
-	str_auth,
-#endif
-#if defined USERFILTER
-	str_userfilter,
-#endif
-#if defined METHODLOCK
-	str_methodlock,
-#endif
-#if defined SERVERHEADER
-	str_server,
-#endif
-#if defined CGI
-	str_cgi,
-#endif
-#if defined DOCUMENT
-	str_document,
-#endif
-#if defined WEBSTREAM
-	str_webstream,
-#endif
-#if defined WEBSOCKET
-	str_websocket,
-#endif
-#if defined REDIRECT
-	str_redirect404,
-	str_redirect,
-#endif
-#if defined CORS
-	str_cors,
-#endif
-#if defined TINYSVCMDNS
-	str_tinysvcmdns,
-#endif
-	NULL
-};
-#else
+#ifndef MODULES
 static const module_t *default_modules[] =
 {
 #if defined TLS
@@ -358,7 +310,7 @@ void ouistiti_registermodule(const module_t *module)
 	{
 		if (!strcmp(iterator->module->name, module->name))
 		{
-			warn("module loaded twice");
+			warn("module %s loaded twice", module->name);
 			return;
 		}
 		iterator = iterator->next;
@@ -367,6 +319,7 @@ void ouistiti_registermodule(const module_t *module)
 	new->module = module;
 	new->next = g_modules;
 	g_modules = new;
+	dbg("module %s regitered", module->name);
 }
 
 server_t *ouistiti_loadserver(serverconfig_t *config)
@@ -393,15 +346,34 @@ server_t *ouistiti_loadserver(serverconfig_t *config)
 }
 
 #ifdef MODULES
+static int modulefilter(const struct dirent *entry)
+{
+	return !strncmp(entry->d_name, "mod_", 4);
+}
+
 static int _ouistiti_initmodules()
 {
 	int i;
-
-	for (i = 0; default_modules[i] != NULL; i++)
+	int cwdfd = open(".", O_DIRECTORY);
+	int pkglibfd = open(PKGLIBDIR, O_DIRECTORY);
+	if (pkglibfd == -1)
 	{
-		char file[512];
-		snprintf(file, 511, PKGLIBDIR"/mod_%s.so", default_modules[i]);
-		void *dh = dlopen(file, RTLD_LAZY | RTLD_GLOBAL);
+		return EREJECT;
+	}
+	if (fchdir(pkglibfd) == -1)
+	{
+		err("Package linbrary dir "PKGLIBDIR" notfound");
+		return EREJECT;
+	}
+
+	int ret;
+	struct dirent **namelist = NULL;
+	ret = scandir(".", &namelist, &modulefilter, alphasort);
+	for (i = 0; i < ret; i++)
+	{
+		const char *name = namelist[i]->d_name;
+		void *dh = dlopen(name, RTLD_LAZY | RTLD_GLOBAL);
+
 		if (dh != NULL)
 		{
 			module_t *module = dlsym(dh, "mod_info");
@@ -414,8 +386,13 @@ static int _ouistiti_initmodules()
 		}
 		else
 		{
-			err("module %s loading error: %s", file, dlerror());
+			err("module %s loading error: %s", name, dlerror());
 		}
+	}
+	if (fchdir(cwdfd) == -1)
+	{
+		err("Package linbrary dir "PKGLIBDIR" notfound");
+		return EREJECT;
 	}
 	return ESUCCESS;
 }
