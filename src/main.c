@@ -90,7 +90,7 @@ static const char str_cookie[] = "cookie";
 static const char str_auth[] = "auth";
 static const char str_userfilter[] = "userfilter";
 static const char str_methodlock[] = "methodlock";
-static const char str_serverheader[] = "server";
+static const char str_server[] = "server";
 static const char str_cgi[] = "cgi";
 static const char str_document[] = "document";
 static const char str_webstream[] = "webstream";
@@ -146,8 +146,59 @@ int auth_setowner(const char *user)
 	return ret;
 }
 
-#ifndef MODULES
-static const module_t *g_modules[] =
+#ifdef MODULES
+static const char *default_modules[] =
+{
+#if defined TLS
+	str_tls,
+#endif
+#if defined VHOSTS_DEPRECATED
+	str_vhosts,
+#endif
+#if defined CLIENTFILTER
+	str_clientfilter,
+#endif
+#if defined COOKIE
+	str_cookie,
+#endif
+#if defined AUTH
+	str_auth,
+#endif
+#if defined USERFILTER
+	str_userfilter,
+#endif
+#if defined METHODLOCK
+	str_methodlock,
+#endif
+#if defined SERVERHEADER
+	str_server,
+#endif
+#if defined CGI
+	str_cgi,
+#endif
+#if defined DOCUMENT
+	str_document,
+#endif
+#if defined WEBSTREAM
+	str_webstream,
+#endif
+#if defined WEBSOCKET
+	str_websocket,
+#endif
+#if defined REDIRECT
+	str_redirect404,
+	str_redirect,
+#endif
+#if defined CORS
+	str_cors,
+#endif
+#if defined TINYSVCMDNS
+	str_tinysvcmdns,
+#endif
+	NULL
+};
+#else
+static const module_t *default_modules[] =
 {
 #if defined TLS
 	&mod_tls,
@@ -198,6 +249,15 @@ static const module_t *g_modules[] =
 	NULL
 };
 #endif
+
+struct module_list_s
+{
+	const module_t *module;
+	struct module_list_s *next;
+};
+typedef struct module_list_s module_list_t;
+
+static module_list_t *g_modules = NULL;
 
 typedef struct mod_s
 {
@@ -252,7 +312,7 @@ int ouistiti_issecure(server_t *server)
 	return !!!strcmp(secure, "true");
 }
 
-int ouistiti_loadmodule(server_t *server, const char *name, configure_t configure, void *parser)
+int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
 {
 	int i = 0;
 	mod_t *mod = &server->modules[i];
@@ -261,85 +321,43 @@ int ouistiti_loadmodule(server_t *server, const char *name, configure_t configur
 	if (i == MAX_MODULES)
 		return EREJECT;
 
-#ifndef MODULES
-	i = 0;
-	while (g_modules[i] != NULL)
-	{
-		if (!strcmp(g_modules[i]->name, name))
-		{
-			void *config = NULL;
-			if (g_modules[i]->configure != NULL)
-				config = g_modules[i]->configure(parser, server);
-			else
-				config = configure(parser, name, server);
-			mod->obj = g_modules[i]->create(server->server, config);
-			mod->ops = g_modules[i];
-			break;
-		}
-		i++;
-	}
-#else
-	char file[512];
-	snprintf(file, 511, PKGLIBDIR"/mod_%s.so", name);
-	void *dh = dlopen(file, RTLD_LAZY | RTLD_GLOBAL);
-	if (dh != NULL)
-	{
-		module_t *module = dlsym(dh, "mod_info");
-		if (module && !strcmp(module->name, name))
-		{
-			void *config = NULL;
-			if (module->configure != NULL)
-				config = module->configure(parser, server);
-			else
-				config = configure(parser, name, server);
-			mod->obj = module->create(server->server, config);
-			mod->ops = module;
-			dbg("module %s loaded", name);
-		}
-		else if (module)
-			warn("module %s error : named %s", name, module->name);
-		else
-			err("module symbol error: %s", dlerror());
-	}
-	else
-	{
-		err("module %s loading error: %s", file, dlerror());
-	}
-#endif
+	void *config = NULL;
+	if (module->configure != NULL)
+		config = module->configure(parser, server);
+	else if (configure != NULL)
+		config = configure(parser, module->name, server);
+	mod->obj = module->create(server->server, config);
+	mod->ops = module;
 	return (mod->obj != NULL)?ESUCCESS:EREJECT;
 }
 
 int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
 {
-	ouistiti_loadmodule(server, str_tinysvcmdns, configure, parser);
-	/**
-	 * TLS must be first to free the connection after all others modules
-	 */
-	ouistiti_loadmodule(server, str_tls, configure, parser);
-	/**
-	 * clientfilter must be at the beginning to stop the connection if necessary
-	 */
-	ouistiti_loadmodule(server, str_clientfilter, configure, parser);
-
-	int i;
-	for (i = 0; i < (MAX_SERVERS - 1); i++)
+	const module_list_t *iterator = g_modules;
+	while (iterator != NULL)
 	{
-		ouistiti_loadmodule(server, str_vhosts, configure, parser);
+		ouistiti_loadmodule(server, iterator->module, configure, parser);
+		iterator = iterator->next;
 	}
-	ouistiti_loadmodule(server, str_cookie, configure, parser);
-	ouistiti_loadmodule(server, str_cors, configure, parser);
-	ouistiti_loadmodule(server, str_auth, configure, parser);
-	ouistiti_loadmodule(server, str_userfilter, configure, parser);
-	ouistiti_loadmodule(server, str_redirect404, configure, parser);
-	ouistiti_loadmodule(server, str_redirect, configure, parser);
-	ouistiti_loadmodule(server, str_methodlock, configure, parser);
-	ouistiti_loadmodule(server, str_serverheader, configure, parser);
-	ouistiti_loadmodule(server, str_cgi, configure, parser);
-	ouistiti_loadmodule(server, str_webstream, configure, parser);
-	ouistiti_loadmodule(server, str_upgrade, configure, parser);
-	ouistiti_loadmodule(server, str_websocket, configure, parser);
-	ouistiti_loadmodule(server, str_document, configure, parser);
 	return 0;
+}
+
+void ouistiti_registermodule(const module_t *module)
+{
+	module_list_t *iterator = g_modules;
+	while (iterator != NULL)
+	{
+		if (!strcmp(iterator->module->name, module->name))
+		{
+			warn("module loaded twice");
+			return;
+		}
+		iterator = iterator->next;
+	}
+	module_list_t *new = calloc(1, sizeof(*new));
+	new->module = module;
+	new->next = g_modules;
+	g_modules = new;
 }
 
 server_t *ouistiti_loadserver(serverconfig_t *config)
@@ -364,6 +382,46 @@ server_t *ouistiti_loadserver(serverconfig_t *config)
 	first = server;
 	return server;
 }
+
+#ifdef MODULES
+static int _ouistiti_initmodules()
+{
+	int i;
+
+	for (i = 0; default_modules[i] != NULL; i++)
+	{
+		char file[512];
+		snprintf(file, 511, PKGLIBDIR"/mod_%s.so", default_modules[i]);
+		void *dh = dlopen(file, RTLD_LAZY | RTLD_GLOBAL);
+		if (dh != NULL)
+		{
+			module_t *module = dlsym(dh, "mod_info");
+			if (module)
+			{
+				ouistiti_registermodule(module);
+			}
+			else
+				err("module symbol error: %s", dlerror());
+		}
+		else
+		{
+			err("module %s loading error: %s", file, dlerror());
+		}
+	}
+	return ESUCCESS;
+}
+#else
+static int _ouistiti_initmodules()
+{
+	int i;
+
+	for (i = 0; default_modules[i] != NULL; i++)
+	{
+		ouistiti_registermodule(default_modules[i]);
+	}
+	return ESUCCESS;
+}
+#endif
 
 #ifdef STATIC_CONFIG
 static ouistiticonfig_t g_ouistiti_config =
@@ -501,6 +559,8 @@ int main(int argc, char * const *argv)
 		}
 	} while(opt != -1);
 #endif
+
+	_ouistiti_initmodules();
 
 	if (mode & KILLDAEMON)
 	{
