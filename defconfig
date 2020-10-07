@@ -82,6 +82,10 @@ COOKIE=y
 CORS=y
 #support of mDNS
 TINYSVCMDNS=y
+#support of upgrade and reverse-http
+UPGRADE=y
+#support for filter uri select by user
+USERFILTER=y
 
 CERTIFICATE=n
 
