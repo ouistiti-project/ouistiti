@@ -52,6 +52,7 @@ $(TARGET)_LIBS-$(METHODLOCK)+=mod_methodlock
 $(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
 $(TARGET)_LIBS-$(SERVERHEADER)+=mod_server
 $(TARGET)_LIBS-$(CLIENTFILTER)+=mod_clientfilter
+$(TARGET)_LIBS-$(USERFILTER)+=mod_userfilter
 $(TARGET)_LIBS-$(REDIRECT)+=mod_redirect404
 $(TARGET)_LIBS-$(REDIRECT)+=mod_redirect
 $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
