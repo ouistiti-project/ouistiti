@@ -119,9 +119,7 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 		int fdfile = openat(mod->fdroot, uri, O_PATH);
 		if (fdfile == -1)
 		{
-			warn("upgrade: uri %s not found", uri);
-			httpmessage_result(response, RESULT_403);
-			return ESUCCESS;
+			return EREJECT;
 		}
 
 		struct stat filestat;
