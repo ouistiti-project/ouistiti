@@ -72,6 +72,7 @@
 #include "mod_redirect404.h"
 #include "mod_redirect.h"
 #include "mod_tinysvcmdns.h"
+#include "mod_upgrade.h"
 
 #include "ouistiti.h"
 
@@ -197,6 +198,9 @@ static const module_t *default_modules[] =
 #endif
 #if defined TINYSVCMDNS
 	&mod_tinysvcmdns,
+#endif
+#if defined UPGRADE
+	&mod_upgrade,
 #endif
 	NULL
 };

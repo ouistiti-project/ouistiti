@@ -59,6 +59,7 @@ $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
 $(TARGET)_LIBS-$(COOKIE)+=mod_cookie
 $(TARGET)_LIBS-$(CORS)+=mod_cors
 $(TARGET)_LIBS-$(TINYSVCMDNS)+=mod_tinysvcmdns
+$(TARGET)_LIBS-$(UPGRADE)+=mod_upgrade
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl
