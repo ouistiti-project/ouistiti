@@ -64,8 +64,6 @@ typedef struct _mod_upgrade_ctx_s _mod_upgrade_ctx_t;
 struct _mod_upgrade_s
 {
 	mod_upgrade_t *config;
-	mod_upgrade_run_t run;
-	void *runarg;
 	const char *upgrade;
 	int fdroot;
 };
@@ -73,7 +71,7 @@ struct _mod_upgrade_s
 struct _mod_upgrade_ctx_s
 {
 	_mod_upgrade_t *mod;
-	int fddir;
+	int serversock;
 	int socket;
 	pid_t pid;
 };
@@ -81,6 +79,9 @@ struct _mod_upgrade_ctx_s
 static const char str_connection[] = "Connection";
 static const char str_upgrade[] = "Upgrade";
 const char str_rhttp[] = "PTTH/1.0";
+
+static int _upgrade_socket_unix(const char *filepath);
+static int default_upgrade_run(void *arg, int sock, http_message_t *request);
 
 static int _checkname(mod_upgrade_t *config, const char *pathname)
 {
@@ -117,23 +118,29 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 		 */
 		while (*uri == '/' && *uri != '\0') uri++;
 		int fdfile = openat(mod->fdroot, uri, O_PATH);
-		if (fdfile == -1)
+		if (fdfile > 0)
+		{
+			struct stat filestat;
+			fstat(fdfile, &filestat);
+			close(fdfile);
+			if (S_ISDIR(filestat.st_mode) || !S_ISSOCK(filestat.st_mode))
+			{
+				warn("upgrade: protocol %s not found", uri);
+				httpmessage_result(response, RESULT_403);
+				return ESUCCESS;
+			}
+			else
+			{
+				char socketpath[MAXNAMLEN];
+				snprintf(socketpath, MAXNAMLEN, "%s/%s", mod->config->docroot, uri);
+				ctx->serversock = _upgrade_socket_unix(socketpath);
+			}
+		}
+		else
 		{
 			return EREJECT;
 		}
 
-		struct stat filestat;
-		fstat(fdfile, &filestat);
-		if (S_ISDIR(filestat.st_mode) || !S_ISSOCK(filestat.st_mode))
-		{
-			warn("upgrade: protocol %s not found", uri);
-			httpmessage_result(response, RESULT_403);
-			close(fdfile);
-			return ESUCCESS;
-		}
-		else
-			ctx->fddir = dup(mod->fdroot);
-		close(fdfile);
 
 		httpmessage_addheader(response, str_connection, str_upgrade);
 		httpmessage_addheader(response, str_upgrade, mod->upgrade);
@@ -146,15 +153,7 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 	}
 	else if (ctx->socket > 0)
 	{
-		if (fchdir(ctx->fddir) == -1)
-		{
-			err("upgrade: ");
-		}
-		else
-		{
-			while (*uri == '/' && *uri != '\0') uri++;
-			ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, uri, request);
-		}
+		ctx->pid = default_upgrade_run(ctx, ctx->socket, request);
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -244,16 +243,11 @@ static void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
 
 	_mod_upgrade_t *mod = calloc(1, sizeof(*mod));
 
-	mod_upgrade_run_t run = config->run;
-	if (run == NULL)
-		run = default_upgrade_run;
 	mod->config = config;
 	if (!strcasecmp(config->upgrade, "rhttp"))
 		mod->upgrade = str_rhttp;
 	else
 		mod->upgrade = config->upgrade;
-	mod->run = run;
-	mod->runarg = config;
 	mod->fdroot = fdroot;
 	httpserver_addmod(server, _mod_upgrade_getctx, _mod_upgrade_freectx, mod, str_upgrade);
 	return mod;
@@ -269,7 +263,7 @@ void mod_upgrade_destroy(void *data)
 	free(data);
 }
 
-static int _upgrade_socket(const char *filepath)
+static int _upgrade_socket_unix(const char *filepath)
 {
 	int sock;
 	struct sockaddr_un addr;
@@ -402,15 +396,14 @@ static void *_upgrade_main(void *arg)
 	return 0;
 }
 
-int default_upgrade_run(void *arg, int sock, const char *filepath, http_message_t *request)
+static int default_upgrade_run(void *arg, int sock, http_message_t *request)
 {
 	_mod_upgrade_ctx_t *ctx = (_mod_upgrade_ctx_t *)arg;
 	pid_t pid = -1;
-	int usock = _upgrade_socket(filepath);
 
-	if (usock > 0)
+	if (ctx->serversock > 0)
 	{
-		_upgrade_main_t info = {.client = sock, .server = usock};
+		_upgrade_main_t info = {.client = sock, .server = ctx->serversock};
 		http_client_t *clt = httpmessage_client(request);
 		info.ctx = httpclient_context(clt);
 		info.recvreq = httpclient_addreceiver(clt, NULL, NULL);
@@ -422,7 +415,7 @@ int default_upgrade_run(void *arg, int sock, const char *filepath, http_message_
 			warn("upgrade: process died");
 			exit(0);
 		}
-		close(usock);
+		close(ctx->serversock);
 	}
 	return pid;
 }

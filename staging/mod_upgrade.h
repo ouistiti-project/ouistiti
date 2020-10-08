@@ -35,9 +35,6 @@
 #define UPGRADE_REALTIME 0x01
 #define UPGRADE_TLS      0x02
 
-typedef int (*mod_upgrade_run_t)(void *arg, int socket, const char *filepath, http_message_t *request);
-int default_upgrade_run(void *arg, int sock, const char *filepath, http_message_t *request);
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -50,7 +47,6 @@ struct mod_upgrade_s
 	char *allow;
 	char *deny;
 	int options;
-	mod_upgrade_run_t run;
 };
 
 extern const module_t mod_upgrade;
