@@ -60,7 +60,7 @@ struct _mod_redirect404_s
 
 static void *mod_redirect404_create(http_server_t *server, mod_redirect404_t *config)
 {
-	httpserver_addconnector(server, _mod_redirect404_connector, config, CONNECTOR_ERROR, str_redirect404);
+	httpserver_addconnector(server, _mod_redirect404_connector, config, 9, str_redirect404);
 	return config;
 }
 
