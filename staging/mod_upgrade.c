@@ -80,7 +80,6 @@ static const char str_connection[] = "Connection";
 static const char str_upgrade[] = "Upgrade";
 const char str_rhttp[] = "PTTH/1.0";
 
-static int _upgrade_socket_unix(const char *filepath);
 static int default_upgrade_run(void *arg, int sock, http_message_t *request);
 
 static int _checkname(mod_upgrade_t *config, const char *pathname)
@@ -91,6 +90,52 @@ static int _checkname(mod_upgrade_t *config, const char *pathname)
 		return  EREJECT;
 	}
 	return ESUCCESS;
+}
+
+static int _upgrade_socket_unix(_mod_upgrade_ctx_t *ctx, const char *filepath)
+{
+	_mod_upgrade_t *mod = ctx->mod;
+	/**
+	 * use openat + fstat instead fstatat
+	 */
+	int fdfile = openat(mod->fdroot, filepath, O_PATH);
+	if (fdfile > 0)
+	{
+		struct stat filestat;
+		fstat(fdfile, &filestat);
+		close(fdfile);
+		if (S_ISDIR(filestat.st_mode) || !S_ISSOCK(filestat.st_mode))
+		{
+			return EINCOMPLETE;
+		}
+		else
+		{
+			int sock;
+			struct sockaddr_un addr;
+			memset(&addr, 0, sizeof(struct sockaddr_un));
+			addr.sun_family = AF_UNIX;
+			snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", mod->config->docroot, filepath);
+
+			warn("upgrade: open %s", addr.sun_path);
+			sock = socket(AF_UNIX, SOCK_STREAM, 0);
+			if (sock > 0)
+			{
+				int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
+				if (ret < 0)
+				{
+					close(sock);
+					return EINCOMPLETE;
+				}
+			}
+			if (sock == -1)
+			{
+				err("upgrade: open error (%s)", strerror(errno));
+			}
+			ctx->serversock = sock;
+			return ECONTINUE;
+		}
+	}
+	return EREJECT;
 }
 
 static int upgrade_connector(void *arg, http_message_t *request, http_message_t *response)
@@ -113,43 +158,24 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 			httpmessage_result(response, RESULT_403);
 			return ESUCCESS;
 		}
-		/**
-		 * use openat + fstat instead fstatat
-		 */
 		while (*uri == '/' && *uri != '\0') uri++;
-		int fdfile = openat(mod->fdroot, uri, O_PATH);
-		if (fdfile > 0)
+		ret = _upgrade_socket_unix(ctx, uri);
+		if (ret == EINCOMPLETE)
 		{
-			struct stat filestat;
-			fstat(fdfile, &filestat);
-			close(fdfile);
-			if (S_ISDIR(filestat.st_mode) || !S_ISSOCK(filestat.st_mode))
-			{
-				warn("upgrade: protocol %s not found", uri);
-				httpmessage_result(response, RESULT_403);
-				return ESUCCESS;
-			}
-			else
-			{
-				char socketpath[MAXNAMLEN];
-				snprintf(socketpath, MAXNAMLEN, "%s/%s", mod->config->docroot, uri);
-				ctx->serversock = _upgrade_socket_unix(socketpath);
-			}
+			warn("upgrade: protocol %s not found", uri);
+			httpmessage_result(response, RESULT_403);
+			ret = ESUCCESS;
 		}
-		else
+		else if (ret == ECONTINUE)
 		{
-			return EREJECT;
+			httpmessage_addheader(response, str_connection, str_upgrade);
+			httpmessage_addheader(response, str_upgrade, mod->upgrade);
+			/** disable Content-Type and Content-Length inside the headers **/
+			httpmessage_addcontent(response, "none", NULL, -1);
+			httpmessage_result(response, RESULT_101);
+			upgrade_dbg("upgrade: to %s result 101", mod->upgrade);
+			ctx->socket = httpmessage_lock(response);
 		}
-
-
-		httpmessage_addheader(response, str_connection, str_upgrade);
-		httpmessage_addheader(response, str_upgrade, mod->upgrade);
-		/** disable Content-Type and Content-Length inside the headers **/
-		httpmessage_addcontent(response, "none", NULL, -1);
-		httpmessage_result(response, RESULT_101);
-		upgrade_dbg("upgrade: to %s result 101", mod->upgrade);
-		ctx->socket = httpmessage_lock(response);
-		ret = ECONTINUE;
 	}
 	else if (ctx->socket > 0)
 	{
@@ -261,32 +287,6 @@ void mod_upgrade_destroy(void *data)
 #endif
 	close(mod->fdroot);
 	free(data);
-}
-
-static int _upgrade_socket_unix(const char *filepath)
-{
-	int sock;
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
-
-	warn("upgrade: open %s", addr.sun_path);
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock > 0)
-	{
-		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
-		if (ret < 0)
-		{
-			close(sock);
-			sock = -1;
-		}
-	}
-	if (sock == -1)
-	{
-		err("upgrade: open error (%s)", strerror(errno));
-	}
-	return sock;
 }
 
 typedef struct _upgrade_main_s _upgrade_main_t;
