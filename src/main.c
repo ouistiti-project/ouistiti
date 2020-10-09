@@ -376,6 +376,10 @@ static int _ouistiti_initmodules()
 	for (i = 0; i < ret; i++)
 	{
 		const char *name = namelist[i]->d_name;
+
+		if (access(name, X_OK) == -1)
+			continue;
+
 		void *dh = dlopen(name, RTLD_LAZY | RTLD_GLOBAL);
 
 		if (dh != NULL)
