@@ -84,6 +84,7 @@ CORS=y
 TINYSVCMDNS=y
 #support of upgrade and reverse-http
 UPGRADE=y
+UPGRADE_INET=n
 #support for filter uri select by user
 USERFILTER=y
 

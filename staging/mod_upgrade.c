@@ -40,11 +40,16 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <dirent.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <sys/wait.h>
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#ifdef UPGRADE_INET
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#endif
 
 #include "httpserver/log.h"
 #include "httpserver/httpserver.h"
@@ -138,6 +143,36 @@ static int _upgrade_socket_unix(_mod_upgrade_ctx_t *ctx, const char *filepath)
 	return EREJECT;
 }
 
+#ifdef UPGRADE_INET
+static int _upgrade_socket_inet(_mod_upgrade_ctx_t *ctx, const char *uri)
+{
+	_mod_upgrade_t *mod = ctx->mod;
+	int sock;
+	struct sockaddr_in addr;
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(mod->config->port);
+	inet_aton(mod->config->uri, &addr.sin_addr);
+
+	warn("upgrade: open %s:%d", mod->config->uri, mod->config->port);
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock > 0)
+	{
+		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
+		if (ret < 0)
+		{
+			close(sock);
+			sock = -1;
+		}
+	}
+	if (sock == -1)
+	{
+		err("upgrade: open error (%s)", strerror(errno));
+	}
+	return sock;
+}
+#endif
+
 static int upgrade_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -160,6 +195,12 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 		}
 		while (*uri == '/' && *uri != '\0') uri++;
 		ret = _upgrade_socket_unix(ctx, uri);
+#ifdef UPGRADE_INET
+		if (ret == EINCOMPLETE)
+		{
+			ret = _upgrade_socket_inet(ctx, uri);
+		}
+#endif
 		if (ret == EINCOMPLETE)
 		{
 			warn("upgrade: protocol %s not found", uri);
@@ -233,13 +274,17 @@ static void *upgrade_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (configws)
 	{
-		char *mode = NULL;
+		const char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
-		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
-		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
-		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
-		config_setting_lookup_string(configws, "upgrade", (const char **)&conf->upgrade);
-		config_setting_lookup_string(configws, "options", (const char **)&mode);
+		config_setting_lookup_string(configws, "docroot", &conf->docroot);
+#ifdef UPGRADE_INET
+		config_setting_lookup_string(configws, "serveraddr", &conf->uri);
+		config_setting_lookup_int(configws, "port", &conf->port);
+#endif
+		config_setting_lookup_string(configws, "allow", &conf->allow);
+		config_setting_lookup_string(configws, "deny", &conf->deny);
+		config_setting_lookup_string(configws, "upgrade", &conf->upgrade);
+		config_setting_lookup_string(configws, "options", &mode);
 	}
 	return conf;
 }
