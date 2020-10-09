@@ -42,10 +42,14 @@ extern "C"
 typedef struct mod_upgrade_s mod_upgrade_t;
 struct mod_upgrade_s
 {
-	char *docroot;
-	char *upgrade;
-	char *allow;
-	char *deny;
+	const char *docroot;
+#ifdef UPGRADE_INET
+	const char *uri;
+	int port;
+#endif
+	const char *upgrade;
+	const char *allow;
+	const char *deny;
 	int options;
 };
 
