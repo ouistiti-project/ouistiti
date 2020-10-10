@@ -234,7 +234,7 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 				serverid = 0;
 		}
 
-		for (i; i < count && i < MAX_SERVERS; i++)
+		for (; i < count && i < MAX_SERVERS; i++)
 		{
 			config_setting_t *iterator = config_setting_get_elem(configservers, i);
 			if (iterator)

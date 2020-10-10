@@ -171,7 +171,7 @@ http_server_t *ouistiti_httpserver(server_t *server)
 int ouistiti_issecure(server_t *server)
 {
 	const char *secure = httpserver_INFO(server->server, "secure");
-	return !!!strcmp(secure, "true");
+	return !strcmp(secure, "true");
 }
 
 int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
@@ -345,7 +345,7 @@ static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
 	const char *configfile = DEFAULT_CONFIGPATH;
-	ouistiticonfig_t *ouistiticonfig;
+	ouistiticonfig_t *ouistiticonfig = NULL;
 	const char *pidfile = NULL;
 	int mode = 0;
 	int serverid = -1;
