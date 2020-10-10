@@ -557,14 +557,11 @@ const module_t mod_tls =
 	.create = (module_create_t)&mod_mbedtls_create,
 	.destroy = &mod_mbedtls_destroy,
 };
-#ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_tls")));
-#endif
 
-#ifdef HTTPCLIENT_FEATURES
-__attribute__((constructor))
-static void _init(void)
+static void __attribute__ ((constructor))_init(void)
 {
-		httpclient_appendops((httpclient_ops_t *)_tlsclient_ops);
-}
+	ouistiti_registermodule(&mod_tls);
+#ifdef HTTPCLIENT_FEATURES
+	httpclient_appendops((httpclient_ops_t *)_tlsclient_ops);
 #endif
+}

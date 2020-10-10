@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_redirect404.c: Redirect the request on 404 error
+ * ouistiti_modules.c: modules initialisation
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -25,19 +25,15 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
-#include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <fcntl.h>
+#include <string.h>
 #include <unistd.h>
-#include <errno.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <dlfcn.h>
 
 #include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "mod_redirect404.h"
+#include "ouistiti.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -47,45 +43,53 @@
 #define dbg(...)
 #endif
 
-typedef struct _mod_redirect404_s _mod_redirect404_t;
-
-static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response);
-
-static const char str_redirect404[] = "redirect404";
-
-struct _mod_redirect404_s
+static int modulefilter(const struct dirent *entry)
 {
-	char *nothing;
-};
-
-static void *mod_redirect404_create(http_server_t *server, mod_redirect404_t *config)
-{
-	httpserver_addconnector(server, _mod_redirect404_connector, config, 9, str_redirect404);
-	return config;
+	return !strncmp(entry->d_name, "mod_", 4);
 }
 
-static void mod_redirect404_destroy(void *arg)
+int ouistiti_initmodules()
 {
-	// nothing to do
-}
+	int i;
+	int cwdfd = open(".", O_DIRECTORY);
+	int pkglibfd = open(PKGLIBDIR, O_DIRECTORY);
+	if (pkglibfd == -1)
+	{
+		return EREJECT;
+	}
+	if (fchdir(pkglibfd) == -1)
+	{
+		err("Package linbrary dir "PKGLIBDIR" notfound");
+		return EREJECT;
+	}
 
-static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
-{
-	mod_redirect404_t *conf = (mod_redirect404_t *)arg;
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	warn("redirect 404: %s", uri);
-	httpmessage_result(response, RESULT_404);
-	return EREJECT;
-}
+	int ret;
+	struct dirent **namelist = NULL;
+	ret = scandir(".", &namelist, &modulefilter, alphasort);
+	for (i = 0; i < ret; i++)
+	{
+		const char *name = namelist[i]->d_name;
 
-const module_t mod_redirect404 =
-{
-	.name = str_redirect404,
-	.create = (module_create_t)&mod_redirect404_create,
-	.destroy = &mod_redirect404_destroy
-};
+		if (access(name, X_OK) == -1)
+			continue;
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_redirect404);
+		void *dh = dlopen(name, RTLD_LAZY | RTLD_GLOBAL);
+
+		if (dh != NULL)
+		{
+			module_t *module = dlsym(dh, "mod_info");
+			if (module)
+				ouistiti_registermodule(module);
+		}
+		else
+		{
+			err("module %s loading error: %s", name, dlerror());
+		}
+	}
+	if (fchdir(cwdfd) == -1)
+	{
+		err("Package linbrary dir "PKGLIBDIR" notfound");
+		return EREJECT;
+	}
+	return ESUCCESS;
 }

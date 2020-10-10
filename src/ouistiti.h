@@ -68,10 +68,11 @@ typedef struct ouistiticonfig_s
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
+int ouistiti_initmodules(void);
 server_t *ouistiti_loadserver(serverconfig_t *config);
 typedef void *(*configure_t)(void *data, const char *name, server_t *server);
-int ouistiti_setmodules(server_t *server, configure_t configure, void *data);
-int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser);
+int ouistiti_setmodules(server_t *server, configure_t configure, void *parser);
+void ouistiti_registermodule(const module_t *module);
 int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);
 #endif

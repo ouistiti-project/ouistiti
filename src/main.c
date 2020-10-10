@@ -43,11 +43,6 @@
 #else
 # include <winsock2.h>
 #endif
-#ifdef MODULES
-#include <fcntl.h>
-#include <dirent.h>
-#include <dlfcn.h>
-#endif
 
 #include "daemonize.h"
 #include "../compliant.h"
@@ -56,23 +51,6 @@
 #ifndef FILE_CONFIG
 #define STATIC_CONFIG
 #endif
-#include "mod_clientfilter.h"
-#include "mod_tls.h"
-#include "mod_cors.h"
-#include "mod_auth.h"
-#include "mod_methodlock.h"
-#include "mod_server.h"
-#include "mod_cookie.h"
-#include "mod_userfilter.h"
-#include "mod_document.h"
-#include "mod_cgi.h"
-#include "mod_websocket.h"
-#include "mod_webstream.h"
-#include "mod_vhosts.h"
-#include "mod_redirect404.h"
-#include "mod_redirect.h"
-#include "mod_tinysvcmdns.h"
-#include "mod_upgrade.h"
 
 #include "ouistiti.h"
 
@@ -87,28 +65,12 @@
 
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
-static const char str_tls[] = "tls";
-static const char str_vhosts[] = "vhosts";
-static const char str_clientfilter[] = "clientfilter";
-static const char str_cookie[] = "cookie";
-static const char str_auth[] = "auth";
-static const char str_userfilter[] = "userfilter";
-static const char str_methodlock[] = "methodlock";
-static const char str_server[] = "server";
-static const char str_cgi[] = "cgi";
-static const char str_document[] = "document";
-static const char str_webstream[] = "webstream";
-static const char str_websocket[] = "websocket";
-static const char str_redirect[] = "redirect";
-static const char str_redirect404[] = "redirect404";
-static const char str_cors[] = "cors";
-static const char str_tinysvcmdns[] = "tinysvcmdns";
-static const char str_upgrade[] = "upgrade";
+#include "mod_auth.h"
 
 const char *auth_info(http_message_t *request, const char *key)
 {
 	const authsession_t *info = NULL;
-	info = httpmessage_SESSION(request, str_auth, NULL);
+	info = httpmessage_SESSION(request, "auth", NULL);
 	const char *value = NULL;
 
 	if (info && !strcmp(key, "user"))
@@ -150,62 +112,6 @@ int auth_setowner(const char *user)
 	return ret;
 }
 
-#ifndef MODULES
-static const module_t *default_modules[] =
-{
-#if defined TLS
-	&mod_tls,
-#endif
-#if defined VHOSTS_DEPRECATED
-	&mod_vhosts,
-#endif
-#if defined CLIENTFILTER
-	&mod_clientfilter,
-#endif
-#if defined COOKIE
-	&mod_cookie,
-#endif
-#if defined AUTH
-	&mod_auth,
-#endif
-#if defined USERFILTER
-	&mod_userfilter,
-#endif
-#if defined METHODLOCK
-	&mod_methodlock,
-#endif
-#if defined SERVERHEADER
-	&mod_server,
-#endif
-#if defined CGI
-	&mod_cgi,
-#endif
-#if defined DOCUMENT
-	&mod_document,
-#endif
-#if defined WEBSTREAM
-	&mod_webstream,
-#endif
-#if defined WEBSOCKET
-	&mod_websocket,
-#endif
-#if defined REDIRECT
-	&mod_redirect404,
-	&mod_redirect,
-#endif
-#if defined CORS
-	&mod_cors,
-#endif
-#if defined TINYSVCMDNS
-	&mod_tinysvcmdns,
-#endif
-#if defined UPGRADE
-	&mod_upgrade,
-#endif
-	NULL
-};
-#endif
-
 struct module_list_s
 {
 	const module_t *module;
@@ -218,7 +124,7 @@ static module_list_t *g_modules = NULL;
 typedef struct mod_s
 {
 	void *obj;
-	module_t *ops;
+	const module_t *ops;
 } mod_t;
 
 #define MAX_MODULES 16
@@ -348,74 +254,6 @@ server_t *ouistiti_loadserver(serverconfig_t *config)
 	first = server;
 	return server;
 }
-
-#ifdef MODULES
-static int modulefilter(const struct dirent *entry)
-{
-	return !strncmp(entry->d_name, "mod_", 4);
-}
-
-static int _ouistiti_initmodules()
-{
-	int i;
-	int cwdfd = open(".", O_DIRECTORY);
-	int pkglibfd = open(PKGLIBDIR, O_DIRECTORY);
-	if (pkglibfd == -1)
-	{
-		return EREJECT;
-	}
-	if (fchdir(pkglibfd) == -1)
-	{
-		err("Package linbrary dir "PKGLIBDIR" notfound");
-		return EREJECT;
-	}
-
-	int ret;
-	struct dirent **namelist = NULL;
-	ret = scandir(".", &namelist, &modulefilter, alphasort);
-	for (i = 0; i < ret; i++)
-	{
-		const char *name = namelist[i]->d_name;
-
-		if (access(name, X_OK) == -1)
-			continue;
-
-		void *dh = dlopen(name, RTLD_LAZY | RTLD_GLOBAL);
-
-		if (dh != NULL)
-		{
-			module_t *module = dlsym(dh, "mod_info");
-			if (module)
-			{
-				ouistiti_registermodule(module);
-			}
-			else
-				err("module symbol error: %s", dlerror());
-		}
-		else
-		{
-			err("module %s loading error: %s", name, dlerror());
-		}
-	}
-	if (fchdir(cwdfd) == -1)
-	{
-		err("Package linbrary dir "PKGLIBDIR" notfound");
-		return EREJECT;
-	}
-	return ESUCCESS;
-}
-#else
-static int _ouistiti_initmodules()
-{
-	int i;
-
-	for (i = 0; default_modules[i] != NULL; i++)
-	{
-		ouistiti_registermodule(default_modules[i]);
-	}
-	return ESUCCESS;
-}
-#endif
 
 #ifdef STATIC_CONFIG
 static ouistiticonfig_t g_ouistiti_config =
@@ -554,7 +392,7 @@ int main(int argc, char * const *argv)
 	} while(opt != -1);
 #endif
 
-	_ouistiti_initmodules();
+	ouistiti_initmodules();
 
 	if (mode & KILLDAEMON)
 	{
