@@ -529,6 +529,8 @@ const module_t mod_cgi =
 	.create = (module_create_t)&mod_cgi_create,
 	.destroy = &mod_cgi_destroy
 };
-#ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_cgi")));
-#endif
+
+static void __attribute__ ((constructor))_init(void)
+{
+	ouistiti_registermodule(&mod_cgi);
+}

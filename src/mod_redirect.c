@@ -378,6 +378,8 @@ const module_t mod_redirect =
 	.create = (module_create_t)&mod_redirect_create,
 	.destroy = &mod_redirect_destroy
 };
-#ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_redirect")));
-#endif
+
+static void __attribute__ ((constructor))_init(void)
+{
+	ouistiti_registermodule(&mod_redirect);
+}
