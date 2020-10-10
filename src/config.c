@@ -71,25 +71,6 @@ static int logfd = 0;
 
 typedef void (*_parsercb_t)(void *arg, const char *option, size_t length);
 
-static int config_parseoptions(const char *options, _parsercb_t cb, void *cbdata)
-{
-	const char *ext = options;
-
-	while (ext != NULL)
-	{
-		size_t length = strlen(ext);
-		const char *ext_end = strchr(ext, ',');
-		if (ext_end)
-		{
-			length -= strlen(ext_end + 1) + 1;
-			ext_end++;
-		}
-		cb(cbdata, ext, length);
-		ext = ext_end;
-	}
-	return 0;
-}
-
 static void config_mimes(config_setting_t *configmimes)
 {
 	if (configmimes == NULL)
