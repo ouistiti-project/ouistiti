@@ -339,7 +339,9 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 		mod->transfer = mod_send_read;
 #ifdef SENDFILE
 		if (config->options & DOCUMENT_SENDFILE)
+		{
 			mod->transfer = mod_send_sendfile;
+		}
 #endif
 	}
 	return fdfile;
@@ -643,7 +645,7 @@ static void *document_config(config_setting_t *iterator, server_t *server)
 #ifdef SENDFILE
 		if (utils_searchexp("sendfile", options, NULL) == ESUCCESS)
 		{
-			if (ouistiti_issecure(server))
+			if (!ouistiti_issecure(server))
 				static_file->options |= DOCUMENT_SENDFILE;
 			else
 				warn("sendfile configuration is not allowed with tls");
