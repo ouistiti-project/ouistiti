@@ -52,7 +52,8 @@ websocket_jsonrpc_SOURCES+=$(WS_SRC)jsonrpc.c
 websocket_jsonrpc_SOURCES+=jsonrpc/jsonrpc.c
 websocket_jsonrpc_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
 websocket_jsonrpc_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket c
-websocket_jsonrpc_LIBS+=dl jansson
+websocket_jsonrpc_LIBS+=jansson
+websocket_jsonrpc_LIBS+=dl
 websocket_jsonrpc_LIBS-$(USE_PTHREAD)+=pthread
 websocket_jsonrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
