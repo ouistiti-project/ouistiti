@@ -729,6 +729,11 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		httpserver_addmethod(server, str_put, MESSAGE_ALLOW_CONTENT);
 		httpserver_addmethod(server, str_delete, MESSAGE_ALLOW_CONTENT);
 #endif
+		if (mod != NULL && (config->authz.type & AUTHZ_TOKEN_E) &&
+			(mod->authn->config->secret == NULL || strlen(mod->authn->config->secret) == 0))
+		{
+			err("auth: to enable the token, set the \"secret\" into configuration");
+		}
 	}
 	else
 	{
@@ -738,11 +743,6 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		free(mod->authn);
 		free(mod);
 		mod = NULL;
-	}
-	if ((mod->authn->config->secret == NULL || strlen(mod->authn->config->secret) == 0) &&
-		(config->authz.type & AUTHZ_TOKEN_E))
-	{
-		err("auth: to enable the token, set the \"secret\" into configuration");
 	}
 
 	return mod;
@@ -1375,7 +1375,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 		if (user == NULL)
 		{
 			user = strstr(storage, "user=");
-			if (user == NULL)
+			if (user != NULL)
 			{
 				user += 5;
 				char *end = strchr(user, '&');
