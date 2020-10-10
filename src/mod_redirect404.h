@@ -29,6 +29,8 @@
 #ifndef __MOD_REDIRECT404_H__
 #define __MOD_REDIRECT404_H__
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {

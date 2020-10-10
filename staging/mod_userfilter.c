@@ -54,6 +54,7 @@
 
 static const char str_userfilter[] = "userfilter";
 static const char str_annonymous[] = "annonymous";
+static const char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
 typedef struct _mod_userfilter_s _mod_userfilter_t;
 
@@ -109,6 +110,7 @@ int _exp_cmp(_mod_userfilter_t *ctx, const char *value,
 		free(valuefree);
 		return EREJECT;
 	}
+	userfilter_dbg("userfilter: check %s %s", uri, checking);
 	if (utils_searchexp(uri, checking, NULL) == ESUCCESS)
 		ret = ESUCCESS;
 	free(valuefree);
@@ -210,9 +212,9 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 			}
 		}
 		step = sqlite3_step(statement);
-		if (step == SQLITE_DONE)
-			break;
 	}
+	if (step != SQLITE_DONE && ret != ESUCCESS)
+		err("request %d %s", ret, sqlite3_errmsg(ctx->db));
 	sqlite3_finalize(statement);
 	return ret;
 }
@@ -327,6 +329,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 		/**
 		 * this path is always allowed
 		 */
+		userfilter_dbg("userfilter: forward to allowed path %s", config->allow);
 		ret = EREJECT;
 	}
 	else if (_request(ctx, method, user,
@@ -424,9 +427,49 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	return ret;
 }
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *userfilter_config(config_setting_t *iterator, server_t *server)
+{
+	mod_userfilter_t *modconfig = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "userfilter");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "userfilter");
+#endif
+	if (config)
+	{
+		modconfig = calloc(1, sizeof(*modconfig));
+		config_setting_lookup_string(config, "superuser", &modconfig->superuser);
+		config_setting_lookup_string(config, "allow", &modconfig->allow);
+		config_setting_lookup_string(config, "configuri", &modconfig->configuri);
+		config_setting_lookup_string(config, "dbname", &modconfig->dbname);
+		if (modconfig->dbname == NULL || modconfig->dbname[0] == '\0')
+			modconfig->dbname = str_userfilterpath;
+	}
+	return modconfig;
+}
+#else
+mod_userfilter_t g_userfilter_config =
+{
+	.superuser = "root",
+	.configuri = "auth/filter",
+	.dbname = str_userfilterpath,
+};
+
+static void *userfilter_config(void *iterator, server_t *server)
+{
+	return &g_userfilter_config;
+}
+#endif
+
 void *mod_userfilter_create(http_server_t *server, void *arg)
 {
 	mod_userfilter_t *config = (mod_userfilter_t *)arg;
+	if (config == NULL)
+		return NULL;
+
 	_mod_userfilter_t *mod = calloc(1, sizeof(*mod));
 	sqlite3 *db;
 	int ret;
@@ -447,6 +490,13 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			"insert into roles (id, name) values(2, \"*\");",
 			"create table rules (\"exp\" TEXT NOT NULL, \"methodid\" INTEGER NOT NULL,\"roleid\" INTEGER NOT NULL, FOREIGN KEY (methodid) REFERENCES methods(id) ON UPDATE SET NULL, FOREIGN KEY (roleid) REFERENCES roles(id) ON UPDATE SET NULL);",
 			"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"POST\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"GET\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"PUT\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"POST\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"DELETE\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"GET\"),2);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"POST\"),2);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"DELETE\"),2);",
 			NULL,
 		};
 		char *error = NULL;
@@ -497,14 +547,18 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 
 void mod_userfilter_destroy(void *arg)
 {
-	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
-	sqlite3_close(ctx->db);
+	_mod_userfilter_t *mod = (_mod_userfilter_t *)arg;
+	sqlite3_close(mod->db);
+#ifdef FILE_CONFIG
+	free(mod->config);
+#endif
 	free(arg);
 }
 
 const module_t mod_userfilter =
 {
 	.name = str_userfilter,
+	.configure = (module_configure_t)&userfilter_config,
 	.create = (module_create_t)&mod_userfilter_create,
 	.destroy = &mod_userfilter_destroy
 };

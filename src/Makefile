@@ -22,6 +22,8 @@ ifeq ($(VTHREAD_TYPE),pthread)
 $(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
+$(TARGET)_SOURCES-$(STATIC)+=ouistiti_static.c
+$(TARGET)_SOURCES-$(MODULES)+=ouistiti_modules.c
 $(TARGET)_SOURCES+=daemonize.c
 $(TARGET)_LIBS+=$(LIBHTTPSERVER_NAME)
 $(TARGET)_LIBS+=ouiutils
@@ -52,12 +54,14 @@ $(TARGET)_LIBS-$(METHODLOCK)+=mod_methodlock
 $(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
 $(TARGET)_LIBS-$(SERVERHEADER)+=mod_server
 $(TARGET)_LIBS-$(CLIENTFILTER)+=mod_clientfilter
+$(TARGET)_LIBS-$(USERFILTER)+=mod_userfilter
 $(TARGET)_LIBS-$(REDIRECT)+=mod_redirect404
 $(TARGET)_LIBS-$(REDIRECT)+=mod_redirect
 $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
 $(TARGET)_LIBS-$(COOKIE)+=mod_cookie
 $(TARGET)_LIBS-$(CORS)+=mod_cors
 $(TARGET)_LIBS-$(TINYSVCMDNS)+=mod_tinysvcmdns
+$(TARGET)_LIBS-$(UPGRADE)+=mod_upgrade
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl

@@ -29,6 +29,8 @@
 #ifndef __MOD_WEBSTREAM_H__
 #define __MOD_WEBSTREAM_H__
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {

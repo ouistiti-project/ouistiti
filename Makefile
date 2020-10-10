@@ -1,7 +1,7 @@
 include scripts.mk
 
 package=ouistiti
-version=2.5
+version=2.9
 
 #libhttpserver has to be static in all configuration
 export SLIB_HTTPSERVER=y

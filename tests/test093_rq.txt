@@ -1,7 +1,7 @@
-POST /token HTTP/1.1
+POST /auth/mngt/alibaba HTTP/1.1
 HOST: 127.0.0.1
 Authorization: Basic cm9vdDp0ZXN0
-Content-Length: 37
+Content-Length: 24
 Content-Type: application/x-www-form-urlencoded
 
-user=alibaba&group=root&passwd=sesame
+group=root&password=sesame

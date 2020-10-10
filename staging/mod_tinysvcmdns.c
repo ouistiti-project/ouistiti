@@ -66,7 +66,7 @@ typedef int (*socket_t)(mod_tinysvcmdns_t *config, char *filepath);
 
 struct _mod_tinysvcmdns_s
 {
-	mod_tinysvcmdns_t *config;
+	const char *hostname;
 	char *type;
 	int svrn;
 	struct mdnsd *svr[3];
@@ -82,6 +82,7 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 	const char *hostname = httpserver_INFO(server, "host");
 	if (hostname == NULL || hostname[0] == '\0' || strstr(hostname, ".local") == NULL)
 		return NULL;
+	mod->hostname = hostname;
 
 	int port = atoi(httpserver_INFO(server, "port"));
 	const char *scheme = httpserver_INFO(server, "scheme");
@@ -113,15 +114,15 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 			}
 			if (mod->svr[j] == NULL) {
 				err("%s: start error %s\n", str_tinysvcmdns, strerror(errno));
-				return NULL;
+				continue;
 			}
 
-			mdnsd_set_hostname(mod->svr[j], hostname, ((struct sockaddr_in *)ifa_main->ifa_addr)->sin_addr); // TTL should be 120 seconds
+			mdnsd_set_hostname(mod->svr[j], mod->hostname, ((struct sockaddr_in *)ifa_main->ifa_addr)->sin_addr); // TTL should be 120 seconds
 
 			const char *txt[] =
 			{NULL};
-			mod->svc[j] = mdnsd_register_svc(mod->svr[j], hostname, mod->type, port, NULL, txt);
-			dbg("%s: register %s:%d on mDNS", str_tinysvcmdns, hostname, port);
+			mod->svc[j] = mdnsd_register_svc(mod->svr[j], mod->hostname, mod->type, port, NULL, txt);
+			dbg("%s: register %s:%d on mDNS", str_tinysvcmdns, mod->hostname, port);
 			j++;
 		}
 #ifdef IPV6
@@ -140,7 +141,6 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 	}
 
 	mod->svrn = j;
-	mod->config = config;
 
 	return mod;
 }
@@ -151,8 +151,8 @@ void mod_tinysvcmdns_destroy(void *data)
 	int j = 0;
 	for (j = 0; j < mod->svrn; j++)
 	{
+		//mdnsd_stop(mod->svr[j]);
 		mdns_service_destroy(mod->svc[j]);
-		mdnsd_stop(mod->svr[j]);
 	}
 	free(mod->type);
 	free(data);

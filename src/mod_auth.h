@@ -31,6 +31,8 @@
 
 #include <linux/limits.h>
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -44,11 +46,11 @@ typedef struct mod_auth_s mod_auth_t;
 
 typedef struct authsession_s
 {
-	char type[10];
-	char user[32];
-	char group[32];
-	char home[PATH_MAX];
-	char passwd[256];
+	char *type;
+	char *user;
+	char *group;
+	char *home;
+	char *passwd;
 	char *urlspace;
 	char *token;
 } authsession_t;
@@ -72,7 +74,6 @@ typedef struct authz_sqlite_config_s authz_sqlite_config_t;
 struct authz_sqlite_config_s
 {
 	const char *dbname;
-	const char *configuri;
 };
 
 typedef struct authz_jwt_config_s authz_jwt_config_t;
@@ -89,6 +90,8 @@ typedef const char *(*authz_rule_group_t)(void *arg, const char *user);
 typedef const char *(*authz_rule_home_t)(void *arg, const char *user);
 typedef char *(*authz_rule_token_t)(void *arg, const char *user);
 typedef int (*authz_rule_adduser_t)(void *arg, authsession_t *newuser);
+typedef int (*authz_rule_changepasswd_t)(void *arg, authsession_t *newuser);
+typedef int (*authz_rule_removeuser_t)(void *arg, authsession_t *newuser);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
 struct authz_rules_s
@@ -101,6 +104,8 @@ struct authz_rules_s
 	authz_rule_home_t home;
 	authz_rule_token_t token;
 	authz_rule_adduser_t adduser;
+	authz_rule_changepasswd_t changepasswd;
+	authz_rule_removeuser_t removeuser;
 	authz_rule_destroy_t destroy;
 };
 typedef enum
@@ -112,8 +117,6 @@ typedef enum
 	AUTHZ_JWT_E,
 	AUTHZ_TYPE_MASK = 0x0F,
 	AUTHZ_HOME_E = 0x10,
-	AUTHZ_COOKIE_E = 0x20,
-	AUTHZ_HEADER_E = 0x40,
 	AUTHZ_TOKEN_E = 0x80,
 	AUTHZ_CHOWN_E = 0x100,
 	AUTHZ_TLS_E = 0x200,
@@ -160,7 +163,6 @@ typedef struct authn_bearer_config_s authn_bearer_config_t;
 struct authn_bearer_config_s
 {
 	const char *realm;
-	const char *token_ep;
 };
 
 typedef struct authn_oauth2_config_s authn_oauth2_config_t;
@@ -197,6 +199,10 @@ typedef enum
 	AUTHN_DIGEST_E,
 	AUTHN_BEARER_E,
 	AUTHN_OAUTH2_E,
+	AUTHN_TYPE_MASK = 0x0F,
+	AUTHN_REDIRECT_E = 0x10,
+	AUTHN_COOKIE_E = 0x20,
+	AUTHN_HEADER_E = 0x40,
 } authn_type_t;
 
 typedef struct hash_s hash_t;

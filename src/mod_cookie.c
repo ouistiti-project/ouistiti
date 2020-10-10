@@ -63,7 +63,7 @@ struct _mod_cookie_s
 	char *vhost; //Useless only to create a structure
 };
 
-void *mod_cookie_create(http_server_t *server, char *vhost, mod_cookie_t *modconfig)
+static void *mod_cookie_create(http_server_t *server, char *vhost, mod_cookie_t *modconfig)
 {
 	_mod_cookie_t *mod = NULL;
 
@@ -76,7 +76,7 @@ void *mod_cookie_create(http_server_t *server, char *vhost, mod_cookie_t *modcon
 	return mod;
 }
 
-void mod_cookie_destroy(void *arg)
+static void mod_cookie_destroy(void *arg)
 {
 	_mod_cookie_t *mod = (_mod_cookie_t *)arg;
 	if (mod != NULL)
@@ -266,6 +266,8 @@ int cookie_set(http_message_t *response, const char *key, const char *value, ...
 	}
 	va_end(ap);
 #endif
+	const char * sameSite = "strict";
+	ret = httpmessage_appendheader(response, str_SetCookie, "; SameSite=", sameSite, NULL);
 	const char *path = "/";
 	ret = httpmessage_appendheader(response, str_SetCookie, "; Path=", path, NULL);
 
@@ -280,6 +282,8 @@ const module_t mod_cookie =
 	.create = (module_create_t)mod_cookie_create,
 	.destroy = mod_cookie_destroy
 };
-#ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_cookie")));
-#endif
+
+static void __attribute__ ((constructor))_init(void)
+{
+	ouistiti_registermodule(&mod_cookie);
+}

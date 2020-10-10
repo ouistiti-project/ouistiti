@@ -1,4 +1,5 @@
 DESC="simple HTTPS request with authentication"
 CONFIG=test17.conf
 WGETURL=https://127.0.0.1:8443/index.html
+TESTDEFAULTPORT=8443
 TESTCODE=401

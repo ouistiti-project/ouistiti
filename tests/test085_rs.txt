@@ -1,5 +1,5 @@
 HTTP/1.1 204 No Content
-Set-Cookie: X-Remote-User=root; Path=/; Domain=.ouistiti.net
-Set-Cookie: X-Remote-Group=root; Path=/; Domain=.ouistiti.net
-Set-Cookie: X-Remote-Home=~/; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-User=root; SameSite=strict; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-Group=root; SameSite=strict; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Remote-Home=~/; SameSite=strict; Path=/; Domain=.ouistiti.net
 

@@ -40,11 +40,16 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <dirent.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <sys/wait.h>
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#ifdef UPGRADE_INET
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#endif
 
 #include "httpserver/log.h"
 #include "httpserver/httpserver.h"
@@ -64,8 +69,6 @@ typedef struct _mod_upgrade_ctx_s _mod_upgrade_ctx_t;
 struct _mod_upgrade_s
 {
 	mod_upgrade_t *config;
-	mod_upgrade_run_t run;
-	void *runarg;
 	const char *upgrade;
 	int fdroot;
 };
@@ -73,7 +76,7 @@ struct _mod_upgrade_s
 struct _mod_upgrade_ctx_s
 {
 	_mod_upgrade_t *mod;
-	int fddir;
+	int serversock;
 	int socket;
 	pid_t pid;
 };
@@ -81,6 +84,8 @@ struct _mod_upgrade_ctx_s
 static const char str_connection[] = "Connection";
 static const char str_upgrade[] = "Upgrade";
 const char str_rhttp[] = "PTTH/1.0";
+
+static int default_upgrade_run(void *arg, int sock, http_message_t *request);
 
 static int _checkname(mod_upgrade_t *config, const char *pathname)
 {
@@ -91,6 +96,82 @@ static int _checkname(mod_upgrade_t *config, const char *pathname)
 	}
 	return ESUCCESS;
 }
+
+static int _upgrade_socket_unix(_mod_upgrade_ctx_t *ctx, const char *filepath)
+{
+	_mod_upgrade_t *mod = ctx->mod;
+	/**
+	 * use openat + fstat instead fstatat
+	 */
+	int fdfile = openat(mod->fdroot, filepath, O_PATH);
+	if (fdfile > 0)
+	{
+		struct stat filestat;
+		fstat(fdfile, &filestat);
+		close(fdfile);
+		if (S_ISDIR(filestat.st_mode) || !S_ISSOCK(filestat.st_mode))
+		{
+			return EINCOMPLETE;
+		}
+		else
+		{
+			int sock;
+			struct sockaddr_un addr;
+			memset(&addr, 0, sizeof(struct sockaddr_un));
+			addr.sun_family = AF_UNIX;
+			snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", mod->config->docroot, filepath);
+
+			warn("upgrade: open %s", addr.sun_path);
+			sock = socket(AF_UNIX, SOCK_STREAM, 0);
+			if (sock > 0)
+			{
+				int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
+				if (ret < 0)
+				{
+					close(sock);
+					return EINCOMPLETE;
+				}
+			}
+			if (sock == -1)
+			{
+				err("upgrade: open error (%s)", strerror(errno));
+			}
+			ctx->serversock = sock;
+			return ECONTINUE;
+		}
+	}
+	return EREJECT;
+}
+
+#ifdef UPGRADE_INET
+static int _upgrade_socket_inet(_mod_upgrade_ctx_t *ctx, const char *uri)
+{
+	_mod_upgrade_t *mod = ctx->mod;
+	int sock;
+	struct sockaddr_in addr;
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(mod->config->port);
+	inet_aton(mod->config->uri, &addr.sin_addr);
+
+	warn("upgrade: open %s:%d", mod->config->uri, mod->config->port);
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock > 0)
+	{
+		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
+		if (ret < 0)
+		{
+			close(sock);
+			sock = -1;
+		}
+	}
+	if (sock == -1)
+	{
+		err("upgrade: open error (%s)", strerror(errno));
+	}
+	return sock;
+}
+#endif
 
 static int upgrade_connector(void *arg, http_message_t *request, http_message_t *response)
 {
@@ -112,51 +193,34 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 			httpmessage_result(response, RESULT_403);
 			return ESUCCESS;
 		}
-		/**
-		 * use openat + fstat instead fstatat
-		 */
 		while (*uri == '/' && *uri != '\0') uri++;
-		int fdfile = openat(mod->fdroot, uri, O_PATH);
-		if (fdfile == -1)
+		ret = _upgrade_socket_unix(ctx, uri);
+#ifdef UPGRADE_INET
+		if (ret == EINCOMPLETE)
 		{
-			warn("upgrade: uri %s not found", uri);
-			httpmessage_result(response, RESULT_403);
-			return ESUCCESS;
+			ret = _upgrade_socket_inet(ctx, uri);
 		}
-
-		struct stat filestat;
-		fstat(fdfile, &filestat);
-		if (S_ISDIR(filestat.st_mode) || !S_ISSOCK(filestat.st_mode))
+#endif
+		if (ret == EINCOMPLETE)
 		{
 			warn("upgrade: protocol %s not found", uri);
 			httpmessage_result(response, RESULT_403);
-			close(fdfile);
-			return ESUCCESS;
+			ret = ESUCCESS;
 		}
-		else
-			ctx->fddir = dup(mod->fdroot);
-		close(fdfile);
-
-		httpmessage_addheader(response, str_connection, str_upgrade);
-		httpmessage_addheader(response, str_upgrade, mod->upgrade);
-		/** disable Content-Type and Content-Length inside the headers **/
-		httpmessage_addcontent(response, "none", NULL, -1);
-		httpmessage_result(response, RESULT_101);
-		upgrade_dbg("upgrade: to %s result 101", mod->upgrade);
-		ctx->socket = httpmessage_lock(response);
-		ret = ECONTINUE;
+		else if (ret == ECONTINUE)
+		{
+			httpmessage_addheader(response, str_connection, str_upgrade);
+			httpmessage_addheader(response, str_upgrade, mod->upgrade);
+			/** disable Content-Type and Content-Length inside the headers **/
+			httpmessage_addcontent(response, "none", NULL, -1);
+			httpmessage_result(response, RESULT_101);
+			upgrade_dbg("upgrade: to %s result 101", mod->upgrade);
+			ctx->socket = httpmessage_lock(response);
+		}
 	}
 	else if (ctx->socket > 0)
 	{
-		if (fchdir(ctx->fddir) == -1)
-		{
-			err("upgrade: ");
-		}
-		else
-		{
-			while (*uri == '/' && *uri != '\0') uri++;
-			ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, uri, request);
-		}
+		ctx->pid = default_upgrade_run(ctx, ctx->socket, request);
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -197,8 +261,50 @@ static void _mod_upgrade_freectx(void *arg)
 	free(ctx);
 }
 
-void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *upgrade_config(config_setting_t *iterator, server_t *server)
 {
+	mod_upgrade_t *conf = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configws = config_setting_get_member(iterator, "upgrade");
+#else
+	config_setting_t *configws = config_setting_lookup(iterator, "upgrade");
+#endif
+	if (configws)
+	{
+		const char *mode = NULL;
+		conf = calloc(1, sizeof(*conf));
+		config_setting_lookup_string(configws, "docroot", &conf->docroot);
+#ifdef UPGRADE_INET
+		config_setting_lookup_string(configws, "serveraddr", &conf->uri);
+		config_setting_lookup_int(configws, "port", &conf->port);
+#endif
+		config_setting_lookup_string(configws, "allow", &conf->allow);
+		config_setting_lookup_string(configws, "deny", &conf->deny);
+		config_setting_lookup_string(configws, "upgrade", &conf->upgrade);
+		config_setting_lookup_string(configws, "options", &mode);
+	}
+	return conf;
+}
+#else
+static mod_upgrade_t g_upgrade_config =
+{
+	.docroot = "/srv/www""/upgrade",
+	.upgrade = "test",
+};
+static void *upgrade_config(void *iterator, server_t *server)
+{
+	return &g_upgrade_config;
+}
+#endif
+
+static void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
+{
+	if (config == NULL)
+		return NULL;
+
 	int fdroot = open(config->docroot, O_DIRECTORY);
 	if (fdroot == -1)
 	{
@@ -208,16 +314,11 @@ void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
 
 	_mod_upgrade_t *mod = calloc(1, sizeof(*mod));
 
-	mod_upgrade_run_t run = config->run;
-	if (run == NULL)
-		run = default_upgrade_run;
 	mod->config = config;
 	if (!strcasecmp(config->upgrade, "rhttp"))
 		mod->upgrade = str_rhttp;
 	else
 		mod->upgrade = config->upgrade;
-	mod->run = run;
-	mod->runarg = config;
 	mod->fdroot = fdroot;
 	httpserver_addmod(server, _mod_upgrade_getctx, _mod_upgrade_freectx, mod, str_upgrade);
 	return mod;
@@ -225,33 +326,12 @@ void *mod_upgrade_create(http_server_t *server, mod_upgrade_t *config)
 
 void mod_upgrade_destroy(void *data)
 {
+	_mod_upgrade_t *mod = (_mod_upgrade_t *)data;
+#ifdef FILE_CONFIG
+	free(mod->config);
+#endif
+	close(mod->fdroot);
 	free(data);
-}
-
-static int _upgrade_socket(const char *filepath)
-{
-	int sock;
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
-
-	warn("upgrade: open %s", addr.sun_path);
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock > 0)
-	{
-		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
-		if (ret < 0)
-		{
-			close(sock);
-			sock = -1;
-		}
-	}
-	if (sock == -1)
-	{
-		err("upgrade: open error (%s)", strerror(errno));
-	}
-	return sock;
 }
 
 typedef struct _upgrade_main_s _upgrade_main_t;
@@ -361,15 +441,14 @@ static void *_upgrade_main(void *arg)
 	return 0;
 }
 
-int default_upgrade_run(void *arg, int sock, const char *filepath, http_message_t *request)
+static int default_upgrade_run(void *arg, int sock, http_message_t *request)
 {
 	_mod_upgrade_ctx_t *ctx = (_mod_upgrade_ctx_t *)arg;
 	pid_t pid = -1;
-	int usock = _upgrade_socket(filepath);
 
-	if (usock > 0)
+	if (ctx->serversock > 0)
 	{
-		_upgrade_main_t info = {.client = sock, .server = usock};
+		_upgrade_main_t info = {.client = sock, .server = ctx->serversock};
 		http_client_t *clt = httpmessage_client(request);
 		info.ctx = httpclient_context(clt);
 		info.recvreq = httpclient_addreceiver(clt, NULL, NULL);
@@ -381,7 +460,7 @@ int default_upgrade_run(void *arg, int sock, const char *filepath, http_message_
 			warn("upgrade: process died");
 			exit(0);
 		}
-		close(usock);
+		close(ctx->serversock);
 	}
 	return pid;
 }
@@ -389,6 +468,7 @@ int default_upgrade_run(void *arg, int sock, const char *filepath, http_message_
 const module_t mod_upgrade =
 {
 	.name = "upgrade",
+	.configure = (module_configure_t)&upgrade_config,
 	.create = (module_create_t)mod_upgrade_create,
 	.destroy = mod_upgrade_destroy
 };
