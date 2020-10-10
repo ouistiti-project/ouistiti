@@ -28,6 +28,8 @@
 #ifndef __MOD_SERVERHEADER_H__
 #define __MOD_SERVERHEADER_H__
 
+#include "ouistiti.h"
+
 #ifdef __cplusplus
 extern "C"
 {

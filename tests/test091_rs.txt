@@ -1,5 +1,5 @@
 HTTP/1.1 200 OK
-Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogInJvb3QiLCAiaG9tZSI6ICIiLCAicm9sZXMiOiAicm9vdCIsICJleHAiOiAxODAwfQ.vN0tUfigpKXcTqeSSGI5LG7tyq2ZKpgWZtbjL0Jt1D8; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogInJvb3QiLCAiaG9tZSI6ICIiLCAicm9sZXMiOiAicm9vdCIsICJleHAiOiAxODAwfQ.vN0tUfigpKXcTqeSSGI5LG7tyq2ZKpgWZtbjL0Jt1D8; SameSite=strict; Path=/; Domain=.ouistiti.net
 Content-Type: application/x-www-form-urlencoded
 Content-Length: 21
 

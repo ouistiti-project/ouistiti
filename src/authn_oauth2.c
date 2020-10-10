@@ -47,7 +47,7 @@
 const httpclient_ops_t *tlsclient_ops;
 #endif
 
-static const char *str_authresp = "authresp";
+static const char *str_authresp = "/auth/resp";
 static const char *str_oauth2 = "oauth2";
 
 static const char *str_authorization_code = "code";
@@ -207,7 +207,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 							"code=%s&" \
 							"client_id=%s&" \
 							"scope=openid roles profile&" \
-							"redirect_uri=%s://%s%s%s/%s&" \
+							"redirect_uri=%s://%s%s%s%s&" \
 							"state=%.3d\r\n",
 							type,
 							code,
@@ -255,8 +255,8 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 					if (json_username != NULL && json_is_string(json_username))
 					{
 						authsession_t authinfo = {0};
-						strncpy(authinfo.user, json_string_value(json_username), sizeof(authinfo.user));
-						strncpy(authinfo.group, "users", sizeof(authinfo.group));
+						authinfo.user = (char *)json_string_value(json_username);
+						authinfo.group = (char *)"users";
 						mod->authz->rules->adduser(mod->authz->ctx, &authinfo);
 					}
 					json_t *json_expire = json_object_get(json_authtokens, "expires_in");
@@ -397,17 +397,14 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 		const char *portseparator = "";
 		if (port[0] != '\0')
 			portseparator = ":";
-		char location[256];
-		snprintf(location, 256, "%s?" \
-								"response_type=%s&" \
-								"scope=openid roles&" \
-								"client_id=%s&" \
-								"redirect_uri=%s://%s%s%s/%s",
-								config->auth_ep,
-								"code",
-								config->client_id,
-								scheme, host, portseparator, port, str_authresp);
-		httpmessage_addheader(response, (char *)str_location, location);
+		httpmessage_addheader(response, str_location, config->auth_ep);
+		httpmessage_appendheader(response, str_location, "?",
+								"response_type=code&",
+								"scope=openid roles&",
+								"client_id=",config->client_id,"&",
+								"redirect_uri=", scheme, host, portseparator, port, "/", str_authresp,
+								NULL
+								);
 		httpmessage_result(response, RESULT_302);
 		ret = ESUCCESS;
 	}

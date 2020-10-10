@@ -53,8 +53,8 @@ AUTHZ_SIMPLE=y
 AUTHZ_FILE=y
 AUTHZ_UNIX=y
 AUTHZ_SQLITE=y
-AUTHZ_SQLITE_MANAGER=y
 AUTHZ_JWT=y
+AUTHZ_MANAGER=y
 #support of the websocket
 WEBSOCKET=y
 WEBSOCKET_RT=n
@@ -84,6 +84,7 @@ CORS=y
 TINYSVCMDNS=y
 #support of upgrade and reverse-http
 UPGRADE=y
+UPGRADE_INET=n
 #support for filter uri select by user
 USERFILTER=y
 

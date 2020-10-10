@@ -29,13 +29,11 @@
 #ifndef __MOD_UPGRADE_H__
 #define __MOD_UPGRADE_H__
 
+#include "ouistiti.h"
 #include "mod_websocket.h"
 
 #define UPGRADE_REALTIME 0x01
 #define UPGRADE_TLS      0x02
-
-typedef int (*mod_upgrade_run_t)(void *arg, int socket, const char *filepath, http_message_t *request);
-int default_upgrade_run(void *arg, int sock, const char *filepath, http_message_t *request);
 
 #ifdef __cplusplus
 extern "C"
@@ -44,12 +42,15 @@ extern "C"
 typedef struct mod_upgrade_s mod_upgrade_t;
 struct mod_upgrade_s
 {
-	char *docroot;
-	char *upgrade;
-	char *allow;
-	char *deny;
+	const char *docroot;
+#ifdef UPGRADE_INET
+	const char *uri;
+	int port;
+#endif
+	const char *upgrade;
+	const char *allow;
+	const char *deny;
 	int options;
-	mod_upgrade_run_t run;
 };
 
 extern const module_t mod_upgrade;

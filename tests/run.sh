@@ -3,6 +3,7 @@
 TESTDIR=$(dirname $0)/
 SRCDIR=src/
 PWD=$(pwd)
+DEFAULTPORT=8080
 
 CONTINUE=0
 GCOV=0
@@ -28,6 +29,10 @@ case $1 in
 		;;
 	-N)
 		NOERROR=1
+		;;
+	-P)
+		DEFAULTPORT=$1
+		shift
 		;;
 	-h)
 		printf "$0 <-I> <-D> <-C> <-GCOV> test/test[09]*\n"
@@ -80,12 +85,16 @@ start () {
 	TARGET=$1
 	CONFIG=$2
 
+	ARGUMENTS=$ARGUMENTS" -s 1"
+	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
+	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
+	ARGUMENTS=$ARGUMENTS" -p ${TESTDIR}run.pid"
 	if [ -n "$INFO" ]; then
-		echo ${SRCDIR}${TARGET}
+		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
 		echo "******************************"
 		cat ${TESTDIR}conf/${CONFIG}
 	fi
-	${SRCDIR}${TARGET} -p ${TESTDIR}run.pid -D
+	${SRCDIR}${TARGET} ${ARGUMENTS} -D
 	PID=$(cat ${TESTDIR}run.pid)
 	echo "${TARGET} started with pid ${PID}"
 	sleep 1
@@ -123,6 +132,8 @@ test () {
 	unset PREPARE_ASYNC
 	unset PREPARE
 	unset PID
+	TESTDEFAULTPORT=$DEFAULTPORT
+	TESTOPTION="-p ${TESTDEFAULTPORT}"
 	TESTRESPONSE=$(basename ${TEST})_rs.txt
 	if [ -e ${TESTDIR}$(basename ${TEST})_rq.txt ]; then
 		TESTREQUEST=$(basename ${TEST})_rq.txt
@@ -140,7 +151,7 @@ test () {
 		TESTCONTENTLEN=$(cat ${TESTDIR}htdocs/${FILE} | ${WC} -c)
 	fi
 
-	TARGET="ouistiti -s 1 -f ${TESTDIR}conf/${CONFIG}"
+	TARGET="ouistiti"
 	config $CONFIG
 
 	if [ -n "$PREPARE_ASYNC" ]; then
@@ -221,10 +232,10 @@ test () {
 	fi
 	if [ ! $ERR -eq 0 ]; then
 		echo "$TEST quits on error"
+		stop $TARGET
 		if [ $NOERROR -eq 1 ]; then
 			TESTERROR="${TESTERROR} $TEST"
 		else
-			stop $TARGET
 			exit 1
 		fi
 	else

@@ -102,6 +102,46 @@ static http_server_config_t mod_mbedtls_config;
 static const httpclient_ops_t *_tlsclient_ops;
 static const httpclient_ops_t *_tlsserver_ops;
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static void *tls_config(config_setting_t *iterator, server_t *server)
+{
+	mod_tls_t *tls = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *configtls = config_setting_get_member(iterator, "tls");
+#else
+	config_setting_t *configtls = config_setting_lookup(iterator, "tls");
+#endif
+	if (configtls)
+	{
+		tls = mbedtls_calloc(1, sizeof(*tls));
+		config_setting_lookup_string(configtls, "crtfile", (const char **)&tls->crtfile);
+		config_setting_lookup_string(configtls, "pemfile",(const char **) &tls->pemfile);
+		config_setting_lookup_string(configtls, "cachain", (const char **)&tls->cachain);
+		config_setting_lookup_string(configtls, "dhmfile", (const char **)&tls->dhmfile);
+	}
+	return tls;
+}
+#else
+static const mod_tls_t g_tls_config = {
+	.crtfile = "./tests/conf/ouistiti_srv.crt",
+	.pemfile = "./tests/conf/ouistiti_srv.key",
+	.cachain = "./tests/conf/ouistiti_ca.crt",
+	.dhmfile = "./tests/conf/ouistiti_dhparam.crt",
+};
+
+static void *tls_config(void *iterator, server_t *server)
+{
+	http_server_t *httpserver = ouistiti_httpserver(server);
+	const char *port = httpserver_INFO(httpserver, "port");
+
+	if (strstr(port, "443") != NULL)
+		return (void *) &g_tls_config;
+	return NULL;
+}
+#endif
+
 static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modconfig)
 {
 	int ret;
@@ -142,25 +182,25 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 	return ret;
 }
 
-void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
+static void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 {
 	int ret;
 	int is_set_pemkey = 0;
-	_mod_mbedtls_config_t *config;
+	_mod_mbedtls_config_t *mod;
 
 	if (!modconfig)
 		return NULL;
 
-	config = mbedtls_calloc(1, sizeof(*config));
-	mbedtls_x509_crt_init(&config->srvcert);
-	mbedtls_x509_crt_init(&config->cachain);
+	mod = mbedtls_calloc(1, sizeof(*mod));
+	mbedtls_x509_crt_init(&mod->srvcert);
+	mbedtls_x509_crt_init(&mod->cachain);
 
-	mbedtls_ssl_config_init(&config->conf);
+	mbedtls_ssl_config_init(&mod->conf);
 
-	mbedtls_ctr_drbg_init(&config->ctr_drbg);
-	mbedtls_entropy_init(&config->entropy);
+	mbedtls_ctr_drbg_init(&mod->ctr_drbg);
+	mbedtls_entropy_init(&mod->entropy);
 
-	ret = mbedtls_ssl_config_defaults(&config->conf,
+	ret = mbedtls_ssl_config_defaults(&mod->conf,
 		MBEDTLS_SSL_IS_SERVER,
 		MBEDTLS_SSL_TRANSPORT_STREAM,
 		MBEDTLS_SSL_PRESET_DEFAULT);
@@ -169,15 +209,15 @@ void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 
 	if (modconfig->crtfile)
 	{
-		ret = _mod_mbedtls_crtfile(config, modconfig);
+		ret = _mod_mbedtls_crtfile(mod, modconfig);
 	}
 	if (modconfig->cachain)
 	{
-		ret = mbedtls_x509_crt_parse_file(&config->cachain, (const char *) modconfig->cachain);
+		ret = mbedtls_x509_crt_parse_file(&mod->cachain, (const char *) modconfig->cachain);
 		if (ret)
 			err("mbedtls_x509_crt_parse_file cachain %d\n", ret);
 		else
-			mbedtls_ssl_conf_ca_chain(&config->conf, &config->cachain, NULL);
+			mbedtls_ssl_conf_ca_chain(&mod->conf, &mod->cachain, NULL);
 	}
 
 	const char *pers = httpserver_INFO(server, "name");
@@ -187,43 +227,43 @@ void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 	}
 	if (pers)
 	{
-		ret = mbedtls_ctr_drbg_seed(&config->ctr_drbg, mbedtls_entropy_func, &config->entropy,
+		ret = mbedtls_ctr_drbg_seed(&mod->ctr_drbg, mbedtls_entropy_func, &mod->entropy,
 			(const unsigned char *) pers, strlen(pers));
 		if (ret)
 			err("mbedtls_ctr_drbg_seed %d\n", ret);
 		else
-			mbedtls_ssl_conf_rng(&config->conf, mbedtls_ctr_drbg_random, &config->ctr_drbg );
+			mbedtls_ssl_conf_rng(&mod->conf, mbedtls_ctr_drbg_random, &mod->ctr_drbg );
 	}
 
 
 	if (modconfig->dhmfile)
 	{
-		mbedtls_dhm_init(&config->dhm);
-		ret = mbedtls_dhm_parse_dhmfile(&config->dhm, modconfig->dhmfile);
+		mbedtls_dhm_init(&mod->dhm);
+		ret = mbedtls_dhm_parse_dhmfile(&mod->dhm, modconfig->dhmfile);
 		if (ret)
 			err("mbedtls_dhm_parse_dhmfile %d\n", ret);
 	}
+#ifdef FILE_CONFIG
+	mbedtls_free(modconfig);
+#endif
 
-	config->protocolops = httpserver_changeprotocol(server, _tlsserver_ops, config);
-	config->protocol = server;
-	return config;
+	mod->protocolops = httpserver_changeprotocol(server, _tlsserver_ops, mod);
+	mod->protocol = server;
+	return mod;
 }
-void *mod_tls_create(http_server_t *server, mod_tls_t *modconfig) __attribute__ ((weak, alias ("mod_mbedtls_create")));
 
-void mod_mbedtls_destroy(void *mod)
+static void mod_mbedtls_destroy(void *arg)
 {
-	_mod_mbedtls_config_t *config = (_mod_mbedtls_config_t *)mod;
-
-	mbedtls_dhm_free(&config->dhm);
-	mbedtls_x509_crt_free(&config->srvcert);
-	mbedtls_x509_crt_free(&config->cachain);
-	mbedtls_pk_free(&config->pkey);
-	mbedtls_ctr_drbg_free(&config->ctr_drbg);
-	mbedtls_entropy_free(&config->entropy);
-	mbedtls_ssl_config_free(&config->conf);
-	mbedtls_free(config);
+	_mod_mbedtls_config_t *mod = (_mod_mbedtls_config_t *)arg;
+	mbedtls_dhm_free(&mod->dhm);
+	mbedtls_x509_crt_free(&mod->srvcert);
+	mbedtls_x509_crt_free(&mod->cachain);
+	mbedtls_pk_free(&mod->pkey);
+	mbedtls_ctr_drbg_free(&mod->ctr_drbg);
+	mbedtls_entropy_free(&mod->entropy);
+	mbedtls_ssl_config_free(&mod->conf);
+	mbedtls_free(mod);
 }
-void mod_tls_destroy(void *arg) __attribute__ ((weak, alias ("mod_mbedtls_destroy")));
 
 static int _mod_mbedtls_read(void *arg, unsigned char *data, int size)
 {
@@ -483,6 +523,7 @@ static const httpclient_ops_t *_tlsserver_ops = &(httpclient_ops_t)
 {
 	.scheme = str_https,
 	.default_port = 443,
+	.type = HTTPCLIENT_TYPE_SECURE,
 	.create = &_tlsserver_create,
 	.recvreq = &_tls_recv,
 	.sendresp = &_tls_send,
@@ -497,6 +538,7 @@ static const httpclient_ops_t *_tlsclient_ops = &(httpclient_ops_t)
 {
 	.scheme = str_https,
 	.default_port = 443,
+	.type = HTTPCLIENT_TYPE_SECURE,
 	.create = &_tlsclient_create,
 	.connect = &_tls_connect,
 	.recvreq = &_tls_recv,
@@ -511,17 +553,15 @@ static const httpclient_ops_t *_tlsclient_ops = &(httpclient_ops_t)
 const module_t mod_tls =
 {
 	.name = str_mbedtls,
-	.create = (module_create_t)&mod_tls_create,
-	.destroy = &mod_tls_destroy,
+	.configure = (module_configure_t)&tls_config,
+	.create = (module_create_t)&mod_mbedtls_create,
+	.destroy = &mod_mbedtls_destroy,
 };
-#ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_tls")));
-#endif
 
-#ifdef HTTPCLIENT_FEATURES
-__attribute__((constructor))
-static void _init(void)
+static void __attribute__ ((constructor))_init(void)
 {
-		httpclient_appendops((httpclient_ops_t *)_tlsclient_ops);
-}
+	ouistiti_registermodule(&mod_tls);
+#ifdef HTTPCLIENT_FEATURES
+	httpclient_appendops((httpclient_ops_t *)_tlsclient_ops);
 #endif
+}

@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #ifndef WIN32
 # include <sys/socket.h>
@@ -42,9 +43,6 @@
 #else
 # include <winsock2.h>
 #endif
-#ifdef MODULES
-#include <dlfcn.h>
-#endif
 
 #include "daemonize.h"
 #include "../compliant.h"
@@ -53,25 +51,8 @@
 #ifndef FILE_CONFIG
 #define STATIC_CONFIG
 #endif
-#include "mod_tls.h"
-#include "mod_websocket.h"
-#include "mod_cookie.h"
-#include "mod_document.h"
-#include "mod_cgi.h"
-#include "mod_auth.h"
-#include "mod_vhosts.h"
-#include "mod_methodlock.h"
-#include "mod_server.h"
-#include "mod_redirect404.h"
-#include "mod_redirect.h"
-#include "mod_webstream.h"
-#include "mod_tinysvcmdns.h"
 
-#include "config.h"
-
-#if defined WEBSOCKET || defined WEBSTREAM
-extern int ouistiti_websocket_run(void *arg, int socket, const char *protocol, http_message_t *request);
-#endif
+#include "ouistiti.h"
 
 #define PACKAGEVERSION PACKAGE "/" VERSION
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -84,28 +65,12 @@ extern int ouistiti_websocket_run(void *arg, int socket, const char *protocol, h
 
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
-static const char str_tls[] = "tls";
-static const char str_vhosts[] = "vhosts";
-static const char str_clientfilter[] = "clientfilter";
-static const char str_cookie[] = "cookie";
-static const char str_auth[] = "auth";
-static const char str_userfilter[] = "userfilter";
-static const char str_methodlock[] = "methodlock";
-static const char str_serverheader[] = "server";
-static const char str_cgi[] = "cgi";
-static const char str_document[] = "document";
-static const char str_webstream[] = "webstream";
-static const char str_websocket[] = "websocket";
-static const char str_redirect[] = "redirect";
-static const char str_redirect404[] = "redirect404";
-static const char str_cors[] = "cors";
-static const char str_tinysvcmdns[] = "tinysvcmdns";
-static const char str_upgrade[] = "upgrade";
+#include "mod_auth.h"
 
 const char *auth_info(http_message_t *request, const char *key)
 {
 	const authsession_t *info = NULL;
-	info = httpmessage_SESSION(request, str_auth, NULL);
+	info = httpmessage_SESSION(request, "auth", NULL);
 	const char *value = NULL;
 
 	if (info && !strcmp(key, "user"))
@@ -147,74 +112,31 @@ int auth_setowner(const char *user)
 	return ret;
 }
 
-#ifndef MODULES
-static const module_t *modules[] =
+struct module_list_s
 {
-#if defined TLS
-	&mod_tls,
-#endif
-#if defined VHOSTS_DEPRECATED
-	&mod_vhosts,
-#endif
-#if defined CLIENTFILTER
-	&mod_clientfilter,
-#endif
-#if defined COOKIE
-	&mod_cookie,
-#endif
-#if defined AUTH
-	&mod_auth,
-#endif
-#if defined USERFILTER
-	&mod_userfilter,
-#endif
-#if defined METHODLOCK
-	&mod_methodlock,
-#endif
-#if defined SERVERHEADER
-	&mod_server,
-#endif
-#if defined CGI
-	&mod_cgi,
-#endif
-#if defined DOCUMENT
-	&mod_document,
-#endif
-#if defined WEBSTREAM
-	&mod_webstream,
-#endif
-#if defined WEBSOCKET
-	&mod_websocket,
-#endif
-#if defined REDIRECT
-	&mod_redirect404,
-	&mod_redirect,
-#endif
-#if defined CORS
-	&mod_cors,
-#endif
-#if defined TINYSVCMDNS
-	&mod_tinysvcmdns,
-#endif
-	NULL
+	const module_t *module;
+	struct module_list_s *next;
 };
-#endif
+typedef struct module_list_s module_list_t;
+
+static module_list_t *g_modules = NULL;
 
 typedef struct mod_s
 {
-	void *config;
-	void (*destroy)(void*);
+	void *obj;
+	const module_t *ops;
 } mod_t;
 
 #define MAX_MODULES 16
-typedef struct server_s
+struct server_s
 {
 	serverconfig_t *config;
 	http_server_t *server;
 	mod_t modules[MAX_MODULES + MAX_SERVERS];
 
 	struct server_s *next;
-} server_t;
+	unsigned int id;
+};
 
 void display_help(char * const *argv)
 {
@@ -231,6 +153,7 @@ void display_help(char * const *argv)
 
 static server_t *first = NULL;
 static char run = 0;
+static int g_default_port = 80;
 #ifdef HAVE_SIGACTION
 static void handler(int sig, siginfo_t *si, void *arg)
 #else
@@ -240,152 +163,144 @@ static void handler(int sig)
 	run = 'q';
 }
 
-static void *loadmodule(const char *name, http_server_t *server, void *config, void (**destroy)(void*))
+http_server_t *ouistiti_httpserver(server_t *server)
 {
-	void *mod = NULL;
-#ifndef MODULES
+	return server->server;
+}
+
+int ouistiti_issecure(server_t *server)
+{
+	const char *secure = httpserver_INFO(server->server, "secure");
+	return !!!strcmp(secure, "true");
+}
+
+int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
+{
 	int i = 0;
-	while (modules[i] != NULL)
+	mod_t *mod = &server->modules[i];
+	while (i < MAX_MODULES && mod->obj != NULL)
+		mod = &server->modules[++i];
+	if (i == MAX_MODULES)
+		return EREJECT;
+
+	if (module->version & MODULE_VERSION_DEPRECATED)
 	{
-		if (!strcmp(modules[i]->name, name))
-		{
-			mod = modules[i]->create(server, config);
-			*destroy = modules[i]->destroy;
-			break;
-		}
-		i++;
+		warn("module %s deprecated", module->name);
+		return EREJECT;
 	}
-#else
-	char file[512];
-	snprintf(file, 511, PKGLIBDIR"/mod_%s.so", name);
-	void *dh = dlopen(file, RTLD_LAZY | RTLD_GLOBAL);
-	if (dh != NULL)
+	if (module->version < MODULE_VERSION_CURRENT)
 	{
-		module_t *module = dlsym(dh, "mod_info");
-		if (module && !strcmp(module->name, name))
-		{
-			mod = module->create(server, config);
-			*destroy = module->destroy;
-			dbg("module %s loaded", name);
-		}
-		else if (module)
-			warn("module %s error : named %s", name, module->name);
-		else
-			err("module symbol error: %s", dlerror());
+		warn("module %s old. Please check", module->name);
 	}
-	else
-	{
-		err("module %s loading error: %s", file, dlerror());
-	}
-#endif
-	return mod;
+	void *config = NULL;
+	if (module->configure != NULL)
+		config = module->configure(parser, server);
+	else if (configure != NULL)
+		config = configure(parser, module->name, server);
+	mod->obj = module->create(server->server, config);
+	mod->ops = module;
+	return (mod->obj != NULL)?ESUCCESS:EREJECT;
 }
 
-static server_t *main_set(ouistiticonfig_t *config, int serverid)
+int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
 {
-	server_t *first = NULL;
-	int i;
-	for (i = 0; i < MAX_SERVERS; i++)
+	const module_list_t *iterator = g_modules;
+	while (iterator != NULL)
 	{
-		serverconfig_t *it;
-
-		it = config->servers[i];
-		if (it == NULL)
-			break;
-		if (serverid > -1 && serverid != i)
-			continue;
-
-		http_server_t *httpserver = httpserver_create(it->server);
-		if (httpserver == NULL)
-			continue;
-
-		server_t *server;
-
-		server = calloc(1, sizeof(*server));
-		server->config = it;
-
-		server->server = httpserver;
-		server->next = first;
-		first = server;
+		ouistiti_loadmodule(server, iterator->module, configure, parser);
+		iterator = iterator->next;
 	}
-	return first;
-}
-
-static int server_setmodules(server_t *server)
-{
-	int j = 0;
-	server->modules[j].config = loadmodule(str_tinysvcmdns, server->server, NULL, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	/**
-	 * TLS must be first to free the connection after all others modules
-	 */
-	if (server->config->tls)
-		server->modules[j].config = loadmodule(str_tls, server->server, server->config->tls, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	/**
-	 * clientfilter must be at the beginning to stop the connection if necessary
-	 */
-	if (server->config->modules.clientfilter)
-		server->modules[j].config = loadmodule(str_clientfilter, server->server, server->config->modules.clientfilter, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-
-	int i;
-	for (i = 0; i < (MAX_SERVERS - 1); i++)
-	{
-		if (server->config->vhosts[i])
-			server->modules[j].config = loadmodule(str_vhosts, server->server, server->config->vhosts[i], &server->modules[j].destroy);
-		if (server->modules[j].config != NULL) j++;
-	}
-	server->modules[j].config = loadmodule(str_cookie, server->server, NULL, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	if (server->config->modules.cors)
-		server->modules[j].config = loadmodule(str_cors, server->server, server->config->modules.cors, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	if (server->config->modules.auth)
-		server->modules[j].config = loadmodule(str_auth, server->server, server->config->modules.auth, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	if (server->config->modules.userfilter)
-		server->modules[j].config = loadmodule(str_userfilter, server->server, server->config->modules.userfilter, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	server->modules[j].config = loadmodule(str_redirect404, server->server, NULL, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	if (server->config->modules.redirect)
-		server->modules[j].config = loadmodule(str_redirect, server->server, server->config->modules.redirect, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	server->modules[j].config = loadmodule(str_methodlock, server->server, server->config->unlock_groups, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	server->modules[j].config = loadmodule(str_serverheader, server->server, NULL, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	if (server->config->modules.cgi)
-		server->modules[j].config = loadmodule(str_cgi, server->server, server->config->modules.cgi, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	if (server->config->modules.webstream)
-		server->modules[j].config = loadmodule(str_webstream, server->server, server->config->modules.webstream, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-
-	if (server->config->modules.upgrade)
-	{
-		server->modules[j].config = loadmodule(str_upgrade, server->server, server->config->modules.upgrade, &server->modules[j].destroy);
-		if (server->modules[j].config != NULL) j++;
-	}
-	if (server->config->modules.websocket)
-	{
-#ifdef WEBSOCKET_RT
-		if (((mod_websocket_t*)server->config->modules.websocket)->options & WEBSOCKET_REALTIME)
-		{
-			((mod_websocket_t*)server->config->modules.websocket)->run = ouistiti_websocket_run;
-			warn("server %p runs realtime websocket!", server->server);
-		}
-#endif
-		server->modules[j].config = loadmodule(str_websocket, server->server, server->config->modules.websocket, &server->modules[j].destroy);
-		if (server->modules[j].config != NULL) j++;
-	}
-	if (server->config->modules.document)
-		server->modules[j].config = loadmodule(str_document, server->server, server->config->modules.document, &server->modules[j].destroy);
-	if (server->modules[j].config != NULL) j++;
-	server->modules[j].config = NULL;
 	return 0;
 }
+
+void ouistiti_registermodule(const module_t *module)
+{
+	module_list_t *iterator = g_modules;
+	while (iterator != NULL)
+	{
+		if (!strcmp(iterator->module->name, module->name))
+		{
+			warn("module %s loaded twice", module->name);
+			return;
+		}
+		iterator = iterator->next;
+	}
+	module_list_t *new = calloc(1, sizeof(*new));
+	new->module = module;
+	new->next = g_modules;
+	g_modules = new;
+	dbg("module %s regitered", module->name);
+}
+
+server_t *ouistiti_loadserver(serverconfig_t *config)
+{
+	if (first != NULL && first->id == MAX_SERVERS)
+		return NULL;
+
+	if (config->server->port == 0)
+		config->server->port = g_default_port;
+	http_server_t *httpserver = httpserver_create(config->server);
+	if (httpserver == NULL)
+		return NULL;
+
+	server_t *server = NULL;
+	server = calloc(1, sizeof(*server));
+
+	server->server = httpserver;
+	server->config = config;
+	server->next = first;
+	if (first != NULL)
+		server->id = first->id + 1;
+	first = server;
+	return server;
+}
+
+#ifdef STATIC_CONFIG
+static ouistiticonfig_t g_ouistiti_config =
+{
+	.user = "www-data",
+	.pidfile = "/var/run/ouistiti.pid",
+	.servers = {
+		&(serverconfig_t){
+			.server = &(http_server_config_t){
+				.port = 0,
+				.chunksize = DEFAULT_CHUNKSIZE,
+				.maxclients = DEFAULT_MAXCLIENTS,
+				.version = HTTP11,
+			}
+		},
+		NULL
+	},
+};
+
+static void *_config_modules(void *data, const char *name, server_t *server)
+{
+	return NULL;
+}
+
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
+{
+	int count = 1;
+	int i = 0;
+
+	if (serverid != -1)
+	{
+		i = serverid;
+		count = 1;
+		if (serverid < count)
+			serverid = 0;
+	}
+
+	ouistiticonfig_t *ouistiticonfig = &g_ouistiti_config;
+	for (i; i < count && i < MAX_SERVERS; i++)
+	{
+		server_t *server = ouistiti_loadserver(g_ouistiti_config.servers[i]);
+		if (server != NULL)
+			ouistiti_setmodules(server, _config_modules, NULL);
+	}
+	return ouistiticonfig;
+}
+#endif
 
 static int main_run(server_t *first)
 {
@@ -410,10 +325,10 @@ static int main_run(server_t *first)
 	{
 		server_t *next = server->next;
 		int j = 0;
-		while (server->modules[j].config)
+		while (server->modules[j].obj)
 		{
-			if (server->modules[j].destroy)
-				server->modules[j].destroy(server->modules[j].config);
+			if (server->modules[j].ops->destroy)
+				server->modules[j].ops->destroy(server->modules[j].obj);
 			j++;
 		}
 		httpserver_disconnect(server->server);
@@ -444,7 +359,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:hDKV");
+		opt = getopt(argc, argv, "s:f:p:P:hDKV");
 		switch (opt)
 		{
 			case 's':
@@ -455,6 +370,9 @@ int main(int argc, char * const *argv)
 			break;
 			case 'p':
 				pidfile = optarg;
+			break;
+			case 'P':
+				g_default_port = atoi(optarg);
 			break;
 			case 'h':
 				display_help(argv);
@@ -474,19 +392,21 @@ int main(int argc, char * const *argv)
 	} while(opt != -1);
 #endif
 
-#ifndef FILE_CONFIG
-	ouistiticonfig = &g_ouistiticonfig;
-#else
-	ouistiticonfig = ouistiticonfig_create(configfile);
-#endif
+	ouistiti_initmodules();
 
 	if (mode & KILLDAEMON)
 	{
 		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
+		{
+			ouistiticonfig = ouistiticonfig_create(configfile, serverid);
 			pidfile = ouistiticonfig->pidfile;
+		}
 		killdaemon(pidfile);
 		return 0;
 	}
+
+	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
+
 	if (mode & DAEMONIZE)
 	{
 		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
@@ -516,26 +436,11 @@ int main(int argc, char * const *argv)
 	signal(SIGPIPE, SIG_IGN);
 #endif
 
-	first = main_set(ouistiticonfig, serverid);
-
-	server_t *server = first;
-	while (server != NULL)
-	{
-		if (server->server)
-		{
-			server_setmodules(server);
-		}
-		server = server->next;
-	}
-
 	if (auth_setowner(ouistiticonfig->user) == EREJECT)
 		err("Error: user %s not found\n", ouistiticonfig->user);
 
 	main_run(first);
 
-#ifdef FILE_CONFIG
-	ouistiticonfig_destroy(ouistiticonfig);
-#endif
 	killdaemon(pidfile);
 	warn("good bye");
 	return 0;

@@ -68,7 +68,136 @@ struct _mod_redirect_s
 	int result;
 };
 
-void *mod_redirect_create(http_server_t *server, mod_redirect_t *config)
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+
+static int redirect_mode(const char *mode)
+{
+	int options = 0;
+	if (utils_searchexp("generate_204", mode, NULL) == ESUCCESS)
+	{
+		options |= REDIRECT_GENERATE204;
+	}
+	if (utils_searchexp("hsts", mode, NULL) == ESUCCESS)
+	{
+		options |= REDIRECT_HSTS;
+	}
+	if (utils_searchexp("temporary", mode, NULL) == ESUCCESS)
+	{
+		options |= REDIRECT_TEMPORARY;
+	}
+	else if (utils_searchexp("permanently", mode, NULL) == ESUCCESS)
+	{
+		options |= REDIRECT_PERMANENTLY;
+	}
+	if (utils_searchexp("error", mode, NULL) == ESUCCESS)
+	{
+		options |= REDIRECT_ERROR;
+	}
+	return options;
+}
+
+static mod_redirect_link_t *redirect_linkconfig(config_setting_t *iterator)
+{
+	mod_redirect_link_t *link = NULL;
+	char *destination = NULL;
+	const char *origin = NULL;
+	char *mode = NULL;
+	int options = 0;
+
+	static char origin_error[4];
+	config_setting_t *originset = config_setting_lookup(iterator, "origin");
+	if (config_setting_is_number(originset))
+	{
+		int value;
+		value = config_setting_get_int(originset);
+		snprintf(origin_error, 4, "%.3d", value);
+		origin = origin_error;
+		config_setting_set_string(originset, origin_error);
+		//originset = config_setting_lookup(iterator, "origin");
+		if (value == 204)
+			options |= REDIRECT_GENERATE204;
+		else
+			options |= REDIRECT_ERROR;
+	}
+	else
+		origin = config_setting_get_string(originset);
+	config_setting_lookup_string(iterator, "destination", (const char **)&destination);
+	if (origin != NULL)
+	{
+		link = calloc(1, sizeof(*link));
+		link->origin = strdup(origin);
+
+		config_setting_lookup_string(iterator, "options", (const char **)&mode);
+		link->options = redirect_mode(mode);
+		link->destination = destination;
+	}
+	return link;
+}
+
+static int redirect_linksconfig(config_setting_t *configlinks, mod_redirect_t *conf)
+{
+	conf->options |= REDIRECT_LINK;
+	int count = config_setting_length(configlinks);
+	int i;
+	for (i = 0; i < count; i++)
+	{
+		config_setting_t *iterator = config_setting_get_elem(configlinks, i);
+		if (iterator)
+		{
+			mod_redirect_link_t *link = redirect_linkconfig(iterator);
+			if (link != NULL)
+			{
+				link->next = conf->links;
+				conf->links = link;
+			}
+		}
+	}
+	return count;
+}
+
+static void *redirect_config(config_setting_t *iterator, server_t *server)
+{
+	mod_redirect_t *conf = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "redirect");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "redirect");
+#endif
+	if (config)
+	{
+		conf = calloc(1, sizeof(*conf));
+		char *mode = NULL;
+		config_setting_lookup_string(config, "options", (const char **)&mode);
+		conf->options = redirect_mode(mode);
+
+		config_setting_t *configlinks = config_setting_lookup(config, "links");
+		if (configlinks)
+		{
+			redirect_linksconfig(configlinks, conf);
+		}
+	}
+	return conf;
+}
+#else
+static const mod_redirect_t g_redirect_config =
+{
+	.links = &(mod_redirect_link_t)
+	{
+		.origin = "^/token$",
+		.options = REDIRECT_TEMPORARY,
+		.next = NULL,
+	},
+	.options = REDIRECT_LINK,
+};
+
+static void *redirect_config(void *iterator, server_t *server)
+{
+	 return (void *)&g_redirect_config;
+}
+#endif
+
+static void *mod_redirect_create(http_server_t *server, mod_redirect_t *config)
 {
 	_mod_redirect_t *mod;
 
@@ -92,6 +221,7 @@ void *mod_redirect_create(http_server_t *server, mod_redirect_t *config)
 void mod_redirect_destroy(void *arg)
 {
 	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
+#ifdef FILE_CONFIG
 	mod_redirect_t *config = mod->config;
 	mod_redirect_link_t *link = config->links;
 	while (link != NULL)
@@ -99,6 +229,8 @@ void mod_redirect_destroy(void *arg)
 		free(link->origin);
 		link = link->next;
 	}
+	free(config);
+#endif
 	free(mod);
 }
 
@@ -242,9 +374,12 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 const module_t mod_redirect =
 {
 	.name = str_redirect,
+	.configure = (module_configure_t)&redirect_config,
 	.create = (module_create_t)&mod_redirect_create,
 	.destroy = &mod_redirect_destroy
 };
-#ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_redirect")));
-#endif
+
+static void __attribute__ ((constructor))_init(void)
+{
+	ouistiti_registermodule(&mod_redirect);
+}

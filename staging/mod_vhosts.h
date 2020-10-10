@@ -29,7 +29,7 @@
 #define __MOD_VHOSTS_H__
 
 typedef struct mod_vhost_s mod_vhost_t;
-#include "config.h"
+#include "ouistiti.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -40,8 +40,6 @@ struct mod_vhost_s
 {
 	/** @param name of the server */
 	char *hostname;
-
-	modulesconfig_t modules;
 };
 
 extern const module_t mod_vhosts;
