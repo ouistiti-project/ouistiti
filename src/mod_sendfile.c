@@ -53,7 +53,8 @@
 #define CONTENTSIZE 1024
 int mod_send_sendfile(document_connector_t *private, http_message_t *response)
 {
-	int ret, size;
+	int ret;
+	ssize_t size;
 
 	if (!(private->type & DOCUMENT_SENDFILE))
 	{
