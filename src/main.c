@@ -442,6 +442,7 @@ int main(int argc, char * const *argv)
 	main_run(first);
 
 	killdaemon(pidfile);
+	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
 	return 0;
 }
