@@ -171,7 +171,7 @@ http_server_t *ouistiti_httpserver(server_t *server)
 int ouistiti_issecure(server_t *server)
 {
 	const char *secure = httpserver_INFO(server->server, "secure");
-	return !strcmp(secure, "true");
+	return !!strcmp(secure, "true");
 }
 
 int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
@@ -442,6 +442,7 @@ int main(int argc, char * const *argv)
 	main_run(first);
 
 	killdaemon(pidfile);
+	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
 	return 0;
 }
