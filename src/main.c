@@ -232,6 +232,17 @@ void ouistiti_registermodule(const module_t *module)
 	dbg("module %s regitered", module->name);
 }
 
+static void __ouistiti_freemodule()
+{
+	module_list_t *iterator = g_modules;
+	while (iterator != NULL)
+	{
+		module_list_t *next = iterator->next;
+		free(iterator);
+		iterator = next;
+	}
+}
+
 server_t *ouistiti_loadserver(serverconfig_t *config)
 {
 	if (first != NULL && first->id == MAX_SERVERS)
@@ -345,6 +356,7 @@ void main_destroy(server_t *first)
 		free(server);
 		server = next;
 	}
+	__ouistiti_freemodule();
 }
 
 #define DAEMONIZE 0x01
