@@ -366,12 +366,14 @@ struct _websocket_main_s
 	http_send_t sendresp;
 	void *ctx;
 	int type;
+	int end;
 };
 
 static int websocket_close(void *arg, int status)
 {
 	_websocket_main_t *info = (_websocket_main_t *)arg;
 	char message[] = { 0x88, 0x02, 0x03, 0xEA};
+	info->end = 1;
 	return info->sendresp(info->ctx, message, sizeof(message));
 }
 
@@ -505,20 +507,20 @@ static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int
 static void *_websocket_main(void *arg)
 {
 	_websocket_main_t *info = (_websocket_main_t *)arg;
-	/** socket to the webclient **/
-	int server = info->server;
 	/** socket to the unix server **/
+	int server = info->server;
+	/** socket to the webclient **/
 	int client = info->client;
-	int end = 0;
-	while (!end)
+	info->end = 0;
+	while (!info->end)
 	{
 		int ret;
 		fd_set rdfs;
 		int maxfd = server;
 		FD_ZERO(&rdfs);
 		FD_SET(server, &rdfs);
-		maxfd = (maxfd > client)?maxfd:client;
 		FD_SET(client, &rdfs);
+		maxfd = (maxfd > client)?maxfd:client;
 
 		ret = select(maxfd + 1, &rdfs, NULL, NULL, NULL);
 		if (ret > 0 && FD_ISSET(server, &rdfs))
@@ -532,13 +534,13 @@ static void *_websocket_main(void *arg)
 				if (ret == EREJECT)
 				{
 					warn("%s: client died", str_websocket);
-					end = 1;
+					info->end = 1;
 				}
 			}
 			else
 			{
 				warn("%s: server died", str_websocket);
-				end = 1;
+				info->end = 1;
 			}
 		}
 		else if (ret > 0 && FD_ISSET(client, &rdfs))
@@ -552,19 +554,19 @@ static void *_websocket_main(void *arg)
 				if (ret == EREJECT)
 				{
 					warn("%s: server died", str_websocket);
-					end = 1;
+					info->end = 1;
 				}
 			}
 			else
 			{
 				warn("%s: client died", str_websocket);
-				end = 1;
+				info->end = 1;
 			}
 		}
 		else if (errno != EAGAIN)
 		{
 			err("%s: error %s", str_websocket, strerror(errno));
-			end = 1;
+			info->end = 1;
 		}
 	}
 	shutdown(server, SHUT_RDWR);
