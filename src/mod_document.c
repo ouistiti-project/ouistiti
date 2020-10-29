@@ -736,6 +736,8 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 
 static void mod_document_destroy(void *data)
 {
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)data;
+	free(mod->config);
 	free(data);
 }
 
