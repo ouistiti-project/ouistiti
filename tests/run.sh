@@ -20,6 +20,9 @@ case $1 in
 	-GCOV)
 		GCOV=1
 		;;
+	-V)
+		ENV="valgrind --leak-check=full --show-leak-kinds=all"
+		;;
 	-I)
 		INFO=1
 		;;
@@ -61,7 +64,7 @@ WC=wc
 CURL=curl
 WGET=wget
 USER=$(ls -l $0 | ${AWK} '{print $3}')
-TESTCLIENT="./host/utils/testclient -p 8080"
+TESTCLIENT="./host/utils/testclient"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
 
 if [ -z "$INFO" ]; then
@@ -94,7 +97,7 @@ start () {
 		echo "******************************"
 		cat ${TESTDIR}conf/${CONFIG}
 	fi
-	${SRCDIR}${TARGET} ${ARGUMENTS} -D
+	${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS} -D
 	PID=$(cat ${TESTDIR}run.pid)
 	echo "${TARGET} started with pid ${PID}"
 	sleep 1
