@@ -62,7 +62,6 @@ typedef struct ouistiticonfig_s
 {
 	char *user;
 	char *pidfile;
-	serverconfig_t *servers[MAX_SERVERS];
 } ouistiticonfig_t;
 
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid);
