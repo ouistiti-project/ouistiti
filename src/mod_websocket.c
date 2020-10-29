@@ -488,7 +488,13 @@ static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int
 	int outlength = websocket_unframed(buffer, length, out, (void *)info);
 	while (outlength > 0 && ret != -1)
 	{
-		ret = send(server, out, outlength, MSG_NOSIGNAL);
+		if (outlength == 1 && out[0] == '\0')
+		{
+			dbg("websocket: try to send empty string");
+			ret = -1;
+		}
+		else
+			ret = send(server, out, outlength, MSG_NOSIGNAL);
 		if (ret == -1 && errno == EAGAIN)
 			ret = 0;
 		websocket_dbg("%s: ws => u: send %d bytes\n\t%s", str_websocket, ret, out);
