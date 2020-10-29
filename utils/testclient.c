@@ -345,8 +345,8 @@ int main(int argc, char **argv)
 	int options = 0;
 	net_api_t *net = &direct;
 
-	setlinebuf(stdout);
-	setlinebuf(stderr);
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
 
 #ifdef HAVE_GETOPT
 	int opt;
