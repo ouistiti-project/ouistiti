@@ -77,11 +77,11 @@ static const char str_tinysvcmdns[] = "tinysvcmdns";
 
 void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 {
-	_mod_tinysvcmdns_t *mod = calloc(1, sizeof(*mod));
-
 	const char *hostname = httpserver_INFO(server, "host");
 	if (hostname == NULL || hostname[0] == '\0' || strstr(hostname, ".local") == NULL)
 		return NULL;
+
+	_mod_tinysvcmdns_t *mod = calloc(1, sizeof(*mod));
 	mod->hostname = hostname;
 
 	int port = atoi(httpserver_INFO(server, "port"));
@@ -98,6 +98,8 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 
 	if (getifaddrs(&ifa_list) < 0) {
 		warn("%s: getifaddrs() failed", str_tinysvcmdns);
+		free(mod->type);
+		free(mod);
 		return NULL;
 	}
 
