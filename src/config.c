@@ -149,6 +149,7 @@ static struct _config_module_s
 		.name = "end",
 	}
 };
+
 static void *_config_modules(void *data, const char *name, server_t *server)
 {
 	config_setting_t *iterator = (config_setting_t *)data;
@@ -225,7 +226,6 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 				ouistiti_setmodules(server, _config_modules, iterator);
 			}
 		}
-		ouistiticonfig->servers[i] = NULL;
 	}
 
 	return ouistiticonfig;
@@ -238,17 +238,5 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 	if (logfd > 0)
 		close(logfd);
 	config_destroy(&configfile);
-
-	for (i = 0; i < MAX_SERVERS; i++)
-	{
-		serverconfig_t *config = ouistiticonfig->servers[i];
-		if (config)
-		{
-			free(config->server);
-			free(config);
-			ouistiticonfig->servers[i] = NULL;
-		}
-	}
-
 	free(ouistiticonfig);
 }

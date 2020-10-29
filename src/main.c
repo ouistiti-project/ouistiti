@@ -320,7 +320,14 @@ static int main_run(server_t *first)
 			break;
 	}
 
+	return 0;
+}
+
+void main_destroy(server_t *first)
+{
+	server_t *server = first;
 	server = first;
+
 	while (server != NULL)
 	{
 		server_t *next = server->next;
@@ -333,10 +340,11 @@ static int main_run(server_t *first)
 		}
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
+		free(server->config->server);
+		free(server->config);
 		free(server);
 		server = next;
 	}
-	return 0;
 }
 
 #define DAEMONIZE 0x01
@@ -350,8 +358,10 @@ int main(int argc, char * const *argv)
 	int mode = 0;
 	int serverid = -1;
 
-	setlinebuf(stdout);
-	setlinebuf(stderr);
+//	setlinebuf(stdout);
+//	setlinebuf(stderr);
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
 
 	httpserver_software = servername;
 
@@ -402,6 +412,9 @@ int main(int argc, char * const *argv)
 			pidfile = ouistiticonfig->pidfile;
 		}
 		killdaemon(pidfile);
+		if (ouistiticonfig)
+			ouistiticonfig_destroy(ouistiticonfig);
+		main_destroy(first);
 		return 0;
 	}
 
@@ -412,11 +425,19 @@ int main(int argc, char * const *argv)
 		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
 			pidfile = ouistiticonfig->pidfile;
 		if (daemonize(pidfile) == -1)
+		{
+			if (ouistiticonfig)
+				ouistiticonfig_destroy(ouistiticonfig);
+			main_destroy(first);
 			return 0;
+		}
 	}
 
 	if (ouistiticonfig == NULL)
+	{
+		main_destroy(first);
 		return -1;
+	}
 
 #ifdef HAVE_SIGACTION
 	struct sigaction action;
@@ -442,6 +463,7 @@ int main(int argc, char * const *argv)
 	main_run(first);
 
 	killdaemon(pidfile);
+	main_destroy(first);
 	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
 	return 0;
