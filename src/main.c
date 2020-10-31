@@ -440,7 +440,11 @@ int main(int argc, char * const *argv)
 		{
 			if (ouistiticonfig)
 				ouistiticonfig_destroy(ouistiticonfig);
-			main_destroy(first);
+			/**
+			 * if main is destroyed, it close the server socket here
+			 * and the true process is not able to receive any connection
+			 */
+			// main_destroy /( first /) /;
 			return 0;
 		}
 	}
