@@ -27,6 +27,7 @@
  *****************************************************************************/
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -85,7 +86,9 @@ int ouistiti_initmodules()
 		{
 			err("module %s loading error: %s", name, dlerror());
 		}
+		free(namelist[i]);
 	}
+	free(namelist);
 	if (fchdir(cwdfd) == -1)
 	{
 		err("Package linbrary dir "PKGLIBDIR" notfound");
