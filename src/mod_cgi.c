@@ -88,7 +88,7 @@ struct mod_cgi_ctx_s
 struct _mod_cgi_s
 {
 	http_server_t *server;
-	const mod_cgi_config_t *config;
+	mod_cgi_config_t *config;
 	int rootfd;
 };
 
@@ -179,6 +179,8 @@ static void mod_cgi_destroy(void *arg)
 	_mod_cgi_t *mod = (_mod_cgi_t *)arg;
 	// nothing to do
 	close(mod->rootfd);
+	if (mod->config->env)
+		free(mod->config->env);
 	free(mod->config);
 	free(mod);
 }
