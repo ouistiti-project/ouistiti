@@ -179,6 +179,7 @@ static void mod_cgi_destroy(void *arg)
 	_mod_cgi_t *mod = (_mod_cgi_t *)arg;
 	// nothing to do
 	close(mod->rootfd);
+	free(mod->config);
 	free(mod);
 }
 
