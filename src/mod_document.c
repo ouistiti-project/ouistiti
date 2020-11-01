@@ -559,9 +559,9 @@ static int mod_send_read(document_connector_t *private, http_message_t *response
 		content[size] = 0;
 		httpmessage_addcontent(response, "none", content, size);
 	}
-	else if (ret == 0)
+	else if (size == -1)
 	{
-		ret = ESUCCESS;
+		err("document: response() read file error %s", strerror(errno));
 	}
 	return ret;
 }
