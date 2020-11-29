@@ -88,6 +88,8 @@ typedef struct _mod_mbedtls_s
 struct _mod_mbedtls_config_s
 {
 	const httpclient_ops_t *protocolops;
+	mod_tls_t *config;
+	const char *pers;
 	void *protocol;
 	mbedtls_ssl_config conf;
 	mbedtls_entropy_context entropy;
@@ -182,16 +184,15 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 	return ret;
 }
 
-static void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
+static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 {
+	mod_tls_t *config = mod->config;
 	int ret;
 	int is_set_pemkey = 0;
-	_mod_mbedtls_config_t *mod;
 
-	if (!modconfig)
-		return NULL;
+	if (config == NULL)
+		return ECONTINUE;
 
-	mod = mbedtls_calloc(1, sizeof(*mod));
 	mbedtls_x509_crt_init(&mod->srvcert);
 	mbedtls_x509_crt_init(&mod->cachain);
 
@@ -205,56 +206,84 @@ static void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 		MBEDTLS_SSL_TRANSPORT_STREAM,
 		MBEDTLS_SSL_PRESET_DEFAULT);
 	if (ret)
+	{
 		err("mbedtls_ssl_config_defaults %d\n", ret);
-
-	if (modconfig->crtfile)
-	{
-		ret = _mod_mbedtls_crtfile(mod, modconfig);
+		return EREJECT;
 	}
-	if (modconfig->cachain)
+
+	if (config->crtfile)
 	{
-		ret = mbedtls_x509_crt_parse_file(&mod->cachain, (const char *) modconfig->cachain);
+		ret = _mod_mbedtls_crtfile(mod, config);
+	}
+	if (config->cachain)
+	{
+		ret = mbedtls_x509_crt_parse_file(&mod->cachain, (const char *) config->cachain);
 		if (ret)
+		{
 			err("mbedtls_x509_crt_parse_file cachain %d\n", ret);
+			return EREJECT;
+		}
 		else
 			mbedtls_ssl_conf_ca_chain(&mod->conf, &mod->cachain, NULL);
 	}
 
-	const char *pers = httpserver_INFO(server, "name");
-	if (! pers)
-	{
-		pers = str_mbedtls;
-	}
-	if (pers)
+	if (mod->pers)
 	{
 		ret = mbedtls_ctr_drbg_seed(&mod->ctr_drbg, mbedtls_entropy_func, &mod->entropy,
-			(const unsigned char *) pers, strlen(pers));
+			(const unsigned char *) mod->pers, strlen(mod->pers));
 		if (ret)
+		{
 			err("mbedtls_ctr_drbg_seed %d\n", ret);
+			return EREJECT;
+		}
 		else
 			mbedtls_ssl_conf_rng(&mod->conf, mbedtls_ctr_drbg_random, &mod->ctr_drbg );
 	}
 
 
-	if (modconfig->dhmfile)
+	if (config->dhmfile)
 	{
 		mbedtls_dhm_init(&mod->dhm);
-		ret = mbedtls_dhm_parse_dhmfile(&mod->dhm, modconfig->dhmfile);
+		ret = mbedtls_dhm_parse_dhmfile(&mod->dhm, config->dhmfile);
 		if (ret)
+		{
 			err("mbedtls_dhm_parse_dhmfile %d\n", ret);
+			return EREJECT;
+		}
 	}
-#ifdef FILE_CONFIG
-	mbedtls_free(modconfig);
-#endif
+	mbedtls_free(config);
+	mod->config = NULL;
+	return ESUCCESS;
+}
 
+static void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
+{
+	_mod_mbedtls_config_t *mod;
+	if (!modconfig)
+		return NULL;
+
+	mod = mbedtls_calloc(1, sizeof(*mod));
 	mod->protocolops = httpserver_changeprotocol(server, _tlsserver_ops, mod);
 	mod->protocol = server;
+	mod->config = modconfig;
+	mod->pers = httpserver_INFO(server, "name");
+	if (! mod->pers)
+	{
+		mod->pers = str_mbedtls;
+	}
+
+
 	return mod;
 }
 
 static void mod_mbedtls_destroy(void *arg)
 {
 	_mod_mbedtls_config_t *mod = (_mod_mbedtls_config_t *)arg;
+#ifdef FILE_CONFIG
+	if (mod->config)
+		mbedtls_free(mod->config);
+#endif
+
 	mbedtls_dhm_free(&mod->dhm);
 	mbedtls_x509_crt_free(&mod->srvcert);
 	mbedtls_x509_crt_free(&mod->cachain);
@@ -404,6 +433,7 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 	_mod_mbedtls_config_t *config = (_mod_mbedtls_config_t *)arg;
 	void *protocolconfig;
 
+	_mod_mbedtls_setup(config);
 	ctx->clt = clt;
 	ctx->config = config;
 	ctx->protocolops = config->protocolops;
