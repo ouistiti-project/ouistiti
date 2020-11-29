@@ -136,6 +136,7 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 		}
 	}
 	config->server->versionstr = httpversion[config->server->version];
+	config->modulesconfig = iterator;
 	return config;
 }
 
@@ -206,24 +207,13 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 	if (configservers)
 	{
 		int count = config_setting_length(configservers);
-		int i = 0;
 
-		if (serverid != -1)
-		{
-			i = serverid;
-			count = 1;
-			if (serverid < count)
-				serverid = 0;
-		}
-
-		for (; i < count && i < MAX_SERVERS; i++)
+		for (int i = 0; i < count && i < MAX_SERVERS; i++)
 		{
 			config_setting_t *iterator = config_setting_get_elem(configservers, i);
 			if (iterator)
 			{
-				serverconfig_t *config = config_server(iterator);
-				server_t *server = ouistiti_loadserver(config);
-				ouistiti_setmodules(server, _config_modules, iterator);
+				ouistiticonfig->config[i] = config_server(iterator);
 			}
 		}
 	}

@@ -243,7 +243,7 @@ static void __ouistiti_freemodule()
 	}
 }
 
-server_t *ouistiti_loadserver(serverconfig_t *config)
+static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 {
 	if (first != NULL && first->id == MAX_SERVERS)
 		return NULL;
@@ -259,10 +259,9 @@ server_t *ouistiti_loadserver(serverconfig_t *config)
 
 	server->server = httpserver;
 	server->config = config;
-	server->next = first;
-	if (first != NULL)
-		server->id = first->id + 1;
-	first = server;
+	server->id = id;
+	ouistiti_setmodules(server, NULL, config->modulesconfig);
+
 	return server;
 }
 
@@ -291,25 +290,7 @@ static void *_config_modules(void *data, const char *name, server_t *server)
 
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 {
-	int count = 1;
-	int i = 0;
-
-	if (serverid != -1)
-	{
-		i = serverid;
-		count = 1;
-		if (serverid < count)
-			serverid = 0;
-	}
-
-	ouistiticonfig_t *ouistiticonfig = &g_ouistiti_config;
-	for (i; i < count && i < MAX_SERVERS; i++)
-	{
-		server_t *server = ouistiti_loadserver(g_ouistiti_config.servers[i]);
-		if (server != NULL)
-			ouistiti_setmodules(server, _config_modules, NULL);
-	}
-	return ouistiticonfig;
+	return &g_ouistiti_config;
 }
 #endif
 
@@ -414,14 +395,13 @@ int main(int argc, char * const *argv)
 	} while(opt != -1);
 #endif
 
-	ouistiti_initmodules();
-
 	if (mode & KILLDAEMON)
 	{
-		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
+		if (pidfile == NULL)
 		{
 			ouistiticonfig = ouistiticonfig_create(configfile, serverid);
-			pidfile = ouistiticonfig->pidfile;
+			if (ouistiticonfig && ouistiticonfig->pidfile)
+				pidfile = ouistiticonfig->pidfile;
 		}
 		killdaemon(pidfile);
 		if (ouistiticonfig)
@@ -430,16 +410,10 @@ int main(int argc, char * const *argv)
 		return 0;
 	}
 
-	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
-
 	if (mode & DAEMONIZE)
 	{
-		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
-			pidfile = ouistiticonfig->pidfile;
 		if (daemonize(pidfile) == -1)
 		{
-			if (ouistiticonfig)
-				ouistiticonfig_destroy(ouistiticonfig);
 			/**
 			 * if main is destroyed, it close the server socket here
 			 * and the true process is not able to receive any connection
@@ -449,10 +423,32 @@ int main(int argc, char * const *argv)
 		}
 	}
 
+	ouistiti_initmodules();
+
+	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
+
+	if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
+		pidfile = ouistiticonfig->pidfile;
+
 	if (ouistiticonfig == NULL)
 	{
 		main_destroy(first);
 		return -1;
+	}
+
+	int id = 0;
+	for (int i = 0; i < MAX_SERVERS; i++)
+	{
+		if (serverid != -1 && i != serverid)
+			continue;
+
+		if (ouistiticonfig->config[i] != NULL)
+		{
+			server_t *server = ouistiti_loadserver(ouistiticonfig->config[i], id);
+			id += 1;
+			server->next = first;
+			first = server;
+		}
 	}
 
 #ifdef HAVE_SIGACTION
