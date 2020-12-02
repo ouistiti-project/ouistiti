@@ -383,6 +383,8 @@ int main(int argc, char **argv)
 
 	dbg("testclient: connect");
 	sock = net->connect(serveraddr, port);
+	if (sock == NULL)
+		return -1;
 
 	int state = CONNECTION_START;
 	ssize_t reqlength = 0;
