@@ -136,12 +136,12 @@ test () {
 	unset PREPARE
 	unset PID
 	TESTDEFAULTPORT=$DEFAULTPORT
-	TESTOPTION="-p ${TESTDEFAULTPORT}"
 	TESTRESPONSE=$(basename ${TEST})_rs.txt
 	if [ -e ${TESTDIR}$(basename ${TEST})_rq.txt ]; then
 		TESTREQUEST=$(basename ${TEST})_rq.txt
 	fi
 	. $TEST
+	TESTOPTION="${TESTOPTION} -p ${TESTDEFAULTPORT}"
 
 	echo
 	echo "******************************"
@@ -186,6 +186,7 @@ test () {
 			echo "******************************"
 			echo
 		fi
+		echo cat ${TESTDIR}$TESTREQUEST' |' $TESTCLIENT $TESTOPTION 
 		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
 	if [ -n "$CMDREQUEST" ]; then
