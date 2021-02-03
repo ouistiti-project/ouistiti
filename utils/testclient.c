@@ -395,23 +395,36 @@ int main(int argc, char **argv)
 	int ret = 0;
 	ssize_t contentlength = 0;
 	char *content = NULL;
+	state |= REQUEST_HEADER;
+	fd_set rfds;
 	do
 	{
-		fd_set rfds;
+		int maxfd = -1;
 		FD_ZERO(&rfds);
-		if (!(state & RESPONSE_START))
+		if (reqlength <= 0 && resplength <= 0 && !(state & REQUEST_END))
+		{
 			FD_SET(0, &rfds);
+			maxfd = 0;
+		}
 		FD_SET(net->fd(sock), &rfds);
-
-		ret = select(net->fd(sock) + 1, &rfds, NULL, NULL, NULL);
+		maxfd = net->fd(sock);
+		if (maxfd >= 0)
+		{
+			dbg("testclient: wait");
+			ret = select(maxfd + 1, &rfds, NULL, NULL, NULL);
+		}
 		if (ret > 0 && FD_ISSET(0, &rfds))
 		{
 			reqlength = read(0, reqbuffer, sizeof(reqbuffer));
+			dbg("testclient: new data (%ld)", reqlength);
 			content = reqbuffer;
 			headerlength = 0;
-			state |= REQUEST_HEADER;
+			contentlength = 0;
 			if (reqlength == 0)
+			{
 				state |= REQUEST_END;
+				state |= RESPONSE_START;
+			}
 		}
 		if (reqlength > 0 && (state & REQUEST_HEADER))
 		{
@@ -421,32 +434,28 @@ int main(int argc, char **argv)
 				content += 4;
 				contentlength = reqlength + reqbuffer - content;
 				reqlength -= contentlength;
-				if (options & OPT_WEBSOCKET)
-					state |= RESPONSE_START;
-				else
-					state |= REQUEST_CONTENT;
+				state &= ~REQUEST_HEADER;
 			}
 			dbg("testclient: send (%ld)", reqlength);
 			ssize_t length = net->send(sock, reqbuffer + headerlength, reqlength);
-			if (content)
-			{
-				headerlength = reqlength;
-			}
+			headerlength += length;
 			if (length > 0)
 				reqlength -= length;
 			else
 				reqlength = 0;
+			if (content)
+			{
+				reqlength = contentlength;
+				contentlength = 0;
+				if (options & OPT_WEBSOCKET)
+				{
+					dbg("testclient: upgrade waited");
+					state |= RESPONSE_START;
+				}
+				else
+					state |= REQUEST_CONTENT;
+			}
 		}
-		if (reqlength > 0 && (state & REQUEST_CONTENT))
-		{
-			int length = net->send(sock, content + headerlength, contentlength);
-			headerlength = length;
-			contentlength -= length;
-			reqlength -= length;
-			state |= REQUEST_END;
-			state |= RESPONSE_START;
-		}
-
 		if (ret > 0 && FD_ISSET(net->fd(sock), &rfds))
 		{
 			resplength = net->recv(sock, respbuffer + resplength, sizeof(respbuffer) - resplength);
@@ -454,14 +463,29 @@ int main(int argc, char **argv)
 			{
 				dbg("testclient: recieve (%ld)", resplength);
 				resplength -= write(1, respbuffer, resplength);
-				if (strcasestr(respbuffer, "Upgrade: webosket") != NULL)
+				if (strcasestr(respbuffer, "Upgrade: ") != NULL)
 				{
+					dbg("testclient: upgrade connection");
 					state &= ~RESPONSE_START;
 					state |= REQUEST_CONTENT;
 				}
 			}
 			else
+			{
+				dbg("testclient: connection end %ld", resplength);
 				state |= CONNECTION_END;
+			}
+		}
+		if (reqlength > 0 && (state & REQUEST_CONTENT))
+		{
+			state &= ~REQUEST_HEADER;
+			dbg("testclient: send content (%ld)", reqlength);
+			int length = net->send(sock, content + contentlength, reqlength);
+			contentlength += length;
+			if (length > 0)
+				reqlength -= length;
+			else
+				reqlength = 0;
 		}
 	} while (!(state & CONNECTION_END));
 	dbg("testclient: quit");
