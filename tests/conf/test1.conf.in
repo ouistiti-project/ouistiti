@@ -7,7 +7,7 @@ servers= ({
 		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
-			deny = ".htaccess,.cgi,.php";
+			deny = ".htaccess,.cgi,*.php";
 			options = "dirlisting,range,rest";
 		};
 	});
