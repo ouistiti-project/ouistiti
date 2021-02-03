@@ -4,3 +4,4 @@ CONFIG=test8.conf
 TESTREQUEST=test012_rq.txt
 TESTRESPONSE=test004_rs.txt
 TESTCODE=200
+TESTRESPONSE=index_rs.txt

@@ -1,4 +1,9 @@
 GET /token?redirect_uri=https://localhost/index.html HTTP/1.1
 HOST: 127.0.0.1
+Connection: Keep-Alive
 Authorization: Basic Zm9vOmJhcg==
+
+GET /index.html HTTP/1.1
+HOST: localhost
+Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogImZvbyIsICJyb2xlcyI6ICJ1c2VycyIsICJleHAiOiAxODAwfQ.9y7krxxJ_n1Mmq8yhSfwkKw5Mx1Ycwht0nWjLBjJB90; SameSite=strict; Path=/; Domain=.ouistiti.net
 
