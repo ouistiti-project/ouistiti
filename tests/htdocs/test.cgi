@@ -42,8 +42,10 @@ echo CONTENT_TYPE = $CONTENT_TYPE
 echo CONTENT_LENGTH = $CONTENT_LENGTH
 
 echo CONTENT:
+echo > /tmp/ouistiti.content.txt
 read CONTENT
 while [ -n "$CONTENT" ]; do
+echo $CONTENT >> /tmp/ouistiti.content.txt
 echo $CONTENT
 read CONTENT
 done
