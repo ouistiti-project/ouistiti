@@ -124,74 +124,81 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_m
 	struct dirent *ent;
 
 	errno = 0;
-#ifdef USE_REENTRANT
-	/**
-	 * readdir_r is deprecated but SonarCloud requires readdir_r.
-	 */
-	struct dirent entstorage;
-	readdir_r(private->dir, &entstorage, &ent);
-#else
-	ent = readdir(private->dir);
-#endif
-	if (ent)
+	while (ret == EREJECT)
 	{
-		if (ent->d_name[0] != '.')
+#ifdef USE_REENTRANT
+		/**
+		 * readdir_r is deprecated but SonarCloud requires readdir_r.
+		 */
+		struct dirent entstorage;
+		readdir_r(private->dir, &entstorage, &ent);
+#else
+		ent = readdir(private->dir);
+#endif
+		if (ent)
 		{
-			unsigned int length = strlen(ent->d_name);
-			if (length > MAX_NAMELENGTH)
-				warn("dirlisting: %s file name length too long", ent->d_name);
-			struct stat filestat;
-			fstatat(private->fdfile, ent->d_name, &filestat, 0);
-			size_t size = filestat.st_size;
-			if (size == -1)
+			if (ent->d_name[0] != '.')
 			{
-				err("dirlisting: %s stat error %s", ent->d_name, strerror(errno));
-				return EREJECT;
-			}
-			int unit = 0;
-			while (size > 2000)
-			{
-				size /= 1024;
-				unit++;
-			}
-			const char *mime = "inode/directory";
+				unsigned int length = strlen(ent->d_name);
+				if (length > MAX_NAMELENGTH)
+				{
+					warn("dirlisting: %s file name length too long", ent->d_name);
+				}
+				struct stat filestat;
+				fstatat(private->fdfile, ent->d_name, &filestat, 0);
+				size_t size = filestat.st_size;
+				if (size == -1)
+				{
+					err("dirlisting: %s stat error %s", ent->d_name, strerror(errno));
+					return EREJECT;
+				}
+				int unit = 0;
+				while (size > 2000)
+				{
+					size /= 1024;
+					unit++;
+				}
+				const char *mime = "inode/directory";
 
-			if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
-			{
-				mime = utils_getmime(ent->d_name);
+				if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
+				{
+					mime = utils_getmime(ent->d_name);
+				}
+				length += strlen(mime);
+				length += 4 + 2 + 4;
+				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
+				snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
+				dbg("dirlisting: %s", data);
+				httpmessage_addcontent(response, NULL, data, -1);
+				dbg("dirlisting: next");
+				free(data);
+				ret = ECONTINUE;
 			}
-			length += strlen(mime);
-			length += 4 + 2 + 4;
-			char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-			snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
+		}
+		else if (private->fdfile > 0)
+		{
+			int length = sizeof(DIRLISTING_FOOTER);
+			char *data = calloc(1, length);
+			snprintf(data, length, DIRLISTING_FOOTER, "OK");
 			httpmessage_addcontent(response, NULL, data, -1);
 			free(data);
+			close(private->fdfile);
+			private->fdfile = 0;
+			ret = ECONTINUE;
 		}
-		ret = ECONTINUE;
-	}
-	else if (private->fdfile > 0)
-	{
-		int length = sizeof(DIRLISTING_FOOTER);
-		char *data = calloc(1, length);
-		snprintf(data, length, DIRLISTING_FOOTER, "OK");
-		httpmessage_addcontent(response, NULL, data, -1);
-		free(data);
-		close(private->fdfile);
-		private->fdfile = 0;
-		ret = ECONTINUE;
-	}
-	else
-	{
-		/**
-		 * the content length is unknown before the sending.
-		 * We must close the socket to advertise the client.
-		 */
-		dbg("dirlisting: socket shutdown");
-		httpclient_shutdown(httpmessage_client(request));
-		closedir(private->dir);
-		private->dir = NULL;
-		document_close(private, request);
-		ret = ESUCCESS;
+		else
+		{
+			/**
+			 * the content length is unknown before the sending.
+			 * We must close the socket to advertise the client.
+			 */
+			dbg("dirlisting: socket shutdown");
+			httpclient_shutdown(httpmessage_client(request));
+			closedir(private->dir);
+			private->dir = NULL;
+			document_close(private, request);
+			ret = ESUCCESS;
+		}
 	}
 	return ret;
 }
