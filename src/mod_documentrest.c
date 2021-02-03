@@ -168,10 +168,12 @@ static int putcontent_connector(document_connector_t *private, http_message_t *r
 #else
 				httpmessage_result(response, RESULT_400);
 #endif
+			else
 #endif
 #if defined RESULT_201
-			else
 				httpmessage_result(response, RESULT_201);
+#else
+				httpmessage_result(response, RESULT_200);
 #endif
 			close(private->fdfile);
 		}

@@ -86,10 +86,12 @@ static int document_checkname(const _mod_document_mod_t *mod, const char *uri)
 
 	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
+		dbg("deny");
 		return  EREJECT;
 	}
 	if (utils_searchexp(uri, config->allow, NULL) != ESUCCESS)
 	{
+		dbg("not allowed");
 		return  EREJECT;
 	}
 	return ESUCCESS;
@@ -420,7 +422,10 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		fdfile = openat(fdroot, uri, O_RDONLY );
 	}
 	else
+	{
+		dbg("document: try / as URI");
 		fdfile = dup(fdroot);
+	}
 
 	struct stat filestat;
 
