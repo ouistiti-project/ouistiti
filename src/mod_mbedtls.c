@@ -534,6 +534,17 @@ static int _tls_send(void *vctx, const char *data, int size)
 	return ret;
 }
 
+static int tls_wait(void *vctx, int options)
+{
+	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
+	int ret = ESUCCESS;
+	if (!mbedtls_ssl_check_pending(&ctx->ssl))
+	{
+		ret = ctx->protocolops->wait(ctx->protocol, options);
+	}
+	return ret;
+}
+
 static int _tls_status(void *vctx)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
@@ -557,6 +568,7 @@ static const httpclient_ops_t *_tlsserver_ops = &(httpclient_ops_t)
 	.create = &_tlsserver_create,
 	.recvreq = &_tls_recv,
 	.sendresp = &_tls_send,
+	.wait = &tls_wait,
 	.status = &_tls_status,
 	.flush = &_tls_flush,
 	.disconnect = &_tls_disconnect,
@@ -573,6 +585,7 @@ static const httpclient_ops_t *_tlsclient_ops = &(httpclient_ops_t)
 	.connect = &_tls_connect,
 	.recvreq = &_tls_recv,
 	.sendresp = &_tls_send,
+	.wait = &tls_wait,
 	.status = &_tls_status,
 	.flush = &_tls_flush,
 	.disconnect = &_tls_disconnect,
