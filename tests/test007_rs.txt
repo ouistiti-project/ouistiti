@@ -1,5 +1,6 @@
-HTTP/1.1 414 Request URI too long
+HTTP/1.1 301 Moved Permanently
+Location: error_404.html
 Content-Type: text/plain
-Content-Length: 27
+Content-Length: 24
 
- 414 Request URI too long
+ 301 Moved Permanently
