@@ -115,6 +115,7 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 	config->server->port = 80;
 	config_setting_lookup_int(iterator, "port", &config->server->port);
 	config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
+	config_setting_lookup_string(iterator, "service", (const char **)&config->server->service);
 	config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
 	config->server->chunksize = DEFAULT_CHUNKSIZE;
 	config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
