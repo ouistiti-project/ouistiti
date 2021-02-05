@@ -90,6 +90,11 @@ const char *env_serverport(const mod_cgi_config_t *UNUSED(config), http_message_
 	return httpmessage_SERVER(request, "port");
 }
 
+const char *env_serverservice(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+{
+	return httpmessage_SERVER(request, "service");
+}
+
 const char *env_requestmethod(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
 {
 	return httpmessage_REQUEST(request, "method");
@@ -265,6 +270,12 @@ static const httpenv_t cgi_env[] =
 		.target = "SERVER_PORT=",
 		.length = 6,
 		.cb = &env_serverport,
+	},
+	{
+		.id = -1,
+		.target = "SERVER_SERVICE=",
+		.length = 26,
+		.cb = &env_serverservice,
 	},
 	{
 		.id = -1,
