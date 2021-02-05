@@ -93,6 +93,9 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 	mod->type = calloc(1, length + 1);
 	snprintf(mod->type, length + 1, typeformat, scheme);
 
+	const char *txt[] =
+		{httpserver_INFO(server, "service"), NULL};
+
 	struct ifaddrs *ifa_list;
 	struct ifaddrs *ifa_main;
 
@@ -121,8 +124,6 @@ void *mod_tinysvcmdns_create(http_server_t *server, mod_tinysvcmdns_t *config)
 
 			mdnsd_set_hostname(mod->svr[j], mod->hostname, ((struct sockaddr_in *)ifa_main->ifa_addr)->sin_addr); // TTL should be 120 seconds
 
-			const char *txt[] =
-			{NULL};
 			mod->svc[j] = mdnsd_register_svc(mod->svr[j], mod->hostname, mod->type, port, NULL, txt);
 			dbg("%s: register %s:%d on mDNS", str_tinysvcmdns, mod->hostname, port);
 			j++;
