@@ -868,7 +868,7 @@ static int _authz_computepasswd(const hash_t *hash, const char *user, const char
 int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd)
 {
 	int ret = EREJECT;
-	dbg("auth: check %s %s", passwd, checkpasswd);
+	auth_dbg("auth: check %s %s", passwd, checkpasswd);
 	if (checkpasswd[0] == '$')
 	{
 		const hash_t *hash = NULL;
@@ -988,12 +988,20 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
 		authorization = httpmessage_REQUEST(request, str_xtoken);
+		if (authorization != NULL && authorization[0] != '\0')
+		{
+			auth_dbg("token from cookie");
+			return authorization;
+		}
 	}
-	if (authorization == NULL)
+
+	authorization = cookie_get(request, str_xtoken);
+	if (authorization != NULL && authorization[0] != '\0')
 	{
-		authorization = cookie_get(request, str_xtoken);
+		auth_dbg("token from cookie");
+		return authorization;
 	}
-	return authorization;
+	return NULL;
 }
 
 int authn_checksignature(const char *key,
@@ -1015,6 +1023,7 @@ int authn_checksignature(const char *key,
 			}
 			char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 			base64_urlencoding->encode(signature, len, b64signature, sizeof(b64signature));
+			auth_dbg("auth: signature %s", b64signature);
 			if (!strncmp(b64signature, sign, signlen))
 				return ESUCCESS;
 		}
@@ -1042,6 +1051,7 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			if (ctx->info != NULL)
 			{
 				user = ctx->info->user;
+				auth_dbg("jwt user %s", user);
 			}
 #endif
 			if (user == NULL)
@@ -1060,7 +1070,12 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			}
 			ret = EREJECT;
 		}
+		else
+		{
+			warn("auth: token with bad signature");
+		}
 	}
+dbg("%s %d", __FUNCTION__, __LINE__);
 	return ret;
 }
 #endif
@@ -1516,7 +1531,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ret == ECONTINUE && mod->authz->type & AUTHZ_TOKEN_E)
 	{
 		authorization = _authn_gettoken(ctx, request);
-		if (mod->authn->ctx && authorization != NULL)
+		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 		{
 			const char *string = authorization;
 			int fieldnamelen = strlen(str_xtoken);
@@ -1530,7 +1545,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 #endif
 	auth_dbg("auth: gettoken %d", ret);
 	authorization = _authn_getauthorization(ctx, request);
-	if (mod->authn->ctx && authorization != NULL)
+	if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 	{
 		ret = _authn_checkauthorization( ctx, authorization, request);
 	}
