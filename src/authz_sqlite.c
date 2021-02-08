@@ -129,7 +129,10 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 	return ctx;
 }
 
-#define SEARCH_QUERY "select %s from users inner join groups on groups.id=users.groupid where users.name=@NAME;"
+#define SEARCH_QUERY "select %s \
+						from users \
+						inner join groups on groups.id=users.groupid \
+						where users.name=@NAME;"
 static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
 {
 	int ret;
@@ -468,17 +471,13 @@ static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int userid = 0;
-	int groupid = 0;
+
 	userid = authz_sqlite_userid(ctx, authinfo->user);
 	if (userid == -1)
 		return EREJECT;
-	const char *group = authinfo->group;
-	if (strlen(group) == 0)
-		group = authz_sqlite_group(ctx, authinfo->user);
-	groupid = authz_sqlite_groupid(ctx, group);
 
 	int ret;
-	const char sql[] = "update users set passwd=@PASSWD, groupid=@GROUP where id=@USERID";
+	const char sql[] = "update users set passwd=@PASSWD where id=@USERID";
 
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
@@ -496,8 +495,54 @@ static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 	ret = sqlite3_bind_int(ctx->statement, index, userid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
+	ret = sqlite3_step(ctx->statement);
+	sqlite3_finalize(ctx->statement);
+	ctx->statement = NULL;
+	if (ret != SQLITE_DONE)
+		err("auth: change user error %d %s", ret, sqlite3_errmsg(ctx->db));
+	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
+}
+
+static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	int userid = 0;
+	int groupid = 0;
+
+	userid = authz_sqlite_userid(ctx, authinfo->user);
+	if (userid == -1)
+		return EREJECT;
+
+	const char *group = authinfo->group;
+	if (strlen(group) == 0)
+		group = authz_sqlite_group(ctx, authinfo->user);
+	groupid = authz_sqlite_groupid(ctx, group);
+
+	const char *status = authinfo->home;
+	if (strlen(home) == 0)
+		home = authz_sqlite_home(ctx, authinfo->user);
+
+	int ret;
+	const char sql[][] =
+	{
+		"update users set groupid=@GROUP, home=$HOME where id=@USERID";
+
+	if (ctx->statement != NULL)
+		sqlite3_finalize(ctx->statement);
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &ctx->statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(ctx->statement, "@USERID");
+	ret = sqlite3_bind_int(ctx->statement, index, userid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
 	index = sqlite3_bind_parameter_index(ctx->statement, "@GROUP");
 	ret = sqlite3_bind_int(ctx->statement, index, groupid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(ctx->statement, "@HOME");
+	ret = sqlite3_bind_text(ctx->statement, index, home, -1, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	ret = sqlite3_step(ctx->statement);
@@ -574,6 +619,7 @@ authz_rules_t authz_sqlite_rules =
 	.adduser = &authz_sqlite_adduser,
 #ifdef AUTHZ_MANAGER
 	.changepasswd = &authz_sqlite_changepasswd,
+	.changeinfo = &authz_sqlite_changeinfo,
 	.removeuser = &authz_sqlite_removeuser,
 #endif
 	.destroy = &authz_sqlite_destroy,

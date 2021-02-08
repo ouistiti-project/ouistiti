@@ -1458,6 +1458,11 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 				if (mod->authz->rules->changepasswd != NULL)
 					ret = mod->authz->rules->changepasswd(mod->authz->ctx, &session);
 			}
+			if ((!strcmp(method, str_post)) && session.user)
+			{
+				if (mod->authz->rules->changeinfo != NULL)
+					ret = mod->authz->rules->changeinfo(mod->authz->ctx, &session);
+			}
 			if (!strcmp(method, str_delete) && session.user)
 			{
 				if (mod->authz->rules->removeuser != NULL)
