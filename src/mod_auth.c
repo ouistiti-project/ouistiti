@@ -805,6 +805,8 @@ static void _mod_auth_freectx(void *vctx)
 			free(ctx->info->home);
 		if (ctx->info->token)
 			free(ctx->info->token);
+		if (ctx->info->status)
+			free(ctx->info->status);
 		free(ctx->info);
 		if (ctx->authorization)
 			free(ctx->authorization);
@@ -1381,9 +1383,9 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 		const char *home = NULL;
 		const char *token = NULL;
 		const char *passwd = NULL;
+		const char *status = NULL;
 
-		authsession_t session;
-		memset(&session, 0, sizeof(session));
+		authsession_t session = {0};
 		const char *query = httpmessage_REQUEST(request, "query");
 
 		char *storage = strdup(query);
@@ -1408,6 +1410,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 		group = strstr(storage, "group=");
 		home = strstr(storage, "home=");
 		passwd = strstr(storage, "password=");
+		status = strstr(storage, "status=");
 		if (!strcmp(method, str_get))
 		{
 			ret = ESUCCESS;
@@ -1446,6 +1449,14 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 					*end = '\0';
 				session.passwd = (char *)passwd;
 			}
+			if (status != NULL)
+			{
+				status += 7;
+				char *end = strchr(status, '&');
+				if (end != NULL)
+					*end = '\0';
+				session.status = (char *)status;
+			}
 			auth_dbg("authmngt: on %s %s %s", session.user, session.group, session.passwd);
 			if (!strcmp(method, str_put) && session.user && session.group)
 			{
@@ -1458,7 +1469,7 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 				if (mod->authz->rules->changepasswd != NULL)
 					ret = mod->authz->rules->changepasswd(mod->authz->ctx, &session);
 			}
-			if ((!strcmp(method, str_post)) && session.user)
+			if ((add_passwd || !strcmp(method, str_post)) && session.user)
 			{
 				if (mod->authz->rules->changeinfo != NULL)
 					ret = mod->authz->rules->changeinfo(mod->authz->ctx, &session);

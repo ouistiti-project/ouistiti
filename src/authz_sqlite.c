@@ -67,9 +67,11 @@ struct authz_sqlite_s
 
 static const char *authz_sqlite_group(void *arg, const char *user);
 static const char *authz_sqlite_home(void *arg, const char *user);
+static const char *authz_sqlite_status(void *arg, const char *user);
 
 static int authz_sqlite_userid(authz_sqlite_t *ctx, const char *user);
 static int authz_sqlite_groupid(authz_sqlite_t *ctx, const char *group);
+static int authz_sqlite_statusid(authz_sqlite_t *ctx, const char *status);
 
 static void *authz_sqlite_create(http_server_t *server, void *arg)
 {
@@ -83,20 +85,27 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 		ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
 		const char *query[] = {
 			"create table groups (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
+			"create table status (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
 			"create table users (\"id\" INTEGER PRIMARY KEY, \
 						\"name\" TEXT UNIQUE NOT NULL, \
 						\"groupid\" INTEGER DEFAULT 2, \
+						\"statusid\" INTEGER DEFAULT 1, \
 						\"passwd\" TEXT,\
 						\"home\" TEXT, \
-						FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL);",
+						FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL, \
+						FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
 			"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER, FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
+			"insert into status (name) values(\"approbing\");",
+			"insert into status (name) values(\"activated\");",
+			"insert into status (name) values(\"repudiated\");",
+			"insert into status (name) values(\"reapprobing\");",
 			"insert into groups (name) values(\"root\");",
 			"insert into groups (name) values(\"users\");",
 			"insert into users (name,groupid, statusid,passwd,home) \
-				values(\"root\",(select id from groups where name=\"root\"),\"test\",\"\");",
+				values(\"root\",(select id from groups where name=\"root\"),1,\"test\",\"\");",
 #ifdef DEBUG
 			"insert into users (name,groupid, statusid,passwd,home) \
-				values(\"foo\",(select id from groups where name=\"users\"),\"bar\",\"foo\");",
+				values(\"foo\",(select id from groups where name=\"users\"),1,\"bar\",\"foo\");",
 #endif
 			NULL,
 		};
@@ -139,6 +148,7 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 #define SEARCH_QUERY "select %s \
 						from users \
 						inner join groups on groups.id=users.groupid \
+						inner join status on status.id=users.statusid \
 						where users.name=@NAME;"
 static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
 {
@@ -263,6 +273,7 @@ static int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
 	const char *sql[] = {
 		"select id from users where name=@NAME;",
 		"select id from groups where name=@NAME;",
+		"select id from status where name=@NAME;",
 	};
 
 	sqlite3_stmt *statement; /// use a specific statement because name may come from ctx->statement
@@ -431,17 +442,20 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int groupid = 2; /// 2 = "users"
+	int statusid = 1; /// 1 = "approbing"
 	const char *home = "";
 
 	if (authz_sqlite_userid(ctx, authinfo->user) != -1)
 		return ESUCCESS;
 	if (authinfo->group != NULL)
 		groupid = authz_sqlite_groupid(ctx, authinfo->group);
+	if (authinfo->status != NULL)
+		statusid = authz_sqlite_statusid(ctx, authinfo->status);
 	if (authinfo->home != NULL)
 		home = authinfo->home;
 
 	int ret;
-	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"home\") values (@NAME,@PASSWD,@GROUP,@HOME);";
+	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"statusid\",\"home\") values (@NAME,@PASSWD,@GROUP,@STATUS,@HOME);";
 
 	sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
 	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
@@ -462,6 +476,10 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 
 	index = sqlite3_bind_parameter_index(statement, "@GROUP");
 	ret = sqlite3_bind_int(statement, index, groupid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@STATUS");
+	ret = sqlite3_bind_int(statement, index, statusid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	ret = sqlite3_step(statement);
@@ -511,6 +529,7 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int userid = 0;
 	int groupid = 2;
+	int statusid = 1;
 
 	userid = authz_sqlite_userid(ctx, authinfo->user);
 	if (userid == -1)
@@ -521,6 +540,11 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 		group = authz_sqlite_group(ctx, authinfo->user);
 	groupid = authz_sqlite_groupid(ctx, group);
 
+	const char *status = authinfo->status;
+	if (authinfo->status == NULL)
+		status = authz_sqlite_status(ctx, authinfo->user);
+	statusid = authz_sqlite_statusid(ctx, status);
+
 	const char *home = authinfo->home;
 	if (authinfo->home == NULL)
 		home = authz_sqlite_home(ctx, authinfo->user);
@@ -529,6 +553,7 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 	const char sql[] =
 		"update users set \
 			groupid=@GROUP, \
+			statusid=@STATUS, \
 			home=@HOME \
 			where id=@USERID";
 
@@ -543,6 +568,10 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 
 	index = sqlite3_bind_parameter_index(statement, "@GROUP");
 	ret = sqlite3_bind_int(statement, index, groupid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@STATUS");
+	ret = sqlite3_bind_int(statement, index, statusid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	index = sqlite3_bind_parameter_index(statement, "@HOME");
@@ -590,6 +619,13 @@ static const char *authz_sqlite_group(void *arg, const char *user)
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
 	return authz_sqlite_search(ctx, user, "groups.name as \"group\"");
+}
+
+static const char *authz_sqlite_status(void *arg, const char *user)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+
+	return authz_sqlite_search(ctx, user, "status.name as \"status\"");
 }
 
 static const char *authz_sqlite_home(void *arg, const char *user)
