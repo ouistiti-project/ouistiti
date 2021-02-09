@@ -53,6 +53,7 @@ typedef struct authsession_s
 	char *passwd;
 	char *urlspace;
 	char *token;
+	char *status;
 } authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
