@@ -1077,7 +1077,6 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			warn("auth: token with bad signature");
 		}
 	}
-dbg("%s %d", __FUNCTION__, __LINE__);
 	return ret;
 }
 #endif
@@ -1366,6 +1365,93 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 }
 
 #ifdef AUTHZ_MANAGER
+static int auth_jsonifyuser(_mod_auth_ctx_t *ctx, http_message_t *response, const char *user)
+{
+	_mod_auth_t *mod = ctx->mod;
+	const char *group = NULL;
+	const char *home = NULL;
+	const char *token = NULL;
+	const char *passwd = NULL;
+	const char *status = NULL;
+
+	httpmessage_addcontent(response, "text/json",
+		"{\"user\":\"", -1);
+	httpmessage_appendcontent(response, user, -1);
+	httpmessage_appendcontent(response, "\"", -1);
+	if (mod->authz->rules->group != NULL)
+		group = mod->authz->rules->group(mod->authz->ctx, user);
+	if (group != NULL)
+	{
+		httpmessage_appendcontent(response, ",\"group\":\"", -1);
+		httpmessage_appendcontent(response, group, -1);
+		httpmessage_appendcontent(response, "\"", -1);
+	}
+	if (mod->authz->rules->status != NULL)
+		status = mod->authz->rules->status(mod->authz->ctx, user);
+	if (status != NULL)
+	{
+		httpmessage_appendcontent(response, ",\"status\":\"", -1);
+		httpmessage_appendcontent(response, status, -1);
+		httpmessage_appendcontent(response, "\"", -1);
+	}
+	if (mod->authz->rules->home != NULL)
+		home = mod->authz->rules->home(mod->authz->ctx, user);
+	if (home != NULL)
+	{
+		httpmessage_appendcontent(response, ",\"home\":\"", -1);
+		httpmessage_appendcontent(response, home, -1);
+		httpmessage_appendcontent(response, "\"", -1);
+	}
+	if (token != NULL)
+	{
+		httpmessage_appendcontent(response, ",\"token\":\"", -1);
+		httpmessage_appendcontent(response, token, -1);
+		httpmessage_appendcontent(response, "\"", -1);
+	}
+	httpmessage_appendcontent(response, "}", -1);
+	return 0;
+}
+
+static int auth_stringifyuser(_mod_auth_ctx_t *ctx, http_message_t *response, const char *user)
+{
+	_mod_auth_t *mod = ctx->mod;
+	const char *group = NULL;
+	const char *home = NULL;
+	const char *token = NULL;
+	const char *passwd = NULL;
+	const char *status = NULL;
+
+	httpmessage_addcontent(response, "application/x-www-form-urlencoded",
+		"user=", -1);
+	httpmessage_appendcontent(response, user, -1);
+	if (mod->authz->rules->group != NULL)
+		group = mod->authz->rules->group(mod->authz->ctx, user);
+	if (group != NULL)
+	{
+		httpmessage_appendcontent(response, "&group=", -1);
+		httpmessage_appendcontent(response, group, -1);
+	}
+	if (mod->authz->rules->status != NULL)
+		status = mod->authz->rules->status(mod->authz->ctx, user);
+	if (status != NULL)
+	{
+		httpmessage_appendcontent(response, "&status=", -1);
+		httpmessage_appendcontent(response, status, -1);
+	}
+	if (mod->authz->rules->home != NULL)
+		home = mod->authz->rules->home(mod->authz->ctx, user);
+	if (home != NULL)
+	{
+		httpmessage_appendcontent(response, "&home=", -1);
+		httpmessage_appendcontent(response, home, -1);
+	}
+	if (token != NULL)
+	{
+		httpmessage_appendcontent(response, "&token=", -1);
+		httpmessage_appendcontent(response, token, -1);
+	}
+	return 0;
+}
 
 static int _authz_connector(void *arg, http_message_t *request, http_message_t *response)
 {
@@ -1487,21 +1573,12 @@ static int _authz_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else if (user != NULL)
 		{
-			httpmessage_addcontent(response, "application/x-www-form-urlencoded",
-				"user=", -1);
-			httpmessage_appendcontent(response, user, -1);
-			group = mod->authz->rules->group(mod->authz->ctx, user);
-			if (group != NULL)
-			{
-				httpmessage_appendcontent(response, "&group=", -1);
-				httpmessage_appendcontent(response, group, -1);
-			}
-			if (token != NULL)
-			{
-				httpmessage_appendcontent(response, "&token=", -1);
-				httpmessage_appendcontent(response, token, -1);
-			}
-			httpmessage_appendcontent(response, "\n", -1);
+			const char *accept = httpmessage_REQUEST(request, "Accept");
+
+			if (strstr(accept, "text/json") != NULL)
+				auth_jsonifyuser(ctx, response, user);
+			else
+				auth_stringifyuser(ctx, response, user);
 		}
 		free(storage);
 	}

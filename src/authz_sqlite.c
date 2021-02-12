@@ -239,7 +239,7 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)
 		return 1;
 	else
-		err("auth: user %s not found in file", user);
+		err("auth: user %s not found in DB", user);
 	return ret;
 }
 
