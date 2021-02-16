@@ -31,5 +31,11 @@
 
 #include "mod_auth.h"
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+void *authn_basic_config(config_setting_t *configauth);
+#endif
+
 extern authn_rules_t authn_basic_rules;
+
 #endif

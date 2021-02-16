@@ -50,6 +50,17 @@ struct authn_bearer_s
 	http_client_t *clt;
 };
 
+#ifdef FILE_CONFIG
+void *authn_bearer_config(config_setting_t *configauth)
+{
+	authn_bearer_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	return authn_config;
+}
+#endif
+
 static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg)
 {
 	authn_bearer_t *mod = calloc(1, sizeof(*mod));

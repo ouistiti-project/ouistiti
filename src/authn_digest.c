@@ -58,6 +58,18 @@ struct authn_digest_s
 	int encode;
 };
 
+#ifdef FILE_CONFIG
+void *authn_digest_config(config_setting_t *configauth)
+{
+	authn_digest_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
+	return authn_config;
+}
+#endif
+
 static char *utils_stringify(const unsigned char *data, size_t len)
 {
 	size_t i;
