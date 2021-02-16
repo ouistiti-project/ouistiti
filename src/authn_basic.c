@@ -46,6 +46,17 @@ struct authn_basic_s
 	char *challenge;
 };
 
+#ifdef FILE_CONFIG
+void *authn_basic_config(config_setting_t *configauth)
+{
+	authn_basic_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	return authn_config;
+}
+#endif
+
 #define FORMAT "Basic realm=\"%s\""
 static void *authn_basic_create(const authn_t *authn, authz_t *authz, void *arg)
 {

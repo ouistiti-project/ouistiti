@@ -79,6 +79,39 @@ struct _json_load_s
 	const char *content;
 };
 
+#ifdef FILE_CONFIG
+void *authn_oauth2_config(config_setting_t *configauth)
+{
+	authn_oauth2_config_t *authn_config = NULL;
+	const char *auth_ep = NULL;
+	const char *discovery = NULL;
+
+	config_setting_lookup_string(configauth, "discovery", (const char **)&discovery);
+	config_setting_lookup_string(configauth, "auth_ep", (const char **)&auth_ep);
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	authn_config->discovery = discovery;
+	authn_config->auth_ep = auth_ep;
+
+	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+
+	config_setting_lookup_string(configauth, "client_id", (const char **)&authn_config->client_id);
+	if (authn_config->client_id == NULL)
+		authn_config->client_id = authn_config->realm;
+
+	config_setting_lookup_string(configauth, "client_passwd", (const char **)&authn_config->client_passwd);
+	if (authn_config->client_passwd == NULL)
+	{
+		config_setting_lookup_string(configauth, "secret", (const char **)&authn_config->client_passwd);
+	}
+
+	if (authn_config->iss == NULL)
+		authn_config->iss = authn_config->realm;
+
+	return authn_config;
+}
+#endif
+
 size_t _json_load(void *buffer, size_t buflen, void *data)
 {
 	int ret;
