@@ -73,6 +73,22 @@ static int authz_sqlite_userid(authz_sqlite_t *ctx, const char *user);
 static int authz_sqlite_groupid(authz_sqlite_t *ctx, const char *group);
 static int authz_sqlite_statusid(authz_sqlite_t *ctx, const char *status);
 
+#ifdef FILE_CONFIG
+void *authz_sqlite_config(config_setting_t *configauth)
+{
+	authz_sqlite_config_t *authz_config = NULL;
+	char *path = NULL;
+
+	config_setting_lookup_string(configauth, "dbname", (const char **)&path);
+	if (path != NULL && path[0] != '0')
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->dbname = path;
+	}
+	return authz_config;
+}
+#endif
+
 static void *authz_sqlite_create(http_server_t *server, void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
