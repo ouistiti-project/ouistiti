@@ -71,18 +71,17 @@ static int logfd = 0;
 
 typedef void (*_parsercb_t)(void *arg, const char *option, size_t length);
 
-static void config_mimes(config_setting_t *configmimes)
+static void config_mimes(const config_setting_t *configmimes)
 {
 	if (configmimes == NULL)
 		return;
 
 	int count = config_setting_length(configmimes);
-	int i;
-	for (i = 0; i < count; i++)
+	for (int i = 0; i < count; i++)
 	{
 		char *ext = NULL;
 		char *mime = NULL;
-		config_setting_t *iterator = config_setting_get_elem(configmimes, i);
+		const config_setting_t *iterator = config_setting_get_elem(configmimes, i);
 		if (iterator)
 		{
 			config_setting_lookup_string(iterator, "ext", (const char **)&ext);
@@ -115,7 +114,7 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 	config->server->port = 80;
 	config_setting_lookup_int(iterator, "port", &config->server->port);
 	config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
-	config_setting_lookup_string(iterator, "service", (const char **)&config->server->service);
+	config_setting_lookup_string(iterator, "service", &config->server->service);
 	config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
 	config->server->chunksize = DEFAULT_CHUNKSIZE;
 	config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
@@ -126,8 +125,7 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 	config_setting_lookup_string(iterator, "version", &version);
 	if (version)
 	{
-		int i = 0;
-		for (i = 0; httpversion[i] != NULL; i++)
+		for (int i = 0; httpversion[i] != NULL; i++)
 		{
 			if (!strcmp(version,  httpversion[i]))
 			{
@@ -141,29 +139,17 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 	return config;
 }
 
-static struct _config_module_s
+struct _config_module_s
 {
 	const char *name;
 	void *(*configure)(config_setting_t *iterator, server_t *server);
-} list_config_modules [] =
+};
+static struct _config_module_s list_config_modules [] =
 {
 	{
 		.name = "end",
 	}
 };
-
-static void *_config_modules(void *data, const char *name, server_t *server)
-{
-	config_setting_t *iterator = (config_setting_t *)data;
-	void *mod = NULL;
-	int i;
-	for (i = 0; i < sizeof(list_config_modules)/ sizeof(struct _config_module_s); i++)
-	{
-		if (!strcmp(name, list_config_modules[i].name))
-			mod = list_config_modules[i].configure(iterator, server);
-	}
-	return mod;
-}
 
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 {
@@ -202,9 +188,9 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 			err("log file error %s", strerror(errno));
 	}
 	config_lookup_string(&configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
-	config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
+	const config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
 	config_mimes(configmimes);
-	config_setting_t *configservers = config_lookup(&configfile, "servers");
+	const config_setting_t *configservers = config_lookup(&configfile, "servers");
 	if (configservers)
 	{
 		int count = config_setting_length(configservers);
@@ -224,8 +210,6 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
-	int i;
-
 	if (logfd > 0)
 		close(logfd);
 	config_destroy(&configfile);
