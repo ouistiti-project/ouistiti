@@ -64,6 +64,22 @@ struct authz_unix_s
 	char home[128];
 };
 
+#ifdef FILE_CONFIG
+void *authz_unix_config(config_setting_t *configauth)
+{
+	authz_file_config_t *authz_config = NULL;
+	char *path = NULL;
+
+	config_setting_lookup_string(configauth, "file", (const char **)&path);
+	if (path != NULL && path[0] != '0' && strstr(path, "shadow"))
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->path = path;
+	}
+	return authz_config;
+}
+#endif
+
 static void *authz_unix_create(http_server_t *server, void *arg)
 {
 	authz_unix_t *ctx = NULL;

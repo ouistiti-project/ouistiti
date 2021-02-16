@@ -31,5 +31,11 @@
 
 #include "mod_auth.h"
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+void *authz_unix_config(config_setting_t *configauth);
+#endif
+
 extern authz_rules_t authz_unix_rules;
+
 #endif

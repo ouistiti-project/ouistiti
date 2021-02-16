@@ -31,6 +31,11 @@
 
 #include "mod_auth.h"
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+void *authz_jwt_config(config_setting_t *configauth);
+#endif
+
 extern authz_rules_t authz_jwt_rules;
 
 char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info);

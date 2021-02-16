@@ -62,6 +62,14 @@ struct authz_jwt_s
 	authsession_t *token;
 };
 
+#ifdef FILE_CONFIG
+void *authz_jwt_config(config_setting_t *configauth)
+{
+	authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
+	return authz_config;
+}
+#endif
+
 char *authz_generatejwtoken(mod_auth_t *config, authsession_t *info)
 {
 	json_t *jheader = json_object();
