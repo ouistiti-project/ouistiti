@@ -102,10 +102,10 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 			"insert into groups (name) values(\"root\");",
 			"insert into groups (name) values(\"users\");",
 			"insert into users (name,groupid, statusid,passwd,home) \
-				values(\"root\",(select id from groups where name=\"root\"),1,\"test\",\"\");",
+				values(\"root\",(select id from groups where name=\"root\"),2,\"root\",\"\");",
 #ifdef DEBUG
 			"insert into users (name,groupid, statusid,passwd,home) \
-				values(\"foo\",(select id from groups where name=\"users\"),1,\"bar\",\"foo\");",
+				values(\"foo\",(select id from groups where name=\"users\"),2,\"bar\",\"foo\");",
 #endif
 			NULL,
 		};
@@ -235,6 +235,7 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 	int ret = 0;
 
 	const char *checkpasswd = authz_sqlite_passwd(ctx, user);
+	auth_dbg("auth: check password for %s => %s (%s)", user, passwd, checkpasswd);
 	if (checkpasswd != NULL &&
 			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)
 		return 1;
@@ -652,6 +653,7 @@ authz_rules_t authz_sqlite_rules =
 	.passwd = &authz_sqlite_passwd,
 	.group = &authz_sqlite_group,
 	.home = &authz_sqlite_home,
+	.status = &authz_sqlite_status,
 	.join = &authz_sqlite_join,
 	.adduser = &authz_sqlite_adduser,
 #ifdef AUTHZ_MANAGER
