@@ -601,9 +601,6 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	if (mod->authz->type & AUTHZ_HOME_E)
 		httpclient_addconnector(ctl, _home_connector, ctx, CONNECTOR_AUTH, str_auth);
 	httpclient_addconnector(ctl, _authn_connector, ctx, CONNECTOR_AUTH, str_auth);
-#ifdef AUTHZ_MANAGER
-	httpclient_addconnector(ctl, _authz_connector, ctx, CONNECTOR_DOCUMENT, "authz");
-#endif
 	/**
 	 * authn may require prioritary connector and it has to be added after this one
 	 */

@@ -332,8 +332,5 @@ authz_rules_t authz_jwt_rules =
 	.group = &authz_jwt_group,
 	.home = &authz_jwt_home,
 	.join = &authz_jwt_join,
-#ifdef AUTHN_OAUTH2
-	.adduser = &authz_jwt_adduser,
-#endif
 	.destroy = &authz_jwt_destroy,
 };
