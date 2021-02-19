@@ -649,30 +649,33 @@ static const char *authz_sqlite_home(void *arg, const char *user)
 	return authz_sqlite_search(ctx, user, "home");
 }
 
-static void authz_sqlite_destroy(void *arg)
+static void authz_sqlite_cleanup(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
 	sqlite3_close(ctx->db);
+	ctx->db = NULL;
+}
+
+static void authz_sqlite_destroy(void *arg)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+
 	free(ctx);
 }
 
 authz_rules_t authz_sqlite_rules =
 {
 	.create = &authz_sqlite_create,
+	.setup = &authmngt_sqlite_setup,
 	.check = &authz_sqlite_check,
 	.passwd = &authz_sqlite_passwd,
 	.group = &authz_sqlite_group,
 	.home = &authz_sqlite_home,
 	.status = &authz_sqlite_status,
 	.join = &authz_sqlite_join,
-	.adduser = &authz_sqlite_adduser,
-#ifdef AUTHZ_MANAGER
-	.changepasswd = &authz_sqlite_changepasswd,
-	.changeinfo = &authz_sqlite_changeinfo,
-	.removeuser = &authz_sqlite_removeuser,
-#endif
+	.cleanup = &authz_sqlite_cleanup,
 	.destroy = &authz_sqlite_destroy,
 };

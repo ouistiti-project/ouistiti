@@ -290,7 +290,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 						authsession_t authinfo = {0};
 						authinfo.user = (char *)json_string_value(json_username);
 						authinfo.group = (char *)"users";
-						mod->authz->rules->adduser(mod->authz->ctx, &authinfo);
+						httpmessage_SESSION(request, str_auth, &authinfo, sizeof(authinfo));
 					}
 					json_t *json_expire = json_object_get(json_authtokens, "expires_in");
 					if (json_expire != NULL && json_is_integer(json_expire))
@@ -322,15 +322,13 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 			}
 			if (authinfo != NULL)
 			{
-				mod->authz->rules->adduser(mod->authz->ctx, authinfo);
-				ret = mod->authz->rules->join(mod->authz->ctx, authinfo->user, access_token, expires_in);
-			}
-			if (ret != ESUCCESS)
-			{
-				err("oauth2 db error on insert %d", ret);
-			}
-			else
-			{
+				oauth2_session_t session;
+
+				session.expires_in = expires_in;
+				strncpy(session.token, access_token, MAX_TOKEN);
+
+				httpmessage_SESSION(request, str_auth, authinfo, sizeof(*authinfo));
+
 				char authorization[MAX_TOKEN + 7 + 1];
 				snprintf(authorization, MAX_TOKEN + 7 + 1, "oAuth2 %s", access_token);
 				httpmessage_addheader(response, str_authorization, authorization);
@@ -371,12 +369,6 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 
 static void *authn_oauth2_create(const authn_t *authn, authz_t *authz, void *config)
 {
-	if (authz->rules->adduser == NULL)
-	{
-		err("oauth2 needs to run with SQLITE authz");
-		warn("set auth dbname configuration");
-		return NULL;
-	}
 	if (authn->hash == NULL)
 		return NULL;
 	authn_oauth2_t *mod = calloc(1, sizeof(*mod));
