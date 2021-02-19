@@ -49,32 +49,22 @@ static int modulefilter(const struct dirent *entry)
 	return !strncmp(entry->d_name, "mod_", 4);
 }
 
-int ouistiti_initmodules()
+int ouistiti_initmodules(const char *pkglib)
 {
 	int i;
-	int cwdfd = open(".", O_DIRECTORY);
-	int pkglibfd = open(PKGLIBDIR, O_DIRECTORY);
-	if (pkglibfd == -1)
-	{
-		return EREJECT;
-	}
-	if (fchdir(pkglibfd) == -1)
-	{
-		err("Package linbrary dir "PKGLIBDIR" notfound");
-		return EREJECT;
-	}
 
 	int ret;
 	struct dirent **namelist = NULL;
-	ret = scandir(".", &namelist, &modulefilter, alphasort);
+	ret = scandir(pkglib, &namelist, &modulefilter, alphasort);
 	for (i = 0; i < ret; i++)
 	{
 		const char *name = namelist[i]->d_name;
-
-		if (access(name, X_OK) == -1)
+		char path[PATH_MAX];
+		snprintf(path, PATH_MAX, "%s/%s", pkglib, name);
+		if (access(path, X_OK) == -1)
 			continue;
 
-		void *dh = dlopen(name, RTLD_LAZY | RTLD_GLOBAL);
+		void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
 
 		if (dh != NULL)
 		{
@@ -89,10 +79,5 @@ int ouistiti_initmodules()
 		free(namelist[i]);
 	}
 	free(namelist);
-	if (fchdir(cwdfd) == -1)
-	{
-		err("Package linbrary dir "PKGLIBDIR" notfound");
-		return EREJECT;
-	}
 	return ESUCCESS;
 }

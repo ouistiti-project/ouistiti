@@ -69,7 +69,7 @@ typedef struct ouistiticonfig_s
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
-int ouistiti_initmodules(void);
+int ouistiti_initmodules(const char *pkglib);
 typedef void *(*configure_t)(void *data, const char *name, server_t *server);
 void ouistiti_registermodule(const module_t *module);
 int ouistiti_issecure(server_t *server);
