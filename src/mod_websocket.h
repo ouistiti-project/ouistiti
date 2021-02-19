@@ -45,6 +45,7 @@ struct mod_websocket_s
 	const char *docroot;
 	const char *allow;
 	const char *deny;
+	const char *server;
 	int options;
 };
 

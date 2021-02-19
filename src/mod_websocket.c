@@ -74,6 +74,7 @@ struct _mod_websocket_s
 	mod_websocket_run_t run;
 	void *runarg;
 	int fdroot;
+	const char *host;
 };
 
 struct _mod_websocket_ctx_s
@@ -193,6 +194,11 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 		{
 			ret = _checkfile(ctx, uri, protocol);
 		}
+		else if (mod->host)
+		{
+			ctx->uri = strdup(mod->host);
+			ret = ESUCCESS;
+		}
 		else
 			return EREJECT;
 		if (ret == EREJECT)
@@ -287,6 +293,7 @@ static void *websocket_config(config_setting_t *iterator, server_t *server)
 		char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
 		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
+		config_setting_lookup_string(configws, "server", (const char **)&conf->server);
 		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
 		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
@@ -344,6 +351,7 @@ static void *mod_websocket_create(http_server_t *server, mod_websocket_t *config
 
 	mod->runarg = config;
 	mod->fdroot = fdroot;
+	mod->host = config->server;
 	httpserver_addmod(server, _mod_websocket_getctx, _mod_websocket_freectx, mod, str_websocket);
 	return mod;
 }
@@ -384,6 +392,46 @@ static int _websocket_unix(const char *filepath)
 	return sock;
 }
 
+static int _websocket_tcp(const char *host, const char *port)
+{
+	int sock;
+	struct addrinfo *result, *rp;
+	struct addrinfo hints;
+
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = 0;
+	hints.ai_protocol = 0;
+
+	if (getaddrinfo(host, port, &hints, &result) != 0)
+	{
+		return -1;
+	}
+
+	for (rp = result; rp != NULL; rp = rp->ai_next)
+	{
+		sock = socket(rp->ai_family, rp->ai_socktype,
+			rp->ai_protocol);
+		if (sock == -1)
+			continue;
+
+		if (connect(sock, rp->ai_addr, rp->ai_addrlen) != -1)
+			break;
+
+		close(sock);
+		sock = -1;
+	}
+	if (sock == -1)
+	{
+		err("%s: open error (%s)", str_websocket, strerror(errno));
+	}
+	else
+		warn("websocket: open %s", host);
+
+	return sock;
+}
+
 static int _websocket_socket(char *filepath)
 {
 	int sock = -1;
@@ -391,6 +439,12 @@ static int _websocket_socket(char *filepath)
 	if (!access(filepath, F_OK))
 	{
 		sock = _websocket_unix(filepath);
+	}
+	else if ((port = strchr(filepath, ':')) != NULL)
+	{
+		*port = '\0';
+		port += 1;
+		sock = _websocket_tcp(filepath, port);
 	}
 	return sock;
 }
