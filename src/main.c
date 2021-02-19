@@ -350,6 +350,7 @@ int main(int argc, char * const *argv)
 	const char *pidfile = NULL;
 	int mode = 0;
 	int serverid = -1;
+	const char *pkglib = PKGLIBDIR;
 
 //	setlinebuf(stdout);
 //	setlinebuf(stderr);
@@ -362,7 +363,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:P:hDKV");
+		opt = getopt(argc, argv, "s:f:p:P:hDKVM:");
 		switch (opt)
 		{
 			case 's':
@@ -373,6 +374,9 @@ int main(int argc, char * const *argv)
 			break;
 			case 'p':
 				pidfile = optarg;
+			break;
+			case 'M':
+				pkglib = optarg;
 			break;
 			case 'P':
 				g_default_port = atoi(optarg);
@@ -423,7 +427,7 @@ int main(int argc, char * const *argv)
 		}
 	}
 
-	ouistiti_initmodules();
+	ouistiti_initmodules(pkglib);
 
 	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
 
