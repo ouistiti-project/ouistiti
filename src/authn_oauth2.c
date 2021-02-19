@@ -49,10 +49,12 @@ const httpclient_ops_t *tlsclient_ops;
 
 static const char *str_authresp = "/auth/resp";
 static const char *str_oauth2 = "oauth2";
+static const char *str_auth = "auth";
 
 static const char *str_authorization_code = "code";
 static const char *str_access_token = "access_token";
 static const char *str_state = "session_state";
+static const char *str_expires = "expires";
 
 typedef struct authn_oauth2_s authn_oauth2_t;
 struct authn_oauth2_s
@@ -124,12 +126,6 @@ size_t _json_load(void *buffer, size_t buflen, void *data)
 	do
 	{
 		ret = httpclient_sendrequest(info->client, info->request, info->response);
-		size = httpmessage_content(info->request, NULL, NULL);
-		if (size == 0 && strlen(info->content) > 0)
-		{
-			info->content += httpmessage_addcontent(info->request, NULL, info->content, -1);
-		}
-
 	} while (ret == EINCOMPLETE);
 
 	char *content = NULL;
@@ -222,6 +218,7 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 					.client = client,
 					.request = request2,
 					.response = response2,
+					.content = 0,
 				};
 
 				http_server_t *server = httpclient_server(mod->clt);
@@ -232,24 +229,31 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 					host = httpmessage_SERVER(request, "addr");
 				}
 				const char *port = httpserver_INFO(server, "port");
-				const char *portseparator = "";
+				_json_load_data.content += httpmessage_addcontent(request2, "application/x-www-form-urlencoded", "grant_type=", -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, type, -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, "&code=", -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, code, -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, "&client_id=", -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, config->client_id, -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, "&scope=openid roles profile", -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, "&redirect_uri=", -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, scheme, -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, "://", -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, host, -1);
 				if (port[0] != '\0')
-					portseparator = ":";
-				char content[1024];
-				snprintf(content, 1024, "grant_type=%s&" \
-							"code=%s&" \
-							"client_id=%s&" \
-							"scope=openid roles profile&" \
-							"redirect_uri=%s://%s%s%s%s&" \
-							"state=%.3d\r\n",
-							type,
-							code,
-							config->client_id,
-							scheme, host, portseparator, port, str_authresp,
-							mod->state);
-				_json_load_data.content = content;
-				_json_load_data.content += httpmessage_addcontent(request2, "application/x-www-form-urlencoded", (char *)content, -1);
+				{
+					_json_load_data.content += httpmessage_appendcontent(request2, ":", -1);
+					_json_load_data.content += httpmessage_appendcontent(request2, port, -1);
+				}
+				_json_load_data.content += httpmessage_appendcontent(request2, str_authresp, -1);
+				_json_load_data.content += httpmessage_appendcontent(request2, "&state=", -1);
+				char state[4] = {0};
+				snprintf(state, 4, "%.3d", mod->state);
+				_json_load_data.content += httpmessage_appendcontent(request2, state, -1);
 
+				/**
+				 * send checking request to the authmanager
+				 */
 				json_error_t error;
 				json_authtokens = json_load_callback(_json_load, &_json_load_data, 0, &error);
 				if (json_authtokens == NULL)
@@ -305,7 +309,6 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 
 		if (access_token != NULL)
 		{
-#define MAX_TOKEN 123
 			/**
 			 * keep only the signature of the access_token.
 			 * The KeyCloak token is too long for ouistiti.

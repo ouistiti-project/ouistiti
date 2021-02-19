@@ -36,6 +36,14 @@
 void *authn_oauth2_config(config_setting_t *configauth);
 #endif
 
+#define MAX_TOKEN 123
+struct oauth2_session_s
+{
+	char token[MAX_TOKEN];
+	int expires_in;
+};
+typedef struct oauth2_session_s oauth2_session_t;
+
 extern authn_rules_t authn_oauth2_rules;
 
 #endif
