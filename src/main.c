@@ -70,7 +70,7 @@
 const char *auth_info(http_message_t *request, const char *key)
 {
 	const authsession_t *info = NULL;
-	info = httpmessage_SESSION(request, "auth", NULL);
+	info = httpmessage_SESSION(request, "auth", NULL, 0);
 	const char *value = NULL;
 
 	if (info && !strcmp(key, "user"))
