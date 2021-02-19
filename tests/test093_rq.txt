@@ -1,6 +1,6 @@
 POST /auth/mngt/alibaba HTTP/1.1
 HOST: 127.0.0.1
-Authorization: Basic cm9vdDp0ZXN0
+Authorization: Basic cm9vdDpyb290
 Content-Length: 24
 Content-Type: application/x-www-form-urlencoded
 

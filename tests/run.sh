@@ -91,6 +91,7 @@ start () {
 	ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
+	ARGUMENTS=$ARGUMENTS" -M ${SRCDIR}"
 	ARGUMENTS=$ARGUMENTS" -p ${TESTDIR}run.pid"
 	if [ -n "$INFO" ]; then
 		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
@@ -186,7 +187,7 @@ test () {
 			echo "******************************"
 			echo
 		fi
-		echo cat ${TESTDIR}$TESTREQUEST' |' $TESTCLIENT $TESTOPTION 
+		echo cat ${TESTDIR}$TESTREQUEST' |' $TESTCLIENT $TESTOPTION
 		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
 	if [ -n "$CMDREQUEST" ]; then

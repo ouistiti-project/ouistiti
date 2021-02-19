@@ -240,8 +240,6 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 		}
 	}
 
-	sqlite3_finalize(ctx->statement);
-	ctx->statement = NULL;
 	return value;
 }
 #endif
@@ -276,7 +274,6 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 			return user;
 	}
 #endif
-
 	if (user != NULL && passwd != NULL && _authz_sqlite_checkpasswd(ctx, user, passwd))
 		return user;
 

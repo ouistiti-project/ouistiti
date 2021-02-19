@@ -84,6 +84,7 @@ struct authz_jwt_config_s
 };
 
 typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
+typedef int (*authz_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
 typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);
@@ -95,11 +96,13 @@ typedef int (*authz_rule_adduser_t)(void *arg, authsession_t *newuser);
 typedef int (*authz_rule_changepasswd_t)(void *arg, authsession_t *newuser);
 typedef int (*authz_rule_changeinfo_t)(void *arg, authsession_t *user);
 typedef int (*authz_rule_removeuser_t)(void *arg, authsession_t *olduser);
+typedef void (*authz_rule_cleanup_t)(void *arg);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
 struct authz_rules_s
 {
 	authz_rule_create_t create;
+	authz_rule_setup_t setup;
 	authz_rule_check_t check;
 	authz_rule_join_t join;
 	authz_rule_passwd_t passwd;
@@ -111,6 +114,7 @@ struct authz_rules_s
 	authz_rule_changepasswd_t changepasswd;
 	authz_rule_changeinfo_t changeinfo;
 	authz_rule_removeuser_t removeuser;
+	authz_rule_cleanup_t cleanup;
 	authz_rule_destroy_t destroy;
 };
 typedef enum

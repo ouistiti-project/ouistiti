@@ -621,6 +621,8 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	 */
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, ctl, addr, addrsize);
+	if(mod->authz->rules->setup)
+		mod->authz->rules->setup(mod->authz->ctx, ctl, addr, addrsize);
 
 	return ctx;
 }
@@ -628,6 +630,12 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx)
 {
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
+	_mod_auth_t *mod = ctx->mod;
+
+	if (mod->authz->ctx  && mod->authz->rules->cleanup)
+	{
+		mod->authz->rules->cleanup(mod->authz->ctx);
+	}
 	if (ctx->info)
 	{
 		if (ctx->info->user)
