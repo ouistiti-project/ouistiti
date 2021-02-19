@@ -716,3 +716,18 @@ authz_rules_t authz_sqlite_rules =
 	.cleanup = &authz_sqlite_cleanup,
 	.destroy = &authz_sqlite_destroy,
 };
+
+#ifdef AUTHZ_MANAGER
+authmngt_rules_t authmngt_sqlite_rules =
+{
+	.create = &authmngt_sqlite_create,
+	.group = &authz_sqlite_group,
+	.home = &authz_sqlite_home,
+	.status = &authz_sqlite_status,
+	.adduser = &authz_sqlite_adduser,
+	.changepasswd = &authz_sqlite_changepasswd,
+	.changeinfo = &authz_sqlite_changeinfo,
+	.removeuser = &authz_sqlite_removeuser,
+	.destroy = &authz_sqlite_destroy,
+};
+#endif
