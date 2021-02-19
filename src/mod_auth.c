@@ -646,7 +646,7 @@ static void _mod_auth_freectx(void *vctx)
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL);
+	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL, 0);
 
 	if (info && info->home)
 	{
@@ -1255,7 +1255,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else
 	{
-		httpmessage_SESSION(request, str_auth, ctx->info);
+		httpmessage_SESSION(request, str_auth, ctx->info, sizeof(*ctx->info));
 		if (ctx->info && mod->authn->type & AUTHN_HEADER_E)
 		{
 			_authn_setauthorization_header(ctx,
