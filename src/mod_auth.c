@@ -85,7 +85,6 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
-static int _authz_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifndef AUTHZ_JWT
 static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info);
 #endif
@@ -114,13 +113,6 @@ struct _mod_auth_s
 const char str_authenticate[] = "WWW-Authenticate";
 const char str_authorization[] = "Authorization";
 const char str_anonymous[] = "anonymous";
-
-#ifdef AUTHZ_MANAGER
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
-
-static const char str_authmngt[] = "^/auth/mngt*";
-#endif
 
 static const char *str_xtoken = "X-Auth-Token";
 static const char *str_xuser = "X-Remote-User";
@@ -560,10 +552,6 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		mod->type = config->authn.name;
 		mod->typelength = strlen(mod->type);
 		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod, str_auth);
-#ifdef AUTHZ_MANAGER
-		httpserver_addmethod(server, str_put, MESSAGE_ALLOW_CONTENT);
-		httpserver_addmethod(server, str_delete, MESSAGE_ALLOW_CONTENT);
-#endif
 		if (mod != NULL && (config->authz.type & AUTHZ_TOKEN_E) &&
 			(mod->authn->config->secret == NULL || strlen(mod->authn->config->secret) == 0))
 		{
@@ -1206,229 +1194,6 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 
 	return ret;
 }
-
-#ifdef AUTHZ_MANAGER
-static int auth_jsonifyuser(_mod_auth_ctx_t *ctx, http_message_t *response, const char *user)
-{
-	_mod_auth_t *mod = ctx->mod;
-	const char *group = NULL;
-	const char *home = NULL;
-	const char *token = NULL;
-	const char *passwd = NULL;
-	const char *status = NULL;
-
-	httpmessage_addcontent(response, "text/json",
-		"{\"user\":\"", -1);
-	httpmessage_appendcontent(response, user, -1);
-	httpmessage_appendcontent(response, "\"", -1);
-	if (mod->authz->rules->group != NULL)
-		group = mod->authz->rules->group(mod->authz->ctx, user);
-	if (group != NULL)
-	{
-		httpmessage_appendcontent(response, ",\"group\":\"", -1);
-		httpmessage_appendcontent(response, group, -1);
-		httpmessage_appendcontent(response, "\"", -1);
-	}
-	if (mod->authz->rules->status != NULL)
-		status = mod->authz->rules->status(mod->authz->ctx, user);
-	if (status != NULL)
-	{
-		httpmessage_appendcontent(response, ",\"status\":\"", -1);
-		httpmessage_appendcontent(response, status, -1);
-		httpmessage_appendcontent(response, "\"", -1);
-	}
-	if (mod->authz->rules->home != NULL)
-		home = mod->authz->rules->home(mod->authz->ctx, user);
-	if (home != NULL)
-	{
-		httpmessage_appendcontent(response, ",\"home\":\"", -1);
-		httpmessage_appendcontent(response, home, -1);
-		httpmessage_appendcontent(response, "\"", -1);
-	}
-	if (token != NULL)
-	{
-		httpmessage_appendcontent(response, ",\"token\":\"", -1);
-		httpmessage_appendcontent(response, token, -1);
-		httpmessage_appendcontent(response, "\"", -1);
-	}
-	httpmessage_appendcontent(response, "}", -1);
-	return 0;
-}
-
-static int auth_stringifyuser(_mod_auth_ctx_t *ctx, http_message_t *response, const char *user)
-{
-	_mod_auth_t *mod = ctx->mod;
-	const char *group = NULL;
-	const char *home = NULL;
-	const char *token = NULL;
-	const char *passwd = NULL;
-	const char *status = NULL;
-
-	httpmessage_addcontent(response, "application/x-www-form-urlencoded",
-		"user=", -1);
-	httpmessage_appendcontent(response, user, -1);
-	if (mod->authz->rules->group != NULL)
-		group = mod->authz->rules->group(mod->authz->ctx, user);
-	if (group != NULL)
-	{
-		httpmessage_appendcontent(response, "&group=", -1);
-		httpmessage_appendcontent(response, group, -1);
-	}
-	if (mod->authz->rules->status != NULL)
-		status = mod->authz->rules->status(mod->authz->ctx, user);
-	if (status != NULL)
-	{
-		httpmessage_appendcontent(response, "&status=", -1);
-		httpmessage_appendcontent(response, status, -1);
-	}
-	if (mod->authz->rules->home != NULL)
-		home = mod->authz->rules->home(mod->authz->ctx, user);
-	if (home != NULL)
-	{
-		httpmessage_appendcontent(response, "&home=", -1);
-		httpmessage_appendcontent(response, home, -1);
-	}
-	if (token != NULL)
-	{
-		httpmessage_appendcontent(response, "&token=", -1);
-		httpmessage_appendcontent(response, token, -1);
-	}
-	return 0;
-}
-
-static int _authz_connector(void *arg, http_message_t *request, http_message_t *response)
-{
-	int ret = EREJECT;
-	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
-	_mod_auth_t *mod = ctx->mod;
-
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	const char *method = httpmessage_REQUEST(request, "method");
-	const char *user = NULL;
-
-	if (!utils_searchexp(uri, str_authmngt, &user))
-	{
-		const char *group = NULL;
-		const char *home = NULL;
-		const char *token = NULL;
-		const char *passwd = NULL;
-		const char *status = NULL;
-
-		authsession_t session = {0};
-		const char *query = httpmessage_REQUEST(request, "query");
-
-		char *storage = strdup(query);
-		if (user == NULL)
-		{
-			user = strstr(storage, "user=");
-			if (user != NULL)
-			{
-				user += 5;
-				char *end = strchr(user, '&');
-				if (end != NULL)
-					*end = '\0';
-			}
-		}
-		else
-		{
-			int i = 0;
-			while (user[i] == '/') i++;
-			user += i;
-		}
-
-		group = strstr(storage, "group=");
-		home = strstr(storage, "home=");
-		passwd = strstr(storage, "password=");
-		status = strstr(storage, "status=");
-		if (!strcmp(method, str_get))
-		{
-			ret = ESUCCESS;
-			if (user == NULL)
-				user = auth_info(request, "user");
-		}
-		else
-		{
-			int add_passwd = 0;
-
-			if (user != NULL)
-			{
-				session.user = (char *)user;
-			}
-			if (group != NULL)
-			{
-				group += 6;
-				char *end = strchr(group, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.group = (char *)group;
-			}
-			if (home != NULL)
-			{
-				home += 5;
-				char *end = strchr(home, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.home = (char *)home;
-			}
-			if (passwd != NULL)
-			{
-				passwd += 9;
-				char *end = strchr(passwd, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.passwd = (char *)passwd;
-			}
-			if (status != NULL)
-			{
-				status += 7;
-				char *end = strchr(status, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.status = (char *)status;
-			}
-			auth_dbg("authmngt: on %s %s %s", session.user, session.group, session.passwd);
-			if (!strcmp(method, str_put) && session.user && session.group)
-			{
-				if ((mod->authz->rules->adduser != NULL) &&
-					(ret = mod->authz->rules->adduser(mod->authz->ctx, &session)) == ESUCCESS)
-					add_passwd = 1;
-			}
-			if ((add_passwd || !strcmp(method, str_post)) && session.user && session.passwd)
-			{
-				if (mod->authz->rules->changepasswd != NULL)
-					ret = mod->authz->rules->changepasswd(mod->authz->ctx, &session);
-			}
-			if ((add_passwd || !strcmp(method, str_post)) && session.user)
-			{
-				if (mod->authz->rules->changeinfo != NULL)
-					ret = mod->authz->rules->changeinfo(mod->authz->ctx, &session);
-			}
-			if (!strcmp(method, str_delete) && session.user)
-			{
-				if (mod->authz->rules->removeuser != NULL)
-					ret = mod->authz->rules->removeuser(mod->authz->ctx, &session);
-			}
-		}
-		if (ret != ESUCCESS)
-		{
-			httpmessage_result(response, RESULT_500);
-			ret = ESUCCESS;
-		}
-		else if (user != NULL)
-		{
-			const char *accept = httpmessage_REQUEST(request, "Accept");
-
-			if (strstr(accept, "text/json") != NULL)
-				auth_jsonifyuser(ctx, response, user);
-			else
-				auth_stringifyuser(ctx, response, user);
-		}
-		free(storage);
-	}
-	return ret;
-}
-
-#endif
 
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
