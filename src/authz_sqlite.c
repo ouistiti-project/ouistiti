@@ -89,15 +89,21 @@ void *authz_sqlite_config(config_setting_t *configauth)
 }
 #endif
 
+#define FIELD_NAME 0
+#define FIELD_GROUP 1
+#define FIELD_STATUS 2
+#define FIELD_PASSWD 3
+#define FIELD_HOME 4
+
 static void *authz_sqlite_create(http_server_t *server, void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
 	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
 	int ret;
-	sqlite3 *db;
 
 	if (access(config->dbname, R_OK))
 	{
+		sqlite3 *db;
 		ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
 		const char *query[] = {
 			"create table groups (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
@@ -140,13 +146,26 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 		sqlite3_close(db);
 		chmod(config->dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
 	}
+	auth_dbg("auth: authentication DB storage on %s", config->dbname);
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->config = config;
+	return ctx;
+}
+
+static void *authmngt_sqlite_create(http_server_t *server, void *arg)
+{
+	authz_sqlite_t *ctx = NULL;
+	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
+	int ret;
+	sqlite3 *db;
+
 	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK)
 	{
 		err("auth: database not found %s", config->dbname);
 		return NULL;
 	}
-	dbg("auth: authentication DB storage on %s", config->dbname);
 	/** empty the session table */
 	sqlite3_stmt *statement;
 	const char *sql = "delete from session;";
@@ -154,11 +173,30 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 
 	sqlite3_step(statement);
 	sqlite3_finalize(statement);
-
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->db = db;
 	ctx->config = config;
 	return ctx;
+}
+
+static int authmngt_sqlite_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	int ret;
+	sqlite3 *db;
+
+	/**
+	 * sqlite3 documentation tells to open the database for each process
+	 */
+	ret = sqlite3_open_v2(ctx->config->dbname, &ctx->db, SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK)
+	{
+		err("auth: database not found %s", ctx->config->dbname);
+		return EREJECT;
+	}
+	auth_dbg("auth: authentication DB storage on %s", ctx->config->dbname);
+
+	return ESUCCESS;
 }
 
 #define SEARCH_QUERY "select %s \
@@ -178,16 +216,19 @@ static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, ch
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
 	sqlite3_prepare_v2(ctx->db, sql, -1, &ctx->statement, NULL);
+
 	int index;
 	index = sqlite3_bind_parameter_index(ctx->statement, "@NAME");
 	if (index > 0)
 		sqlite3_bind_text(ctx->statement, index, user, -1, SQLITE_STATIC);
-
 	ret = sqlite3_step(ctx->statement);
 	do
 	{
 		if (ret < SQLITE_ROW)
+		{
+			err("auth: search %s error %s", field, sqlite3_errmsg(ctx->db));
 			break;
+		}
 		int i = 0;
 		const char *key = sqlite3_column_name(ctx->statement, i);
 		if (sqlite3_column_type(ctx->statement, i) == SQLITE_TEXT)
@@ -246,8 +287,6 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 
 static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
 {
-	int ret = 0;
-
 	const char *checkpasswd = authz_sqlite_passwd(ctx, user);
 	auth_dbg("auth: check password for %s => %s (%s)", user, passwd, checkpasswd);
 	if (checkpasswd != NULL &&
@@ -255,7 +294,7 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 		return 1;
 	else
 		err("auth: user %s not found in DB", user);
-	return ret;
+	return 0;
 }
 
 static const char *authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)
@@ -274,10 +313,23 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 			return user;
 	}
 #endif
+<<<<<<< HEAD
 	if (user != NULL && passwd != NULL && _authz_sqlite_checkpasswd(ctx, user, passwd))
 		return user;
 
 	return NULL;
+=======
+	if (user != NULL && passwd != NULL)
+	{
+		if (!_authz_sqlite_checkpasswd(ctx, user, passwd))
+			user = NULL;
+	}
+	if (ctx->statement != NULL)
+		sqlite3_finalize(ctx->statement);
+	ctx->statement = NULL;
+
+	return user;
+>>>>>>> 87f721f... [auth] new setup and cleanup function for sqlite
 }
 
 static int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
@@ -288,6 +340,8 @@ static int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
 		"select id from users where name=@NAME;",
 		"select id from groups where name=@NAME;",
 		"select id from status where name=@NAME;",
+		NULL,
+		NULL,
 	};
 
 	sqlite3_stmt *statement; /// use a specific statement because name may come from ctx->statement
@@ -655,6 +709,7 @@ static void authz_sqlite_cleanup(void *arg)
 
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
+	ctx->statement = NULL;
 	sqlite3_close(ctx->db);
 	ctx->db = NULL;
 }
