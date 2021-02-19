@@ -73,13 +73,15 @@ const char *auth_info(http_message_t *request, const char *key)
 	info = httpmessage_SESSION(request, "auth", NULL, 0);
 	const char *value = NULL;
 
-	if (info && !strcmp(key, "user"))
+	if (info == NULL)
+		return NULL;
+	if (!strcmp(key, "user"))
 		value = (const char *)info->user;
-	if (info && !strcmp(key, "group"))
+	if (!strcmp(key, "group"))
 		value = (const char *)info->group;
-	if (info && !strcmp(key, "type"))
+	if (!strcmp(key, "type"))
 		value = (const char *)info->type;
-	if (info && !strcmp(key, "home"))
+	if (!strcmp(key, "home"))
 		value = (const char *)info->home;
 	return value;
 }
