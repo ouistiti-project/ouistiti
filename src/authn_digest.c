@@ -40,7 +40,6 @@
 #define auth_dbg(...)
 
 #define MAXNONCE 64
-#define MAXUSER 64
 
 static const char *str_digest;
 
@@ -548,8 +547,8 @@ static int authn_digest_checkuser(void *data, const char *value, size_t length)
 
 	if (value != NULL)
 	{
-		char user[MAXUSER] = {0};
-		length = (length > (MAXUSER - 1))? MAXUSER - 1: length;
+		char user[USER_MAX] = {0};
+		length = (length > (USER_MAX - 1))? USER_MAX - 1: length;
 		strncpy(user, value, length);
 		info->passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 		if (info->passwd != NULL)

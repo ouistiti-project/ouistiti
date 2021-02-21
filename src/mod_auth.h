@@ -44,16 +44,19 @@ extern const char *str_authenticate_engine[];
 
 typedef struct mod_auth_s mod_auth_t;
 
+#define USER_MAX 64
+#define FIELD_MAX 32
+#define TOKEN_MAX 123
 typedef struct authsession_s
 {
-	char *type;
-	char *user;
-	char *group;
-	char *home;
-	char *passwd;
-	char *urlspace;
-	char *token;
-	char *status;
+	char type[FIELD_MAX];
+	char user[USER_MAX];
+	char group[FIELD_MAX];
+	char home[PATH_MAX];
+	char passwd[FIELD_MAX];
+	char urlspace[PATH_MAX];
+	char token[TOKEN_MAX];
+	char status[FIELD_MAX];
 } authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
