@@ -623,18 +623,6 @@ static void _mod_auth_freectx(void *vctx)
 	}
 	if (ctx->info)
 	{
-		if (ctx->info->user)
-			free(ctx->info->user);
-		if (ctx->info->type)
-			free(ctx->info->type);
-		if (ctx->info->group)
-			free(ctx->info->group);
-		if (ctx->info->home)
-			free(ctx->info->home);
-		if (ctx->info->token)
-			free(ctx->info->token);
-		if (ctx->info->status)
-			free(ctx->info->status);
 		free(ctx->info);
 		if (ctx->authorization)
 			free(ctx->authorization);
@@ -773,14 +761,14 @@ static authsession_t *_authn_setsession(const _mod_auth_t *mod, const char * use
 	{
 		token = mod->authz->rules->token(mod->authz->ctx, user);
 	}
-	info->user = strdup(user);
-	info->type = strdup(mod->type);
+	strncpy(info->user, user, USER_MAX);
+	strncpy(info->type, mod->type, FIELD_MAX);
 	if (group)
-		info->group = strdup(mod->authz->rules->group(mod->authz->ctx, user));
+		strncpy(info->group, group, FIELD_MAX);
 	if (home)
-		info->home = strdup(mod->authz->rules->home(mod->authz->ctx, user));
+		strncpy(info->home, home, PATH_MAX);
 	if (token)
-		info->token = strdup(mod->authz->rules->token(mod->authz->ctx, user));
+		strncpy(info->token, token, TOKEN_MAX);
 	return info;
 }
 
@@ -896,7 +884,8 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			}
 			if (ctx->info->token == NULL)
 			{
-				ctx->info->token = strndup(string, sign - string - 1);
+				int length = ((sign - string - 1) < TOKEN_MAX)? sign - string - 1: TOKEN_MAX;
+				strncpy(ctx->info->token, string, length);
 			}
 			ret = EREJECT;
 		}
@@ -981,7 +970,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 			http_message_t *response)
 {
 #ifdef AUTH_TOKEN
-	if (info->token)
+	if (info->token[0] != '\0')
 	{
 		httpmessage_addheader(response, str_xtoken, info->token);
 		const char *key = ctx->mod->config->secret;
@@ -1006,9 +995,9 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		httpmessage_addheader(response, str_authorization, authorization);
 	}
 	httpmessage_addheader(response, str_xuser, info->user);
-	if (info->group)
+	if (info->group[0] != '\0')
 		httpmessage_addheader(response, str_xgroup, info->group);
-	if (info->home)
+	if (info->home[0] != '\0')
 		httpmessage_addheader(response, str_xhome, "~/");
 	return ESUCCESS;
 }
@@ -1054,7 +1043,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 			char *token = mod->authz->generatetoken(mod->config, ctx->info);
 			if (mod->authz->rules->join)
 				mod->authz->rules->join(mod->authz->ctx, ctx->info->user, token, mod->config->expire);
-			ctx->info->token = token;
+			strncpy(ctx->info->token, token, TOKEN_MAX);
 		}
 #endif
 		warn("user \"%s\" accepted from %p", ctx->info->user, ctx->ctl);
@@ -1229,6 +1218,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ret == ECONTINUE && mod->authz->type & AUTHZ_TOKEN_E)
 	{
 		authorization = _authn_gettoken(ctx, request);
+		auth_dbg("auth: gettoken %d", ret);
 		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 		{
 			const char *string = authorization;
@@ -1241,13 +1231,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 	}
 #endif
-	auth_dbg("auth: gettoken %d", ret);
 	authorization = _authn_getauthorization(ctx, request);
+	auth_dbg("auth: getauthorization %d", ret);
 	if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 	{
 		ret = _authn_checkauthorization( ctx, authorization, request);
 	}
-	auth_dbg("auth: getauthorization %d", ret);
+	auth_dbg("auth: checkauthorization %d", ret);
 
 	if (ret != EREJECT)
 	{

@@ -287,14 +287,18 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 
 static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
 {
+	int ret = 0;
 	const char *checkpasswd = authz_sqlite_passwd(ctx, user);
 	auth_dbg("auth: check password for %s => %s (%s)", user, passwd, checkpasswd);
 	if (checkpasswd != NULL &&
 			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)
-		return 1;
+		ret = 1;
 	else
 		err("auth: user %s not found in DB", user);
-	return 0;
+	if (ctx->statement != NULL)
+		sqlite3_finalize(ctx->statement);
+	ctx->statement = NULL;
+	return ret;
 }
 
 static const char *authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)

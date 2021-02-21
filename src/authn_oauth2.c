@@ -292,8 +292,8 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 					if (json_username != NULL && json_is_string(json_username))
 					{
 						authsession_t authinfo = {0};
-						authinfo.user = (char *)json_string_value(json_username);
-						authinfo.group = (char *)"users";
+						strncpy(authinfo.user, json_string_value(json_username), sizeof(authinfo.user));
+						strncpy(authinfo.group, "users", sizeof(authinfo.group));
 						httpmessage_SESSION(request, str_auth, &authinfo, sizeof(authinfo));
 					}
 					json_t *json_expire = json_object_get(json_authtokens, "expires_in");
@@ -313,14 +313,14 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 			 * keep only the signature of the access_token.
 			 * The KeyCloak token is too long for ouistiti.
 			 */
-			if (strlen(access_token) > MAX_TOKEN)
+			if (strlen(access_token) > TOKEN_MAX)
 			{
 				char *tmp = strrchr(access_token, '.');
 				if (tmp != NULL)
 				{
 					access_token = tmp + 1;
 				}
-				tmp = (char *)access_token + MAX_TOKEN;
+				tmp = (char *)access_token + TOKEN_MAX;
 				*tmp = '\0';
 			}
 			if (authinfo != NULL)
@@ -328,12 +328,12 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 				oauth2_session_t session;
 
 				session.expires_in = expires_in;
-				strncpy(session.token, access_token, MAX_TOKEN);
+				strncpy(session.token, access_token, sizeof(session.token));
 
 				httpmessage_SESSION(request, str_auth, authinfo, sizeof(*authinfo));
 
-				char authorization[MAX_TOKEN + 7 + 1];
-				snprintf(authorization, MAX_TOKEN + 7 + 1, "oAuth2 %s", access_token);
+				char authorization[TOKEN_MAX + 7 + 1];
+				snprintf(authorization, TOKEN_MAX + 7 + 1, "oAuth2 %s", access_token);
 				httpmessage_addheader(response, str_authorization, authorization);
 
 				const char *scheme = httpmessage_REQUEST(request, "scheme");

@@ -339,7 +339,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 
 			if (user != NULL)
 			{
-				session.user = (char *)user;
+				strncpy(session.user, user, sizeof(session.user));
 			}
 			if (group != NULL)
 			{
@@ -347,7 +347,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 				char *end = strchr(group, '&');
 				if (end != NULL)
 					*end = '\0';
-				session.group = (char *)group;
+				strncpy(session.group, group, sizeof(session.group));
 			}
 			if (home != NULL)
 			{
@@ -355,7 +355,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 				char *end = strchr(home, '&');
 				if (end != NULL)
 					*end = '\0';
-				session.home = (char *)home;
+				strncpy(session.home, home, sizeof(session.home));
 			}
 			if (passwd != NULL)
 			{
@@ -363,7 +363,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 				char *end = strchr(passwd, '&');
 				if (end != NULL)
 					*end = '\0';
-				session.passwd = (char *)passwd;
+				strncpy(session.passwd, passwd, sizeof(session.passwd));
 			}
 			if (status != NULL)
 			{
@@ -371,27 +371,30 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 				char *end = strchr(status, '&');
 				if (end != NULL)
 					*end = '\0';
-				session.status = (char *)status;
+				strncpy(session.status, status, sizeof(session.status));
 			}
 			auth_dbg("authmngt: on %s %s %s", session.user, session.group, session.passwd);
-			if (!strcmp(method, str_put) && session.user && session.group &&
+			if (!strcmp(method, str_put) &&
+				session.user[0] != '\0' && session.group[0] != '\0' &&
 				(mod->config->mngt.rules->adduser != NULL) &&
 				(ret = mod->config->mngt.rules->adduser(mod->ctx, &session)) == ESUCCESS)
 			{
 				add_passwd = 1;
 			}
 			if ((add_passwd || !strcmp(method, str_post)) &&
-				session.user && session.passwd &&
+				session.user[0] != '\0' && session.passwd[0] != '\0' &&
 				mod->config->mngt.rules->changepasswd != NULL)
 			{
 				ret = mod->config->mngt.rules->changepasswd(mod->ctx, &session);
 			}
-			if ((add_passwd || !strcmp(method, str_post)) && session.user &&
+			if ((add_passwd || !strcmp(method, str_post)) &&
+				session.user[0] != '\0' &&
 				mod->config->mngt.rules->changeinfo != NULL)
 			{
 				ret = mod->config->mngt.rules->changeinfo(mod->ctx, &session);
 			}
-			if (!strcmp(method, str_delete) && session.user &&
+			if (!strcmp(method, str_delete) &&
+				session.user[0] != '\0' &&
 				mod->config->mngt.rules->removeuser != NULL)
 			{
 				ret = mod->config->mngt.rules->removeuser(mod->ctx, &session);
