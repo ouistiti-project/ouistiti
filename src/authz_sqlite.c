@@ -179,7 +179,7 @@ static void *authmngt_sqlite_create(http_server_t *server, void *arg)
 	return ctx;
 }
 
-static int authz_sqlite_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static int authz_sqlite_setup(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int ret;
