@@ -928,7 +928,7 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 			http_message_t *response)
 {
 #ifdef AUTH_TOKEN
-	if (info->token)
+	if (info->token[0] != '\0')
 	{
 		const char *key = ctx->mod->config->secret;
 		if (hash_macsha256 != NULL && key != NULL)
@@ -952,9 +952,9 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 		cookie_set(response, str_authorization, authorization, NULL);
 	}
 	cookie_set(response, str_xuser, info->user, NULL);
-	if (info->group)
+	if (info->group[0] != '\0')
 		cookie_set(response, str_xgroup, info->group, NULL);
-	if (info->home)
+	if (info->home[0] != '\0')
 		cookie_set(response, str_xhome, "~/", NULL);
 	return ESUCCESS;
 }
