@@ -548,11 +548,11 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 
 	if (authz_sqlite_userid(ctx, authinfo->user) != -1)
 		return ESUCCESS;
-	if (authinfo->group != NULL)
+	if (authinfo->group[0] != '\0')
 		group = authinfo->group;
-	if (authinfo->status != NULL)
+	if (authinfo->status[0] != '\0')
 		status = authinfo->status;
-	if (authinfo->home != NULL)
+	if (authinfo->home[0] != '\0')
 		home = authinfo->home;
 
 	int ret;
@@ -602,9 +602,9 @@ static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 	if (userid == -1)
 		return EREJECT;
 
-	if (ret == ESUCCESS && authinfo->home != NULL)
+	if (ret == ESUCCESS && authinfo->passwd[0] != '\0')
 	{
-		ret = authz_sqlite_updatefield(ctx, userid, authinfo->home, FIELD_HOME);
+		ret = authz_sqlite_updatefield(ctx, userid, authinfo->passwd, FIELD_PASSWD);
 	}
 
 	return ret;
@@ -622,17 +622,17 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 	if (userid == -1)
 		return EREJECT;
 
-	if (ret == ESUCCESS && authinfo->group != NULL)
+	if (ret == ESUCCESS && authinfo->group[0] != '\0')
 	{
 		ret = authz_sqlite_updatefield(ctx, userid, authinfo->group, FIELD_GROUP);
 	}
 
-	if (ret == ESUCCESS && authinfo->status != NULL)
+	if (ret == ESUCCESS && authinfo->status[0] != '\0')
 	{
 		ret = authz_sqlite_updatefield(ctx, userid, authinfo->status, FIELD_STATUS);
 	}
 
-	if (ret == ESUCCESS && authinfo->home != NULL)
+	if (ret == ESUCCESS && authinfo->home[0] != '\0')
 	{
 		ret = authz_sqlite_updatefield(ctx, userid, authinfo->home, FIELD_HOME);
 	}
