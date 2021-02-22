@@ -179,7 +179,7 @@ static void *authmngt_sqlite_create(http_server_t *server, void *arg)
 	return ctx;
 }
 
-static int authmngt_sqlite_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static int authz_sqlite_setup(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int ret;
@@ -199,11 +199,12 @@ static int authmngt_sqlite_setup(void *arg, http_client_t *ctl, struct sockaddr 
 	return ESUCCESS;
 }
 
-#define SEARCH_QUERY "select %s \
-						from users \
-						inner join groups on groups.id=users.groupid \
-						inner join status on status.id=users.statusid \
-						where users.name=@NAME;"
+#define SEARCH_QUERY "select %s " \
+						"from users " \
+						"inner join groups on groups.id=users.groupid " \
+						"inner join status on status.id=users.statusid " \
+						"where users.name=@NAME;"
+
 static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
 {
 	int ret;
@@ -710,7 +711,7 @@ static void authz_sqlite_destroy(void *arg)
 authz_rules_t authz_sqlite_rules =
 {
 	.create = &authz_sqlite_create,
-	.setup = &authmngt_sqlite_setup,
+	.setup = &authz_sqlite_setup,
 	.check = &authz_sqlite_check,
 	.passwd = &authz_sqlite_passwd,
 	.group = &authz_sqlite_group,
