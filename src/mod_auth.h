@@ -87,7 +87,7 @@ struct authz_jwt_config_s
 };
 
 typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
-typedef int (*authz_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
+typedef int (*authz_rule_setup_t)(void *arg);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
 typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);

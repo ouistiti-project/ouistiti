@@ -606,8 +606,6 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	 */
 	if(mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, ctl, addr, addrsize);
-	if(mod->authz->rules->setup)
-		mod->authz->rules->setup(mod->authz->ctx, ctl, addr, addrsize);
 
 	return ctx;
 }
@@ -617,10 +615,6 @@ static void _mod_auth_freectx(void *vctx)
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
 	_mod_auth_t *mod = ctx->mod;
 
-	if (mod->authz->ctx  && mod->authz->rules->cleanup)
-	{
-		mod->authz->rules->cleanup(mod->authz->ctx);
-	}
 	if (ctx->info)
 	{
 		free(ctx->info);
@@ -1189,6 +1183,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	mod_auth_t *config = mod->config;
 	const char *authorization = NULL;
 
+	/**
+	 * authz may need setup the user setting for each message
+	 **/
+	if(mod->authz->rules->setup)
+		mod->authz->rules->setup(mod->authz->ctx);
+
 	ret = _authn_checkuri(config, request, response);
 	auth_dbg("auth: checkuri %d", ret);
 #if 0
@@ -1263,6 +1263,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		{
 			auth_setowner(ctx->info->user);
 		}
+	}
+	/**
+	 * As the setup, the authz may need to cleanup between each message
+	 **/
+	if (mod->authz->ctx  && mod->authz->rules->cleanup)
+	{
+		mod->authz->rules->cleanup(mod->authz->ctx);
 	}
 	return ret;
 }
