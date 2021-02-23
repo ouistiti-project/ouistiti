@@ -928,22 +928,30 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 			http_message_t *response)
 {
 #ifdef AUTH_TOKEN
-	if (info->token[0] != '\0')
+	_mod_auth_t *mod = ctx->mod;
+
+	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
+		char *token = mod->authz->generatetoken(mod->config, info);
 		const char *key = ctx->mod->config->secret;
 		if (hash_macsha256 != NULL && key != NULL)
 		{
-			void *ctx = hash_macsha256->initkey(key, strlen(key));
-			if (ctx)
+			void *hctx = hash_macsha256->initkey(key, strlen(key));
+			if (hctx)
 			{
-				hash_macsha256->update(ctx, info->token, strlen(info->token));
+				hash_macsha256->update(hctx, token, strlen(token));
 				char signature[HASH_MAX_SIZE];
-				int signlen = hash_macsha256->finish(ctx, signature);
+				int signlen = hash_macsha256->finish(hctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
-				cookie_set(response, str_xtoken, info->token, ".", b64signature, NULL);
+				cookie_set(response, str_xtoken, token, ".", b64signature, NULL);
+				if (mod->authz->rules->join)
+					mod->authz->rules->join(mod->authz->ctx, info->user, b64signature, mod->config->expire);
 			}
 		}
+		else if (mod->authz->rules->join)
+			mod->authz->rules->join(mod->authz->ctx, info->user, token, mod->config->expire);
+		free(token);
 	}
 	else
 #endif
@@ -964,23 +972,31 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 			http_message_t *response)
 {
 #ifdef AUTH_TOKEN
-	if (info->token[0] != '\0')
+	_mod_auth_t *mod = ctx->mod;
+
+	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
-		httpmessage_addheader(response, str_xtoken, info->token);
+		char *token = mod->authz->generatetoken(mod->config, info);
+		httpmessage_addheader(response, str_xtoken, token);
 		const char *key = ctx->mod->config->secret;
 		if (hash_macsha256 != NULL && key != NULL)
 		{
-			void *ctx = hash_macsha256->initkey(key, strlen(key));
-			if (ctx)
+			void *hctx = hash_macsha256->initkey(key, strlen(key));
+			if (hctx)
 			{
-				hash_macsha256->update(ctx, info->token, strlen(info->token));
+				hash_macsha256->update(hctx, token, strlen(token));
 				char signature[HASH_MAX_SIZE];
-				int signlen = hash_macsha256->finish(ctx, signature);
+				int signlen = hash_macsha256->finish(hctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
 				httpmessage_appendheader(response, str_xtoken, ".", b64signature, NULL);
+				if (mod->authz->rules->join)
+					mod->authz->rules->join(mod->authz->ctx, info->user, b64signature, mod->config->expire);
 			}
 		}
+		else if (mod->authz->rules->join)
+			mod->authz->rules->join(mod->authz->ctx, info->user, token, mod->config->expire);
+		free(token);
 	}
 	else
 #endif
@@ -1031,15 +1047,6 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 			ctx->authorization = strdup(authorization);
 		}
 
-#ifdef AUTH_TOKEN
-		if (mod->authz->type & AUTHZ_TOKEN_E && ctx->info->token == NULL)
-		{
-			char *token = mod->authz->generatetoken(mod->config, ctx->info);
-			if (mod->authz->rules->join)
-				mod->authz->rules->join(mod->authz->ctx, ctx->info->user, token, mod->config->expire);
-			strncpy(ctx->info->token, token, TOKEN_MAX);
-		}
-#endif
 		warn("user \"%s\" accepted from %p", ctx->info->user, ctx->ctl);
 		ret = EREJECT;
 	}
