@@ -82,6 +82,8 @@ char *authz_generatejwtoken(mod_auth_t *config, const authsession_t *info)
 	json_object_set(jtoken, "user", juser);
 	json_t *jhome = json_string(info->home);
 	json_object_set(jtoken, "home", jhome);
+	json_t *jstatus = json_string(info->status);
+	json_object_set(jtoken, "status", jstatus);
 	json_t *jroles = json_string(info->group);
 	json_object_set(jtoken, "roles", jroles);
 #ifndef DEBUG

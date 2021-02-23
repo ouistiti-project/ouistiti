@@ -863,7 +863,7 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			if (ctx->info != NULL)
 			{
 				user = ctx->info->user;
-				auth_dbg("jwt user %s", user);
+				auth_dbg("auth: jwt user %s", user);
 			}
 #endif
 			if (user == NULL)
