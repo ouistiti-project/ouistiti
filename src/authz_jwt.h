@@ -38,7 +38,7 @@ void *authz_jwt_config(config_setting_t *configauth);
 
 extern authz_rules_t authz_jwt_rules;
 
-char *authz_generatejwtoken(mod_auth_t *mod, authsession_t *info);
+char *authz_generatejwtoken(mod_auth_t *mod, const authsession_t *info);
 authsession_t *jwt_decode(const char *id_token);
 
 #endif

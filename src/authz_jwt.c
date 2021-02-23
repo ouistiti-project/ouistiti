@@ -70,7 +70,7 @@ void *authz_jwt_config(config_setting_t *configauth)
 }
 #endif
 
-char *authz_generatejwtoken(mod_auth_t *config, authsession_t *info)
+char *authz_generatejwtoken(mod_auth_t *config, const authsession_t *info)
 {
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));

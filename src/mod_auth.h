@@ -126,7 +126,7 @@ typedef enum
 	AUTHZ_TLS_E = 0x200,
 } authz_type_t;
 typedef struct authz_s authz_t;
-typedef char *(*generatetoken_t)(mod_auth_t *mod, authsession_t *info);
+typedef char *(*generatetoken_t)(mod_auth_t *mod, const authsession_t *info);
 struct authz_s
 {
 	void *ctx;
