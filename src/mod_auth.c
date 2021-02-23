@@ -743,24 +743,24 @@ static authsession_t *_authn_setsession(const _mod_auth_t *mod, const char * use
 		return NULL;
 
 	info = calloc(1, sizeof(*info));
+	strncpy(info->user, user, USER_MAX);
+	strncpy(info->type, mod->type, FIELD_MAX);
 	if (mod->authz->rules->group)
 	{
 		group = mod->authz->rules->group(mod->authz->ctx, user);
 	}
+	if (group)
+		strncpy(info->group, group, FIELD_MAX);
 	if (mod->authz->rules->home)
 	{
 		home = mod->authz->rules->home(mod->authz->ctx, user);
 	}
+	if (home)
+		strncpy(info->home, home, PATH_MAX);
 	if (mod->authz->rules->token)
 	{
 		token = mod->authz->rules->token(mod->authz->ctx, user);
 	}
-	strncpy(info->user, user, USER_MAX);
-	strncpy(info->type, mod->type, FIELD_MAX);
-	if (group)
-		strncpy(info->group, group, FIELD_MAX);
-	if (home)
-		strncpy(info->home, home, PATH_MAX);
 	if (token)
 		strncpy(info->token, token, TOKEN_MAX);
 	return info;
