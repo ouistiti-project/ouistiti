@@ -86,7 +86,7 @@ static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifndef AUTHZ_JWT
-static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info);
+static char *authz_generatetoken(mod_auth_t *mod, const authsession_t *info);
 #endif
 
 static const char str_auth[] = "auth";
@@ -767,7 +767,7 @@ static authsession_t *_authn_setsession(const _mod_auth_t *mod, const char * use
 }
 
 #ifndef AUTHZ_JWT
-static char *authz_generatetoken(mod_auth_t *config, authsession_t *UNUSED(info))
+static char *authz_generatetoken(mod_auth_t *config, const authsession_t *UNUSED(info))
 {
 	int tokenlen = (((24 + 1 + sizeof(time_t)) * 1.5) + 1) + 1;
 	char *token = calloc(1, tokenlen);
