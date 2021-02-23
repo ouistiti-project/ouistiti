@@ -1,5 +1,5 @@
 HTTP/1.1 302 Found
-Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogImZvbyIsICJyb2xlcyI6ICJ1c2VycyIsICJleHAiOiAxODAwfQ.9y7krxxJ_n1Mmq8yhSfwkKw5Mx1Ycwht0nWjLBjJB90; SameSite=strict; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogImZvbyIsICJzdGF0dXMiOiAiIiwgInJvbGVzIjogInVzZXJzIiwgImV4cCI6IDE4MDB9.2_atDgXLhI6Iamr6YZp2ZwzSYzTN3of5ViSSu3SDFiE; SameSite=strict; Path=/; Domain=.ouistiti.net
 Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/; Domain=.ouistiti.net
 Set-Cookie: X-Remote-Group=users; SameSite=strict; Path=/; Domain=.ouistiti.net
 Set-Cookie: X-Remote-Home=~/; SameSite=strict; Path=/; Domain=.ouistiti.net
@@ -7,7 +7,7 @@ Location: https://localhost/index.html
 
  302 Found
 HTTP/1.1 200 OK
-Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogImZvbyIsICJyb2xlcyI6ICJ1c2VycyIsICJleHAiOiAxODAwfQ.9y7krxxJ_n1Mmq8yhSfwkKw5Mx1Ycwht0nWjLBjJB90; SameSite=strict; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogImZvbyIsICJzdGF0dXMiOiAiIiwgInJvbGVzIjogInVzZXJzIiwgImV4cCI6IDE4MDB9.2_atDgXLhI6Iamr6YZp2ZwzSYzTN3of5ViSSu3SDFiE; SameSite=strict; Path=/; Domain=.ouistiti.net
 Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/; Domain=.ouistiti.net
 Set-Cookie: X-Remote-Group=users; SameSite=strict; Path=/; Domain=.ouistiti.net
 Set-Cookie: X-Remote-Home=~/; SameSite=strict; Path=/; Domain=.ouistiti.net
