@@ -1,2 +1,2 @@
 HTTP/1.1 200 OK
-Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogInJvb3QiLCAiaG9tZSI6ICIiLCAicm9sZXMiOiAicm9vdCIsICJleHAiOiAxODAwfQ.vN0tUfigpKXcTqeSSGI5LG7tyq2ZKpgWZtbjL0Jt1D8; SameSite=strict; Path=/; Domain=.ouistiti.net
+Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogInJvb3QiLCAiaG9tZSI6ICIiLCAic3RhdHVzIjogIiIsICJyb2xlcyI6ICJyb290IiwgImV4cCI6IDE4MDB9.LdpQMdbeLuC3qmnNxqXsbGf4dJ__d3aSnVoI_s1eobE; SameSite=strict; Path=/; Domain=.ouistiti.net
