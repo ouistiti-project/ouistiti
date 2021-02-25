@@ -55,28 +55,36 @@ int ouistiti_initmodules(const char *pkglib)
 
 	int ret;
 	struct dirent **namelist = NULL;
-	ret = scandir(pkglib, &namelist, &modulefilter, alphasort);
-	for (i = 0; i < ret; i++)
+	char cwd[PATH_MAX];
+	strncpy(cwd, pkglib, PATH_MAX);
+	char *it_r;
+	char *iterator = strtok_r(cwd, ":", &it_r);
+	while (iterator != NULL)
 	{
-		const char *name = namelist[i]->d_name;
-		char path[PATH_MAX];
-		snprintf(path, PATH_MAX, "%s/%s", pkglib, name);
-		if (access(path, X_OK) == -1)
-			continue;
-
-		void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
-
-		if (dh != NULL)
+		ret = scandir(iterator, &namelist, &modulefilter, alphasort);
+		for (i = 0; i < ret; i++)
 		{
-			module_t *module = dlsym(dh, "mod_info");
-			if (module)
-				ouistiti_registermodule(module);
+			const char *name = namelist[i]->d_name;
+			char path[PATH_MAX];
+			snprintf(path, PATH_MAX, "%s/%s", iterator, name);
+			if (access(path, X_OK) == -1)
+				continue;
+
+			void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+
+			if (dh != NULL)
+			{
+				module_t *module = dlsym(dh, "mod_info");
+				if (module)
+					ouistiti_registermodule(module);
+			}
+			else
+			{
+				err("module %s loading error: %s", name, dlerror());
+			}
+			free(namelist[i]);
 		}
-		else
-		{
-			err("module %s loading error: %s", name, dlerror());
-		}
-		free(namelist[i]);
+		iterator = strtok_r(NULL, ":", &it_r);
 	}
 	free(namelist);
 	return ESUCCESS;
