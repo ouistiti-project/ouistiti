@@ -88,10 +88,12 @@ start () {
 	TARGET=$1
 	CONFIG=$2
 
+	export LD_LIBRARY_PATH=./libhttpserver/src:./libhttpserver/src/httpserver
+	export OUISTITI_MODULES_PATH=./src:./staging
 	ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
-	ARGUMENTS=$ARGUMENTS" -M ${SRCDIR}"
+	ARGUMENTS=$ARGUMENTS" -M \"\""
 	ARGUMENTS=$ARGUMENTS" -p ${TESTDIR}run.pid"
 	if [ -n "$INFO" ]; then
 		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
