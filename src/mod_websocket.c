@@ -394,7 +394,7 @@ static int _websocket_unix(const char *filepath)
 
 static int _websocket_tcp(const char *host, const char *port)
 {
-	int sock;
+	int sock = -1;
 	struct addrinfo *result, *rp;
 	struct addrinfo hints;
 
