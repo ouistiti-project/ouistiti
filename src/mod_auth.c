@@ -876,7 +876,7 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			{
 				ctx->info = _authn_setsession(mod, user);
 			}
-			if (ctx->info->token == NULL)
+			if (ctx->info->token[0] == '\0')
 			{
 				int length = ((sign - string - 1) < TOKEN_MAX)? sign - string - 1: TOKEN_MAX;
 				strncpy(ctx->info->token, string, length);
