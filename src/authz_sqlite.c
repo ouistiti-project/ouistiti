@@ -108,26 +108,27 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 		const char *query[] = {
 			"create table groups (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
 			"create table status (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
-			"create table users (\"id\" INTEGER PRIMARY KEY, \
-						\"name\" TEXT UNIQUE NOT NULL, \
-						\"groupid\" INTEGER DEFAULT 2, \
-						\"statusid\" INTEGER DEFAULT 1, \
-						\"passwd\" TEXT,\
-						\"home\" TEXT, \
-						FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL, \
-						FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
-			"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER, FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
+			"create table users (\"id\" INTEGER PRIMARY KEY,"
+						"\"name\" TEXT UNIQUE NOT NULL,"
+						"\"groupid\" INTEGER DEFAULT 2,"
+						"\"statusid\" INTEGER DEFAULT 1,"
+						"\"passwd\" TEXT,"
+						"\"home\" TEXT,"
+						"FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL,"
+						"FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
+			"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER,"
+						"FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
 			"insert into status (name) values(\"approbing\");",
 			"insert into status (name) values(\"activated\");",
 			"insert into status (name) values(\"repudiated\");",
 			"insert into status (name) values(\"reapprobing\");",
 			"insert into groups (name) values(\"root\");",
 			"insert into groups (name) values(\"users\");",
-			"insert into users (name,groupid, statusid,passwd,home) \
-				values(\"root\",(select id from groups where name=\"root\"),2,\"root\",\"\");",
+			"insert into users (name,groupid, statusid,passwd,home)"
+				"values(\"root\",(select id from groups where name=\"root\"),4,\"root\",\"\");",
 #ifdef DEBUG
-			"insert into users (name,groupid, statusid,passwd,home) \
-				values(\"foo\",(select id from groups where name=\"users\"),2,\"bar\",\"foo\");",
+			"insert into users (name,groupid, statusid,passwd,home)"
+				"values(\"foo\",(select id from groups where name=\"users\"),4,\"bar\",\"foo\");",
 #endif
 			NULL,
 		};
@@ -556,8 +557,8 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 		home = authinfo->home;
 
 	int ret;
-	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"statusid\",\"home\") \
-			values (@NAME,@PASSWD,(select id from groups where name=@GROUP),(select id from status where name=@STATUS),@HOME);";
+	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"statusid\",\"home\")"
+			"values (@NAME,@PASSWD,(select id from groups where name=@GROUP),(select id from status where name=@STATUS),@HOME);";
 
 	sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
 	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
