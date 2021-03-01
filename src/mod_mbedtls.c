@@ -538,7 +538,7 @@ static int tls_wait(void *vctx, int options)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
 	int ret = ESUCCESS;
-	if (!mbedtls_ssl_check_pending(&ctx->ssl))
+	if (!mbedtls_ssl_get_bytes_avail(&ctx->ssl))
 	{
 		ret = ctx->protocolops->wait(ctx->protocol, options);
 	}
