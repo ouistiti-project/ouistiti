@@ -754,7 +754,6 @@ const module_t mod_document =
 	.destroy = &mod_document_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_document);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_document")));
+#endif

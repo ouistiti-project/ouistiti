@@ -146,7 +146,6 @@ const module_t mod_server =
 	.destroy = &mod_server_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_server);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_server")));
+#endif

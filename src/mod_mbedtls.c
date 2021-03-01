@@ -603,8 +603,11 @@ const module_t mod_tls =
 
 static void __attribute__ ((constructor))_init(void)
 {
-	ouistiti_registermodule(&mod_tls);
 #ifdef HTTPCLIENT_FEATURES
 	httpclient_appendops((httpclient_ops_t *)_tlsclient_ops);
 #endif
 }
+
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_tls")));
+#endif

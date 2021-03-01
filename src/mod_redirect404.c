@@ -85,7 +85,6 @@ const module_t mod_redirect404 =
 	.destroy = &mod_redirect404_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_redirect404);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_redirect404")));
+#endif
