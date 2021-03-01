@@ -78,7 +78,7 @@ struct mod_authmngt_s
 	authmngt_t mngt;
 };
 
-extern const module_t mod_auth;
+extern const module_t mod_authmngt;
 
 #ifdef __cplusplus
 }

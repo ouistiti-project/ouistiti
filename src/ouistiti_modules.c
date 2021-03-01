@@ -74,6 +74,13 @@ int ouistiti_initmodules(const char *pkglib)
 
 			if (dh != NULL)
 			{
+				/**
+				 * module may declare "mod_info" symbol
+				 * or module may use the library constructor function
+				 * to register its "mod_info". But this method should
+				 * not be use, because the library needs to be uses 
+				 * to call the constructor.
+				 */
 				module_t *module = dlsym(dh, "mod_info");
 				if (module)
 					ouistiti_registermodule(module);

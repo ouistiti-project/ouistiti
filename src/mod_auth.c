@@ -1289,7 +1289,6 @@ const module_t mod_auth =
 	.destroy = &mod_auth_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_auth);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_auth")));
+#endif

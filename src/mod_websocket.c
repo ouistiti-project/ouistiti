@@ -713,7 +713,6 @@ const module_t mod_websocket =
 	.destroy = mod_websocket_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_websocket);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_websocket")));
+#endif

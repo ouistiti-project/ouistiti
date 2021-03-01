@@ -200,7 +200,6 @@ const module_t mod_cors =
 	.destroy = &mod_cors_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_cors);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_cors")));
+#endif
