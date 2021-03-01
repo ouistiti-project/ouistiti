@@ -430,9 +430,11 @@ int main(int argc, char * const *argv)
 	}
 
 	ouistiti_initmodules(pkglib);
+#ifdef MODULES
 	const char *modules_path = getenv("OUISTITI_MODULES_PATH");
 	if (modules_path != NULL)
 		ouistiti_initmodules(modules_path);
+#endif
 
 	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
 
