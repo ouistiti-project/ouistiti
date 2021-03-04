@@ -49,6 +49,7 @@ typedef struct mod_auth_s mod_auth_t;
 #define TOKEN_MAX 123
 typedef struct authsession_s
 {
+	int expires;
 	char type[FIELD_MAX];
 	char user[USER_MAX];
 	char group[FIELD_MAX];
