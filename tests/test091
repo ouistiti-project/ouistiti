@@ -1,3 +1,3 @@
-DESC=""
+DESC="Authorization on auth manager as root"
 CONFIG=test12.conf
 TESTCODE=200

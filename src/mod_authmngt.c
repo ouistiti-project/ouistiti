@@ -379,6 +379,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 				(mod->config->mngt.rules->adduser != NULL) &&
 				(ret = mod->config->mngt.rules->adduser(mod->ctx, &session)) == ESUCCESS)
 			{
+				httpmessage_result(response, 201);
 				add_passwd = 1;
 			}
 			if ((add_passwd || !strcmp(method, str_post)) &&
