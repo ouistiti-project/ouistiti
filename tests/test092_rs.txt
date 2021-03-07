@@ -1,5 +1,4 @@
 HTTP/1.1 201 Created
-Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogInJvb3QiLCAiaG9tZSI6ICIiLCAic3RhdHVzIjogIiIsICJyb2xlcyI6ICJyb290IiwgImV4cCI6IDE4MDB9.LdpQMdbeLuC3qmnNxqXsbGf4dJ__d3aSnVoI_s1eobE; SameSite=strict; Path=/; Domain=.ouistiti.net
 Content-Type: application/x-www-form-urlencoded
 Content-Length: 47
 
