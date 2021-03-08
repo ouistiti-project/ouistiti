@@ -59,7 +59,7 @@ typedef struct authz_jwt_s authz_jwt_t;
 struct authz_jwt_s
 {
 	authz_jwt_config_t *config;
-	authsession_t *token;
+	authsession_t token;
 };
 
 #ifdef FILE_CONFIG
@@ -178,9 +178,8 @@ json_t *jwt_decode_json(const char *id_token)
 	return jpayload;
 }
 
-authsession_t *jwt_decode(const char *id_token)
+int jwt_decode(const char *id_token, authsession_t *authsession)
 {
-	authsession_t *authsession = NULL;
 	json_t *jinfo = jwt_decode_json(id_token);
 	if (jinfo != NULL)
 	{
@@ -197,7 +196,7 @@ authsession_t *jwt_decode(const char *id_token)
 			{
 				warn("auth: jwt expired");
 #ifndef DEBUG
-				return NULL;
+				return EREJECT;
 #else
 				err("auth: DEBUG is unsecure please rebuild as release");
 #endif
@@ -206,9 +205,8 @@ authsession_t *jwt_decode(const char *id_token)
 		else
 		{
 			warn("auth: jwt doesn't contain exp");
-			return NULL;
+			return EREJECT;
 		}
-		authsession = calloc(1, sizeof(*authsession));
 		const char *user = NULL;
 		const json_t *juser = json_object_get(jinfo, "preferred_username");
 		if (juser && json_is_string(juser))
@@ -220,7 +218,7 @@ authsession_t *jwt_decode(const char *id_token)
 		if (juser && json_is_string(juser))
 			user = json_string_value(juser);
 
-		if (user == NULL)
+		if (user == NULL || user[0] == '\0')
 			user = str_anonymous;
 		strncpy(authsession->user, user, USER_MAX);
 
@@ -243,10 +241,15 @@ authsession_t *jwt_decode(const char *id_token)
 		{
 			strncpy(authsession->group, "anonymous", FIELD_MAX);
 		}
+		const json_t *jstatus = json_object_get(jinfo, "status");
+		if (jstatus && json_is_string(jstatus))
+		{
+			strncpy(authsession->status, json_string_value(jstatus), FIELD_MAX);
+		}
 
 		json_decref(jinfo);
 	}
-	return authsession;
+	return ESUCCESS;
 }
 
 static void *authz_jwt_create(http_server_t *server, void *arg)
@@ -262,12 +265,9 @@ static void *authz_jwt_create(http_server_t *server, void *arg)
 
 static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
-	if (ctx->token == NULL)
-	{
-		ctx->token = jwt_decode(token);
-	}
-	if (ctx->token != NULL)
-		return ctx->token->user;
+	jwt_decode(token, &ctx->token);
+	if (ctx->token.user[0] != '\0')
+		return ctx->token.user;
 	return NULL;
 }
 
@@ -280,26 +280,33 @@ static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const ch
 static const char *authz_jwt_group(void *arg, const char *user)
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	if (ctx->token)
-		return ctx->token->group;
+	if (ctx->token.group[0] != '\0')
+		return ctx->token.group;
 	return NULL;
 }
 
 static const char *authz_jwt_home(void *arg, const char *UNUSED(user))
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	if (ctx->token)
-		return ctx->token->home;
+	if (ctx->token.home[0] != '\0')
+		return ctx->token.home;
 	return NULL;
 }
 
-#ifdef AUTH_TOKEN
-static int authz_jwt_join(void *arg, const char *UNUSED(user), const char *UNUSED(token), int UNUSED(expire))
+static int authz_jwt_setsession(void *arg, const char *UNUSED(user), authsession_t *authsession)
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	if (ctx->token == NULL)
-		return EREJECT;
+	memcpy(authsession, &ctx->token, sizeof(*authsession));
 	return ESUCCESS;
+}
+
+#ifdef AUTH_TOKEN
+static int authz_jwt_join(void *arg, const char *user, const char *UNUSED(token), int UNUSED(expire))
+{
+	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
+	if (!strcmp(ctx->token.user, user))
+		return ESUCCESS;
+	return EREJECT;
 }
 #else
 #define authz_jwt_join NULL
@@ -309,21 +316,14 @@ static int authz_jwt_join(void *arg, const char *UNUSED(user), const char *UNUSE
 static int authz_jwt_adduser(void *arg, authsession_t *newuser)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
-	ctx->token = calloc(1, sizeof(ctx->token));
-	if (ctx->token != NULL)
-	{
-		memcpy(ctx->token, newuser, sizeof(ctx->token));
-		return ESUCCESS;
-	}
-	return EREJECT;
+	memcpy(&ctx->token, newuser, sizeof(ctx->token));
+	return ESUCCESS;
 }
 #endif
 
 static void authz_jwt_destroy(void *arg)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
-
-	free(ctx->token);
 	free(ctx);
 }
 
@@ -331,8 +331,7 @@ authz_rules_t authz_jwt_rules =
 {
 	.create = &authz_jwt_create,
 	.check = &authz_jwt_check,
-	.group = &authz_jwt_group,
-	.home = &authz_jwt_home,
+	.setsession = &authz_jwt_setsession,
 	.join = &authz_jwt_join,
 	.destroy = &authz_jwt_destroy,
 };

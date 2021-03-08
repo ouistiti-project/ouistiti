@@ -732,40 +732,6 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 	return ret;
 }
 
-static authsession_t *_authn_setsession(const _mod_auth_t *mod, const char * user)
-{
-	const char *group = NULL;
-	const char *home = NULL;
-	char *token = NULL;
-	authsession_t *info = NULL;
-
-	if (user == NULL)
-		return NULL;
-
-	info = calloc(1, sizeof(*info));
-	strncpy(info->user, user, USER_MAX);
-	strncpy(info->type, mod->type, FIELD_MAX);
-	if (mod->authz->rules->group)
-	{
-		group = mod->authz->rules->group(mod->authz->ctx, user);
-	}
-	if (group)
-		strncpy(info->group, group, FIELD_MAX);
-	if (mod->authz->rules->home)
-	{
-		home = mod->authz->rules->home(mod->authz->ctx, user);
-	}
-	if (home)
-		strncpy(info->home, home, PATH_MAX);
-	if (mod->authz->rules->token)
-	{
-		token = mod->authz->rules->token(mod->authz->ctx, user);
-	}
-	if (token)
-		strncpy(info->token, token, TOKEN_MAX);
-	return info;
-}
-
 #ifndef AUTHZ_JWT
 static char *authz_generatetoken(mod_auth_t *config, const authsession_t *UNUSED(info))
 {
@@ -858,23 +824,25 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 		sign++;
 		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{
-#ifdef AUTHZ_JWT
-			ctx->info = jwt_decode(string);
-			if (ctx->info != NULL)
-			{
-				user = ctx->info->user;
-				auth_dbg("auth: jwt user %s", user);
-			}
-#endif
+			ctx->info = calloc(1, sizeof(*ctx->info));
+			strncpy(ctx->info->type, str_xtoken, FIELD_MAX);
 			if (user == NULL)
 				user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 			if (user == NULL)
 			{
 				user = str_anonymous;
 			}
-			if (ctx->info == NULL)
+#ifdef AUTHZ_JWT
+			if (jwt_decode(string, ctx->info) == ESUCCESS)
 			{
-				ctx->info = _authn_setsession(mod, user);
+				user = ctx->info->user;
+				auth_dbg("auth: jwt user %s", user);
+			}
+			else
+#endif
+			if (user != NULL)
+			{
+				mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
 			}
 			if (ctx->info->token[0] == '\0')
 			{
@@ -1043,7 +1011,10 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	{
 		if (ctx->info == NULL)
 		{
-			ctx->info = _authn_setsession(mod, user);
+			ctx->info = calloc(1, sizeof(*ctx->info));
+			ctx->info->expires = 60 * 60;
+			mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
+			strncpy(ctx->info->type, mod->type, FIELD_MAX);
 			ctx->authorization = strdup(authorization);
 		}
 

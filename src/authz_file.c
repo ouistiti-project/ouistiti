@@ -233,24 +233,24 @@ static const char *authz_file_check(void *arg, const char *user, const char *pas
 	return NULL;
 }
 
-static const char *authz_file_group(void *arg, const char *user)
+static int authz_file_setsession(void *arg, const char *user, authsession_t *info)
 {
 	const authz_file_t *ctx = (const authz_file_t *)arg;
+	const char *group = "users";
+	const char *home = "";
 
-	if (ctx->group && ctx->group[0] != '\0')
-		return ctx->group;
+	strncpy(info->user, ctx->user, USER_MAX);
 	if (!strcmp(user, "anonymous"))
-		return "anonymous";
-	return NULL;
-}
-
-static const char *authz_file_home(void *arg, const char *UNUSED(user))
-{
-	const authz_file_t *ctx = (const authz_file_t *)arg;
-
+		group = "anonymous";
+	if (ctx->group && ctx->group[0] != '\0')
+		group = ctx->group;
+	strncpy(info->group, group, FIELD_MAX);
 	if (ctx->home && ctx->home[0] != '\0')
-		return ctx->home;
-	return NULL;
+		home = ctx->home;
+	strncpy(info->home, home, PATH_MAX);
+	strncpy(info->status, "activated", FIELD_MAX);
+	
+	return ESUCCESS;
 }
 
 static void authz_file_destroy(void *arg)
@@ -275,7 +275,6 @@ authz_rules_t authz_file_rules =
 	.create = &authz_file_create,
 	.check = &authz_file_check,
 	.passwd = &authz_file_passwd,
-	.group = &authz_file_group,
-	.home = &authz_file_home,
+	.setsession = &authz_file_setsession,
 	.destroy = &authz_file_destroy,
 };
