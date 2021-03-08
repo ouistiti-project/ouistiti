@@ -192,24 +192,25 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 	return NULL;
 }
 
-static const char *authz_unix_group(void *arg, const char *user)
+static int authz_unix_setsession(void *arg, const char * user, authsession_t *info)
 {
 	const authz_unix_t *ctx = (const authz_unix_t *)arg;
+	const char *group = NULL;
+	const char *home = NULL;
+	char *token = NULL;
 
-	if (ctx->group[0] != '\0')
-		return ctx->group;
-	if (!strcmp(user, "anonymous"))
-		return user;
-	return NULL;
-}
+	if (user == NULL)
+		return EREJECT;
 
-static const char *authz_unix_home(void *arg, const char *UNUSED(user))
-{
-	const authz_unix_t *ctx = (const authz_unix_t *)arg;
-
-	if (ctx->home[0] != '\0')
-		return ctx->home;
-	return NULL;
+	strncpy(info->user, user, USER_MAX);
+	if (ctx->group && ctx->group[0] != '\0')
+		strncpy(info->group, ctx->group, FIELD_MAX);
+	else if (!strcmp(user, "anonymous"))
+		strncpy(info->group, "anonymous", FIELD_MAX);
+	if (ctx->home && ctx->home[0] != '\0')
+		strncpy(info->home, ctx->home, PATH_MAX);
+	strncpy(info->status, "activated", FIELD_MAX);
+	return ESUCCESS;
 }
 
 static void authz_unix_destroy(void *arg)
@@ -224,8 +225,7 @@ authz_rules_t authz_unix_rules =
 	.create = &authz_unix_create,
 	.check = &authz_unix_check,
 	.passwd = NULL,
-	.group = &authz_unix_group,
-	.home = &authz_unix_home,
+	.setsession = &authz_unix_setsession,
 	.destroy = &authz_unix_destroy,
 };
 #endif

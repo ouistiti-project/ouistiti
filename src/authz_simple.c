@@ -89,26 +89,28 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 	return NULL;
 }
 
-static const char *authz_simple_group(void *arg, const char *user)
+static int authz_simple_setsession(void *arg, const char * user, authsession_t *info)
 {
 	const authz_simple_t *config = (const authz_simple_t *)arg;
-	if (!strcmp(user, config->user) && config->group && config->group[0] != '\0')
-	{
-		return config->group;
-	}
-	if (!strcmp(user, "anonymous"))
-		return "anonymous";
-	return NULL;
-}
+	const char *group = NULL;
+	const char *home = NULL;
+	char *token = NULL;
 
-static const char *authz_simple_home(void *arg, const char *user)
-{
-	const authz_simple_t *config = (const authz_simple_t *)arg;
-	if (!strcmp(user, config->user) && config->home && config->home[0] != '\0')
-	{
-		return config->home;
-	}
-	return NULL;
+	if (user == NULL)
+		return EREJECT;
+
+	if (strcmp(user, config->user))
+		return EREJECT;
+
+	strncpy(info->user, config->user, USER_MAX);
+	if (config->group && config->group[0] != '\0')
+		strncpy(info->group, config->group, FIELD_MAX);
+	else if (!strcmp(user, "anonymous"))
+		strncpy(info->group, "anonymous", FIELD_MAX);
+	if (config->home && config->home[0] != '\0')
+		strncpy(info->home, config->home, PATH_MAX);
+	strncpy(info->status, "activated", FIELD_MAX);
+	return ESUCCESS;
 }
 
 authz_rules_t authz_simple_rules =
@@ -116,7 +118,6 @@ authz_rules_t authz_simple_rules =
 	.create = &authz_simple_create,
 	.check = &authz_simple_check,
 	.passwd = &authz_simple_passwd,
-	.group = &authz_simple_group,
-	.home = &authz_simple_home,
+	.setsession = &authz_simple_setsession,
 	.destroy = NULL,
 };
