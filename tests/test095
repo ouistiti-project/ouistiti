@@ -1,4 +1,4 @@
-DESC="Authorization on auth manager as root"
+DESC="List users on auth manager as root"
 PREPARE="rm ${TESTDIR}/conf/passwd.db && ouistiti -s 3 -f ${TESTDIR}/conf/test12.conf"
 CONFIG=test12.conf
 TESTCODE=200
