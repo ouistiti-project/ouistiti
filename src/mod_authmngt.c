@@ -202,8 +202,9 @@ static int authmngt_jsonifyuser(_mod_authmngt_t *mod, http_message_t *response, 
 	const char *passwd = NULL;
 	const char *status = NULL;
 
-	httpmessage_addcontent(response, "text/json",
-		"{\"user\":\"", -1);
+	httpmessage_addcontent(response, "text/json", "", -1);
+
+	httpmessage_appendcontent(response, "{\"user\":\"", -1);
 	httpmessage_appendcontent(response, user, -1);
 	httpmessage_appendcontent(response, "\"", -1);
 	if (mod->config->mngt.rules->group != NULL)
@@ -284,6 +285,31 @@ static int authmngt_stringifyuser(_mod_authmngt_t *mod, http_message_t *response
 	return 0;
 }
 
+typedef struct _authmngt_printuser_s
+{
+	_mod_authmngt_t *mod;
+	http_message_t *response;
+} _authmngt_printuser_t;
+
+static int _authmngt_printuser(void*arg, int nfields, char** values,char** keys)
+{
+	_authmngt_printuser_t *printctx = (_authmngt_printuser_t *)arg;
+	http_message_t *response = printctx->response;
+
+	httpmessage_appendcontent(response, "{\"", -1);
+	for (int i = 0; i < nfields; i++)
+	{
+		if (i > 0)
+			httpmessage_appendcontent(response, ",\"", -1);
+		httpmessage_appendcontent(response, keys[i], -1);
+		httpmessage_appendcontent(response, "\"=\"", -1);
+		httpmessage_appendcontent(response, values[i], -1);
+		httpmessage_appendcontent(response, "\"", -1);
+	}
+	httpmessage_appendcontent(response, "},", -1);
+	return ESUCCESS;
+}
+
 static int _authmngt_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -330,8 +356,6 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 		if (!strcmp(method, str_get))
 		{
 			ret = ESUCCESS;
-			if (user == NULL)
-				user = auth_info(request, "user");
 		}
 		else
 		{
@@ -414,6 +438,17 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 				authmngt_jsonifyuser(mod, response, user);
 			else
 				authmngt_stringifyuser(mod, response, user);
+		}
+		else if (mod->config->mngt.rules->listuser != NULL)
+		{
+			httpmessage_addcontent(response, "text/json",
+				"[", -1);
+			_authmngt_printuser_t printctx = {
+				.mod = mod,
+				.response = response,
+			};
+			mod->config->mngt.rules->listuser(mod->ctx, _authmngt_printuser, &printctx);
+			httpmessage_appendcontent(response, "{}]\n", -1);
 		}
 		free(storage);
 	}

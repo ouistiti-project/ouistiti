@@ -252,7 +252,7 @@ static int authz_sqlite_list(void *arg, authmngt_userlist_t callback, void *carg
 						"from users " \
 						"inner join groups on groups.id=users.groupid " \
 						"inner join status on status.id=users.statusid;";
-	ret = sqlite3_exec(ctx->db, sql, callback, arg, NULL);
+	ret = sqlite3_exec(ctx->db, sql, callback, carg, NULL);
 	return ret;
 }
 
@@ -794,6 +794,7 @@ authmngt_rules_t authmngt_sqlite_rules =
 	.changepasswd = &authz_sqlite_changepasswd,
 	.changeinfo = &authz_sqlite_changeinfo,
 	.removeuser = &authz_sqlite_removeuser,
+	.listuser = &authz_sqlite_list,
 	.destroy = &authz_sqlite_destroy,
 };
 #endif
