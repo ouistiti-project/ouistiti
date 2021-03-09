@@ -37,6 +37,8 @@ extern "C"
 {
 #endif
 
+typedef int (*authmngt_userlist_t)(void*arg, int nfields, char** values,char** keys);
+
 typedef void *(*authmngt_rule_create_t)(http_server_t *server, void *config);
 typedef const char *(*authmngt_rule_passwd_t)(void *arg, const char *user);
 typedef const char *(*authmngt_rule_group_t)(void *arg, const char *user);
@@ -47,6 +49,7 @@ typedef int (*authmngt_rule_adduser_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changepasswd_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changeinfo_t)(void *arg, authsession_t *user);
 typedef int (*authmngt_rule_removeuser_t)(void *arg, authsession_t *olduser);
+typedef int (*authmngt_rule_listuser_t)(void *arg, authmngt_userlist_t callback, void *carg);
 typedef void (*authmngt_rule_destroy_t)(void *arg);
 typedef struct authmngt_rules_s authmngt_rules_t;
 struct authmngt_rules_s
@@ -61,6 +64,7 @@ struct authmngt_rules_s
 	authmngt_rule_changepasswd_t changepasswd;
 	authmngt_rule_changeinfo_t changeinfo;
 	authmngt_rule_removeuser_t removeuser;
+	authmngt_rule_listuser_t listuser;
 	authmngt_rule_destroy_t destroy;
 };
 
