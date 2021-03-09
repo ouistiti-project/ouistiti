@@ -1,0 +1,5 @@
+HTTP/1.1 200 OK
+Content-Type: text/json
+Content-Length: 136
+
+[{"name"="root","group"="root","status"="reapprobing","home"=""},{"name"="foo","group"="users","status"="reapprobing","home"="foo"},{}]
