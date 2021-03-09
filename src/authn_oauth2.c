@@ -142,10 +142,9 @@ size_t _json_load(void *buffer, size_t buflen, void *data)
 	return size;
 }
 
-static authsession_t *_oauth2_checkidtoken(authn_oauth2_t *mod, json_t *json_idtoken)
+static int _oauth2_checkidtoken(authn_oauth2_t *mod, json_t *json_idtoken, authsession_t *authinfo)
 {
 	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
-	authsession_t *authinfo = NULL;
 
 	const char *id_token = json_string_value(json_idtoken);
 	const char *data = id_token;
@@ -156,155 +155,150 @@ static authsession_t *_oauth2_checkidtoken(authn_oauth2_t *mod, json_t *json_idt
 		sign++;
 		if (authn_checksignature(config->client_passwd, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{
-			authinfo = jwt_decode(id_token);
+			jwt_decode(id_token, authinfo);
 			auth_dbg("oAuth2 id_token: %s", id_token);
+			return ESUCCESS;
 		}
 	}
-	return authinfo;
+	return EREJECT;
 }
 
-static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_message_t *response)
+static json_t *_oauth2_authresp_send(authn_oauth2_t *mod, http_message_t *request)
+{
+	json_t *json_authtokens = NULL;
+	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
+	http_client_t *client = NULL;
+	http_message_t *response2 = NULL;
+	http_message_t *request2 = NULL;
+
+	request2 = httpmessage_create();
+
+	const char *code = httpmessage_parameter(request, str_authorization_code);
+	if (code == NULL)
+		return NULL;
+
+	char location[256];
+	snprintf(location, 256, "%s", config->token_ep);
+
+	client = httpmessage_request(request2, "POST", location);
+
+	if (client != NULL)
+	{
+		const char *type = "authorization_code"; /** RFC6749 4.1.2 */
+
+
+		httpmessage_addheader(request2, str_authorization, "Basic ");
+
+		char authorization[256] = {0};
+		char basic[164];
+		snprintf(basic, 164, "%s:%s", config->client_id, config->client_passwd);
+		int length = strlen(basic) * 1.5 + 5;
+		base64_urlencoding->encode(basic, strlen(basic), authorization, 256);
+		httpmessage_appendheader(request2, str_authorization, authorization, NULL);
+
+		response2 = httpmessage_create();
+
+		struct _json_load_s _json_load_data = {
+			.client = client,
+			.request = request2,
+			.response = response2,
+			.content = 0,
+		};
+
+		http_server_t *server = httpclient_server(mod->clt);
+		const char *scheme = httpserver_INFO(server, "scheme");
+		const char *host = httpserver_INFO(server, "host");
+		if (host == NULL)
+		{
+			host = httpmessage_SERVER(request, "addr");
+		}
+		const char *port = httpserver_INFO(server, "port");
+		_json_load_data.content += httpmessage_addcontent(request2, "application/x-www-form-urlencoded", "grant_type=", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, type, -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, "&code=", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, code, -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, "&client_id=", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, config->client_id, -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, "&scope=openid roles profile", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, "&redirect_uri=", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, scheme, -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, "://", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, host, -1);
+		if (port[0] != '\0')
+		{
+			_json_load_data.content += httpmessage_appendcontent(request2, ":", -1);
+			_json_load_data.content += httpmessage_appendcontent(request2, port, -1);
+		}
+		_json_load_data.content += httpmessage_appendcontent(request2, str_authresp, -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, "&state=", -1);
+		char state[4] = {0};
+		snprintf(state, 4, "%.3d", mod->state);
+		_json_load_data.content += httpmessage_appendcontent(request2, state, -1);
+
+		/**
+		 * send checking request to the authmanager
+		 */
+		json_error_t error;
+		json_authtokens = json_load_callback(_json_load, &_json_load_data, 0, &error);
+		if (json_authtokens == NULL)
+		{
+			int result = atoi(httpmessage_REQUEST(_json_load_data.response, "Status"));
+			if (result == 200)
+				err("oauth2 json decoding error %s", error.text);
+			else
+				err("oauth2 authorization error %d", result);
+		}
+	}
+	if (request2 != NULL)
+		httpmessage_destroy(request2);
+	if (response2 != NULL)
+		httpmessage_destroy(response2);
+	if (client != NULL)
+		httpclient_destroy(client);
+	return json_authtokens;
+}
+
+static int _oauth2_authresp_receive(authn_oauth2_t *mod, json_t *json_authtokens, authsession_t *authinfo)
 {
 	int ret = EREJECT;
-	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
-	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
-
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (utils_searchexp(uri, str_authresp, NULL) == ESUCCESS)
+	if (json_is_object(json_authtokens))
 	{
-		mod->state = 1;
-		/** set the default result */
-		httpmessage_result(response, RESULT_500);
-		warn("authentication from server: %s", uri);
-		char squery[1024];
-		json_t *json_authtokens = NULL;
 		const char *access_token = NULL;
-		const char *username = "root";
-		authsession_t *authinfo = NULL;
-		int expires_in = -1;
-		const char *code = httpmessage_parameter(request, str_authorization_code);
-		char *state = NULL;
-		char *end = NULL;
+		const char *user;
 
-		http_client_t *client = NULL;
-		http_message_t *response2 = NULL;
-		http_message_t *request2 = NULL;
-		if (code != NULL)
+		json_t *json_error = json_object_get(json_authtokens, "error");
+		if (json_error != NULL && json_is_string(json_error))
 		{
-			request2 = httpmessage_create();
-
-			char location[256];
-			snprintf(location, 256, "%s", config->token_ep);
-
-			client = httpmessage_request(request2, "POST", location);
-
-			if (client != NULL)
-			{
-				const char *type = "authorization_code"; /** RFC6749 4.1.2 */
-
-
-				httpmessage_addheader(request2, str_authorization, "Basic ");
-
-				char authorization[256] = {0};
-				char basic[164];
-				snprintf(basic, 164, "%s:%s", config->client_id, config->client_passwd);
-				int length = strlen(basic) * 1.5 + 5;
-				base64_urlencoding->encode(basic, strlen(basic), authorization, 256);
-				httpmessage_appendheader(request2, str_authorization, authorization, NULL);
-
-				response2 = httpmessage_create();
-
-				struct _json_load_s _json_load_data = {
-					.client = client,
-					.request = request2,
-					.response = response2,
-					.content = 0,
-				};
-
-				http_server_t *server = httpclient_server(mod->clt);
-				const char *scheme = httpserver_INFO(server, "scheme");
-				const char *host = httpserver_INFO(server, "host");
-				if (host == NULL)
-				{
-					host = httpmessage_SERVER(request, "addr");
-				}
-				const char *port = httpserver_INFO(server, "port");
-				_json_load_data.content += httpmessage_addcontent(request2, "application/x-www-form-urlencoded", "grant_type=", -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, type, -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, "&code=", -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, code, -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, "&client_id=", -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, config->client_id, -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, "&scope=openid roles profile", -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, "&redirect_uri=", -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, scheme, -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, "://", -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, host, -1);
-				if (port[0] != '\0')
-				{
-					_json_load_data.content += httpmessage_appendcontent(request2, ":", -1);
-					_json_load_data.content += httpmessage_appendcontent(request2, port, -1);
-				}
-				_json_load_data.content += httpmessage_appendcontent(request2, str_authresp, -1);
-				_json_load_data.content += httpmessage_appendcontent(request2, "&state=", -1);
-				char state[4] = {0};
-				snprintf(state, 4, "%.3d", mod->state);
-				_json_load_data.content += httpmessage_appendcontent(request2, state, -1);
-
-				/**
-				 * send checking request to the authmanager
-				 */
-				json_error_t error;
-				json_authtokens = json_load_callback(_json_load, &_json_load_data, 0, &error);
-				if (json_authtokens == NULL)
-				{
-					int result = atoi(httpmessage_REQUEST(_json_load_data.response, "Status"));
-					if (result == 200)
-						err("oauth2 json decoding error %s", error.text);
-					else
-						err("oauth2 authorization error %d", result);
-				}
-				if (json_authtokens != NULL && json_is_object(json_authtokens))
-				{
-					const char *user;
-					json_t *json_error = json_object_get(json_authtokens, "error");
-					if (json_error != NULL && json_is_string(json_error))
-					{
-						const char *error = json_string_value(json_error);
-						const char *desc = NULL;
-						json_t *json_desc = json_object_get(json_authtokens, "error");
-						if (json_desc != NULL && json_is_string(json_desc))
-							desc = json_string_value(json_desc);
-						err("oAuth2 authorization error: %s (%s)", error, desc);
-					}
-					json_t *json_acctoken = json_object_get(json_authtokens, "access_token");
-					if (json_acctoken != NULL && json_is_string(json_acctoken))
-					{
-						access_token = json_string_value(json_acctoken);
-						auth_dbg("oAuth2 access_token: %s", access_token);
-					}
-					json_t *json_idtoken = json_object_get(json_authtokens, "id_token");
-					if (json_idtoken != NULL && json_is_string(json_idtoken))
-					{
-						authinfo = _oauth2_checkidtoken(mod, json_idtoken);
-					}
-					json_t *json_username = json_object_get(json_authtokens, "username");
-					if (json_username != NULL && json_is_string(json_username))
-					{
-						authsession_t authinfo = {0};
-						strncpy(authinfo.user, json_string_value(json_username), sizeof(authinfo.user));
-						strncpy(authinfo.group, "users", sizeof(authinfo.group));
-						httpmessage_SESSION(request, str_auth, &authinfo, sizeof(authinfo));
-					}
-					json_t *json_expire = json_object_get(json_authtokens, "expires_in");
-					if (json_expire != NULL && json_is_integer(json_expire))
-					{
-						expires_in = json_integer_value(json_expire);
-						auth_dbg("oAuth2 access_token expire in: %ds", expires_in);
-					}
-				}
-			}
-			mod->state++;
+			const char *error = json_string_value(json_error);
+			const char *desc = NULL;
+			json_t *json_desc = json_object_get(json_authtokens, "error");
+			if (json_desc != NULL && json_is_string(json_desc))
+				desc = json_string_value(json_desc);
+			err("oAuth2 authorization error: %s (%s)", error, desc);
+		}
+		json_t *json_acctoken = json_object_get(json_authtokens, "access_token");
+		if (json_acctoken != NULL && json_is_string(json_acctoken))
+		{
+			access_token = json_string_value(json_acctoken);
+			auth_dbg("oAuth2 access_token: %s", access_token);
+		}
+		json_t *json_idtoken = json_object_get(json_authtokens, "id_token");
+		if (json_idtoken != NULL && json_is_string(json_idtoken))
+		{
+			ret = _oauth2_checkidtoken(mod, json_idtoken, authinfo);
+		}
+		json_t *json_username = json_object_get(json_authtokens, "username");
+		if (json_username != NULL && json_is_string(json_username))
+		{
+			strncpy(authinfo->user, json_string_value(json_username), sizeof(authinfo->user));
+			strncpy(authinfo->group, "users", sizeof(authinfo->group));
+			ret = ESUCCESS;
+		}
+		json_t *json_expire = json_object_get(json_authtokens, "expires_in");
+		if (json_expire != NULL && json_is_integer(json_expire))
+		{
+			authinfo->expires = json_integer_value(json_expire);
+			auth_dbg("oAuth2 access_token expire in: %ds", authinfo->expires);
 		}
 
 		if (access_token != NULL)
@@ -323,28 +317,54 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 				tmp = (char *)access_token + TOKEN_MAX;
 				*tmp = '\0';
 			}
-			if (authinfo != NULL)
-			{
-				oauth2_session_t session;
+			strncpy(authinfo->token, access_token, TOKEN_MAX);
+		}
+		else
+			ret = EREJECT;
+	}
+	return ret;
+}
 
-				session.expires_in = expires_in;
-				strncpy(session.token, access_token, sizeof(session.token));
+static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	int ret = EREJECT;
+	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
+	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
 
-				httpmessage_SESSION(request, str_auth, authinfo, sizeof(*authinfo));
+	const char *uri = httpmessage_REQUEST(request, "uri");
+	if (utils_searchexp(uri, str_authresp, NULL) == ESUCCESS)
+	{
+		mod->state = 1;
+		/** set the default result */
+		httpmessage_result(response, RESULT_500);
+		warn("authentication from server: %s", uri);
+		char squery[1024];
+		json_t *json_authtokens = NULL;
+		const char *username = "root";
+		authsession_t authinfo = {0};
+		int expires_in = -1;
+		char *state = NULL;
+		char *end = NULL;
 
-				char authorization[TOKEN_MAX + 7 + 1];
-				snprintf(authorization, TOKEN_MAX + 7 + 1, "oAuth2 %s", access_token);
-				httpmessage_addheader(response, str_authorization, authorization);
+		json_authtokens = _oauth2_authresp_send(mod, request);
+		mod->state++;
+		if (json_authtokens != NULL)
+			ret = _oauth2_authresp_receive(mod,json_authtokens, &authinfo);
 
-				const char *scheme = httpmessage_REQUEST(request, "scheme");
-				httpmessage_addheader(response, str_location, scheme);
-				const char *host = httpmessage_REQUEST(request, "host");
-				httpmessage_appendheader(response, str_location, "://", host, "/", NULL);
-				httpmessage_result(response, RESULT_302);
+		if (ret == ESUCCESS)
+		{
+			httpmessage_SESSION(request, str_auth, &authinfo, sizeof(authinfo));
 
-				cookie_set(response, str_authorization, authorization, NULL);
-				ret = ESUCCESS;
-			}
+			httpmessage_addheader(response, str_authorization, "oAuth2 ");
+			httpmessage_appendheader(response, str_authorization, authinfo.token);
+
+			const char *scheme = httpmessage_REQUEST(request, "scheme");
+			httpmessage_addheader(response, str_location, scheme);
+			const char *host = httpmessage_REQUEST(request, "host");
+			httpmessage_appendheader(response, str_location, "://", host, "/", NULL);
+			httpmessage_result(response, RESULT_302);
+
+			ret = ESUCCESS;
 		}
 		else
 		{
@@ -352,16 +372,6 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 			ret = ESUCCESS;
 		}
 
-		if (authinfo != NULL)
-		{
-			free(authinfo);
-		}
-		if (request2 != NULL)
-			httpmessage_destroy(request2);
-		if (response2 != NULL)
-			httpmessage_destroy(response2);
-		if (client != NULL)
-			httpclient_destroy(client);
 		if (json_authtokens != NULL)
 		{
 			json_decref(json_authtokens);
