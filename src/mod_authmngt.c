@@ -89,7 +89,7 @@ struct _authmngt_s
 	const char *name;
 };
 
-struct _authmngt_s *authmngt_list[] =
+static const struct _authmngt_s *authmngt_list[] =
 {
 #ifdef AUTHZ_SQLITE
 	&(struct _authmngt_s){
@@ -116,8 +116,7 @@ static void *mod_authmngt_config(config_setting_t *iterator, server_t *server)
 		 * signin URI allowed to access to the signin page
 		 */
 		int ret;
-		int i = 0;
-		while (authmngt_list[i] != NULL)
+		for (int i = 0; authmngt_list[i] != NULL; i++)
 		{
 			mngtconfig->mngt.config = authmngt_list[i]->config(configauth);
 			if (mngtconfig->mngt.config != NULL)
@@ -126,7 +125,6 @@ static void *mod_authmngt_config(config_setting_t *iterator, server_t *server)
 				mngtconfig->mngt.rules = authmngt_list[i]->rules;
 				break;
 			}
-			i++;
 		}
 		if (mngtconfig->mngt.rules == NULL)
 		{

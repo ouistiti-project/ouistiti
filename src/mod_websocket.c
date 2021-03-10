@@ -93,17 +93,17 @@ static const char str_protocol[] = "Sec-WebSocket-Protocol";
 static const char str_accept[] = "Sec-WebSocket-Accept";
 static const char str_key[] = "Sec-WebSocket-Key";
 
-static void _mod_websocket_handshake(_mod_websocket_ctx_t *ctx, http_message_t *request, http_message_t *response)
+static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_message_t *request, http_message_t *response)
 {
 	const char *key = httpmessage_REQUEST(request, str_key);
 	if (key && key[0] != 0)
 	{
 		char accept[20] = {0};
-		void *ctx;
-		ctx = hash_sha1->init();
-		hash_sha1->update(ctx, key, strlen(key));
-		hash_sha1->update(ctx, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", sizeof("258EAFA5-E914-47DA-95CA-C5AB0DC85B11") -1);
-		hash_sha1->finish(ctx, accept);
+		void *hctx;
+		hctx = hash_sha1->init();
+		hash_sha1->update(hctx, key, strlen(key));
+		hash_sha1->update(hctx, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", sizeof("258EAFA5-E914-47DA-95CA-C5AB0DC85B11") -1);
+		hash_sha1->finish(hctx, accept);
 
 		char out[40];
 		base64->encode(accept, hash_sha1->size, out, 40);
@@ -113,7 +113,7 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *ctx, http_message_t *
 	}
 }
 
-static int _checkname(mod_websocket_t *config, const char *pathname)
+static int _checkname(const mod_websocket_t *config, const char *pathname)
 {
 	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
 		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
@@ -168,6 +168,55 @@ static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *pr
 	return ESUCCESS;
 }
 
+static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *request, http_message_t *response)
+{
+	_mod_websocket_t *mod = ctx->mod;
+	int ret = EREJECT;
+
+	const char *uri = httpmessage_REQUEST(request, "uri");
+	if (_checkname(mod->config, uri) != ESUCCESS)
+	{
+		warn("websocket: %s forbidden", uri);
+		return EREJECT;
+	}
+	const char *protocol = httpmessage_REQUEST(request, str_protocol);
+
+	while (*uri == '/' && *uri != '\0') uri++;
+	if (mod->fdroot > 0)
+	{
+		ret = _checkfile(ctx, uri, protocol);
+	}
+	else if (mod->host)
+	{
+		ctx->uri = strdup(mod->host);
+		ret = ESUCCESS;
+	}
+	else
+		return EREJECT;
+	if (ret == EREJECT)
+	{
+		httpmessage_result(response, RESULT_403);
+		return ESUCCESS;
+	}
+	if (protocol != NULL)
+		httpmessage_addheader(response, str_protocol, protocol);
+
+	_mod_websocket_handshake(ctx, request, response);
+	httpmessage_addheader(response, str_connection, str_upgrade);
+	httpmessage_addheader(response, str_upgrade, str_websocket);
+	/** disable Content-Type and Content-Length inside the headers **/
+	httpmessage_addcontent(response, "none", NULL, -1);
+	httpmessage_result(response, RESULT_101);
+	websocket_dbg("%s: result 101", str_websocket);
+	ctx->socket = httpmessage_lock(response);
+	if (fchdir(ctx->fddir) == -1)
+	{
+		httpmessage_result(response, RESULT_500);
+		return ESUCCESS;
+	}
+	return ECONTINUE;
+}
+
 static int websocket_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -180,69 +229,25 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 		connection != NULL && (strcasestr(connection, str_upgrade) != NULL) &&
 		upgrade != NULL && (strcasestr(upgrade, str_websocket) != NULL))
 	{
-
-		const char *uri = httpmessage_REQUEST(request, "uri");
-		if (_checkname(mod->config, uri) != ESUCCESS)
-		{
-			warn("websocket: %s forbidden", uri);
-			return EREJECT;
-		}
-		const char *protocol = httpmessage_REQUEST(request, str_protocol);
-
-		while (*uri == '/' && *uri != '\0') uri++;
-		if (mod->fdroot > 0)
-		{
-			ret = _checkfile(ctx, uri, protocol);
-		}
-		else if (mod->host)
-		{
-			ctx->uri = strdup(mod->host);
-			ret = ESUCCESS;
-		}
-		else
-			return EREJECT;
-		if (ret == EREJECT)
-		{
-			httpmessage_result(response, RESULT_403);
-			return ESUCCESS;
-		}
-		if (protocol != NULL)
-			httpmessage_addheader(response, str_protocol, protocol);
-
-		_mod_websocket_handshake(ctx, request, response);
-		httpmessage_addheader(response, str_connection, str_upgrade);
-		httpmessage_addheader(response, str_upgrade, str_websocket);
-		/** disable Content-Type and Content-Length inside the headers **/
-		httpmessage_addcontent(response, "none", NULL, -1);
-		httpmessage_result(response, RESULT_101);
-		websocket_dbg("%s: result 101", str_websocket);
-		ctx->socket = httpmessage_lock(response);
-		ret = ECONTINUE;
+		ret = websocket_connector_init(ctx, request, response);
+	}
+	else if (ctx->uri == NULL)
+	{
+		ret = ESUCCESS;
 	}
 	else if (ctx->socket > 0)
 	{
-		if (fchdir(ctx->fddir) == -1)
-		{
-			err("websocket: ");
-		}
-		else
-		{
-			char *uri = ctx->uri;
-			if (uri == NULL)
-			{
-				return ESUCCESS;
-			}
-			while (*uri == '/' && *uri != '\0') uri++;
-			ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, uri, request);
-			free(uri);
-			ctx->uri = NULL;
-		}
+		char *uri = ctx->uri;
+		while (*uri == '/' && *uri != '\0') uri++;
+		ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, uri, request);
+		free(ctx->uri);
+		ctx->uri = NULL;
 		ret = ESUCCESS;
 	}
 	return ret;
 }
 
-static void *_mod_websocket_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static void *_mod_websocket_getctx(void *arg, http_client_t *ctl, struct sockaddr *UNUSED(addr), int UNUSED(addrsize))
 {
 	_mod_websocket_t *mod = (_mod_websocket_t *)arg;
 
@@ -280,23 +285,23 @@ static void _mod_websocket_freectx(void *arg)
 #ifdef FILE_CONFIG
 #include <libconfig.h>
 
-static void *websocket_config(config_setting_t *iterator, server_t *server)
+static void *websocket_config(config_setting_t *iterator, server_t *UNUSED(server))
 {
 	mod_websocket_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configws = config_setting_get_member(iterator, "websocket");
+	const config_setting_t *configws = config_setting_get_member(iterator, "websocket");
 #else
-	config_setting_t *configws = config_setting_lookup(iterator, "websocket");
+	const config_setting_t *configws = config_setting_lookup(iterator, "websocket");
 #endif
 	if (configws)
 	{
-		char *mode = NULL;
+		const char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
-		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
-		config_setting_lookup_string(configws, "server", (const char **)&conf->server);
-		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
-		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
-		config_setting_lookup_string(configws, "options", (const char **)&mode);
+		config_setting_lookup_string(configws, "docroot", &conf->docroot);
+		config_setting_lookup_string(configws, "server", &conf->server);
+		config_setting_lookup_string(configws, "allow", &conf->allow);
+		config_setting_lookup_string(configws, "deny", &conf->deny);
+		config_setting_lookup_string(configws, "options", &mode);
 #ifdef WEBSOCKET_RT
 		if (utils_searchexp("direct", option, NULL) == ESUCCESS)
 		{
@@ -395,7 +400,7 @@ static int _websocket_unix(const char *filepath)
 static int _websocket_tcp(const char *host, const char *port)
 {
 	int sock = -1;
-	struct addrinfo *result, *rp;
+	struct addrinfo *result;
 	struct addrinfo hints;
 
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -409,7 +414,7 @@ static int _websocket_tcp(const char *host, const char *port)
 		return -1;
 	}
 
-	for (rp = result; rp != NULL; rp = rp->ai_next)
+	for (struct addrinfo *rp = result; rp != NULL; rp = rp->ai_next)
 	{
 		sock = socket(rp->ai_family, rp->ai_socktype,
 			rp->ai_protocol);
@@ -432,7 +437,7 @@ static int _websocket_tcp(const char *host, const char *port)
 	return sock;
 }
 
-static int _websocket_socket(char *filepath)
+static int _websocket_socket(const char *filepath)
 {
 	int sock = -1;
 	char *port;
@@ -461,7 +466,7 @@ struct _websocket_main_s
 	int end;
 };
 
-static int websocket_close(void *arg, int status)
+static int websocket_close(void *arg, int UNUSED(status))
 {
 	_websocket_main_t *info = (_websocket_main_t *)arg;
 	char message[] = { 0x88, 0x02, 0x03, 0xEA};
@@ -469,7 +474,7 @@ static int websocket_close(void *arg, int status)
 	return info->sendresp(info->ctx, message, sizeof(message));
 }
 
-static int websocket_pong(void *arg, char *data)
+static int websocket_pong(void *arg, char *UNUSED(data))
 {
 	_websocket_main_t *info = (_websocket_main_t *)arg;
 	char message[] = { 0x8A, 0x00};
