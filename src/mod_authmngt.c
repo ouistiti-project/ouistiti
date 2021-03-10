@@ -194,93 +194,72 @@ static void mod_authmngt_destroy(void *arg)
 	free(mod);
 }
 
-static int authmngt_jsonifyuser(_mod_authmngt_t *mod, http_message_t *response, const char *user)
+static int authmngt_jsonifyuser(_mod_authmngt_t *mod, http_message_t *response, const authsession_t *info)
 {
-	const char *group = NULL;
-	const char *home = NULL;
-	const char *token = NULL;
-	const char *passwd = NULL;
-	const char *status = NULL;
+	if (info->user[0] == '\0')
+		return EREJECT;
 
 	httpmessage_addcontent(response, "text/json", "", -1);
 
 	httpmessage_appendcontent(response, "{\"user\":\"", -1);
-	httpmessage_appendcontent(response, user, -1);
+	httpmessage_appendcontent(response, info->user, -1);
 	httpmessage_appendcontent(response, "\"", -1);
-	if (mod->config->mngt.rules->group != NULL)
-		group = mod->config->mngt.rules->group(mod->ctx, user);
-	if (group != NULL)
+	if (info->group != NULL)
 	{
 		httpmessage_appendcontent(response, ",\"group\":\"", -1);
-		httpmessage_appendcontent(response, group, -1);
+		httpmessage_appendcontent(response, info->group, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
-	if (mod->config->mngt.rules->status != NULL)
-		status = mod->config->mngt.rules->status(mod->ctx, user);
-	if (status != NULL)
+	if (info->status != NULL)
 	{
 		httpmessage_appendcontent(response, ",\"status\":\"", -1);
-		httpmessage_appendcontent(response, status, -1);
+		httpmessage_appendcontent(response, info->status, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
-	if (mod->config->mngt.rules->home != NULL)
-		home = mod->config->mngt.rules->home(mod->ctx, user);
-	if (home != NULL)
+	if (info->home != NULL)
 	{
 		httpmessage_appendcontent(response, ",\"home\":\"", -1);
-		httpmessage_appendcontent(response, home, -1);
+		httpmessage_appendcontent(response, info->home, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
-	if (mod->config->mngt.rules->token != NULL)
-		token = mod->config->mngt.rules->token(mod->ctx, user);
-	if (token != NULL)
+	if (info->token != NULL)
 	{
 		httpmessage_appendcontent(response, ",\"token\":\"", -1);
-		httpmessage_appendcontent(response, token, -1);
+		httpmessage_appendcontent(response, info->token, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
 	httpmessage_appendcontent(response, "}", -1);
 	return 0;
 }
 
-static int authmngt_stringifyuser(_mod_authmngt_t *mod, http_message_t *response, const char *user)
+static int authmngt_stringifyuser(_mod_authmngt_t *mod, http_message_t *response, const authsession_t *info)
 {
-	const char *group = NULL;
-	const char *home = NULL;
-	const char *token = NULL;
-	const char *passwd = NULL;
-	const char *status = NULL;
+	if (info->user[0] == '\0')
+		return EREJECT;
 
 	httpmessage_addcontent(response, "application/x-www-form-urlencoded",
 		"user=", -1);
-	httpmessage_appendcontent(response, user, -1);
-	if (mod->config->mngt.rules->group != NULL)
-		group = mod->config->mngt.rules->group(mod->ctx, user);
-	if (group != NULL)
+
+	httpmessage_appendcontent(response, info->user, -1);
+	if (info->group[0] != '\0')
 	{
 		httpmessage_appendcontent(response, "&group=", -1);
-		httpmessage_appendcontent(response, group, -1);
+		httpmessage_appendcontent(response, info->group, -1);
 	}
-	if (mod->config->mngt.rules->status != NULL)
-		status = mod->config->mngt.rules->status(mod->ctx, user);
-	if (status != NULL)
+	if (info->status[0] != '\0')
 	{
 		httpmessage_appendcontent(response, "&status=", -1);
-		httpmessage_appendcontent(response, status, -1);
+		httpmessage_appendcontent(response, info->status, -1);
 	}
-	if (mod->config->mngt.rules->home != NULL)
-		home = mod->config->mngt.rules->home(mod->ctx, user);
-	if (home != NULL)
+	if (info->home[0] != '\0')
 	{
 		httpmessage_appendcontent(response, "&home=", -1);
-		httpmessage_appendcontent(response, home, -1);
+		httpmessage_appendcontent(response, info->home, -1);
 	}
-	if (mod->config->mngt.rules->token != NULL)
-		token = mod->config->mngt.rules->token(mod->ctx, user);
-	if (token != NULL)
+	if (info->token[0] != '\0')
 	{
 		httpmessage_appendcontent(response, "&token=", -1);
-		httpmessage_appendcontent(response, token, -1);
+		httpmessage_appendcontent(response, info->token, -1);
 	}
 	return 0;
 }
@@ -432,12 +411,17 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 		}
 		else if (user != NULL)
 		{
+			authsession_t info = {0};
+
+			if (mod->config->mngt.rules->setsession != NULL)
+				mod->config->mngt.rules->setsession(mod->ctx, user, &info);
+
 			const char *accept = httpmessage_REQUEST(request, "Accept");
 
 			if (strstr(accept, "text/json") != NULL)
-				authmngt_jsonifyuser(mod, response, user);
+				authmngt_jsonifyuser(mod, response, &info);
 			else
-				authmngt_stringifyuser(mod, response, user);
+				authmngt_stringifyuser(mod, response, &info);
 		}
 		else if (mod->config->mngt.rules->listuser != NULL)
 		{

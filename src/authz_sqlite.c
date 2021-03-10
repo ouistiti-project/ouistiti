@@ -787,9 +787,7 @@ authz_rules_t authz_sqlite_rules =
 authmngt_rules_t authmngt_sqlite_rules =
 {
 	.create = &authmngt_sqlite_create,
-	.group = &authz_sqlite_group,
-	.home = &authz_sqlite_home,
-	.status = &authz_sqlite_status,
+	.setsession = &authz_sqlite_setsession,
 	.adduser = &authz_sqlite_adduser,
 	.changepasswd = &authz_sqlite_changepasswd,
 	.changeinfo = &authz_sqlite_changeinfo,
