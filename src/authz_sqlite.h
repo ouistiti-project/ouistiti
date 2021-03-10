@@ -34,7 +34,7 @@
 
 #ifdef FILE_CONFIG
 #include <libconfig.h>
-void *authz_sqlite_config(config_setting_t *configauth);
+void *authz_sqlite_config(const config_setting_t *configauth);
 #endif
 
 extern authz_rules_t authz_sqlite_rules;

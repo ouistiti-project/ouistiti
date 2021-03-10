@@ -97,7 +97,8 @@ static int _websocket_connect(int client, int socket)
 	cmsg->cmsg_len = CMSG_LEN(sizeof(socket));
 
 	/* Initialize the payload: */
-	*((int *) CMSG_DATA(cmsg)) = socket;
+	fdptr = (int *)CMSG_DATA(cmsg);
+	*fdptr = socket;
 	/* Sum of the length of all control messages in the buffer: */
 	msg.msg_controllen = cmsg->cmsg_len;
 

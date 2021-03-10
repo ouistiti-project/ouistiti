@@ -49,10 +49,12 @@
 
 #ifdef DEBUG
 #define SQLITE3_CHECK(ret, value, sql) \
-	if (ret != SQLITE_OK) {\
-		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql, sqlite3_errmsg(ctx->db)); \
-		return value; \
-	}
+	do { \
+		if (ret != SQLITE_OK) { \
+			err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql, sqlite3_errmsg(ctx->db)); \
+			return value; \
+		} \
+	} while(0)
 #else
 #define SQLITE3_CHECK(...)
 #endif
@@ -60,7 +62,7 @@
 typedef struct authz_sqlite_s authz_sqlite_t;
 struct authz_sqlite_s
 {
-	authz_sqlite_config_t *config;
+	const authz_sqlite_config_t *config;
 	sqlite3 *db;
 	sqlite3_stmt *statement;
 };
@@ -74,7 +76,7 @@ static int authz_sqlite_groupid(authz_sqlite_t *ctx, const char *group);
 static int authz_sqlite_statusid(authz_sqlite_t *ctx, const char *status);
 
 #ifdef FILE_CONFIG
-void *authz_sqlite_config(config_setting_t *configauth)
+void *authz_sqlite_config(const config_setting_t *configauth)
 {
 	authz_sqlite_config_t *authz_config = NULL;
 	char *path = NULL;
@@ -95,10 +97,10 @@ void *authz_sqlite_config(config_setting_t *configauth)
 #define FIELD_PASSWD 3
 #define FIELD_HOME 4
 
-static void *authz_sqlite_create(http_server_t *server, void *arg)
+static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
-	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
+	const authz_sqlite_config_t *config = (const authz_sqlite_config_t *)arg;
 	int ret;
 
 	if (access(config->dbname, R_OK))
@@ -154,10 +156,10 @@ static void *authz_sqlite_create(http_server_t *server, void *arg)
 	return ctx;
 }
 
-static void *authmngt_sqlite_create(http_server_t *server, void *arg)
+static void *authmngt_sqlite_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
-	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
+	const authz_sqlite_config_t *config = (const authz_sqlite_config_t *)arg;
 	int ret;
 	sqlite3 *db;
 
@@ -184,7 +186,6 @@ static int authz_sqlite_setup(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int ret;
-	sqlite3 *db;
 
 	/**
 	 * sqlite3 documentation tells to open the database for each process
@@ -211,7 +212,7 @@ static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, ch
 	int ret;
 	const char *value = NULL;
 
-	int size = sizeof(SEARCH_QUERY) + strlen(field);
+	size_t size = sizeof(SEARCH_QUERY) + strlen(field);
 	char *sql = sqlite3_malloc(size);
 	snprintf(sql, size, SEARCH_QUERY, field);
 
@@ -224,22 +225,16 @@ static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, ch
 	if (index > 0)
 		sqlite3_bind_text(ctx->statement, index, user, -1, SQLITE_STATIC);
 	ret = sqlite3_step(ctx->statement);
-	do
+	while (ret == SQLITE_ROW)
 	{
-		if (ret < SQLITE_ROW)
-		{
-			err("auth: search %s error %s", field, sqlite3_errmsg(ctx->db));
-			break;
-		}
 		int i = 0;
-		const char *key = sqlite3_column_name(ctx->statement, i);
 		if (sqlite3_column_type(ctx->statement, i) == SQLITE_TEXT)
 		{
 			value = sqlite3_column_text(ctx->statement, i);
 			break;
 		}
 		ret = sqlite3_step(ctx->statement);
-	} while (ret == SQLITE_ROW);
+	}
 	sqlite3_free(sql);
 	return value;
 }
@@ -260,10 +255,6 @@ static int authz_sqlite_setsession(void *arg, const char * user, authsession_t *
 {
 	int ret;
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-	const char *group = NULL;
-	const char *home = NULL;
-	const char *status = NULL;
-	char *token = NULL;
 	const char *sql = "select users.name, groups.name as \"group\", status.name as \"status\", home " \
 						"from users " \
 						"inner join groups on groups.id=users.groupid " \
@@ -381,10 +372,10 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 			return user;
 	}
 #endif
-	if (user != NULL && passwd != NULL)
+	if (user != NULL && passwd != NULL &&
+		!_authz_sqlite_checkpasswd(ctx, user, passwd))
 	{
-		if (!_authz_sqlite_checkpasswd(ctx, user, passwd))
-			user = NULL;
+		user = NULL;
 	}
 	return user;
 }
@@ -462,16 +453,6 @@ static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char 
 static int authz_sqlite_userid(authz_sqlite_t *ctx, const char *name)
 {
 	return authz_sqlite_getid(ctx, name, 0);
-}
-
-static int authz_sqlite_groupid(authz_sqlite_t *ctx, const char *name)
-{
-	return authz_sqlite_getid(ctx, name, 1);
-}
-
-static int authz_sqlite_statusid(authz_sqlite_t *ctx, const char *name)
-{
-	return authz_sqlite_getid(ctx, name, 2);
 }
 
 #ifdef AUTH_TOKEN
