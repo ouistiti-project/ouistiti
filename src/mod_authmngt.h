@@ -40,11 +40,7 @@ extern "C"
 typedef int (*authmngt_userlist_t)(void*arg, int nfields, char** values,char** keys);
 
 typedef void *(*authmngt_rule_create_t)(http_server_t *server, void *config);
-typedef const char *(*authmngt_rule_passwd_t)(void *arg, const char *user);
-typedef const char *(*authmngt_rule_group_t)(void *arg, const char *user);
-typedef const char *(*authmngt_rule_status_t)(void *arg, const char *user);
-typedef const char *(*authmngt_rule_home_t)(void *arg, const char *user);
-typedef char *(*authmngt_rule_token_t)(void *arg, const char *user);
+typedef int (*authmngt_rule_setsession_t)(void* arg, const char *user, authsession_t *info);
 typedef int (*authmngt_rule_adduser_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changepasswd_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changeinfo_t)(void *arg, authsession_t *user);
@@ -55,11 +51,7 @@ typedef struct authmngt_rules_s authmngt_rules_t;
 struct authmngt_rules_s
 {
 	authmngt_rule_create_t create;
-	authmngt_rule_passwd_t passwd;
-	authmngt_rule_group_t group;
-	authmngt_rule_status_t status;
-	authmngt_rule_home_t home;
-	authmngt_rule_token_t token;
+	authmngt_rule_setsession_t setsession;
 	authmngt_rule_adduser_t adduser;
 	authmngt_rule_changepasswd_t changepasswd;
 	authmngt_rule_changeinfo_t changeinfo;
