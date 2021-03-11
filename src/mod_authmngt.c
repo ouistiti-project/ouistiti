@@ -67,7 +67,7 @@ static const char str_mngtpath[] = "^/auth/mngt*";
 #ifdef FILE_CONFIG
 #include <libconfig.h>
 #ifdef AUTHZ_SQLITE
-static void *authmngt_sqlite_config(config_setting_t *configauth)
+static void *authmngt_sqlite_config(const config_setting_t *configauth)
 {
 	authz_sqlite_config_t *authz_config = NULL;
 	char *path = NULL;
@@ -84,7 +84,7 @@ static void *authmngt_sqlite_config(config_setting_t *configauth)
 
 struct _authmngt_s
 {
-	void *(*config)(config_setting_t *);
+	void *(*config)(const config_setting_t *);
 	authmngt_rules_t *rules;
 	const char *name;
 };
@@ -101,7 +101,7 @@ static const struct _authmngt_s *authmngt_list[] =
 	NULL
 };
 
-static void *mod_authmngt_config(config_setting_t *iterator, server_t *server)
+static void *mod_authmngt_config(config_setting_t *iterator, server_t *UNUSED(server))
 {
 	mod_authmngt_t *mngtconfig = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -115,7 +115,6 @@ static void *mod_authmngt_config(config_setting_t *iterator, server_t *server)
 		/**
 		 * signin URI allowed to access to the signin page
 		 */
-		int ret;
 		for (int i = 0; authmngt_list[i] != NULL; i++)
 		{
 			mngtconfig->mngt.config = authmngt_list[i]->config(configauth);
@@ -192,7 +191,7 @@ static void mod_authmngt_destroy(void *arg)
 	free(mod);
 }
 
-static int authmngt_jsonifyuser(_mod_authmngt_t *mod, http_message_t *response, const authsession_t *info)
+static int authmngt_jsonifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *response, const authsession_t *info)
 {
 	if (info->user[0] == '\0')
 		return EREJECT;
@@ -230,7 +229,7 @@ static int authmngt_jsonifyuser(_mod_authmngt_t *mod, http_message_t *response, 
 	return 0;
 }
 
-static int authmngt_stringifyuser(_mod_authmngt_t *mod, http_message_t *response, const authsession_t *info)
+static int authmngt_stringifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *response, const authsession_t *info)
 {
 	if (info->user[0] == '\0')
 		return EREJECT;
@@ -287,6 +286,105 @@ static int _authmngt_printuser(void*arg, int nfields, char** values,char** keys)
 	return ESUCCESS;
 }
 
+static int _authmngt_parsesession(const char *query, authsession_t *session)
+{
+	const char *user = strstr(query, "user=");
+	if (user != NULL)
+	{
+		int length = sizeof(session->user);
+		user += 5;
+		char *end = strchr(user, '&');
+		if (end != NULL)
+			length = end - user;
+		strncpy(session->user, user, length);
+	}
+	const char *group = strstr(query, "group=");
+	if (group != NULL)
+	{
+		int length = sizeof(session->group);
+		group += 6;
+		char *end = strchr(group, '&');
+		if (end != NULL)
+			length = end - group;
+		strncpy(session->group, group, length);
+	}
+	const char *home = strstr(query, "home=");
+	if (home != NULL)
+	{
+		int length = sizeof(session->home);
+		home += 5;
+		char *end = strchr(home, '&');
+		if (end != NULL)
+			length = end - home;
+		strncpy(session->home, home, length);
+	}
+	const char *passwd = strstr(query, "passwd=");
+	if (passwd != NULL)
+	{
+		int length = sizeof(session->passwd);
+		passwd += 9;
+		char *end = strchr(passwd, '&');
+		if (end != NULL)
+			length = end - passwd;
+		strncpy(session->passwd, passwd, length);
+	}
+	const char *status = strstr(query, "status=");
+	if (status != NULL)
+	{
+		int length = sizeof(session->status);
+		status += 7;
+		char *end = strchr(status, '&');
+		if (end != NULL)
+			length = end - status;
+		strncpy(session->status, status, length);
+	}
+	return 0;
+}
+
+static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http_message_t *response, const char *user)
+{
+	int ret = EREJECT;
+	int add_passwd = 0;
+	authsession_t session = {0};
+	const char *method = httpmessage_REQUEST(request, "method");
+	const char *query = httpmessage_REQUEST(request, "query");
+
+	_authmngt_parsesession(query, &session);
+	if (user != NULL)
+	{
+		strncpy(session.user, user, sizeof(session.user));
+	}
+	
+	auth_dbg("authmngt: on %s %s %s", session.user, session.group, session.passwd);
+	if (!strcmp(method, str_put) &&
+		session.user[0] != '\0' && session.group[0] != '\0' &&
+		(mod->config->mngt.rules->adduser != NULL) &&
+		(ret = mod->config->mngt.rules->adduser(mod->ctx, &session)) == ESUCCESS)
+	{
+		httpmessage_result(response, 201);
+		add_passwd = 1;
+	}
+	if ((add_passwd || !strcmp(method, str_post)) &&
+		session.user[0] != '\0' && session.passwd[0] != '\0' &&
+		mod->config->mngt.rules->changepasswd != NULL)
+	{
+		ret = mod->config->mngt.rules->changepasswd(mod->ctx, &session);
+	}
+	if ((add_passwd || !strcmp(method, str_post)) &&
+		session.user[0] != '\0' &&
+		mod->config->mngt.rules->changeinfo != NULL)
+	{
+		ret = mod->config->mngt.rules->changeinfo(mod->ctx, &session);
+	}
+	if (!strcmp(method, str_delete) &&
+		session.user[0] != '\0' &&
+		mod->config->mngt.rules->removeuser != NULL)
+	{
+		ret = mod->config->mngt.rules->removeuser(mod->ctx, &session);
+	}
+	return ret;
+}
+
 static int _authmngt_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -298,130 +396,39 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 
 	if (!utils_searchexp(uri, str_mngtpath, &user))
 	{
-		const char *group = NULL;
-		const char *home = NULL;
-		const char *token = NULL;
-		const char *passwd = NULL;
-		const char *status = NULL;
 
-		authsession_t session = {0};
-		const char *query = httpmessage_REQUEST(request, "query");
-
-		char *storage = strdup(query);
-		if (user == NULL)
-		{
-			user = strstr(storage, "user=");
-			if (user != NULL)
-			{
-				user += 5;
-				char *end = strchr(user, '&');
-				if (end != NULL)
-					*end = '\0';
-			}
-		}
-		else
+		if (user != NULL)
 		{
 			int i = 0;
 			while (user[i] == '/') i++;
 			user += i;
 		}
 
-		group = strstr(storage, "group=");
-		home = strstr(storage, "home=");
-		passwd = strstr(storage, "password=");
-		status = strstr(storage, "status=");
 		if (!strcmp(method, str_get))
 		{
 			ret = ESUCCESS;
 		}
 		else
 		{
-			int add_passwd = 0;
-
-			if (user != NULL)
-			{
-				strncpy(session.user, user, sizeof(session.user));
-			}
-			if (group != NULL)
-			{
-				group += 6;
-				char *end = strchr(group, '&');
-				if (end != NULL)
-					*end = '\0';
-				strncpy(session.group, group, sizeof(session.group));
-			}
-			if (home != NULL)
-			{
-				home += 5;
-				char *end = strchr(home, '&');
-				if (end != NULL)
-					*end = '\0';
-				strncpy(session.home, home, sizeof(session.home));
-			}
-			if (passwd != NULL)
-			{
-				passwd += 9;
-				char *end = strchr(passwd, '&');
-				if (end != NULL)
-					*end = '\0';
-				strncpy(session.passwd, passwd, sizeof(session.passwd));
-			}
-			if (status != NULL)
-			{
-				status += 7;
-				char *end = strchr(status, '&');
-				if (end != NULL)
-					*end = '\0';
-				strncpy(session.status, status, sizeof(session.status));
-			}
-			auth_dbg("authmngt: on %s %s %s", session.user, session.group, session.passwd);
-			if (!strcmp(method, str_put) &&
-				session.user[0] != '\0' && session.group[0] != '\0' &&
-				(mod->config->mngt.rules->adduser != NULL) &&
-				(ret = mod->config->mngt.rules->adduser(mod->ctx, &session)) == ESUCCESS)
-			{
-				httpmessage_result(response, 201);
-				add_passwd = 1;
-			}
-			if ((add_passwd || !strcmp(method, str_post)) &&
-				session.user[0] != '\0' && session.passwd[0] != '\0' &&
-				mod->config->mngt.rules->changepasswd != NULL)
-			{
-				ret = mod->config->mngt.rules->changepasswd(mod->ctx, &session);
-			}
-			if ((add_passwd || !strcmp(method, str_post)) &&
-				session.user[0] != '\0' &&
-				mod->config->mngt.rules->changeinfo != NULL)
-			{
-				ret = mod->config->mngt.rules->changeinfo(mod->ctx, &session);
-			}
-			if (!strcmp(method, str_delete) &&
-				session.user[0] != '\0' &&
-				mod->config->mngt.rules->removeuser != NULL)
-			{
-				ret = mod->config->mngt.rules->removeuser(mod->ctx, &session);
-			}
+			ret = _authmngt_execute(mod, request, response, user);
 		}
-		if (ret != ESUCCESS)
-		{
-			httpmessage_result(response, RESULT_500);
-			ret = ESUCCESS;
-		}
-		else if (user != NULL)
+		if (ret == ESUCCESS && user != NULL &&
+			mod->config->mngt.rules->setsession != NULL)
 		{
 			authsession_t info = {0};
 
-			if (mod->config->mngt.rules->setsession != NULL)
-				mod->config->mngt.rules->setsession(mod->ctx, user, &info);
+			strncpy(info.user, user, USER_MAX);
+			mod->config->mngt.rules->setsession(mod->ctx, user, &info);
 
 			const char *accept = httpmessage_REQUEST(request, "Accept");
 
 			if (strstr(accept, "text/json") != NULL)
-				authmngt_jsonifyuser(mod, response, &info);
+				ret = authmngt_jsonifyuser(mod, response, &info);
 			else
-				authmngt_stringifyuser(mod, response, &info);
+				ret = authmngt_stringifyuser(mod, response, &info);
 		}
-		else if (mod->config->mngt.rules->listuser != NULL)
+		else if (ret == ESUCCESS &&
+			mod->config->mngt.rules->listuser != NULL)
 		{
 			httpmessage_addcontent(response, "text/json",
 				"[", -1);
@@ -429,10 +436,15 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 				.mod = mod,
 				.response = response,
 			};
-			mod->config->mngt.rules->listuser(mod->ctx, _authmngt_printuser, &printctx);
+			ret = mod->config->mngt.rules->listuser(mod->ctx, _authmngt_printuser, &printctx);
 			httpmessage_appendcontent(response, "{}]\n", -1);
 		}
-		free(storage);
+
+		if (ret != ESUCCESS)
+		{
+			httpmessage_result(response, RESULT_500);
+			ret = ESUCCESS;
+		}
 	}
 	return ret;
 }

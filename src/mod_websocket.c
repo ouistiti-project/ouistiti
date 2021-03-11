@@ -192,12 +192,22 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 		ret = ESUCCESS;
 	}
 	else
+	{
 		return EREJECT;
+	}
+
 	if (ret == EREJECT)
 	{
 		httpmessage_result(response, RESULT_403);
 		return ESUCCESS;
 	}
+
+	if (fchdir(ctx->fddir) == -1)
+	{
+		httpmessage_result(response, RESULT_500);
+		return ESUCCESS;
+	}
+
 	if (protocol != NULL)
 		httpmessage_addheader(response, str_protocol, protocol);
 
@@ -209,11 +219,6 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	httpmessage_result(response, RESULT_101);
 	websocket_dbg("%s: result 101", str_websocket);
 	ctx->socket = httpmessage_lock(response);
-	if (fchdir(ctx->fddir) == -1)
-	{
-		httpmessage_result(response, RESULT_500);
-		return ESUCCESS;
-	}
 	return ECONTINUE;
 }
 
@@ -230,10 +235,6 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 		upgrade != NULL && (strcasestr(upgrade, str_websocket) != NULL))
 	{
 		ret = websocket_connector_init(ctx, request, response);
-	}
-	else if (ctx->uri == NULL)
-	{
-		ret = ESUCCESS;
 	}
 	else if (ctx->socket > 0)
 	{

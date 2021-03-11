@@ -41,7 +41,7 @@
 typedef authz_simple_config_t authz_simple_t;
 
 #ifdef FILE_CONFIG
-void *authz_simple_config(config_setting_t *configauth)
+void *authz_simple_config(const config_setting_t *configauth)
 {
 	authz_simple_config_t *authz_config = NULL;
 	char *user = NULL;

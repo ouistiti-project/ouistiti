@@ -33,7 +33,7 @@
 
 #ifdef FILE_CONFIG
 #include <libconfig.h>
-void *authz_simple_config(config_setting_t *configauth);
+void *authz_simple_config(const config_setting_t *configauth);
 #endif
 
 extern authz_rules_t authz_simple_rules;

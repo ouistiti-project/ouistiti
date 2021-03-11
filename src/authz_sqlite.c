@@ -289,7 +289,7 @@ static int authz_sqlite_setsession(void *arg, const char * user, authsession_t *
 		auth_dbg("auth: session user %s", info->user);
 		auth_dbg("auth: session group %s", info->group);
 		auth_dbg("auth: session status %s", info->status);
-		auth_dbg("auth: session user %s", info->home);
+		auth_dbg("auth: session home %s", info->home);
 		return ESUCCESS;
 	}
 	err("auth: setsession error %s", sqlite3_errmsg(ctx->db));

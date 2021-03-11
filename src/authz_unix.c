@@ -65,7 +65,7 @@ struct authz_unix_s
 };
 
 #ifdef FILE_CONFIG
-void *authz_unix_config(config_setting_t *configauth)
+void *authz_unix_config(const config_setting_t *configauth)
 {
 	authz_file_config_t *authz_config = NULL;
 	char *path = NULL;
