@@ -63,19 +63,19 @@ struct authz_jwt_s
 };
 
 #ifdef FILE_CONFIG
-void *authz_jwt_config(config_setting_t *configauth)
+void *authz_jwt_config(const config_setting_t *configauth)
 {
 	authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
 	return authz_config;
 }
 #endif
 
-char *authz_generatejwtoken(mod_auth_t *config, const authsession_t *info)
+char *authz_generatejwtoken(const mod_auth_t *config, const authsession_t *info)
 {
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));
 	json_object_set(jheader, "typ", json_string("JWT"));
-	char *theader = json_dumps(jheader, 0);
+	const char *theader = json_dumps(jheader, 0);
 
 	json_t *jtoken = json_object();
 	json_t *juser = json_string(info->user);
