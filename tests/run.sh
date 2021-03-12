@@ -167,7 +167,7 @@ test () {
 	fi
 
 	if [ -n "$PREPARE" ]; then
-		$PREPARE
+		eval $PREPARE
 	fi
 
 	if [ $CONTINUE -eq 0 ] && [ -z $DEBUG ]; then
