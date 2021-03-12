@@ -89,7 +89,7 @@ struct _authmngt_s
 	const char *name;
 };
 
-static const struct _authmngt_s const *authmngt_list[] =
+static const struct _authmngt_s *authmngt_list[] =
 {
 #ifdef AUTHZ_SQLITE
 	&(struct _authmngt_s){
@@ -98,8 +98,24 @@ static const struct _authmngt_s const *authmngt_list[] =
 		.name = "sqlite",
 	},
 #endif
-	NULL
 };
+
+static int authmngt_setrules(const config_setting_t *configauth, mod_authmngt_t *mngtconfig)
+{
+	for (int i = 0; i < (sizeof(authmngt_list) / sizeof(*authmngt_list)); i++)
+	{
+		mngtconfig->mngt.config = authmngt_list[i]->config(configauth);
+		if (mngtconfig->mngt.config != NULL)
+		{
+			dbg("authmngt: manager %s", authmngt_list[i]->name);
+			mngtconfig->mngt.rules = authmngt_list[i]->rules;
+			break;
+		}
+	}
+	if (mngtconfig->mngt.rules == NULL)
+		return EREJECT;
+	return ESUCCESS;
+}
 
 static void *mod_authmngt_config(config_setting_t *iterator, server_t *UNUSED(server))
 {
@@ -112,20 +128,7 @@ static void *mod_authmngt_config(config_setting_t *iterator, server_t *UNUSED(se
 	if (configauth)
 	{
 		mngtconfig = calloc(1, sizeof(*mngtconfig));
-		/**
-		 * signin URI allowed to access to the signin page
-		 */
-		for (int i = 0; authmngt_list[i] != NULL; i++)
-		{
-			mngtconfig->mngt.config = authmngt_list[i]->config(configauth);
-			if (mngtconfig->mngt.config != NULL)
-			{
-				dbg("authmngt: manager %s", authmngt_list[i]->name);
-				mngtconfig->mngt.rules = authmngt_list[i]->rules;
-				break;
-			}
-		}
-		if (mngtconfig->mngt.rules == NULL)
+		if (authmngt_setrules(configauth, mngtconfig) != ESUCCESS)
 		{
 			free(mngtconfig);
 			mngtconfig = NULL;

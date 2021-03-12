@@ -277,7 +277,6 @@ struct _authn_s *authn_list[] =
 		.name = "None",
 	},
 #endif
-	NULL
 };
 
 static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
@@ -292,18 +291,18 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 	}
 
 	int i = 0;
-	const struct _authn_s *authn = authn_list[i];
-	while (authn != NULL && authn->config != NULL)
+	const struct _authn_s *authn = NULL;
+	for (int i = 0; i < (sizeof(authn_list) / sizeof(*authn_list)); i++)
 	{
-		if (!strcmp(type, authn->name))
-			mod->config = authn->config(configauth);
+		if (!strcmp(type, authn_list[i]->name))
+			mod->config = authn_list[i]->config(configauth);
 		if (mod->config != NULL)
 		{
+			authn = authn_list[i];
 			break;
 		}
-		i++;
-		authn = authn_list[i];
 	}
+
 	if (authn != NULL)
 	{
 		mod->type |= authn->type;
@@ -358,7 +357,6 @@ struct _authz_s *authz_list[] =
 		.name = "jwt",
 	},
 #endif
-	NULL
 };
 
 static void authz_optionscb(void *arg, const char *option)
@@ -384,12 +382,10 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 {
 	int ret = EREJECT;
 	const struct _authz_s *authz = NULL;
-	for (int i = 0; authz_list[i] != NULL; i++)
+	for (int i = 0; i < (sizeof(authz_list) / sizeof(*authz_list)); i++)
 	{
 		if (authz_list[i]->config != NULL)
 			mod->config = authz_list[i]->config(configauth);
-		else
-			mod->config = NULL;
 		if (mod->config != NULL)
 		{
 			authz = authz_list[i];
