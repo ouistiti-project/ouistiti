@@ -49,7 +49,7 @@ struct authn_bearer_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_bearer_config(config_setting_t *configauth)
+void *authn_bearer_config(const config_setting_t *configauth)
 {
 	authn_bearer_config_t *authn_config = NULL;
 

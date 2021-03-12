@@ -47,7 +47,7 @@ struct authn_basic_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_basic_config(config_setting_t *configauth)
+void *authn_basic_config(const config_setting_t *configauth)
 {
 	authn_basic_config_t *authn_config = NULL;
 

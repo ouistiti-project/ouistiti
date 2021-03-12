@@ -33,7 +33,7 @@
 
 #ifdef FILE_CONFIG
 #include <libconfig.h>
-void *authn_basic_config(config_setting_t *configauth);
+void *authn_basic_config(const config_setting_t *configauth);
 #endif
 
 extern authn_rules_t authn_basic_rules;

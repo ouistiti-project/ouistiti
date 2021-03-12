@@ -55,7 +55,7 @@ struct authn_none_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_none_config(config_setting_t *configauth)
+void *authn_none_config(const config_setting_t *configauth)
 {
 	authn_none_config_t *authn_config = NULL;
 	const char *user = NULL;
