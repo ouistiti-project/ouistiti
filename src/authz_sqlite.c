@@ -97,6 +97,57 @@ void *authz_sqlite_config(const config_setting_t *configauth)
 #define FIELD_PASSWD 3
 #define FIELD_HOME 4
 
+static int _authz_sqlite_createdb(const char *dbname)
+{
+	int ret;
+	sqlite3 *db;
+	ret = sqlite3_open_v2(dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
+	const char *query[] = {
+		"create table groups (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
+		"create table status (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
+		"create table users (\"id\" INTEGER PRIMARY KEY,"
+					"\"name\" TEXT UNIQUE NOT NULL,"
+					"\"groupid\" INTEGER DEFAULT 2,"
+					"\"statusid\" INTEGER DEFAULT 1,"
+					"\"passwd\" TEXT,"
+					"\"home\" TEXT,"
+					"FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL,"
+					"FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
+		"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER,"
+					"FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
+		"insert into status (name) values(\"approbing\");",
+		"insert into status (name) values(\"activated\");",
+		"insert into status (name) values(\"repudiated\");",
+		"insert into status (name) values(\"reapprobing\");",
+		"insert into groups (name) values(\"root\");",
+		"insert into groups (name) values(\"users\");",
+		"insert into users (name,groupid, statusid,passwd,home)"
+			"values(\"root\",(select id from groups where name=\"root\"),4,\"root\",\"\");",
+#ifdef DEBUG
+		"insert into users (name,groupid, statusid,passwd,home)"
+			"values(\"foo\",(select id from groups where name=\"users\"),4,\"bar\",\"foo\");",
+#endif
+		NULL,
+	};
+	char *error = NULL;
+	int i = 0;
+	while (query[i] != NULL)
+	{
+		if (ret != SQLITE_OK)
+		{
+			warn("auth: sqlite create(%d) error %d", i, ret);
+			break;
+		}
+		ret = sqlite3_exec(db, query[i], NULL, NULL, &error);
+		i++;
+	}
+	sqlite3_close(db);
+	chmod(dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
+	if (ret == SQLITE_OK)
+		warn("auth: generate new database %s", dbname);
+	return (ret == SQLITE_OK)?ESUCCESS:EREJECT;
+}
+
 static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
@@ -105,49 +156,7 @@ static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 
 	if (access(config->dbname, R_OK))
 	{
-		sqlite3 *db;
-		ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
-		const char *query[] = {
-			"create table groups (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
-			"create table status (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
-			"create table users (\"id\" INTEGER PRIMARY KEY,"
-						"\"name\" TEXT UNIQUE NOT NULL,"
-						"\"groupid\" INTEGER DEFAULT 2,"
-						"\"statusid\" INTEGER DEFAULT 1,"
-						"\"passwd\" TEXT,"
-						"\"home\" TEXT,"
-						"FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL,"
-						"FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
-			"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER,"
-						"FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
-			"insert into status (name) values(\"approbing\");",
-			"insert into status (name) values(\"activated\");",
-			"insert into status (name) values(\"repudiated\");",
-			"insert into status (name) values(\"reapprobing\");",
-			"insert into groups (name) values(\"root\");",
-			"insert into groups (name) values(\"users\");",
-			"insert into users (name,groupid, statusid,passwd,home)"
-				"values(\"root\",(select id from groups where name=\"root\"),4,\"root\",\"\");",
-#ifdef DEBUG
-			"insert into users (name,groupid, statusid,passwd,home)"
-				"values(\"foo\",(select id from groups where name=\"users\"),4,\"bar\",\"foo\");",
-#endif
-			NULL,
-		};
-		char *error = NULL;
-		int i = 0;
-		while (query[i] != NULL)
-		{
-			if (ret != SQLITE_OK)
-			{
-				warn("auth: sqlite create(%d) error %d", i, ret);
-				break;
-			}
-			ret = sqlite3_exec(db, query[i], NULL, NULL, &error);
-			i++;
-		}
-		sqlite3_close(db);
-		chmod(config->dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
+		_authz_sqlite_createdb(config->dbname);
 	}
 	auth_dbg("auth: authentication DB storage on %s", config->dbname);
 
@@ -163,10 +172,15 @@ static void *authmngt_sqlite_create(http_server_t *UNUSED(server), void *arg)
 	int ret;
 	sqlite3 *db;
 
+	if (access(config->dbname, R_OK))
+	{
+		_authz_sqlite_createdb(config->dbname);
+	}
+
 	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK)
 	{
-		err("auth: database not found %s", config->dbname);
+		err("authmngt: database not found %s", config->dbname);
 		return NULL;
 	}
 	/** empty the session table */
