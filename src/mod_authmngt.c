@@ -89,7 +89,7 @@ struct _authmngt_s
 	const char *name;
 };
 
-static const struct _authmngt_s *authmngt_list[] =
+static const struct _authmngt_s const *authmngt_list[] =
 {
 #ifdef AUTHZ_SQLITE
 	&(struct _authmngt_s){
@@ -105,9 +105,9 @@ static void *mod_authmngt_config(config_setting_t *iterator, server_t *UNUSED(se
 {
 	mod_authmngt_t *mngtconfig = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configauth = config_setting_get_member(iterator, "auth");
+	const config_setting_t *configauth = config_setting_get_member(iterator, "auth");
 #else
-	config_setting_t *configauth = config_setting_lookup(iterator, "auth");
+	const config_setting_t *configauth = config_setting_lookup(iterator, "auth");
 #endif
 	if (configauth)
 	{
@@ -291,9 +291,9 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 	const char *user = strstr(query, "user=");
 	if (user != NULL)
 	{
-		int length = sizeof(session->user);
+		size_t length = sizeof(session->user);
 		user += 5;
-		char *end = strchr(user, '&');
+		const char *end = strchr(user, '&');
 		if (end != NULL)
 			length = end - user;
 		strncpy(session->user, user, length);
@@ -301,9 +301,9 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 	const char *group = strstr(query, "group=");
 	if (group != NULL)
 	{
-		int length = sizeof(session->group);
+		size_t length = sizeof(session->group);
 		group += 6;
-		char *end = strchr(group, '&');
+		const char *end = strchr(group, '&');
 		if (end != NULL)
 			length = end - group;
 		strncpy(session->group, group, length);
@@ -311,9 +311,9 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 	const char *home = strstr(query, "home=");
 	if (home != NULL)
 	{
-		int length = sizeof(session->home);
+		size_t length = sizeof(session->home);
 		home += 5;
-		char *end = strchr(home, '&');
+		const char *end = strchr(home, '&');
 		if (end != NULL)
 			length = end - home;
 		strncpy(session->home, home, length);
@@ -321,9 +321,9 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 	const char *passwd = strstr(query, "passwd=");
 	if (passwd != NULL)
 	{
-		int length = sizeof(session->passwd);
+		size_t length = sizeof(session->passwd);
 		passwd += 9;
-		char *end = strchr(passwd, '&');
+		const char *end = strchr(passwd, '&');
 		if (end != NULL)
 			length = end - passwd;
 		strncpy(session->passwd, passwd, length);
@@ -331,9 +331,9 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 	const char *status = strstr(query, "status=");
 	if (status != NULL)
 	{
-		int length = sizeof(session->status);
+		size_t length = sizeof(session->status);
 		status += 7;
-		char *end = strchr(status, '&');
+		const char *end = strchr(status, '&');
 		if (end != NULL)
 			length = end - status;
 		strncpy(session->status, status, length);
