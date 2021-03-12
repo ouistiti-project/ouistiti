@@ -34,6 +34,10 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -64,8 +68,6 @@ static const char *str_wilcard = "*";
 static const char *str_empty = "";
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *mod_clientfilter_config(config_setting_t *iterator, server_t *server)
 {
 	mod_clientfilter_t *clientfilter = NULL;

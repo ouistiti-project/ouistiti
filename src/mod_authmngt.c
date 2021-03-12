@@ -35,6 +35,10 @@
 #include <pwd.h>
 #include <time.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "httpserver/hash.h"
@@ -66,7 +70,6 @@ static const char str_empty[] = "";
 static const char str_mngtpath[] = "^/auth/mngt*";
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
 #ifdef AUTHZ_SQLITE
 static void *authmngt_sqlite_config(const config_setting_t *configauth)
 {
@@ -358,7 +361,7 @@ static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http
 	if (!strcmp(method, str_put) &&
 		info->user[0] != '\0' && info->group[0] != '\0' &&
 		(mod->config->mngt.rules->adduser != NULL) &&
-		(ret = mod->config->mngt.rules->adduser(mod->ctx, info)) == ESUCCESS)
+		((ret = mod->config->mngt.rules->adduser(mod->ctx, info)) == ESUCCESS))
 	{
 		httpmessage_result(response, 201);
 		add_passwd = 1;
