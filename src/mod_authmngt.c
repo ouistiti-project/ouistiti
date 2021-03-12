@@ -61,6 +61,7 @@ struct _mod_authmngt_s
 
 static const char str_put[] = "PUT";
 static const char str_delete[] = "DELETE";
+static const char str_empty[] = "";
 
 static const char str_mngtpath[] = "^/auth/mngt*";
 
@@ -344,46 +345,41 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 	return 0;
 }
 
-static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http_message_t *response, const char *user)
+static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http_message_t *response, authsession_t *info)
 {
 	int ret = EREJECT;
 	int add_passwd = 0;
-	authsession_t session = {0};
 	const char *method = httpmessage_REQUEST(request, "method");
 	const char *query = httpmessage_REQUEST(request, "query");
 
-	_authmngt_parsesession(query, &session);
-	if (user != NULL)
-	{
-		strncpy(session.user, user, sizeof(session.user));
-	}
+	_authmngt_parsesession(query, info);
 	
-	auth_dbg("authmngt: on %s %s %s", session.user, session.group, session.passwd);
+	auth_dbg("authmngt: on %s %s %s", info->user, info->group, info->passwd);
 	if (!strcmp(method, str_put) &&
-		session.user[0] != '\0' && session.group[0] != '\0' &&
+		info->user[0] != '\0' && info->group[0] != '\0' &&
 		(mod->config->mngt.rules->adduser != NULL) &&
-		(ret = mod->config->mngt.rules->adduser(mod->ctx, &session)) == ESUCCESS)
+		(ret = mod->config->mngt.rules->adduser(mod->ctx, info)) == ESUCCESS)
 	{
 		httpmessage_result(response, 201);
 		add_passwd = 1;
 	}
 	if ((add_passwd || !strcmp(method, str_post)) &&
-		session.user[0] != '\0' && session.passwd[0] != '\0' &&
+		info->user[0] != '\0' && info->passwd[0] != '\0' &&
 		mod->config->mngt.rules->changepasswd != NULL)
 	{
-		ret = mod->config->mngt.rules->changepasswd(mod->ctx, &session);
+		ret = mod->config->mngt.rules->changepasswd(mod->ctx, info);
 	}
 	if ((add_passwd || !strcmp(method, str_post)) &&
-		session.user[0] != '\0' &&
+		info->user[0] != '\0' &&
 		mod->config->mngt.rules->changeinfo != NULL)
 	{
-		ret = mod->config->mngt.rules->changeinfo(mod->ctx, &session);
+		ret = mod->config->mngt.rules->changeinfo(mod->ctx, info);
 	}
 	if (!strcmp(method, str_delete) &&
-		session.user[0] != '\0' &&
+		info->user[0] != '\0' &&
 		mod->config->mngt.rules->removeuser != NULL)
 	{
-		ret = mod->config->mngt.rules->removeuser(mod->ctx, &session);
+		ret = mod->config->mngt.rules->removeuser(mod->ctx, info);
 	}
 	return ret;
 }
@@ -396,6 +392,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	const char *method = httpmessage_REQUEST(request, "method");
 	const char *user = NULL;
+	authsession_t info = {0};
 
 	if (!utils_searchexp(uri, str_mngtpath, &user))
 	{
@@ -405,6 +402,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 			int i = 0;
 			while (user[i] == '/') i++;
 			user += i;
+			strncpy(info.user, user, USER_MAX);
 		}
 
 		if (!strcmp(method, str_get))
@@ -413,24 +411,9 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 		}
 		else
 		{
-			ret = _authmngt_execute(mod, request, response, user);
+			ret = _authmngt_execute(mod, request, response, &info);
 		}
-		if (ret == ESUCCESS && user != NULL &&
-			mod->config->mngt.rules->setsession != NULL)
-		{
-			authsession_t info = {0};
-
-			strncpy(info.user, user, USER_MAX);
-			mod->config->mngt.rules->setsession(mod->ctx, user, &info);
-
-			const char *accept = httpmessage_REQUEST(request, "Accept");
-
-			if (strstr(accept, "text/json") != NULL)
-				ret = authmngt_jsonifyuser(mod, response, &info);
-			else
-				ret = authmngt_stringifyuser(mod, response, &info);
-		}
-		else if (ret == ESUCCESS &&
+		if (ret == ESUCCESS && !strcmp(info.user, "all") &&
 			mod->config->mngt.rules->listuser != NULL)
 		{
 			httpmessage_addcontent(response, "text/json",
@@ -441,6 +424,18 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 			};
 			ret = mod->config->mngt.rules->listuser(mod->ctx, _authmngt_printuser, &printctx);
 			httpmessage_appendcontent(response, "{}]\n", -1);
+		}
+		else if (ret == ESUCCESS &&
+			mod->config->mngt.rules->setsession != NULL)
+		{
+			mod->config->mngt.rules->setsession(mod->ctx, user, &info);
+
+			const char *accept = httpmessage_REQUEST(request, "Accept");
+
+			if (strstr(accept, "text/json") != NULL)
+				ret = authmngt_jsonifyuser(mod, response, &info);
+			else
+				ret = authmngt_stringifyuser(mod, response, &info);
 		}
 
 		if (ret != ESUCCESS)
