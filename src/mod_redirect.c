@@ -35,6 +35,10 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_redirect.h"
@@ -69,8 +73,6 @@ struct _mod_redirect_s
 };
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static int redirect_mode(const char *mode)
 {
 	int options = 0;

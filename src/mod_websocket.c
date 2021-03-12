@@ -46,6 +46,10 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/log.h"
 #include "httpserver/httpserver.h"
 #include "httpserver/hash.h"
@@ -284,8 +288,6 @@ static void _mod_websocket_freectx(void *arg)
 }
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *websocket_config(config_setting_t *iterator, server_t *UNUSED(server))
 {
 	mod_websocket_t *conf = NULL;

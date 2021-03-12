@@ -36,6 +36,10 @@
 #include <errno.h>
 #include <time.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "httpserver/log.h"
@@ -602,8 +606,6 @@ static int _mime_connector(void *arg, http_message_t *request, http_message_t *r
 }
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static const char *str_index = "index.html";
 static void *document_config(config_setting_t *iterator, server_t *server)
 {

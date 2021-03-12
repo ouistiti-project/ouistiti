@@ -41,6 +41,10 @@
 #include <signal.h>
 #include <wait.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_cors.h"
@@ -141,8 +145,6 @@ static void _mod_cors_freectx(void *arg)
 #endif
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *cors_config(config_setting_t *iterator, server_t *server)
 {
 	mod_cors_t *config = NULL;

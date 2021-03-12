@@ -61,6 +61,10 @@
 #error MBEDTLS not found
 #endif
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/log.h"
 #include "httpserver/httpserver.h"
 #include "mod_tls.h"
@@ -105,8 +109,6 @@ static const httpclient_ops_t *_tlsclient_ops;
 static const httpclient_ops_t *_tlsserver_ops;
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *tls_config(config_setting_t *iterator, server_t *server)
 {
 	mod_tls_t *tls = NULL;

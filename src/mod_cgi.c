@@ -43,6 +43,10 @@
 #include <netinet/in.h>
 #include <sched.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "httpserver/log.h"
@@ -93,8 +97,6 @@ struct _mod_cgi_s
 };
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *cgi_config(config_setting_t *iterator, server_t *server)
 {
 	mod_cgi_config_t *cgi = NULL;
