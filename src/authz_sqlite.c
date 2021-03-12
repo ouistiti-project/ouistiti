@@ -583,21 +583,17 @@ static int _compute_passwd(const char *input, char *output, int outlen)
 	return 0;
 }
 
+#ifdef AUTHZ_MANAGER
 static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-	const char *group = "users";
-	const char *status = "approbing";
-	const char *home = "";
 
 	if (authz_sqlite_userid(ctx, authinfo->user) != -1)
 		return ESUCCESS;
-	if (authinfo->group[0] != '\0')
-		group = authinfo->group;
-	if (authinfo->status[0] != '\0')
-		status = authinfo->status;
-	if (authinfo->home[0] != '\0')
-		home = authinfo->home;
+	if (authz_sqlite_getid(ctx, authinfo->group, 1) == -1)
+		strncpy(authinfo->group, "users", FIELD_MAX);
+	// force the first status to approbing
+		strncpy(authinfo->status, "approbing", FIELD_MAX);
 
 	int ret;
 	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"statusid\",\"home\")"
@@ -617,15 +613,15 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	index = sqlite3_bind_parameter_index(statement, "@HOME");
-	ret = sqlite3_bind_text(statement, index, home, -1, SQLITE_STATIC);
+	ret = sqlite3_bind_text(statement, index, authinfo->home, -1, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	index = sqlite3_bind_parameter_index(statement, "@GROUP");
-	ret = sqlite3_bind_text(statement, index, group, -1, SQLITE_STATIC);
+	ret = sqlite3_bind_text(statement, index, authinfo->group, -1, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	index = sqlite3_bind_parameter_index(statement, "@STATUS");
-	ret = sqlite3_bind_text(statement, index, status, -1, SQLITE_STATIC);
+	ret = sqlite3_bind_text(statement, index, authinfo->status, -1, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	ret = sqlite3_step(statement);
@@ -635,7 +631,6 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
 
-#ifdef AUTHZ_MANAGER
 static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -708,7 +703,12 @@ static int authz_sqlite_removeuser(void *arg, authsession_t *authinfo)
 	ret = sqlite3_step(statement);
 	sqlite3_finalize(statement);
 	if (ret != SQLITE_DONE)
+	{
 		err("auth: remove user error %s", sqlite3_errmsg(ctx->db));
+		strncpy(authinfo->status, sqlite3_errmsg(ctx->db), FIELD_MAX);
+	}
+	else
+		strncpy(authinfo->status, "removed", FIELD_MAX);
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
 #endif
