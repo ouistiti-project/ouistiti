@@ -82,7 +82,7 @@ struct _json_load_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_oauth2_config(config_setting_t *configauth)
+void *authn_oauth2_config(const config_setting_t *configauth)
 {
 	authn_oauth2_config_t *authn_config = NULL;
 	const char *auth_ep = NULL;

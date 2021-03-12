@@ -58,7 +58,7 @@ struct authn_digest_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_digest_config(config_setting_t *configauth)
+void *authn_digest_config(const config_setting_t *configauth)
 {
 	authn_digest_config_t *authn_config = NULL;
 

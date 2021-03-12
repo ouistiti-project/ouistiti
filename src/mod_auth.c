@@ -235,7 +235,7 @@ static int _mod_sethash(const _mod_auth_t *mod, const mod_auth_t *config)
 #ifdef FILE_CONFIG
 struct _authn_s
 {
-	void *(*config)(config_setting_t *);
+	void *(*config)(const config_setting_t *);
 	authn_type_t type;
 	const char *name;
 };
@@ -280,7 +280,7 @@ struct _authn_s *authn_list[] =
 	NULL
 };
 
-static int authn_config(config_setting_t *configauth, mod_authn_t *mod)
+static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 {
 	int ret = EREJECT;
 
