@@ -1,3 +1,4 @@
 DESC="test to access to test.myextention file (empty file)"
 CONFIG=test1.conf
 TESTCODE=204
+TESTRESPONSE=result204_rs.txt

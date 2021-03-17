@@ -3,3 +3,4 @@ DESC="Add userfilter"
 TESTREQUEST=test085_rq.txt
 CONFIG=test12.conf
 TESTCODE=204
+TESTRESPONSE=result204_rs.txt
