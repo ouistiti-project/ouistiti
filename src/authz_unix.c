@@ -206,9 +206,6 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 static int authz_unix_setsession(void *arg, const char * user, authsession_t *info)
 {
 	const authz_unix_t *ctx = (const authz_unix_t *)arg;
-	const char *group = NULL;
-	const char *home = NULL;
-	char *token = NULL;
 
 	if (user == NULL)
 		return EREJECT;
