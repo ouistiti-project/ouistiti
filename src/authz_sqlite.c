@@ -586,7 +586,7 @@ static int _compute_passwd(const char *input, char *output, int outlen)
 		hash->finish(ctx, hashpasswd);
 
 		size_t cnt = 0;
-		strcpy(output, "$5$");
+		strncpy(output, "$5$", outlen - 1);
 		base64->encode(hashpasswd, hash->size, output + 4, outlen - 4);
 		free(hashpasswd);
 	}
