@@ -607,7 +607,7 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	if (authz_sqlite_getid(ctx, authinfo->group, 1) == -1)
 		strncpy(authinfo->group, "users", FIELD_MAX);
 	// force the first status to approbing
-		strncpy(authinfo->status, "approbing", FIELD_MAX);
+	strncpy(authinfo->status, str_status_approbing, FIELD_MAX);
 
 	int ret;
 	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"statusid\",\"home\")"

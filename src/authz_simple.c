@@ -109,7 +109,7 @@ static int authz_simple_setsession(void *arg, const char * user, authsession_t *
 		strncpy(info->group, "anonymous", FIELD_MAX);
 	if (config->home && config->home[0] != '\0')
 		strncpy(info->home, config->home, PATH_MAX);
-	strncpy(info->status, "activated", FIELD_MAX);
+	strncpy(info->status, str_status_activated, FIELD_MAX);
 	return ESUCCESS;
 }
 

@@ -41,6 +41,10 @@ extern const char str_authenticate[];
 extern const char str_authorization[];
 extern const char str_anonymous[];
 extern const char *str_authenticate_engine[];
+extern const char str_status_approbing[];
+extern const char str_status_reapprobing[];
+extern const char str_status_activated[];
+extern const char str_status_repudiated[];
 
 typedef struct mod_auth_s mod_auth_t;
 
