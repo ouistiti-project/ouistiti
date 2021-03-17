@@ -127,19 +127,22 @@ int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
 	return ret;
 }
 
-static int _search_method(_mod_userfilter_t *ctx, const char *method, int length)
+static int _search_field(_mod_userfilter_t *ctx, int ifield, const char *value, int length)
 {
 	int ret = EREJECT;
 	int step;
 	sqlite3_stmt *statement;
-	const char *sql = "select id from methods where name=@METHOD;";
-	step = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-	SQLITE3_CHECK(step, EREJECT, sql);
+	const char *sql[] = {
+		"select id from methods where name=@VALUE;",
+		"select id from roles where name=@VALUE;",
+	};
+	step = sqlite3_prepare_v2(ctx->db, sql[ifield], -1, &statement, NULL);
+	SQLITE3_CHECK(step, EREJECT, sql[ifield]);
 
 	int index;
-	index = sqlite3_bind_parameter_index(statement, "@METHOD");
-	step = sqlite3_bind_text(statement, index, method, length, SQLITE_STATIC);
-	SQLITE3_CHECK(step, EREJECT, sql);
+	index = sqlite3_bind_parameter_index(statement, "@VALUE");
+	step = sqlite3_bind_text(statement, index, value, length, SQLITE_STATIC);
+	SQLITE3_CHECK(step, EREJECT, sql[ifield]);
 
 	step = sqlite3_step(statement);
 	if (step == SQLITE_ROW)
@@ -150,26 +153,14 @@ static int _search_method(_mod_userfilter_t *ctx, const char *method, int length
 	return ret;
 }
 
+static int _search_method(_mod_userfilter_t *ctx, const char *method, int length)
+{
+	return _search_field(ctx, 0, method, length);
+}
+
 static int _search_role(_mod_userfilter_t *ctx, const char *role, int length)
 {
-	int ret = EREJECT;
-	int step;
-	sqlite3_stmt *statement;
-	const char *sql = "select id from roles where name=@ROLE;";
-	step = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-	SQLITE3_CHECK(step, EREJECT, sql);
-
-	int index;
-	index = sqlite3_bind_parameter_index(statement, "@ROLE");
-	step = sqlite3_bind_text(statement, index, role, length, SQLITE_STATIC);
-	SQLITE3_CHECK(step, EREJECT, sql);
-	step = sqlite3_step(statement);
-	if (step == SQLITE_ROW)
-	{
-		ret = sqlite3_column_int(statement,0);
-	}
-	sqlite3_finalize(statement);
-	return ret;
+	return _search_field(ctx, 1, role, length);
 }
 
 static int _request(_mod_userfilter_t *ctx, const char *method,
@@ -228,18 +219,21 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 	return ret;
 }
 
-static int _insert_method(_mod_userfilter_t *ctx, const char *method, int length)
+static int _insert_field(_mod_userfilter_t *ctx, int table, const char *value, int length)
 {
 	int ret = EREJECT;
 	sqlite3_stmt *statement;
-	const char *sql = "insert into methods (name) values(@METHOD);";
-	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-	SQLITE3_CHECK(ret, EREJECT, sql);
+	const char *sql[] = {
+		"insert into methods (name) values(@VALUE);",
+		"insert into roles (name) values(@VALUE);"
+	};
+	ret = sqlite3_prepare_v2(ctx->db, sql[table], -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql[table]);
 
 	int index;
-	index = sqlite3_bind_parameter_index(statement, "@METHOD");
-	ret = sqlite3_bind_text(statement, index, method, length, SQLITE_STATIC);
-	SQLITE3_CHECK(ret, EREJECT, sql);
+	index = sqlite3_bind_parameter_index(statement, "@VALUE");
+	ret = sqlite3_bind_text(statement, index, value, length, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql[table]);
 
 	int step = sqlite3_step(statement);
 	if (step == SQLITE_DONE)
@@ -250,26 +244,14 @@ static int _insert_method(_mod_userfilter_t *ctx, const char *method, int length
 	return ret;
 }
 
+static int _insert_method(_mod_userfilter_t *ctx, const char *method, int length)
+{
+	return _insert_field(ctx, 0, method, length);
+}
+
 static int _insert_role(_mod_userfilter_t *ctx, const char *role, int length)
 {
-	int ret = EREJECT;
-	sqlite3_stmt *statement;
-	const char *sql = "insert into roles (name) values(@ROLE);";
-	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-	SQLITE3_CHECK(ret, EREJECT, sql);
-
-	int index;
-	index = sqlite3_bind_parameter_index(statement, "@ROLE");
-	ret = sqlite3_bind_text(statement, index, role, length, SQLITE_STATIC);
-	SQLITE3_CHECK(ret, EREJECT, sql);
-
-	int step = sqlite3_step(statement);
-	if (step == SQLITE_DONE)
-	{
-		ret = sqlite3_last_insert_rowid(ctx->db);
-	}
-	sqlite3_finalize(statement);
-	return ret;
+	return _insert_field(ctx, 1, role, length);
 }
 
 static int _insert_rules(_mod_userfilter_t *ctx, int methodid, int roleid, const char *exp, int length)
@@ -347,6 +329,27 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	return ret;
 }
 
+static int _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield)
+{
+	const char *field[] = {
+		"method=",
+		"role=",
+	};
+	const char *value = strstr(query, field[ifield]);
+	if (value == NULL)
+		return EREJECT;
+	else
+		value += strlen(field[ifield]);
+	int length = -1;
+	const char *end = strchr(value, '&');
+	if (end != NULL)
+		length = end - value;
+	int id = _search_field(ctx, ifield, value, length);
+	if (id == EREJECT)
+		id = _insert_field(ctx, ifield, value, length);
+	return id;
+}
+
 static int rootgenerator_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
@@ -359,65 +362,28 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 		const char *query = httpmessage_REQUEST(request, "query");
 		if (!strcmp(method, str_post) && query != NULL)
 		{
-			ret = EINCOMPLETE;
-			const char *role = strstr(query, "role=");
-			if (role == NULL)
-				ret = EREJECT;
-			else
-			{
-				role += 5;
-			}
-			const char *method = strstr(query, "method=");
-			if (method == NULL)
-				ret = EREJECT;
-			else
-			{
-				method += 7;
-			}
+			ret = EREJECT;
+			int methodid = _parsequery(ctx, query, 0);
+			int roleid = _parsequery(ctx, query, 1);
 			const char *exp = strstr(query, "pathexp=");
-			if (exp == NULL)
-				ret = EREJECT;
-			else
+			if (exp != NULL && methodid != EREJECT && roleid != EREJECT)
 			{
 				exp += 8;
-			}
-			if (ret == EINCOMPLETE)
-			{
-				const char *end = NULL;
-				int mlength = -1;
-				end = strchr(method, '&');
-				if (end != NULL)
-					mlength = end - method;
-				int methodid = _search_method(ctx, method, mlength);
-				if (methodid == EREJECT)
-					methodid = _insert_method(ctx, method, mlength);
-
-				int rlength = -1;
-				end = strchr(role, '&');
-				if (end != NULL)
-					rlength = end - role;
-				int roleid = _search_role(ctx, role, rlength);
-				if (roleid == EREJECT)
-					roleid = _insert_role(ctx, role, rlength);
-
 				int elength = -1;
-				end = strchr(exp, '&');
+				const char *end = strchr(exp, '&');
 				if (end != NULL)
 					elength = end - exp;
-				if (methodid != EREJECT && roleid != EREJECT)
-					ret = _insert_rules(ctx, methodid, roleid, exp, elength);
-				if (ret != ESUCCESS)
-					httpmessage_result(response, RESULT_500);
-				else
-				{
-					warn("userfilter: insert %.*s for %.*s %.*s", elength, exp, mlength, method, rlength, role);
-#if defined RESULT_204
-					httpmessage_result(response, RESULT_204);
-#endif
-				}
+				ret = _insert_rules(ctx, methodid, roleid, exp, elength);
 			}
-			else
+			if (ret != ESUCCESS)
 				httpmessage_result(response, RESULT_400);
+			else
+			{
+				warn("userfilter: insert %s", query);
+#if defined RESULT_204
+				httpmessage_result(response, RESULT_204);
+#endif
+			}
 		}
 		else
 		{
@@ -494,6 +460,9 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			"insert into roles (id, name) values(0, @SUPERUSER);",
 			"insert into roles (id, name) values(1, \"annonymous\");",
 			"insert into roles (id, name) values(2, \"*\");",
+#ifdef DEBUG
+			"insert into roles (id, name) values(3, \"users\");",
+#endif
 			"create table rules (\"exp\" TEXT NOT NULL, \"methodid\" INTEGER NOT NULL,\"roleid\" INTEGER NOT NULL, FOREIGN KEY (methodid) REFERENCES methods(id) ON UPDATE SET NULL, FOREIGN KEY (roleid) REFERENCES roles(id) ON UPDATE SET NULL);",
 			"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"POST\"),0);",
 			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"GET\"),0);",
@@ -503,6 +472,10 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"GET\"),2);",
 			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"POST\"),2);",
 			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"DELETE\"),2);",
+#ifdef DEBUG
+			"insert into rules (exp,methodid,roleid) values(\"^/%g/%u/*\",(select id from methods where name=\"GET\"),3);",
+			"insert into rules (exp,methodid,roleid) values(\"^/trust/*\",(select id from methods where name=\"GET\"),1);",
+#endif
 			NULL,
 		};
 		char *error = NULL;
