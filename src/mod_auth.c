@@ -92,6 +92,11 @@ static char *authz_generatetoken(const mod_auth_t *mod, const authsession_t *inf
 static const char str_auth[] = "auth";
 static const char str_cachecontrol[] = "Cache-Control";
 
+const char str_status_approbing[] = "approbing";
+const char str_status_reapprobing[] = "reapprobing";
+const char str_status_activated[] = "activated";
+const char str_status_repudiated[] = "repudiated";
+
 struct _mod_auth_ctx_s
 {
 	_mod_auth_t *mod;
@@ -841,8 +846,7 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 
 			if (ctx->info->token[0] == '\0')
 			{
-				int length = ((sign - string - 1) < TOKEN_MAX)? sign - string - 1: TOKEN_MAX;
-				strncpy(ctx->info->token, string, length);
+				strncpy(ctx->info->token, sign, TOKEN_MAX);
 			}
 			ret = EREJECT;
 		}
