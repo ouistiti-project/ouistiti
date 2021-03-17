@@ -156,7 +156,7 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 	int ret;
 
 	gethostname(str_hostname, HOST_NAME_MAX);
-	strncat(str_hostname, ".local", 7);
+	strncat(str_hostname, ".local", sizeof(str_hostname) - HOST_NAME_MAX);
 
 	if (access(filepath, R_OK))
 	{
