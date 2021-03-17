@@ -65,7 +65,9 @@ CURL=curl
 WGET=wget
 USER=$(ls -l $0 | ${AWK} '{print $3}')
 TESTCLIENT="./host/utils/testclient"
-LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
+LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/:$TESTDIR../utils/
+
+export LD_LIBRARY_PATH
 
 if [ -z "$INFO" ]; then
 CURLOUT="-o /dev/null"
