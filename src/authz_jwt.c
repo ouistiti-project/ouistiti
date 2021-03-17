@@ -277,22 +277,6 @@ static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const ch
 	return _authz_jwt_checktoken(ctx, token);
 }
 
-static const char *authz_jwt_group(void *arg, const char *user)
-{
-	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	if (ctx->token.group[0] != '\0')
-		return ctx->token.group;
-	return NULL;
-}
-
-static const char *authz_jwt_home(void *arg, const char *UNUSED(user))
-{
-	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	if (ctx->token.home[0] != '\0')
-		return ctx->token.home;
-	return NULL;
-}
-
 static int authz_jwt_setsession(void *arg, const char *UNUSED(user), authsession_t *authsession)
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
