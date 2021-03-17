@@ -288,7 +288,7 @@ static void _mod_websocket_freectx(void *arg)
 }
 
 #ifdef FILE_CONFIG
-static void *websocket_config(config_setting_t *iterator, server_t *UNUSED(server))
+static void *websocket_config(config_setting_t *iterator, server_t *server)
 {
 	mod_websocket_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -306,13 +306,14 @@ static void *websocket_config(config_setting_t *iterator, server_t *UNUSED(serve
 		config_setting_lookup_string(configws, "deny", &conf->deny);
 		config_setting_lookup_string(configws, "options", &mode);
 #ifdef WEBSOCKET_RT
-		if (utils_searchexp("direct", option, NULL) == ESUCCESS)
+		if (utils_searchexp("direct", mode, NULL) == ESUCCESS)
 		{
 			if (!ouistiti_issecure(server))
 				conf->options |= WEBSOCKET_REALTIME;
 			else
 				warn("realtime configuration is not allowed with tls");
 		}
+#else
 #endif
 	}
 	return conf;
@@ -354,6 +355,8 @@ static void *mod_websocket_create(http_server_t *server, mod_websocket_t *config
 		warn("server %p runs realtime websocket!", server);
 	}
 	else
+#else
+	(void)(server);
 #endif
 	mod->run = default_websocket_run;
 

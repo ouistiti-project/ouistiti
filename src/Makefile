@@ -39,9 +39,6 @@ $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 
 $(TARGET)_LIBS-$(MODULES)+=dl
 
-$(TARGET)_SOURCES-$(WEBSOCKET_RT)+=websocket.c
-$(TARGET)_SOURCES-$(WEBSTREAM)+=websocket.c
-
 ifneq ($(MODULES),y)
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(WOLFSSL)+=mod_wolfssl

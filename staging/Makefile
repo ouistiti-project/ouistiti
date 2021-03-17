@@ -1,3 +1,5 @@
+subdir-$(WEBSOCKET_RT)+=websocket.mk
+
 subdir-$(DATE)+=mod_date.mk
 subdir-$(FORMPARSER_DEPECATED)+=mod_formparser.mk
 subdir-$(OPENSSL)+=mod_openssl.mk
