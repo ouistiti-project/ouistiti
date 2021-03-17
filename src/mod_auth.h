@@ -54,14 +54,14 @@ typedef struct mod_auth_s mod_auth_t;
 typedef struct authsession_s
 {
 	int expires;
-	char type[FIELD_MAX];
-	char user[USER_MAX];
-	char group[FIELD_MAX];
-	char home[PATH_MAX];
-	char passwd[FIELD_MAX];
-	char urlspace[PATH_MAX];
-	char token[TOKEN_MAX];
-	char status[FIELD_MAX];
+	char type[FIELD_MAX + 1];
+	char user[USER_MAX + 1];
+	char group[FIELD_MAX + 1];
+	char home[PATH_MAX + 1];
+	char passwd[TOKEN_MAX + 1];
+	char urlspace[PATH_MAX + 1];
+	char token[TOKEN_MAX + 1];
+	char status[FIELD_MAX + 1];
 } authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
