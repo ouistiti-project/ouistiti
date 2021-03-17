@@ -49,8 +49,6 @@
 #include "httpserver/utils.h"
 #include "mod_cors.h"
 
-#define CLIENT_CONNECTOR
-
 extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);
 extern int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request);
 
@@ -94,7 +92,6 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 {
 	int ret = EREJECT;
 	_mod_cors_t *mod = (_mod_cors_t *)arg;
-	mod_cors_t *config = (mod_cors_t *)mod->config;
 
 	const char *origin = httpmessage_REQUEST(request, "Origin");
 	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
@@ -149,9 +146,9 @@ static void *cors_config(config_setting_t *iterator, server_t *server)
 {
 	mod_cors_t *config = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *config_set = config_setting_get_member(iterator, "cors");
+	const config_setting_t *config_set = config_setting_get_member(iterator, "cors");
 #else
-	config_setting_t *config_set = config_setting_lookup(iterator, "cors");
+	const config_setting_t *config_set = config_setting_lookup(iterator, "cors");
 #endif
 	if (config_set)
 	{

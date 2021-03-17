@@ -9,6 +9,9 @@ servers= ({
 			allow = ".cgi*";
 			deny = ".htaccess,.php";
 		};
+		cors = {
+			origin = "localhost";
+		};
 	});
 
 
