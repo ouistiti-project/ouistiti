@@ -58,6 +58,8 @@ typedef struct authz_unix_s authz_unix_t;
 struct authz_unix_s
 {
 	authz_file_config_t *config;
+	authsession_t auth;
+
 	char user[32];
 	char passwd[128];
 	char group[32];
@@ -93,10 +95,7 @@ static void *authz_unix_create(http_server_t *server, void *arg)
 static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-
-	if (ctx->user && !strcmp(user, ctx->user))
-		return 1;
-
+	const char *status = str_status_activated;
 	struct passwd *pw = NULL;
 
 #ifdef USE_REENTRANT
@@ -149,6 +148,17 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 				warn("authz unix: unaccessible user");
 				return 0;
 			}
+			time_t now = time(NULL);
+			long day = now / (60 * 60 * 24);
+			if (spasswd->sp_max > 0 && day > (spasswd->sp_lstchg + spasswd->sp_max))
+				status = str_status_reapprobing;
+			if (spasswd->sp_expire > 0 && day > spasswd->sp_expire)
+				status = str_status_repudiated;
+		}
+		else if (cryptpasswd[0] == '!')
+		{
+			status = str_status_repudiated;
+			cryptpasswd += 1;
 		}
 
 		const char *testpasswd = NULL;
@@ -161,14 +171,15 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
 			ret = 1;
-			strncpy(ctx->user, pw->pw_name, sizeof(ctx->user));
-			strncpy(ctx->home, pw->pw_dir, sizeof(ctx->home));
+			strncpy(ctx->auth.user, pw->pw_name, USER_MAX);
+			strncpy(ctx->auth.home, pw->pw_dir, PATH_MAX);
+			strncpy(ctx->auth.status, status, FIELD_MAX);
 
 			struct group *grp;
 			struct group grpstorage;
 			if (getgrgid_r(pw->pw_gid, &grpstorage, buffer, sizeof(buffer), &grp))
 			{
-				strncpy(ctx->group, grp->gr_name, sizeof(ctx->group));
+				strncpy(ctx->auth.group, grp->gr_name, FIELD_MAX);
 			}
 		}
 		else
@@ -202,14 +213,14 @@ static int authz_unix_setsession(void *arg, const char * user, authsession_t *in
 	if (user == NULL)
 		return EREJECT;
 
-	strncpy(info->user, user, USER_MAX);
-	if (ctx->group && ctx->group[0] != '\0')
-		strncpy(info->group, ctx->group, FIELD_MAX);
+	strncpy(info->user, ctx->auth.user, USER_MAX);
+	if (ctx->group && ctx->auth.group[0] != '\0')
+		strncpy(info->group, ctx->auth.group, FIELD_MAX);
 	else if (!strcmp(user, "anonymous"))
 		strncpy(info->group, "anonymous", FIELD_MAX);
-	if (ctx->home && ctx->home[0] != '\0')
-		strncpy(info->home, ctx->home, PATH_MAX);
-	strncpy(info->status, "activated", FIELD_MAX);
+	if (ctx->home && ctx->auth.home[0] != '\0')
+		strncpy(info->home, ctx->auth.home, PATH_MAX);
+	strncpy(info->status, ctx->auth.status, FIELD_MAX);
 	return ESUCCESS;
 }
 
