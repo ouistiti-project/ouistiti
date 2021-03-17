@@ -74,7 +74,7 @@ int _exp_cmp(_mod_userfilter_t *ctx, const char *value,
 				const char *uri)
 {
 	int ret = EREJECT;
-	const char *entries[3];
+	const char *entries[3] = {0};
 	int nbentries = 0;
 
 	char *p, *valuefree = strdup(value);
@@ -100,9 +100,12 @@ int _exp_cmp(_mod_userfilter_t *ctx, const char *value,
 				nbentries++;
 			break;
 			default:
+				free(valuefree);
 				return ret;
 		}
 		p = strchr(p, '%');
+		if (nbentries >= 3)
+			break;
 	}
 	char *checking;
 	if (asprintf(&checking, valuefree, entries[0], entries[1], entries[2]) < 0)
@@ -408,10 +411,10 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 				else
 					httpmessage_result(response, RESULT_204);
 #endif
-				free(nquery);
 			}
 			else
 				httpmessage_result(response, RESULT_400);
+			free(nquery);
 		}
 		else
 		{
