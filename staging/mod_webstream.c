@@ -211,7 +211,7 @@ static void webstream_optionscb(void *arg, const char *option, size_t length)
 #ifdef WEBSOCKET_RT
 	if (!strncmp(option, "direct", length))
 	{
-		if (!(conf->options & WEBSOCKET_TLS))
+		if (!(conf->options & WEBSTREAM_TLS))
 			conf->options |= WEBSOCKET_REALTIME;
 		else
 			warn("realtime configuration is not allowed with tls");
