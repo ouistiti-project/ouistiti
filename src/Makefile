@@ -96,3 +96,4 @@ subdir-$(REDIRECT)+=mod_redirect404.mk
 subdir-$(REDIRECT)+=mod_redirect.mk
 subdir-$(CORS)+=mod_cors.mk
 subdir-$(WEBSOCKET)+=mod_websocket.mk
+subdir-$(USERFILTER)+=mod_userfilter.mk
