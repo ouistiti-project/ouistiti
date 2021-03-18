@@ -90,12 +90,12 @@ static int document_checkname(const _mod_document_mod_t *mod, const char *uri)
 
 	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
-		dbg("deny");
+		document_dbg("document: %s deny", uri);
 		return  EREJECT;
 	}
 	if (utils_searchexp(uri, config->allow, NULL) != ESUCCESS)
 	{
-		dbg("not allowed");
+		document_dbg("document: %s not allowed", uri);
 		return  EREJECT;
 	}
 	return ESUCCESS;
@@ -267,7 +267,7 @@ static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const 
 	int fdfile = openat(fdroot, config->defaultpage, O_RDONLY);
 	if (fdfile > 0)
 	{
-		dbg("document: move to %s/%s", url, config->defaultpage);
+		document_dbg("document: move to %s/%s", url, config->defaultpage);
 		/**
 		 * Check uri is only one character.
 		 * It should be "/"
@@ -321,7 +321,7 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 			}
 			else
 			{
-				dbg("document: %s is directory", url);
+				document_dbg("document: %s is directory", url);
 				close(fdfile);
 				return -1;
 			}
@@ -329,7 +329,7 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 	}
 	else if (filestat->st_size == 0)
 	{
-		dbg("document: empty file");
+		document_dbg("document: empty file");
 #if defined(RESULT_204)
 		httpmessage_result(response, RESULT_204);
 #else
@@ -401,7 +401,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 
 	if (document_checkname(mod, uri) == EREJECT)
 	{
-		dbg("document: %s forbidden extension", uri);
+		document_dbg("document: %s forbidden extension", uri);
 		/**
 		 * Another module may have the same docroot and
 		 * accept the name of the uri.
@@ -422,12 +422,12 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	int fdfile = 0;
 	if (length > 0)
 	{
-		dbg("document: open %s", uri);
+		document_dbg("document: open %s", uri);
 		fdfile = openat(fdroot, uri, O_RDONLY );
 	}
 	else
 	{
-		dbg("document: try / as URI");
+		document_dbg("document: try / as URI");
 		fdfile = dup(fdroot);
 	}
 
@@ -479,7 +479,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	}
 	else if (fdfile == -1)
 	{
-		dbg("document: %s not exist %s", uri, strerror(errno));
+		document_dbg("document: %s not exist %s", uri, strerror(errno));
 		close(fdroot);
 		return  EREJECT;
 	}
