@@ -69,25 +69,11 @@ struct _mod_cors_s
 {
 	mod_cors_t *config;
 	socket_t socket;
+	const char *methods;
 };
 
 static const char str_cors[] = "cors";
 static const char str_options[] = "OPTIONS";
-#ifdef DOCUMENTREST
-#define RESTMETHODS	", PUT" \
-					", DELETE"
-#else
-#define RESTMETHODS	""
-#endif
-
-static const char str_methodslist[] =
-				"GET, " \
-				"POST, " \
-				"HEAD, " \
-				"OPTIONS" \
-				RESTMETHODS \
-				"";
-
 static int _cors_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -96,28 +82,29 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	const char *origin = httpmessage_REQUEST(request, "Origin");
 	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
 	{
+		httpmessage_addheader(response, "Access-Control-Allow-Origin", mod->config->origin);
 		const char *method = httpmessage_REQUEST(request, "method");
 		if (!strcmp(method, str_options))
 		{
 			const char *ac_request;
-			httpmessage_addheader(response, "Access-Control-Allow-Origin", origin);
-
 			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
-			if (ac_request)
+			if (ac_request && ac_request[0] != '\0')
 			{
-				httpmessage_addheader(response, "Access-Control-Allow-Methods", str_methodslist);
+				const char *methods = method;
+				if (mod->methods && mod->methods[0] != '\0')
+					methods = mod->methods;
+				httpmessage_addheader(response, "Access-Control-Allow-Methods", methods);
 			}
 			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
-			if (ac_request)
+			if (ac_request && ac_request[0] != '\0')
 			{
 				httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request);
 			}
 			httpmessage_addheader(response, "Access-Control-Allow-Credentials", "true");
-			httpmessage_result(response, 200);
 			ret = ESUCCESS;
 		}
 	}
-	else if (origin && origin[0] != '\0')
+	else if ((origin && origin[0] != '\0') || httpmessage_isprotected(request))
 	{
 		httpmessage_result(response, 405);
 		ret = ESUCCESS;
@@ -125,12 +112,12 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
-#ifdef CLIENT_CONNECTOR
-static void *_mod_cors_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	_mod_cors_t *mod = (_mod_cors_t *)arg;
 
-	httpclient_addconnector(ctl, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
+	mod->methods = httpserver_INFO(httpclient_server(clt), "methods");
+	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
 
 	return mod;
 }
@@ -139,7 +126,6 @@ static void _mod_cors_freectx(void *arg)
 {
 	_mod_cors_t *ctx = (_mod_cors_t *)arg;
 }
-#endif
 
 #ifdef FILE_CONFIG
 static void *cors_config(config_setting_t *iterator, server_t *server)
@@ -173,12 +159,8 @@ static void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 
 	mod->config = config;
 
-	httpserver_addmethod(server, str_options, 1);
-#ifdef CLIENT_CONNECTOR
+	httpserver_addmethod(server, str_options, 0);
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
-#else
-	httpserver_addconnector(server, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
-#endif
 	return mod;
 }
 
