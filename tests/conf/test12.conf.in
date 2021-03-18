@@ -28,6 +28,9 @@ servers= ({
 				origin = "^/token";
 			});
 		};
+		cors = {
+			origin = "localhost,ouistiti";
+		};
 	});
 
 
