@@ -178,8 +178,8 @@ static void *mod_authmngt_create(http_server_t *server, mod_authmngt_t *config)
 		return NULL;
 	}
 
-	httpserver_addmethod(server, str_put, MESSAGE_ALLOW_CONTENT);
-	httpserver_addmethod(server, str_delete, MESSAGE_ALLOW_CONTENT);
+	httpserver_addmethod(server, str_put, MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
+	httpserver_addmethod(server, str_delete, MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
 	httpserver_addconnector(server, _authmngt_connector, mod, CONNECTOR_DOCUMENT, "authmngt");
 
 	return mod;
