@@ -1,4 +1,5 @@
 DELETE /auth/mngt/alibaba HTTP/1.1
 HOST: 127.0.0.1
 Authorization: Basic cm9vdDpyb290
+Origin: http://localhost
 

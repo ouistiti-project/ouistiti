@@ -1,6 +1,5 @@
 HTTP/1.1 200 OK
 Referrer-Policy: origin-when-cross-origin
 Access-Control-Allow-Origin: localhost
-Access-Control-Allow-Methods: OPTIONS,GET,POST,HEAD
+Access-Control-Allow-Methods: OPTIONS,HEAD,POST,GET
 Access-Control-Allow-Credentials: true
-
