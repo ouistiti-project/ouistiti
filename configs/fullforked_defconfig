@@ -65,7 +65,7 @@ WS_SYSLOGD=y
 #support of Virtual Hosting
 VHOSTS=n
 #support of request method check
-METHODLOCK=y
+METHODLOCK=n
 #add Server Software name into the headers
 SERVERHEADER=y
 #support of the HTTP streaming
