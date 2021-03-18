@@ -49,7 +49,7 @@
 
 #include "authz_sqlite.h"
 
-#define auth_dbg dbg
+#define authmngt_dbg(...)
 
 typedef struct _mod_authmngt_s _mod_authmngt_t;
 
@@ -111,7 +111,7 @@ static int authmngt_setrules(const config_setting_t *configauth, mod_authmngt_t 
 		mngtconfig->mngt.config = authmngt_list[i]->config(configauth);
 		if (mngtconfig->mngt.config != NULL)
 		{
-			dbg("authmngt: manager %s", authmngt_list[i]->name);
+			authmngt_dbg("authmngt: manager %s", authmngt_list[i]->name);
 			mngtconfig->mngt.rules = authmngt_list[i]->rules;
 			break;
 		}
@@ -357,26 +357,28 @@ static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http
 
 	_authmngt_parsesession(query, info);
 	
-	auth_dbg("authmngt: on %s %s %s", info->user, info->group, info->passwd);
+	authmngt_dbg("authmngt: %s on %s %s %s", method, info->user, info->group, info->passwd);
 	if (!strcmp(method, str_put) &&
 		info->user[0] != '\0' && info->group[0] != '\0' &&
-		(mod->config->mngt.rules->adduser != NULL) &&
-		((ret = mod->config->mngt.rules->adduser(mod->ctx, info)) == ESUCCESS))
+		(mod->config->mngt.rules->adduser != NULL))
 	{
-		httpmessage_result(response, 201);
-		add_passwd = 1;
+		ret = mod->config->mngt.rules->adduser(mod->ctx, info);
+		if (ret == ESUCCESS)
+		{
+			httpmessage_result(response, 201);
+			add_passwd = 1;
+		}
 	}
-	if ((add_passwd || !strcmp(method, str_post)) &&
-		info->user[0] != '\0' && info->passwd[0] != '\0' &&
-		mod->config->mngt.rules->changepasswd != NULL)
+	if ((add_passwd || !strcmp(method, str_post)) && info->user[0] != '\0')
 	{
-		ret = mod->config->mngt.rules->changepasswd(mod->ctx, info);
-	}
-	if ((add_passwd || !strcmp(method, str_post)) &&
-		info->user[0] != '\0' &&
-		mod->config->mngt.rules->changeinfo != NULL)
-	{
-		ret = mod->config->mngt.rules->changeinfo(mod->ctx, info);
+		if (info->passwd[0] != '\0' && mod->config->mngt.rules->changepasswd != NULL)
+		{
+			ret = mod->config->mngt.rules->changepasswd(mod->ctx, info);
+		}
+		if (mod->config->mngt.rules->changeinfo != NULL)
+		{
+			ret = mod->config->mngt.rules->changeinfo(mod->ctx, info);
+		}
 	}
 	if (!strcmp(method, str_delete) &&
 		info->user[0] != '\0' &&
@@ -399,7 +401,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 
 	if (!utils_searchexp(uri, str_mngtpath, &user))
 	{
-
+		authmngt_dbg("authmngt: access to %s", uri);
 		if (user != NULL)
 		{
 			int i = 0;
