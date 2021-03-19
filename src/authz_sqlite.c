@@ -290,14 +290,23 @@ static int authz_sqlite_setsession(void *arg, const char * user, authsession_t *
 	ret = sqlite3_step(statement);
 	if (ret == SQLITE_ROW)
 	{
+		const char *field;
 		int i = 0;
-		strncpy(info->user, sqlite3_column_text(statement, i), USER_MAX);
+		field = sqlite3_column_text(statement, i);
+		if (field != NULL)
+			strncpy(info->user, field, USER_MAX);
 		i++;
-		strncpy(info->group, sqlite3_column_text(statement, i), FIELD_MAX);
+		field = sqlite3_column_text(statement, i);
+		if (field != NULL)
+			strncpy(info->group, field, FIELD_MAX);
 		i++;
-		strncpy(info->status, sqlite3_column_text(statement, i), FIELD_MAX);
+		field = sqlite3_column_text(statement, i);
+		if (field != NULL)
+			strncpy(info->status, field, FIELD_MAX);
 		i++;
-		strncpy(info->home, sqlite3_column_text(statement, i), PATH_MAX);
+		field = sqlite3_column_text(statement, i);
+		if (field != NULL)
+			strncpy(info->home, field, PATH_MAX);
 		i++;
 		sqlite3_finalize(statement);
 		auth_dbg("auth: session user %s", info->user);
