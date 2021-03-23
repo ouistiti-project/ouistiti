@@ -374,6 +374,8 @@ static void authz_optionscb(void *arg, const char *option)
 		auth->authz.type |= AUTHZ_TOKEN_E;
 	if (utils_searchexp("chown", option, NULL) == ESUCCESS)
 		auth->authz.type |= AUTHZ_CHOWN_E;
+	if (utils_searchexp("management", option, NULL) == ESUCCESS)
+		auth->authz.type |= AUTHZ_MNGT_E;
 
 	if (utils_searchexp("cookie", option, NULL) == ESUCCESS)
 		auth->authn.type |= AUTHN_COOKIE_E;
@@ -1011,14 +1013,26 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 		if (ctx->info == NULL)
 		{
 			ctx->info = calloc(1, sizeof(*ctx->info));
-			ctx->info->expires = 60 * 60;
+			ctx->info->expires = mod->config->expire * 60;
 			mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
 			strncpy(ctx->info->type, mod->type, FIELD_MAX);
 			ctx->authorization = strdup(authorization);
 		}
 
-		warn("user \"%s\" accepted from %p", ctx->info->user, ctx->ctl);
-		ret = EREJECT;
+		if (!strcmp(ctx->info->status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
+		{
+			warn("auth: user \"%s\" accepted from %p to change password", ctx->info->user, ctx->ctl);
+			ret = EREJECT;
+		}
+		else if (strcmp(ctx->info->status, str_status_activated) != 0)
+		{
+			err("auth: user \"%s\" is not yet activated (%s)", ctx->info->user, ctx->info->status);
+		}
+		else
+		{
+			warn("auth: user \"%s\" accepted from %p", ctx->info->user, ctx->ctl);
+			ret = EREJECT;
+		}
 	}
 	return ret;
 }
