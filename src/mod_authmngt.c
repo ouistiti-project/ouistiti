@@ -380,6 +380,13 @@ static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http
 		else if (info->passwd[0] != '\0' && mod->config->mngt.rules->changepasswd != NULL)
 		{
 			ret = mod->config->mngt.rules->changepasswd(mod->ctx, info);
+			if (!strcmp(info->status, str_status_reapproving))
+			{
+				authsession_t newinfo;
+				strncpy(newinfo.user, info->user, USER_MAX);
+				strncpy(newinfo.status, str_status_activated, FIELD_MAX);
+				ret = mod->config->mngt.rules->changeinfo(mod->ctx, &newinfo);
+			}
 		}
 		else if (!mod->isroot)
 			mod->error = error_accessdenied;
@@ -457,7 +464,6 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 		if (!strcmp(method, str_get))
 		{
 			ret = ECONTINUE;
-			dbg("GET user !%s!", info.user);
 		}
 		else
 		{
