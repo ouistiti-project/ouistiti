@@ -765,6 +765,7 @@ static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 	{
 		ret = authz_sqlite_updatefield(ctx, userid, authinfo->passwd, FIELD_PASSWD);
 	}
+	authz_sqlite_getuser_byName(ctx, authinfo->user, authinfo);
 
 	return ret;
 }
