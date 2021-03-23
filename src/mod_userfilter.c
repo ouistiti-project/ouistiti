@@ -73,6 +73,7 @@ struct _mod_userfilter_s
 	sqlite3 *db;
 	cmp_t cmp;
 	mod_userfilter_t *config;
+	int line;
 };
 
 int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
@@ -286,6 +287,59 @@ static int _insert_rules(_mod_userfilter_t *ctx, int methodid, int roleid, const
 	return ret;
 }
 
+static int _jsonifyrule(_mod_userfilter_t *ctx, int id, http_message_t *response)
+{
+	
+	int ret = EREJECT;
+	sqlite3_stmt *statement;
+	const char *sql = "select methods.name as \"mehtod\", roles.name as \"role\", exp as \"pathexp\", rules.rowid as \"id\" " \
+				"from rules " \
+				"inner join methods on methods.id = rules.methodid " \
+				"inner join roles on roles.id = rules.roleid ;";
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int step = sqlite3_step(statement);
+	int j = 1;
+	while (step == SQLITE_ROW)
+	{
+		if (j != id)
+		{
+			step = sqlite3_step(statement);
+			j++;
+			continue;
+		}
+		int i = 0;
+		const char *field;
+		httpmessage_appendcontent(response, "{\"method\":\"", -1);
+		field = sqlite3_column_text(statement, i);
+		if (field)
+			httpmessage_appendcontent(response, field, -1);
+		httpmessage_appendcontent(response, "\",\"role\":\"", -1);
+		i++;
+		field = sqlite3_column_text(statement, i);
+		if (field)
+			httpmessage_appendcontent(response, field, -1);
+		httpmessage_appendcontent(response, "\",\"pathexp\":\"", -1);
+		i++;
+		field = sqlite3_column_text(statement, i);
+		if (field)
+			httpmessage_appendcontent(response, field, -1);
+		httpmessage_appendcontent(response, "\",\"id\":\"", -1);
+		i++;
+		field = sqlite3_column_text(statement, i);
+		if (field)
+			httpmessage_appendcontent(response, field, -1);
+		httpmessage_appendcontent(response, "\"}", -1);
+		ret = ECONTINUE;
+		break;
+	}
+	if (step == SQLITE_DONE)
+		ret = ESUCCESS;
+	sqlite3_finalize(statement);
+	return ret;
+}
+
 static int userfilter_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
@@ -384,6 +438,32 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 				httpmessage_result(response, RESULT_204);
 #endif
 			}
+			ret = ESUCCESS;
+		}
+		else if (!strcmp(method, str_get) && ctx->line > -1)
+		{
+			if (ctx->line == 0)
+			{
+				httpmessage_addcontent(response, "text/json", NULL, -1);
+				httpmessage_appendcontent(response, "[", -1);
+			}
+			else
+				httpmessage_addcontent(response, NULL, "", -1);
+			ctx->line++;
+			ret = _jsonifyrule(ctx, ctx->line, response);
+			if (ret != ECONTINUE)
+			{
+				httpmessage_appendcontent(response, "{}]", -1);
+				ctx->line = -1;
+				ret = ECONTINUE;
+			}
+			else
+				httpmessage_appendcontent(response, ",", -1);
+		}
+		else if (ctx->line == -1)
+		{
+			httpclient_shutdown(httpmessage_client(request));
+			return ESUCCESS;
 		}
 		else
 		{
@@ -392,8 +472,8 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 #else
 			httpmessage_result(response, RESULT_400);
 #endif
+			ret = ESUCCESS;
 		}
-		ret = ESUCCESS;
 	}
 
 	return ret;
