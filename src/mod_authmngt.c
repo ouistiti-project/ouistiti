@@ -61,6 +61,10 @@ struct _mod_authmngt_s
 {
 	mod_authmngt_t *config;
 	void *ctx;
+	const char *error;
+	int list;
+	int isroot:1;
+	int isuser:1;
 };
 
 static const char str_put[] = "PUT";
@@ -68,6 +72,10 @@ static const char str_delete[] = "DELETE";
 static const char str_empty[] = "";
 
 static const char str_mngtpath[] = "^/auth/mngt*";
+
+static const char error_usernotfound[] = "user not found";
+static const char error_accessdenied[] = "access denied";
+static const char error_badvalue[] = "bad value";
 
 #ifdef FILE_CONFIG
 #ifdef AUTHZ_SQLITE
@@ -204,8 +212,6 @@ static int authmngt_jsonifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *re
 	if (info->user[0] == '\0')
 		return EREJECT;
 
-	httpmessage_addcontent(response, "text/json", "", -1);
-
 	httpmessage_appendcontent(response, "{\"user\":\"", -1);
 	httpmessage_appendcontent(response, info->user, -1);
 	httpmessage_appendcontent(response, "\"", -1);
@@ -242,8 +248,7 @@ static int authmngt_stringifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *
 	if (info->user[0] == '\0')
 		return EREJECT;
 
-	httpmessage_addcontent(response, "application/x-www-form-urlencoded",
-		"user=", -1);
+	httpmessage_appendcontent(response, "user=", -1);
 
 	httpmessage_appendcontent(response, info->user, -1);
 	if (info->group[0] != '\0')
@@ -286,7 +291,7 @@ static int _authmngt_printuser(void*arg, int nfields, char** values,char** keys)
 		if (i > 0)
 			httpmessage_appendcontent(response, ",\"", -1);
 		httpmessage_appendcontent(response, keys[i], -1);
-		httpmessage_appendcontent(response, "\"=\"", -1);
+		httpmessage_appendcontent(response, "\":\"", -1);
 		httpmessage_appendcontent(response, values[i], -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
@@ -330,7 +335,7 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 	if (passwd != NULL)
 	{
 		size_t length = sizeof(session->passwd);
-		passwd += 9;
+		passwd += 7;
 		const char *end = strchr(passwd, '&');
 		if (end != NULL)
 			length = end - passwd;
@@ -352,31 +357,33 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http_message_t *response, authsession_t *info)
 {
 	int ret = EREJECT;
-	int add_passwd = 0;
 	const char *method = httpmessage_REQUEST(request, "method");
-	const char *query = httpmessage_REQUEST(request, "query");
-
-	_authmngt_parsesession(query, info);
 	
 	authmngt_dbg("authmngt: %s on %s %s %s", method, info->user, info->group, info->passwd);
-	if (!strcmp(method, str_put) &&
-		info->user[0] != '\0' && info->group[0] != '\0' &&
-		(mod->config->mngt.rules->adduser != NULL))
+	if (!strcmp(method, str_put) && info->user[0] != '\0')
 	{
-		ret = mod->config->mngt.rules->adduser(mod->ctx, info);
+		if (mod->config->mngt.rules->adduser != NULL)
+			ret = mod->config->mngt.rules->adduser(mod->ctx, info);
 		if (ret == ESUCCESS)
 		{
 			httpmessage_result(response, 201);
-			add_passwd = 1;
 		}
+		else
+			mod->error = error_badvalue;
 	}
-	if ((add_passwd || !strcmp(method, str_post)) && info->user[0] != '\0')
+	if ((!strcmp(method, str_post)) && info->user[0] != '\0')
 	{
-		if (info->passwd[0] != '\0' && mod->config->mngt.rules->changepasswd != NULL)
+		if (!mod->isuser)
+		{
+			mod->error = error_accessdenied;
+		}
+		else if (info->passwd[0] != '\0' && mod->config->mngt.rules->changepasswd != NULL)
 		{
 			ret = mod->config->mngt.rules->changepasswd(mod->ctx, info);
 		}
-		if (mod->config->mngt.rules->changeinfo != NULL)
+		else if (!mod->isroot)
+			mod->error = error_accessdenied;
+		else if (mod->config->mngt.rules->changeinfo != NULL)
 		{
 			ret = mod->config->mngt.rules->changeinfo(mod->ctx, info);
 		}
@@ -385,7 +392,14 @@ static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http
 		info->user[0] != '\0' &&
 		mod->config->mngt.rules->removeuser != NULL)
 	{
-		ret = mod->config->mngt.rules->removeuser(mod->ctx, info);
+		if (!mod->isuser)
+			mod->error = error_accessdenied;
+		else
+		{
+			ret = mod->config->mngt.rules->removeuser(mod->ctx, info);
+			if (ret != ESUCCESS)
+				mod->error = error_usernotfound;
+		}
 	}
 	return ret;
 }
@@ -396,57 +410,116 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 	_mod_authmngt_t *mod = (_mod_authmngt_t *)arg;
 
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	const char *method = httpmessage_REQUEST(request, "method");
-	const char *user = NULL;
-	authsession_t info = {0};
+	const char *rest = NULL;
+	const char *user = auth_info(request, "user");
+	const char *group = auth_info(request, "group");
+	if (group)
+		mod->isroot = !strcmp(group, "root");
 
-	if (!utils_searchexp(uri, str_mngtpath, &user))
+	if (mod->list > 0)
 	{
+		authsession_t info = {0};
+		ret = mod->config->mngt.rules->getuser(mod->ctx, mod->list + 1, &info);
+		if (ret == EREJECT)
+		{
+			httpmessage_addcontent(response, NULL, "]", -1);
+			mod->list = -1;
+		}
+		else
+		{
+			httpmessage_addcontent(response, NULL, ",", -1);
+			ret = authmngt_jsonifyuser(mod, response, &info);
+			mod->list++;
+		}
+		return ECONTINUE;
+	}
+	else if (mod->list == -1)
+	{
+		httpclient_shutdown(httpmessage_client(request));
+		return ESUCCESS;
+	}
+	if (!utils_searchexp(uri, str_mngtpath, &rest))
+	{
+
+		authsession_t info = {0};
+		const char *method = httpmessage_REQUEST(request, "method");
+		const char *http_accept = httpmessage_REQUEST(request, "Accept");
+
 		authmngt_dbg("authmngt: access to %s", uri);
-		if (user != NULL)
+		if (rest != NULL)
 		{
 			int i = 0;
-			while (user[i] == '/') i++;
-			user += i;
-			strncpy(info.user, user, USER_MAX);
+			while (rest[i] == '/') i++;
+			rest += i;
+			strncpy(info.user, rest, USER_MAX);
 		}
 
 		if (!strcmp(method, str_get))
 		{
-			ret = ESUCCESS;
+			ret = ECONTINUE;
+			dbg("GET user !%s!", info.user);
 		}
 		else
 		{
+			const char *query = httpmessage_REQUEST(request, "query");
+
+			_authmngt_parsesession(query, &info);
+			if (user)
+				mod->isuser = !strcmp(user, info.user);
+			if (mod->isroot)
+				mod->isuser = 1;
 			ret = _authmngt_execute(mod, request, response, &info);
 		}
-		if (ret == ESUCCESS && !strcmp(info.user, "all") &&
-			mod->config->mngt.rules->listuser != NULL)
+		if (ret == ECONTINUE && info.user[0] == '\0')
 		{
-			httpmessage_addcontent(response, "text/json",
-				"[", -1);
-			_authmngt_printuser_t printctx = {
-				.mod = mod,
-				.response = response,
-			};
-			ret = mod->config->mngt.rules->listuser(mod->ctx, _authmngt_printuser, &printctx);
-			httpmessage_appendcontent(response, "{}]\n", -1);
-		}
-		else if (ret == ESUCCESS &&
-			mod->config->mngt.rules->setsession != NULL)
-		{
-			mod->config->mngt.rules->setsession(mod->ctx, user, &info);
-
-			const char *accept = httpmessage_REQUEST(request, "Accept");
-
-			if (strstr(accept, "text/json") != NULL)
-				ret = authmngt_jsonifyuser(mod, response, &info);
+			httpmessage_addcontent(response, "text/json", NULL, -1);
+			httpmessage_appendcontent(response, "[", -1);
+			if (mod->config->mngt.rules->getuser != NULL)
+				ret = mod->config->mngt.rules->getuser(mod->ctx, mod->list + 1, &info);
+			if (ret == EREJECT)
+			{
+				httpmessage_appendcontent(response, "]", -1);
+				ret = ESUCCESS;
+			}
 			else
+			{
+				ret = authmngt_jsonifyuser(mod, response, &info);
+				mod->list++;
+				ret = ECONTINUE;
+			}
+		}
+		else if (ret != EREJECT)
+		{
+			if (mod->config->mngt.rules->setsession != NULL)
+				ret = mod->config->mngt.rules->setsession(mod->ctx, info.user, &info);
+
+			if (ret != ESUCCESS && strcmp(info.status, "removed") != 0)
+				mod->error = error_usernotfound;
+			else if (strstr(http_accept, "text/json") != NULL)
+			{
+				httpmessage_addcontent(response, "text/json", "", -1);
+				ret = authmngt_jsonifyuser(mod, response, &info);
+			}
+			else
+			{
+				httpmessage_addcontent(response, "application/x-www-form-urlencoded", "", -1);
 				ret = authmngt_stringifyuser(mod, response, &info);
+			}
 		}
 
-		if (ret != ESUCCESS)
+		if (ret == EREJECT )
 		{
 			httpmessage_result(response, RESULT_500);
+			if (strstr(http_accept, "text/json") != NULL)
+			{
+				httpmessage_addcontent(response, "text/json", "{\"method\":\"", -1);
+				httpmessage_appendcontent(response, httpmessage_REQUEST(request, "method"), -1);
+				httpmessage_appendcontent(response, "\",\"user\":\"", -1);
+				httpmessage_appendcontent(response, info.user, -1);
+				httpmessage_appendcontent(response, "\",\"error\":\"", -1);
+				httpmessage_appendcontent(response, mod->error, -1);
+				httpmessage_appendcontent(response, "\"}", -1);
+			}
 			ret = ESUCCESS;
 		}
 	}
