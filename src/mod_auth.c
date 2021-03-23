@@ -1148,7 +1148,6 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 		httpmessage_result(response, RESULT_403);
 		ret = ESUCCESS;
 	}
-
 	return ret;
 }
 
@@ -1218,6 +1217,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret != EREJECT)
 	{
+		httpmessage_SESSION(request, str_auth, "", 0);
 		ret = _authn_challenge(ctx, request, response);
 	}
 	else
