@@ -92,8 +92,8 @@ static char *authz_generatetoken(const mod_auth_t *mod, const authsession_t *inf
 static const char str_auth[] = "auth";
 static const char str_cachecontrol[] = "Cache-Control";
 
-const char str_status_approbing[] = "approbing";
-const char str_status_reapprobing[] = "reapprobing";
+const char str_status_approving[] = "approving";
+const char str_status_reapproving[] = "reapproving";
 const char str_status_activated[] = "activated";
 const char str_status_repudiated[] = "repudiated";
 

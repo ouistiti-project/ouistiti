@@ -112,10 +112,10 @@ static int _authz_sqlite_createdb(const char *dbname)
 					"FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
 		"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER,"
 					"FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
-		"insert into status (name) values(\"approbing\");",
+		"insert into status (name) values(\"approving\");",
 		"insert into status (name) values(\"activated\");",
 		"insert into status (name) values(\"repudiated\");",
-		"insert into status (name) values(\"reapprobing\");",
+		"insert into status (name) values(\"reapproving\");",
 		"insert into groups (name) values(\"root\");",
 		"insert into groups (name) values(\"anonymous\");",
 		"insert into groups (name) values(\"users\");",
@@ -684,8 +684,8 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 
 	if (authz_sqlite_userid(ctx, authinfo->user) != -1)
 		return ESUCCESS;
-	// force the first status to approbing
-	strncpy(authinfo->status, str_status_approbing, FIELD_MAX);
+	// force the first status to approving
+	strncpy(authinfo->status, str_status_approving, FIELD_MAX);
 
 	int ret;
 	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"statusid\",\"home\")"
