@@ -151,7 +151,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			time_t now = time(NULL);
 			long day = now / (60 * 60 * 24);
 			if (spasswd->sp_max > 0 && day > (spasswd->sp_lstchg + spasswd->sp_max))
-				status = str_status_reapprobing;
+				status = str_status_reapproving;
 			if (spasswd->sp_expire > 0 && day > spasswd->sp_expire)
 				status = str_status_repudiated;
 		}
