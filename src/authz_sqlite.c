@@ -659,6 +659,29 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
 
+static int authz_sqlite_addgroup(void *arg, const char *group)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	int ret;
+	const char *sql = "insert into groups (\"name\")"
+			"values (@NAME);";
+
+	sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@NAME");
+	ret = sqlite3_bind_text(statement, index, group, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	ret = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	if (ret != SQLITE_DONE)
+		err("auth: add group error %d %s", ret, sqlite3_errmsg(ctx->db));
+	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
+}
+
 static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -691,12 +714,20 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 
 	if (ret == ESUCCESS && authinfo->group[0] != '\0')
 	{
-		ret = authz_sqlite_updatefield(ctx, userid, authinfo->group, FIELD_GROUP);
+		if (authz_sqlite_getid(ctx, authinfo->group, FIELD_GROUP) == -1)
+		{
+			ret = authz_sqlite_addgroup(ctx, authinfo->group);
+		}
+		if (ret == ESUCCESS)
+			ret = authz_sqlite_updatefield(ctx, userid, authinfo->group, FIELD_GROUP);
 	}
 
 	if (ret == ESUCCESS && authinfo->status[0] != '\0')
 	{
-		ret = authz_sqlite_updatefield(ctx, userid, authinfo->status, FIELD_STATUS);
+		if (authz_sqlite_getid(ctx, authinfo->status, FIELD_STATUS) == -1)
+			err("authmngt: update unknown status %s", authinfo->status);
+		else
+			ret = authz_sqlite_updatefield(ctx, userid, authinfo->status, FIELD_STATUS);
 	}
 
 	if (ret == ESUCCESS && authinfo->home[0] != '\0')
