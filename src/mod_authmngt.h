@@ -41,6 +41,7 @@ typedef int (*authmngt_userlist_t)(void*arg, int nfields, char** values,char** k
 
 typedef void *(*authmngt_rule_create_t)(http_server_t *server, void *config);
 typedef int (*authmngt_rule_setsession_t)(void* arg, const char *user, authsession_t *info);
+typedef int (*authmngt_rule_getuser_t)(void* arg, int id, authsession_t *info);
 typedef int (*authmngt_rule_adduser_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changepasswd_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changeinfo_t)(void *arg, authsession_t *user);
@@ -52,6 +53,7 @@ struct authmngt_rules_s
 {
 	authmngt_rule_create_t create;
 	authmngt_rule_setsession_t setsession;
+	authmngt_rule_getuser_t getuser;
 	authmngt_rule_adduser_t adduser;
 	authmngt_rule_changepasswd_t changepasswd;
 	authmngt_rule_changeinfo_t changeinfo;

@@ -322,6 +322,75 @@ static int authz_sqlite_getuser_byName(void *arg, const char * user, authsession
 	return EREJECT;
 }
 
+static int authz_sqlite_getuser_byID(void *arg, int id, authsession_t *info)
+{
+	int ret;
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+#if 0
+	const char *sql = "select users.name as \"user\", groups.name as \"group\", status.name as \"status\", home " \
+						"from users " \
+						"inner join groups on groups.id=users.groupid " \
+						"inner join status on status.id=users.statusid " \
+						"where users.ROWID=@ID;";
+#else
+	const char *sql = "select users.name as \"user\", groups.name as \"group\", status.name as \"status\", home " \
+						"from users " \
+						"inner join groups on groups.id=users.groupid " \
+						"inner join status on status.id=users.statusid;";
+#endif
+
+	sqlite3_stmt *statement = NULL; /// use a specific statement
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+#if 0
+	int index = 0;
+	index = sqlite3_bind_parameter_index(statement, "@ID");
+	ret = sqlite3_bind_int(statement, index, id);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+#endif
+
+	ret = sqlite3_step(statement);
+	int j = 1;
+	while (ret == SQLITE_ROW)
+	{
+		if (j != id)
+		{
+			ret = sqlite3_step(statement);
+			j++;
+			continue;
+		}
+		const char *field;
+		int i = 0;
+		field = sqlite3_column_text(statement, i);
+		if (field != NULL)
+			strncpy(info->user, field, USER_MAX);
+		i++;
+		field = sqlite3_column_text(statement, i);
+		if (field != NULL)
+			strncpy(info->group, field, FIELD_MAX);
+		i++;
+		field = sqlite3_column_text(statement, i);
+		if (field != NULL)
+			strncpy(info->status, field, FIELD_MAX);
+		i++;
+		field = sqlite3_column_text(statement, i);
+		if (field != NULL)
+			strncpy(info->home, field, PATH_MAX);
+		i++;
+		sqlite3_finalize(statement);
+		auth_dbg("auth: getuser id %d", id);
+		auth_dbg("auth: getuser user %s", info->user);
+		auth_dbg("auth: getuser group %s", info->group);
+		auth_dbg("auth: getuser status %s", info->status);
+		auth_dbg("auth: getuser home %s", info->home);
+		return ESUCCESS;
+	}
+	err("auth: getuser error %s", sqlite3_errmsg(ctx->db));
+	sqlite3_finalize(statement);
+	return EREJECT;
+}
+
 static const char *authz_sqlite_passwd(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -796,7 +865,7 @@ authz_rules_t authz_sqlite_rules =
 	.setup = &authz_sqlite_setup,
 	.check = &authz_sqlite_check,
 	.passwd = &authz_sqlite_passwd,
-	.setsession = &authz_sqlite_setsession,
+	.setsession = &authz_sqlite_getuser_byName,
 	.join = &authz_sqlite_join,
 	.cleanup = &authz_sqlite_cleanup,
 	.destroy = &authz_sqlite_destroy,
@@ -806,7 +875,8 @@ authz_rules_t authz_sqlite_rules =
 authmngt_rules_t authmngt_sqlite_rules =
 {
 	.create = &authmngt_sqlite_create,
-	.setsession = &authz_sqlite_setsession,
+	.setsession = &authz_sqlite_getuser_byName,
+	.getuser = &authz_sqlite_getuser_byID,
 	.adduser = &authz_sqlite_adduser,
 	.changepasswd = &authz_sqlite_changepasswd,
 	.changeinfo = &authz_sqlite_changeinfo,
