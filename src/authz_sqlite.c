@@ -259,6 +259,35 @@ static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, ch
 	return value;
 }
 
+static int _authz_sqlite_storeuser(authz_sqlite_t *ctx, sqlite3_stmt *statement, authsession_t *info)
+{
+	const char *field;
+	int i = 0;
+	field = sqlite3_column_text(statement, i);
+	if (field != NULL)
+		strncpy(info->user, field, USER_MAX);
+	i++;
+	field = sqlite3_column_text(statement, i);
+	if (field != NULL)
+		strncpy(info->group, field, FIELD_MAX);
+	i++;
+	field = sqlite3_column_text(statement, i);
+	if (field != NULL)
+		strncpy(info->status, field, FIELD_MAX);
+	i++;
+	field = sqlite3_column_text(statement, i);
+	if (field != NULL)
+		strncpy(info->home, field, PATH_MAX);
+	i++;
+
+	auth_dbg("auth: session user %s", info->user);
+	auth_dbg("auth: session group %s", info->group);
+	auth_dbg("auth: session status %s", info->status);
+	auth_dbg("auth: session home %s", info->home);
+
+	return ESUCCESS;
+}
+
 static int authz_sqlite_getuser_byName(void *arg, const char * user, authsession_t *info)
 {
 	int ret;
@@ -284,30 +313,9 @@ static int authz_sqlite_getuser_byName(void *arg, const char * user, authsession
 	ret = sqlite3_step(statement);
 	if (ret == SQLITE_ROW)
 	{
-		const char *field;
-		int i = 0;
-		field = sqlite3_column_text(statement, i);
-		if (field != NULL)
-			strncpy(info->user, field, USER_MAX);
-		i++;
-		field = sqlite3_column_text(statement, i);
-		if (field != NULL)
-			strncpy(info->group, field, FIELD_MAX);
-		i++;
-		field = sqlite3_column_text(statement, i);
-		if (field != NULL)
-			strncpy(info->status, field, FIELD_MAX);
-		i++;
-		field = sqlite3_column_text(statement, i);
-		if (field != NULL)
-			strncpy(info->home, field, PATH_MAX);
-		i++;
+		ret = _authz_sqlite_storeuser(ctx, statement, info);
 		sqlite3_finalize(statement);
-		auth_dbg("auth: session user %s", info->user);
-		auth_dbg("auth: session group %s", info->group);
-		auth_dbg("auth: session status %s", info->status);
-		auth_dbg("auth: session home %s", info->home);
-		return ESUCCESS;
+		return ret;
 	}
 	err("auth: setsession error %s", sqlite3_errmsg(ctx->db));
 	sqlite3_finalize(statement);
@@ -352,31 +360,9 @@ static int authz_sqlite_getuser_byID(void *arg, int id, authsession_t *info)
 			j++;
 			continue;
 		}
-		const char *field;
-		int i = 0;
-		field = sqlite3_column_text(statement, i);
-		if (field != NULL)
-			strncpy(info->user, field, USER_MAX);
-		i++;
-		field = sqlite3_column_text(statement, i);
-		if (field != NULL)
-			strncpy(info->group, field, FIELD_MAX);
-		i++;
-		field = sqlite3_column_text(statement, i);
-		if (field != NULL)
-			strncpy(info->status, field, FIELD_MAX);
-		i++;
-		field = sqlite3_column_text(statement, i);
-		if (field != NULL)
-			strncpy(info->home, field, PATH_MAX);
-		i++;
+		ret = _authz_sqlite_storeuser(ctx, statement, info);
 		sqlite3_finalize(statement);
-		auth_dbg("auth: getuser id %d", id);
-		auth_dbg("auth: getuser user %s", info->user);
-		auth_dbg("auth: getuser group %s", info->group);
-		auth_dbg("auth: getuser status %s", info->status);
-		auth_dbg("auth: getuser home %s", info->home);
-		return ESUCCESS;
+		return ret;
 	}
 	err("auth: getuser error %s", sqlite3_errmsg(ctx->db));
 	sqlite3_finalize(statement);
