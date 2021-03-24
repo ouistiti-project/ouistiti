@@ -120,14 +120,18 @@ static int _authz_sqlite_createdb(const char *dbname)
 		"insert into groups (name) values(\"anonymous\");",
 		"insert into groups (name) values(\"users\");",
 		"insert into users (name,groupid, statusid,passwd,home)"
-			"values(\"root\",(select id from groups where name=\"root\"),4,\"root\",\"\");",
+#ifdef DEBUG
+			"values(\"root\",(select id from groups where name=\"root\"),(select id from status where name=\"activated\"),\"root\",\"/home/root\");",
+#else
+			"values(\"root\",(select id from groups where name=\"root\"),(select id from status where name=\"reapproving\"),\"root\",\"/home/root\");",
+#endif
 #ifdef AUTH_ANONYMOUS
 		"insert into users (name,groupid, statusid,passwd,home)"
-			"values(\"anonymous\",(select id from groups where name=\"anonymous\"),2,\"\",\"\");",
+			"values(\"anonymous\",(select id from groups where name=\"anonymous\"),(select id from status where name=\"activated\"),\"\",\"null\");",
 #endif
 #ifdef DEBUG
 		"insert into users (name,groupid, statusid,passwd,home)"
-			"values(\"foo\",(select id from groups where name=\"users\"),4,\"bar\",\"foo\");",
+			"values(\"foo\",(select id from groups where name=\"users\"),(select id from status where name=\"activated\"),\"bar\",\"/home/foo\");",
 #endif
 		NULL,
 	};
