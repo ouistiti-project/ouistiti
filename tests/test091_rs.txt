@@ -1,5 +1,5 @@
 HTTP/1.1 200 OK
 Content-Type: application/x-www-form-urlencoded
-Content-Length: 39
+Content-Length: 53
 
-user=root&group=root&status=reapprobing
+user=root&group=root&status=activated&home=/home/root

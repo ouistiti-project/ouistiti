@@ -1,8 +1,6 @@
-PUT /filter/config HTTP/1.1
+DELETE /filter/config/10 HTTP/1.1
 HOST: 127.0.0.1
 Authorization: Basic cm9vdDpyb290
 Origin: http://localhost
 Content-Type: application/x-www-form-urlencoded
-Content-Length: 38
 
-role=users&method=GET&pathexp=index.cgi
