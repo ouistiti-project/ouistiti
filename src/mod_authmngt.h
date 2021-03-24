@@ -46,7 +46,6 @@ typedef int (*authmngt_rule_adduser_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changepasswd_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changeinfo_t)(void *arg, authsession_t *user);
 typedef int (*authmngt_rule_removeuser_t)(void *arg, authsession_t *olduser);
-typedef int (*authmngt_rule_listuser_t)(void *arg, authmngt_userlist_t callback, void *carg);
 typedef void (*authmngt_rule_destroy_t)(void *arg);
 typedef struct authmngt_rules_s authmngt_rules_t;
 struct authmngt_rules_s
@@ -58,7 +57,6 @@ struct authmngt_rules_s
 	authmngt_rule_changepasswd_t changepasswd;
 	authmngt_rule_changeinfo_t changeinfo;
 	authmngt_rule_removeuser_t removeuser;
-	authmngt_rule_listuser_t listuser;
 	authmngt_rule_destroy_t destroy;
 };
 
