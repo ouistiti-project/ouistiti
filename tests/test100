@@ -1,4 +1,4 @@
-DESC="test userfilter with new roles and method"
+DESC="remove rules from userfilter"
 CONFIG=test12.conf
 TESTCODE=200
 TESTRESPONSE=result200_rs.txt
