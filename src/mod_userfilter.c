@@ -59,6 +59,8 @@
 	} while (0)
 
 static const char str_userfilter[] = "userfilter";
+static const char str_put[] = "PUT";
+static const char str_delete[] = "DELETE";
 static const char str_annonymous[] = "annonymous";
 static const char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
@@ -255,7 +257,7 @@ static int _insert_role(_mod_userfilter_t *ctx, const char *role, int length)
 	return _insert_field(ctx, 1, role, length);
 }
 
-static int _insert_rules(_mod_userfilter_t *ctx, int methodid, int roleid, const char *exp, int length)
+static int _insert_rule(_mod_userfilter_t *ctx, int methodid, int roleid, const char *exp, int length)
 {
 	int ret = EREJECT;
 	sqlite3_stmt *statement;
@@ -285,6 +287,24 @@ static int _insert_rules(_mod_userfilter_t *ctx, int methodid, int roleid, const
 	}
 	sqlite3_finalize(statement);
 	return ret;
+}
+
+static int _delete_rule(_mod_userfilter_t *ctx, int id)
+{
+	int ret = EREJECT;
+	sqlite3_stmt *statement;
+	const char *sql = "delete from rules where rowid=@ID";
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@ID");
+	ret = sqlite3_bind_int(statement, index, id);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int step = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	return (step == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
 
 static int _jsonifyrule(_mod_userfilter_t *ctx, int id, http_message_t *response)
@@ -409,12 +429,13 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
 	mod_userfilter_t *config = ctx->config;
 	int ret = EREJECT;
+	const char *rest;
 	const char *uri = httpmessage_REQUEST(request,"uri");
-	if (!strcmp(uri, config->configuri))
+	if (!utils_searchexp(uri, config->configuri, &rest))
 	{
 		const char *method = httpmessage_REQUEST(request, "method");
 		const char *query = httpmessage_REQUEST(request, "query");
-		if (!strcmp(method, str_post) && query != NULL)
+		if (!strcmp(method, str_put) && query != NULL)
 		{
 			ret = EREJECT;
 			int methodid = _parsequery(ctx, query, 0);
@@ -427,7 +448,7 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 				const char *end = strchr(exp, '&');
 				if (end != NULL)
 					elength = end - exp;
-				ret = _insert_rules(ctx, methodid, roleid, exp, elength);
+				ret = _insert_rule(ctx, methodid, roleid, exp, elength);
 			}
 			if (ret != ESUCCESS)
 				httpmessage_result(response, RESULT_400);
@@ -439,6 +460,13 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 #endif
 			}
 			ret = ESUCCESS;
+		}
+		else if (!strcmp(method, str_delete) && rest != NULL)
+		{
+			while(rest[0] == '/') rest++;
+			int id = strtol(rest, NULL, 10);
+			if (id > 0)
+				ret = _delete_rule(ctx, id);
 		}
 		else if (!strcmp(method, str_get) && ctx->line > -1)
 		{
