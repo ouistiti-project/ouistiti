@@ -248,16 +248,6 @@ static int _insert_field(_mod_userfilter_t *ctx, int table, const char *value, i
 	return ret;
 }
 
-static int _insert_method(_mod_userfilter_t *ctx, const char *method, int length)
-{
-	return _insert_field(ctx, 0, method, length);
-}
-
-static int _insert_role(_mod_userfilter_t *ctx, const char *role, int length)
-{
-	return _insert_field(ctx, 1, role, length);
-}
-
 static int _insert_rule(_mod_userfilter_t *ctx, int methodid, int roleid, const char *exp, int length)
 {
 	int ret = EREJECT;
