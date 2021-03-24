@@ -457,8 +457,11 @@ int main(int argc, char * const *argv)
 		{
 			server_t *server = ouistiti_loadserver(ouistiticonfig->config[i], id);
 			id += 1;
-			server->next = first;
-			first = server;
+			if (server != NULL)
+			{
+				server->next = first;
+				first = server;
+			}
 		}
 	}
 
