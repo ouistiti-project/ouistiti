@@ -2,7 +2,7 @@ POST /auth/mngt/alibaba HTTP/1.1
 HOST: 127.0.0.1
 Authorization: Basic cm9vdDpyb290
 Origin: http://localhost
-Content-Length: 24
+Content-Length: 62
 Content-Type: application/x-www-form-urlencoded
 
-group=root&password=sesame
+group=root&passwd=sesame&home=/home/alibaba&status=reapproving
