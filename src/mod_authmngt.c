@@ -63,8 +63,8 @@ struct _mod_authmngt_s
 	void *ctx;
 	const char *error;
 	int list;
-	int isroot:1;
-	int isuser:1;
+	unsigned int isroot:1;
+	unsigned int isuser:1;
 };
 
 static const char str_put[] = "PUT";
@@ -274,31 +274,6 @@ static int authmngt_stringifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *
 	return 0;
 }
 
-typedef struct _authmngt_printuser_s
-{
-	_mod_authmngt_t *mod;
-	http_message_t *response;
-} _authmngt_printuser_t;
-
-static int _authmngt_printuser(void*arg, int nfields, char** values,char** keys)
-{
-	_authmngt_printuser_t *printctx = (_authmngt_printuser_t *)arg;
-	http_message_t *response = printctx->response;
-
-	httpmessage_appendcontent(response, "{\"", -1);
-	for (int i = 0; i < nfields; i++)
-	{
-		if (i > 0)
-			httpmessage_appendcontent(response, ",\"", -1);
-		httpmessage_appendcontent(response, keys[i], -1);
-		httpmessage_appendcontent(response, "\":\"", -1);
-		httpmessage_appendcontent(response, values[i], -1);
-		httpmessage_appendcontent(response, "\"", -1);
-	}
-	httpmessage_appendcontent(response, "},", -1);
-	return ESUCCESS;
-}
-
 static int _authmngt_parsesession(const char *query, authsession_t *session)
 {
 	const char *user = strstr(query, "user=");
@@ -373,6 +348,15 @@ static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http
 	}
 	if ((!strcmp(method, str_post)) && info->user[0] != '\0')
 	{
+		if (info->status[0] != '\0' || info->group[0] != '\0' || info->home[0] != '\0')
+		{
+			if (!mod->isroot)
+				mod->error = error_accessdenied;
+			else if (mod->config->mngt.rules->changeinfo != NULL)
+			{
+				ret = mod->config->mngt.rules->changeinfo(mod->ctx, info);
+			}
+		}
 		if (!mod->isuser)
 		{
 			mod->error = error_accessdenied;
@@ -387,12 +371,6 @@ static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http
 				strncpy(newinfo.status, str_status_activated, FIELD_MAX);
 				ret = mod->config->mngt.rules->changeinfo(mod->ctx, &newinfo);
 			}
-		}
-		else if (!mod->isroot)
-			mod->error = error_accessdenied;
-		else if (mod->config->mngt.rules->changeinfo != NULL)
-		{
-			ret = mod->config->mngt.rules->changeinfo(mod->ctx, info);
 		}
 	}
 	if (!strcmp(method, str_delete) &&
