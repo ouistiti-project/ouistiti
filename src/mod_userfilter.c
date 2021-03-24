@@ -76,6 +76,7 @@ struct _mod_userfilter_s
 	cmp_t cmp;
 	mod_userfilter_t *config;
 	int line;
+	char *configuriexp;
 };
 
 int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
@@ -429,10 +430,11 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
 	mod_userfilter_t *config = ctx->config;
 	int ret = EREJECT;
-	const char *rest;
+	const char *rest = NULL;
 	const char *uri = httpmessage_REQUEST(request,"uri");
-	if (!utils_searchexp(uri, config->configuri, &rest))
+	if (!utils_searchexp(uri, ctx->configuriexp, &rest))
 	{
+		userfilter_dbg("userfilter: filter configuration %s", uri);
 		const char *method = httpmessage_REQUEST(request, "method");
 		const char *query = httpmessage_REQUEST(request, "query");
 		if (!strcmp(method, str_put) && query != NULL)
@@ -466,7 +468,10 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 			while(rest[0] == '/') rest++;
 			int id = strtol(rest, NULL, 10);
 			if (id > 0)
+			{
+				warn("userfilter: delete %s", rest);
 				ret = _delete_rule(ctx, id);
+			}
 		}
 		else if (!strcmp(method, str_get) && ctx->line > -1)
 		{
@@ -551,6 +556,8 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	sqlite3 *db;
 	int ret;
 
+	char *configuriexp = calloc(1, strlen(config->configuri) + 2 + 1);
+	sprintf(configuriexp, "^%s*", config->configuri);
 	if (access(config->dbname, R_OK))
 	{
 		ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
@@ -611,13 +618,13 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			}
 			i++;
 		}
-		free(configuriexp);
 		sqlite3_close(db);
 		chmod(config->dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
 	}
 	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK)
 	{
+		free(configuriexp);
 		err("userfilter: database not found %s", config->dbname);
 		return NULL;
 	}
@@ -627,6 +634,7 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	mod->config = config;
 	mod->cmp = &_exp_cmp;
 	mod->db = db;
+	mod->configuriexp = configuriexp;
 	httpserver_addconnector(server, userfilter_connector, mod, CONNECTOR_DOCFILTER, str_userfilter);
 	httpserver_addconnector(server, rootgenerator_connector, mod, CONNECTOR_DOCUMENT, str_userfilter);
 
@@ -640,6 +648,7 @@ void mod_userfilter_destroy(void *arg)
 #ifdef FILE_CONFIG
 	free(mod->config);
 #endif
+	free(mod->configuriexp);
 	free(arg);
 }
 
