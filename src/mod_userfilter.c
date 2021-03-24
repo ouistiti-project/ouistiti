@@ -579,23 +579,20 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			"insert into roles (id, name) values(3, \"users\");",
 #endif
 			"create table rules (\"exp\" TEXT NOT NULL, \"methodid\" INTEGER NOT NULL,\"roleid\" INTEGER NOT NULL, FOREIGN KEY (methodid) REFERENCES methods(id) ON UPDATE SET NULL, FOREIGN KEY (roleid) REFERENCES roles(id) ON UPDATE SET NULL);",
-			"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"POST\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"GET\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"PUT\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"POST\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/*\",(select id from methods where name=\"DELETE\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"GET\"),2);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"POST\"),2);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt/%u/*\",(select id from methods where name=\"DELETE\"),2);",
+			"insert into rules (exp,methodid,roleid) values(\"^/*\",(select id from methods where name=\"GET\"),0);",
+			"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"PUT\"),0);",
+			"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"DELETE\"),0);",
 #ifdef DEBUG
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"GET\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"POST\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"PUT\"),0);",
+			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"DELETE\"),0);",
 			"insert into rules (exp,methodid,roleid) values(\"^/%g/%u/*\",(select id from methods where name=\"GET\"),3);",
 			"insert into rules (exp,methodid,roleid) values(\"^/trust/*\",(select id from methods where name=\"GET\"),1);",
 #endif
 			NULL,
 		};
 		char *error = NULL;
-		char *configuriexp = calloc(1, strlen(config->configuri) + 2 + 1);
-		sprintf(configuriexp, "^%s$", config->configuri);
 		int i = 0;
 		while (query[i] != NULL)
 		{
