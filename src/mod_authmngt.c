@@ -364,7 +364,7 @@ static int _authmngt_execute(_mod_authmngt_t *mod, http_message_t *request, http
 		else if (info->passwd[0] != '\0' && mod->config->mngt.rules->changepasswd != NULL)
 		{
 			ret = mod->config->mngt.rules->changepasswd(mod->ctx, info);
-			if (!strcmp(info->status, str_status_reapproving))
+			if (!strcmp(info->status, str_status_reapproving) && mod->config->mngt.rules->changeinfo != NULL)
 			{
 				authsession_t newinfo;
 				strncpy(newinfo.user, info->user, USER_MAX);
