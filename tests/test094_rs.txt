@@ -1,2 +1,0 @@
-HTTP/1.1 200 OK
-Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogInJvb3QiLCAiaG9tZSI6ICIiLCAic3RhdHVzIjogInJlYXBwcm9iaW5nIiwgInJvbGVzIjogInJvb3QiLCAiZXhwIjogMTgwMH0.JFc_4NJ6XlZCQsxYEhWIHPUxZ3EDTw6i9AEVItA8zgo; SameSite=strict; Path=/; Domain=.ouistiti.net

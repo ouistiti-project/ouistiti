@@ -1,3 +1,4 @@
 DESC="authmngt: remove user"
 CONFIG=test12.conf
+TESTRESPONSE=result200_rs.txt
 TESTCODE=200
