@@ -513,11 +513,21 @@ static void *userfilter_config(config_setting_t *iterator, server_t *UNUSED(serv
 #endif
 	if (config)
 	{
+		const char *configuri;
+		config_setting_lookup_string(config, "configuri", &configuri);
+		if (configuri == NULL || configuri[0] == '\0')
+			return NULL;
+
+		const char *dbname;
+		config_setting_lookup_string(config, "dbname", &dbname);
+		if (dbname == NULL || dbname[0] == '\0')
+			return NULL;
+		
 		modconfig = calloc(1, sizeof(*modconfig));
 		config_setting_lookup_string(config, "superuser", &modconfig->superuser);
 		config_setting_lookup_string(config, "allow", &modconfig->allow);
-		config_setting_lookup_string(config, "configuri", &modconfig->configuri);
-		config_setting_lookup_string(config, "dbname", &modconfig->dbname);
+		modconfig->configuri = configuri;
+		modconfig->dbname = dbname;
 		if (modconfig->dbname == NULL || modconfig->dbname[0] == '\0')
 			modconfig->dbname = str_userfilterpath;
 	}
