@@ -55,12 +55,14 @@ struct module_s
 
 typedef struct serverconfig_s
 {
+	void *configfile;
 	http_server_config_t *server;
 	void *modulesconfig;
 } serverconfig_t;
 
 typedef struct ouistiticonfig_s
 {
+	void *configfile;
 	char *user;
 	char *pidfile;
 	serverconfig_t *config[MAX_SERVERS];

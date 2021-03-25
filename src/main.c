@@ -334,8 +334,6 @@ void main_destroy(server_t *first)
 		}
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
-		free(server->config->server);
-		free(server->config);
 		free(server);
 		server = next;
 	}
