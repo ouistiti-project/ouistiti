@@ -279,50 +279,50 @@ static int _authmngt_parsesession(const char *query, authsession_t *session)
 	const char *user = strstr(query, "user=");
 	if (user != NULL)
 	{
-		size_t length = sizeof(session->user);
+		size_t length = USER_MAX;
 		user += 5;
 		const char *end = strchr(user, '&');
-		if (end != NULL)
+		if (end != NULL && (end - user) < USER_MAX)
 			length = end - user;
 		strncpy(session->user, user, length);
 	}
 	const char *group = strstr(query, "group=");
 	if (group != NULL)
 	{
-		size_t length = sizeof(session->group);
+		size_t length = FIELD_MAX;
 		group += 6;
 		const char *end = strchr(group, '&');
-		if (end != NULL)
+		if (end != NULL && (end - user) < FIELD_MAX)
 			length = end - group;
 		strncpy(session->group, group, length);
 	}
 	const char *home = strstr(query, "home=");
 	if (home != NULL)
 	{
-		size_t length = sizeof(session->home);
+		size_t length = PATH_MAX;
 		home += 5;
 		const char *end = strchr(home, '&');
-		if (end != NULL)
+		if (end != NULL && (end - user) < PATH_MAX)
 			length = end - home;
 		strncpy(session->home, home, length);
 	}
 	const char *passwd = strstr(query, "passwd=");
 	if (passwd != NULL)
 	{
-		size_t length = sizeof(session->passwd);
+		size_t length = TOKEN_MAX;
 		passwd += 7;
 		const char *end = strchr(passwd, '&');
-		if (end != NULL)
+		if (end != NULL && (end - user) < TOKEN_MAX)
 			length = end - passwd;
 		strncpy(session->passwd, passwd, length);
 	}
 	const char *status = strstr(query, "status=");
 	if (status != NULL)
 	{
-		size_t length = sizeof(session->status);
+		size_t length = FIELD_MAX;
 		status += 7;
 		const char *end = strchr(status, '&');
-		if (end != NULL)
+		if (end != NULL && (end - user) < FIELD_MAX)
 			length = end - status;
 		strncpy(session->status, status, length);
 	}
