@@ -27,7 +27,7 @@ Examples:
 Ouistiti application needs the following entries:
 
 ### "user" :
-define the user to set for the main processus. Ouistiti must
+defines the user to set for the main processus. Ouistiti must
 be start with rights of "root", after to create the sockets server,
 it is more secure to change the user of all process used by Ouistiti.
 To use the Unix' authentication the server must be root too, then
@@ -36,16 +36,15 @@ change the user. The default user is "root", but Ouistiti will request
 to change the user.
 
 ### "log-file" :
-define the path to the file to store the log. By default
+defines the path to the file to store the log. By default
 the value is the standard error pipe.
 
 ### "pid-file" :
-define the path to a file where Ouistiti will store the
+defines the path to a file where Ouistiti will store the
 main process id. This value is optional.
 
 ### "mimetypes" :
-
-define a table of objects :
+defines a table of objects :
    * "ext" : define a list of extensions file
    * "mime" : define the mime value affected to the extensions.
 
@@ -66,6 +65,29 @@ the socket server and the modules to use during a client connection.
 	servers = ({...});
 ```
 
+### "config_d" :
+defines a directory to parse the file as "servers" configuration.
+Each *config_d*/<name>.conf file may contains a *servers* entry, to add
+one or more new servers. Becarefull *ouistiti* doesn't check if two servers
+use the same "port".
+
+#### Examples:
+
+Main entry:
+```config
+	user="www-data";
+	log-file="/var/log/ouistiti.log";
+	pid-file="/var/run/ouistiti.pid";
+	mimetypes = ({
+			ext = ".mp3";
+			mime = "audio/mp3";
+		});
+	config_d="/etc/ouistiti/ouistiti.d";
+```
+/etc/ouistiti/ouistiti.d/server1.conf
+```config
+	servers = ({...});
+```
 ## servers
 
 The server is defined with several informations:
@@ -149,7 +171,7 @@ Each module may have is own configuration.
 ```
 
 ### "tls" :
-[mod_{mbedtls|wolfssl|openssl] allows to set a SSL/TLS connection and its certificates files.
+[mod_{mbedtls|wolfssl|openssl}] allows to set a SSL/TLS connection and its certificates files.
 
 #### Example:
 
@@ -184,3 +206,81 @@ Each module may have is own configuration.
 	});
 ```
 
+### "userfilter":
+[mod_userfilter](mod_userfilter.md) allows to filter the request on the authentication's information.
+
+#### Example:
+
+```config
+	servers = ({
+	    hostname="ouistiti.net";
+	    port=80;
+        userfilter = {
+                superuser = "root";
+                configuri = "^/auth/filter*";
+                dbname = "/etc/ouistiti/filter.db";
+                allow = "^/trust/*,^/token$,^/apps/*";
+        };
+	});
+```
+
+### "redirect":
+mod_redirect allows to send "301", "302" or "307" response on some requests or modify some error response.
+
+#### Example:
+
+```config
+	servers = ({
+	    hostname="ouistiti.net";
+	    port=80;
+		redirect = {
+			options = "generate_204";
+			links = ({
+				origin = "test.html";
+				destination = "index.html";
+			},{
+				origin = "permanently.html";
+				destination = "index.html";
+				options = "permanently";
+			},{
+				origin = "temporary.html";
+				destination = "index.html";
+				options = "temporary";
+			},{
+				origin = "temporary/*";
+				destination = "dirlisting/";
+				options = "temporary";
+			},{
+				origin = "token";
+			},{
+				origin = "empty";
+				options = "generate_204";
+			},{
+				options = "error";
+				destination = "error_404.html";
+				origin = 404;
+			});
+		};
+	});
+
+ * options: *generate_204* will manage the GOOGLE URI /generate_204 to send an empty response.
+ * a request on the */**any_thing/**test.html* will respond with
+        302
+        Location: /any_thing/index.html
+ * a request on the */**any_thing/**permanently.html* will respond with
+        301
+        Location: /any_thing/index.html
+ * a request on the */**any_thing/**temporary.html* will respond with
+        307
+        Location: /any_thing/index.html
+ * a request on the */**any_thing/**temporary/index.html* will respond with
+        307
+        Location: /any_thing/dirlisting/index.html
+ * a request on the */**any_thing/**token?redirect_uri=**any_address*** will respond with
+        302
+        Location: any_address
+ * a request on the */**any_thing/**empty* will respond with
+        204
+ * any requests which should respond 404, will respond with
+        302
+        Location: /error_404.html

@@ -31,7 +31,7 @@ It is useless to manage the authentication by your-self.
 
    **TLS/SSL connection** is available as module with *mbedtls* or *openssl* library.
 
-## Authentication:
+## [Authentication](docs/mod_auth.md):
 
   The __authentication__ is available on *all client's connection*. The users'
   password may be encrypted for the storage. The following challenge
@@ -45,7 +45,7 @@ It is useless to manage the authentication by your-self.
    * **OpenID Authentication**: Manage the users on a OpenID server (like Google) and
     *Ouistiti* checks the user's rights on it.
 
-## Websocket:
+## [Websocket](docs/mod_websocket.md):
 
    A module build a **Websocket bridge** between HTTP socket client and UNIX socket.
    It is able to manage the handshake and the transfer of data to your application.
@@ -57,7 +57,7 @@ It is useless to manage the authentication by your-self.
    Like the *Websocket*, *Ouistiti* is able to protect your __stream's server__. Your
    application should only send data on a STREAM socket, *Ouistiti* does the rest.
 
-## Static documents:
+## [Static documents](docs/mod_document.md):
 
    Like any webserver, *Ouistiti* is able to send any kinds of files to your client.
    And in the same time it can manage them on your server:
@@ -71,32 +71,32 @@ It is useless to manage the authentication by your-self.
 
    **CGI scripts** may be call from the client.
 
-## Redirect
+## Redirect:
 
-	Some URI must be redirected on another URI. This module does that with only
-	configuration file.
+   Some URI must be redirected on another URI. This module does that with only
+   configuration file.
 
 ## Connection filtering:
 
    The server may start with a __blacklist__ and a __whitelist__ of IP address.
 
-## Users filtering
+## [Users filtering](docs/mod_userfilter.md):
 
    The server stores a database with rules about the user's "role", the request method and
    an expression on the URI. Each request is checked after authentication and before
    accessing to the ressource.
 
-## Upgrade
+## Upgrade:
 
-	*Ouistiti* is able to upgrade a connection and transfer data between
-	the opened socket and a UNIX socket server.
+   *Ouistiti* is able to upgrade a connection and transfer data between
+   the opened socket and a UNIX socket server.
 
-	The UNIX server may send and receive any kind of data on the socket.
-	It allows to reuse an unsecure server and uses the HTTP features like
-	authentication and TLS connection.
+   The UNIX server may send and receive any kind of data on the socket.
+   It allows to reuse an unsecure server and uses the HTTP features like
+   authentication and TLS connection.
 
-	This module is close to the websocket module, but it may usefull to use some
-	protocol over HTTP.
+   This module is close to the websocket module, but it may usefull to use some
+   protocol over HTTP.
 
 ## Mono threading or multi threading:
 
@@ -147,9 +147,15 @@ md5 library is mandatory for authentication modules:
 *ouistiti* may not use the pthread library, this depends on the configuration.
 But some tools may use the pthread library like websocket servers.
 
+## Configuration
+
+*ouistiti* uses [libconfig](http://www.hyperrealm.com/libconfig/) library, to
+set the servers, and the different modules.
+
+Documentation: [mod_auth](docs/config.md)
+
 ## other libraries
 
- * [libconfig](http://www.hyperrealm.com/libconfig/) library if the configuration contains FILE_CONFIG=y .
  * [jansson](https://jansson.org) library for JWT inside the authentication module
  * [sqlite](https://) library to manage users database of the authentication
 
@@ -239,10 +245,10 @@ The fields
  * CGI : build the CGI/1.1 support.
  * DOCUMENT : build the [document](docs/mod_document.md) module.
  * AUTH : build the [authentication](docs/mod_auth.md) module.
- * VHOSTS : build virtual hosting's extension.
+ * VHOSTS : build virtual hosting's extension **DEPRECATED**.
  * WEBSOCKET : build the [websocket](docs/mod_websocket.md) module.
  * CLIENTFILTER : build the connection filtering module.
-
+ * USERFILTER : build the [userfilter](docs/mod_userfilter.md) module.
 
 ## Compilation
 
