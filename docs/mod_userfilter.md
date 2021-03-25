@@ -1,5 +1,5 @@
 User filtering
------------
+--------------
 
 # Description
 After authentication and before document delivery, userfilter checks if
@@ -9,13 +9,14 @@ the user is allowed to use the URI with the requested's method.
 
 ## User's role
 
-A *role* is the name of the user or his group.
+A *role* is the name of the user or his group. It referers to the authentication's
+information.
 
 There is 3 specific roles:
 
-* _<superuser>_: the first role allowed to add rules.
+* _superuser_: the first role allowed to add rules.
 * _\*_: any authenticate's user or annonymous.
-* _annonymous_: the authentication allows to access to some URI whitout
+* "_annonymous_": the authentication allows to access to some URI whitout
 credential (cf [mod_auth](mod_auth.md) "allow" configuration field).
 
 # Configuration
@@ -24,7 +25,7 @@ credential (cf [mod_auth](mod_auth.md) "allow" configuration field).
 			dbname = "/etc/ouistiti/filter.db";
 			allow = "^token$,^trust/,.jpg$";
 			superuser = "root";
-			configuri = "^filter/config$";
+			configuri = "/filter/config";
 		};
 
 ## dbname
@@ -39,7 +40,7 @@ Each element is separated by a coma, and use a regular expression:
 
 * ^token$ : accept only request like
 
-> GET /token?redirect=http://myserver/index.html HTTP/1.1
+        GET /token?redirect=http://myserver/index.html HTTP/1.1
 
 * ^trust/ : accept all URI located inside the trust directory. The leading /
 is mandatory otherwise trustfoobar.html may be accessible too.
@@ -61,33 +62,72 @@ request on this URI. This URI **must NOT** be changed all the time of the databa
 
 The rights on this URI is always checked.
 
-# Rules management
+# Database
 
-The module uses a database to store the rules. A rule is build with
+A sqlite Database stores the rules. 3 tables are used:
 
-* a role : the user or the group after authentication must be strictly the same.
-* a method : the HTTP method is an uppercased string, and every method are allowed.
-* an expression: a regular expression on the URI.
+ * **rules** : *methodid* *roleid* *pathexp*
+ * **methods** : *id* *name[GET,POST,HEAD,PUT,DELETE,OPTIONS,...]*
+ * **roles** : *id* *name[root,anonymous,users,clients,...]*
+
+A rule is build with
+
+ * a *role* : the user or the group after authentication must be strictly the same.
+ * a *method* : the HTTP method is an uppercased string, and every method are allowed.
+ * an *expression*: a regular expression on the URI.
+
+Only few rules are available when the database is created:
+
+        <superuser> GET *
+        <superuser> PUT ^<configuri>*
+        <superuser> DELETE ^<configuri>*
+
+
+**superuser** and **configuri** are defined in the module configuration and must
+not be changed after the database creation.
+
+The Database may updated by the "sqlite3" tool or with a webservice in REST API.
+
+# Webservice for rules management
+
+The webservice is available from the **configuri** configuration string.
+
+It accepts the methods:
+ * **GET** to retrieve the list of rules.
+ * **PUT** to append a new rule.
+ * **DELETE** to remove a rule.
+
+## Retrieve the rules
+
+A **GET** request on **configuri** returns a JSON string
+with a table of rules.
+
+The JSON format of a rule is:
+ * "id" : the id in the table, usefull to remove it.
+ * "method" : the method to filter.
+ * "role" : the user's role allowed.
+ * "pathexp" : the regular expression on the URI to check.
+
+### Example
+
+        [{"id":1,"method":"GET","role":"root","pathexp":"*"},
+        {"id":2,"method":"PUT","role":"root","pathexp":"^/filter/config*"},
+        {"id":3,"method":"DELETE","role":"root","pathexp":"^/filter/config*"}]
 
 ## Add a rule to the database
 
-Only one rule is available when the database is created:
+The rules are appended in the database with a **PUT** request on
+**configuri**. The data must be and in x-www-form-urlencoded format:
 
->    <superuser> POST <configuri>
+```config
+ role=<user or group name>
+ method=<GET, POST, PUT, DELETE...>
+ pathexp=<regexp>
+```
 
-<superuser> and <configuri> are defined in the module configuration and must
-not be changed after the database creation.
+### Example
 
-The rules are appended in the database with a POST request on
-<configuri>. The data must be:
-
-> role=<user or group name>
-> method=<GET, POST, PUT, DELETE...>
-> pathexp=<regexp>
-
-### Examples
-
-		POST /filter/config HTTP/1.1
+		PUT /filter/config HTTP/1.1
 		HOST: 127.0.0.1
 		Authorization: Basic cm9vdDp0ZXN0
 		Content-Type: application/x-www-form-urlencoded
@@ -97,6 +137,17 @@ The rules are appended in the database with a POST request on
 
 This allow all user of the group "users" to access to all ressources containing
 the string ".cgi" and located inside the "cgi-bin" directory.
+
+## Remove a rule
+
+A rule may be removed by its **ID** with a **DELETE** request on the
+**configuri**/**ID** URI.
+
+### Example
+
+		DELETE /filter/config/4 HTTP/1.1
+		HOST: 127.0.0.1
+		Authorization: Basic cm9vdDp0ZXN0
 
 ## URI expression
 
@@ -113,9 +164,9 @@ There is some special characters:
  - %g : is replaced by the user's group name.
  - %h : is replaced by the user's home path.
 
-### Examples:
+### Example:
 
->     role=users&method=PUT&pathexp=^%g/%u/\*
+        role=users&method=PUT&pathexp=^%g/%u/\*
 
 All user of the group "users" is allowed to put file on /users/<user>/.
 For "foo", /users/foo/test.txt is allowed, but /users/test/test.txt is

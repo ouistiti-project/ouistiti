@@ -111,7 +111,7 @@ file="/etc/ouistiti/passwd";
 file="shadow";
 ```
 
-### "user", "passwd", "group", "home" :
+### "user", "passwd", "group", "home", "status" :
 This is the simplest way to create an authentication. The configuration
 may contains all information of the authentication. The *user* is always
 mandatory, *passwd* is too mandatory excepting in *none* authentication.
@@ -119,6 +119,9 @@ The others information are optionals and dedicated on some features.
 The *group* allows to use different *REST* API.
 The *home* allows to store data specificly to an user, and translate the
 URL "^~/*" to "$HOME/*" instead "$DOCROOT/*".
+The *status* allows to change the use of the authentication. The normal
+*status* is "activated", any other *status* force the authentication to
+reject the user.
 
 Example:
 ```config
@@ -415,3 +418,32 @@ This command allows to delete the entry of an user. The command require the curr
 	"id":3740816340
 }
 ```
+
+## Webservice REST API:
+This feature is available with **mode_authmngt** module.
+
+The Webservice URI is fixed with */auth/mngt* and supports the methods:
+ * **GET** to retrieve on or more users information.
+ * **PUT** to create a new user.
+ * **POST** to modify an user.
+ * **DELETE** to remove an user.
+
+### GET:
+Only the users from "root" group are allowed to **GET** all users, and may send a request on
+*/auth/mngt*. Other user may send a request only on */auth/mngt/**username***.
+
+The response is a JSON string with user's information.
+
+### PUT:
+Any body may create a user (but with the authentication, only authenticated people may create
+an user). This user is member of *users* group, and his status is *approving*.
+
+An account may not be created twice.
+
+### POST:
+Only the users from "root" group may modify the group and the status of the other users.
+As new user has the "approving" status, this user must wait the acceptation form a "root" user.
+This one has to change the *status* to "accepted".
+
+### DELETE:
+Only the user or the users from "root" group is allowed to remove a user.
