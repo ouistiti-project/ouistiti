@@ -53,19 +53,11 @@
 #include "mod_clientfilter.h"
 #include "mod_redirect.h"
 
+#include "httpserver/log.h"
 #include "ouistiti.h"
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-# define dbg(...)
-#endif
 
 char str_hostname[HOST_NAME_MAX + 7];
 
-static config_t configfile;
 static char *logfile = NULL;
 static int logfd = 0;
 
@@ -94,7 +86,7 @@ static void config_mimes(const config_setting_t *configmimes)
 	}
 }
 
-static serverconfig_t *config_server(config_setting_t *iterator)
+static serverconfig_t *config_server(config_setting_t *iterator, config_t *configfile)
 {
 	serverconfig_t *config = calloc(1, sizeof(*config));
 
@@ -136,20 +128,43 @@ static serverconfig_t *config_server(config_setting_t *iterator)
 	}
 	config->server->versionstr = httpversion[config->server->version];
 	config->modulesconfig = iterator;
+	config->configfile = configfile;
 	return config;
 }
 
-struct _config_module_s
+static void ouistiticonfig_servers(config_t *configfile, ouistiticonfig_t *ouistiticonfig)
 {
-	const char *name;
-	void *(*configure)(config_setting_t *iterator, server_t *server);
-};
-static struct _config_module_s list_config_modules [] =
-{
+	int nservers = 0;
+	while (ouistiticonfig->config[nservers] != NULL) nservers++;
+
+	const config_setting_t *configservers = config_lookup(configfile, "servers");
+	if (configservers)
 	{
-		.name = "end",
+		int count = config_setting_length(configservers);
+
+		for (int i = 0; i < count && (i + nservers) < MAX_SERVERS; i++)
+		{
+			config_setting_t *iterator = config_setting_get_elem(configservers, i);
+			if (iterator)
+			{
+				ouistiticonfig->config[i + nservers] = config_server(iterator, configfile);
+			}
+		}
 	}
-};
+}
+
+static void ouistiticonfig_subconfigfile(const char *filepath, ouistiticonfig_t *ouistiticonfig)
+{
+	config_t *configfile = calloc(1, sizeof(*configfile));
+	int ret = config_read_file(configfile, filepath);
+	if (ret != CONFIG_TRUE)
+	{
+		err("config: %s %s", filepath, config_error_text(configfile));
+		free(configfile);
+		return;
+	}
+	ouistiticonfig_servers(configfile, ouistiticonfig);
+}
 
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 {
@@ -163,18 +178,21 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 		err("config file: %s not found", filepath);
 		return NULL;
 	}
-	config_init(&configfile);
+	config_t *configfile = calloc(1, sizeof(*configfile));
+	config_init(configfile);
 	dbg("config file: %s", filepath);
-	ret = config_read_file(&configfile, filepath);
+	ret = config_read_file(configfile, filepath);
 	if (ret != CONFIG_TRUE)
 	{
-		err("%s", config_error_text(&configfile));
+		err("config: %s %s", filepath, config_error_text(configfile));
+		free(configfile);
 		return NULL;
 	}
 	ouistiticonfig_t *ouistiticonfig = calloc(1, sizeof(*ouistiticonfig));
+	ouistiticonfig->configfile = configfile;
 
-	config_lookup_string(&configfile, "user", (const char **)&ouistiticonfig->user);
-	config_lookup_string(&configfile, "log-file", (const char **)&logfile);
+	config_lookup_string(configfile, "user", (const char **)&ouistiticonfig->user);
+	config_lookup_string(configfile, "log-file", (const char **)&logfile);
 	if (logfile != NULL && logfile[0] != '\0')
 	{
 		logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00644);
@@ -187,22 +205,28 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
 		else
 			err("log file error %s", strerror(errno));
 	}
-	config_lookup_string(&configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
-	const config_setting_t *configmimes = config_lookup(&configfile, "mimetypes");
+	config_lookup_string(configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
+	const config_setting_t *configmimes = config_lookup(configfile, "mimetypes");
 	config_mimes(configmimes);
-	const config_setting_t *configservers = config_lookup(&configfile, "servers");
-	if (configservers)
-	{
-		int count = config_setting_length(configservers);
 
-		for (int i = 0; i < count && i < MAX_SERVERS; i++)
+	ouistiticonfig_servers(configfile, ouistiticonfig);
+	char *configd = NULL;
+	config_lookup_string(configfile, "config_d", (const char **)&configd);
+	DIR *configdir = NULL;
+	if (configd != NULL && (configdir = opendir(configd)) != NULL)
+	{
+		struct dirent *entry = readdir(configdir);
+		while (entry != NULL)
 		{
-			config_setting_t *iterator = config_setting_get_elem(configservers, i);
-			if (iterator)
+			if (entry->d_type == DT_REG && !utils_searchexp(entry->d_name, "*.conf$", NULL))
 			{
-				ouistiticonfig->config[i] = config_server(iterator);
+				char path[PATH_MAX] = {0};
+				snprintf(path, PATH_MAX - 1, "%s/%s",configd, entry->d_name);
+				ouistiticonfig_subconfigfile(path, ouistiticonfig);
 			}
+			entry = readdir(configdir);
 		}
+		closedir(configdir);
 	}
 
 	return ouistiticonfig;
@@ -212,6 +236,20 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
 	if (logfd > 0)
 		close(logfd);
-	config_destroy(&configfile);
+	for (int i = 0; i < MAX_SERVERS; i++)
+	{
+		if (ouistiticonfig->config[i] != NULL)
+		{
+			if (ouistiticonfig->config[i]->configfile != ouistiticonfig->configfile)
+			{
+				config_destroy((config_t *)ouistiticonfig->config[i]->configfile);
+				free(ouistiticonfig->config[i]->configfile);
+			}
+			free(ouistiticonfig->config[i]->server);
+			free(ouistiticonfig->config[i]);
+		}
+	}
+	config_destroy((config_t *)ouistiticonfig->configfile);
+	free(ouistiticonfig->configfile);
 	free(ouistiticonfig);
 }
