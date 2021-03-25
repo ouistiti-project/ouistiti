@@ -547,8 +547,8 @@ static int authn_digest_checkuser(void *data, const char *value, size_t length)
 
 	if (value != NULL)
 	{
-		char user[USER_MAX] = {0};
-		length = (length > (USER_MAX - 1))? USER_MAX - 1: length;
+		char user[USER_MAX + 1] = {0};
+		length = (length > (USER_MAX))? USER_MAX: length;
 		strncpy(user, value, length);
 		info->passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 		if (info->passwd != NULL)
