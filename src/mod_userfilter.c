@@ -417,16 +417,86 @@ static int64_t _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield
 	const char *end = strchr(value, '&');
 	if (end != NULL)
 		length = end - value;
-	int id = _search_field(ctx, ifield, value, length);
+	int64_t id = _search_field(ctx, ifield, value, length);
 	if (id == EREJECT)
 		id = _insert_field(ctx, ifield, value, length);
 	return id;
 }
 
+static int _userfilter_append(_mod_userfilter_t *ctx, const char *query, http_message_t *response)
+{
+	int ret = EREJECT;
+	int64_t methodid = _parsequery(ctx, query, 0);
+	int64_t roleid = _parsequery(ctx, query, 1);
+	const char *exp = strstr(query, "pathexp=");
+	if (exp != NULL && methodid != EREJECT && roleid != EREJECT)
+	{
+		exp += 8;
+		size_t elength = -1;
+		const char *end = strchr(exp, '&');
+		if (end != NULL)
+			elength = end - exp;
+		ret = _insert_rule(ctx, methodid, roleid, exp, elength);
+	}
+	if (ret != ESUCCESS)
+		httpmessage_result(response, RESULT_400);
+	else
+	{
+		warn("userfilter: insert %s", query);
+#if defined RESULT_204
+		httpmessage_result(response, RESULT_204);
+#endif
+	}
+	return ESUCCESS;
+}
+
+static int _userfilter_remove(_mod_userfilter_t *ctx, const char *rest, http_message_t *response)
+{
+	int ret = EREJECT;
+	while(rest[0] == '/') rest++;
+	int64_t id = strtol(rest, NULL, 10);
+	if (id > 0)
+	{
+		ret = _delete_rule(ctx, id);
+	}
+	if (ret != ESUCCESS)
+		httpmessage_result(response, RESULT_400);
+	else
+	{
+		warn("userfilter: delete %s", rest);
+#if defined RESULT_204
+		httpmessage_result(response, RESULT_204);
+#endif
+	}
+	return ESUCCESS;
+}
+
+static int _userfilter_get(_mod_userfilter_t *ctx, http_message_t *response)
+{
+	int ret = EREJECT;
+	if (ctx->line == 0)
+	{
+		httpmessage_addcontent(response, "text/json", NULL, -1);
+		httpmessage_appendcontent(response, "[", -1);
+	}
+	else
+		httpmessage_addcontent(response, NULL, "", -1);
+	ctx->line++;
+	ret = _jsonifyrule(ctx, ctx->line, response);
+	if (ret != ECONTINUE)
+	{
+		httpmessage_appendcontent(response, "{}]", -1);
+		ctx->line = -1;
+		ret = ECONTINUE;
+	}
+	else
+		httpmessage_appendcontent(response, ",", -1);
+	return ret;
+}
+
 static int rootgenerator_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
-	mod_userfilter_t *config = ctx->config;
 	int ret = EREJECT;
 	const char *rest = NULL;
 	const char *uri = httpmessage_REQUEST(request,"uri");
@@ -437,59 +507,15 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 		const char *query = httpmessage_REQUEST(request, "query");
 		if (!strcmp(method, str_put) && query != NULL)
 		{
-			ret = EREJECT;
-			int methodid = _parsequery(ctx, query, 0);
-			int roleid = _parsequery(ctx, query, 1);
-			const char *exp = strstr(query, "pathexp=");
-			if (exp != NULL && methodid != EREJECT && roleid != EREJECT)
-			{
-				exp += 8;
-				int elength = -1;
-				const char *end = strchr(exp, '&');
-				if (end != NULL)
-					elength = end - exp;
-				ret = _insert_rule(ctx, methodid, roleid, exp, elength);
-			}
-			if (ret != ESUCCESS)
-				httpmessage_result(response, RESULT_400);
-			else
-			{
-				warn("userfilter: insert %s", query);
-#if defined RESULT_204
-				httpmessage_result(response, RESULT_204);
-#endif
-			}
-			ret = ESUCCESS;
+			ret = _userfilter_append(ctx, query, response);
 		}
 		else if (!strcmp(method, str_delete) && rest != NULL)
 		{
-			while(rest[0] == '/') rest++;
-			int id = strtol(rest, NULL, 10);
-			if (id > 0)
-			{
-				warn("userfilter: delete %s", rest);
-				ret = _delete_rule(ctx, id);
-			}
+			ret = _userfilter_remove(ctx, rest, response);
 		}
 		else if (!strcmp(method, str_get) && ctx->line > -1)
 		{
-			if (ctx->line == 0)
-			{
-				httpmessage_addcontent(response, "text/json", NULL, -1);
-				httpmessage_appendcontent(response, "[", -1);
-			}
-			else
-				httpmessage_addcontent(response, NULL, "", -1);
-			ctx->line++;
-			ret = _jsonifyrule(ctx, ctx->line, response);
-			if (ret != ECONTINUE)
-			{
-				httpmessage_appendcontent(response, "{}]", -1);
-				ctx->line = -1;
-				ret = ECONTINUE;
-			}
-			else
-				httpmessage_appendcontent(response, ",", -1);
+			ret = _userfilter_get(ctx, response);
 		}
 		else if (ctx->line == -1)
 		{
