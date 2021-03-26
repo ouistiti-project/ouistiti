@@ -52,7 +52,7 @@ void *authn_basic_config(const config_setting_t *configauth)
 	authn_basic_config_t *authn_config = NULL;
 
 	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
+	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
 	return authn_config;
 }
 #endif

@@ -87,8 +87,8 @@ int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
 	const char *entries[3] = {0};
 	int nbentries = 0;
 
-	char *p, *valuefree = strdup(value);
-	p = strchr(valuefree, '%');
+	char *valuefree = strdup(value);
+	char *p = strchr(valuefree, '%');
 	while (p != NULL)
 	{
 		p++;
@@ -131,9 +131,9 @@ int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
 	return ret;
 }
 
-static int _search_field(_mod_userfilter_t *ctx, int ifield, const char *value, int length)
+static int64_t _search_field(_mod_userfilter_t *ctx, int ifield, const char *value, int length)
 {
-	int ret = EREJECT;
+	int64_t ret = EREJECT;
 	int step;
 	sqlite3_stmt *statement;
 	const char *sql[] = {
@@ -157,12 +157,12 @@ static int _search_field(_mod_userfilter_t *ctx, int ifield, const char *value, 
 	return ret;
 }
 
-static int _search_method(_mod_userfilter_t *ctx, const char *method, int length)
+static int64_t _search_method(_mod_userfilter_t *ctx, const char *method, int length)
 {
 	return _search_field(ctx, 0, method, length);
 }
 
-static int _search_role(_mod_userfilter_t *ctx, const char *role, int length)
+static int64_t _search_role(_mod_userfilter_t *ctx, const char *role, int length)
 {
 	return _search_field(ctx, 1, role, length);
 }
@@ -172,9 +172,9 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 				const char *uri)
 {
 	int ret = EREJECT;
-	int methodid = _search_method(ctx, method, -1);
-	int userid = _search_role(ctx, user, -1);
-	int groupid = _search_role(ctx, group, -1);
+	int64_t methodid = _search_method(ctx, method, -1);
+	int64_t userid = _search_role(ctx, user, -1);
+	int64_t groupid = _search_role(ctx, group, -1);
 	sqlite3_stmt *statement;
 	const char *sql = "select exp from rules " \
 		"where methodid=@METHODID and " \
@@ -223,21 +223,29 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 	return ret;
 }
 
-static int _insert_field(_mod_userfilter_t *ctx, int table, const char *value, int length)
+static int64_t _insert_field(_mod_userfilter_t *ctx, int table, const char *value, int length)
 {
-	int ret = EREJECT;
+	int64_t ret = EREJECT;
 	sqlite3_stmt *statement;
 	const char *sql[] = {
 		"insert into methods (name) values(@VALUE);",
 		"insert into roles (name) values(@VALUE);"
 	};
 	ret = sqlite3_prepare_v2(ctx->db, sql[table], -1, &statement, NULL);
-	SQLITE3_CHECK(ret, EREJECT, sql[table]);
+	if (ret != SQLITE_OK) {
+		err("%s(%d) %ld: %s\n%s", __FUNCTION__, __LINE__, ret, sql[table], sqlite3_errmsg(ctx->db));
+		sqlite3_finalize(statement);
+		return EREJECT;
+	}
 
 	int index;
 	index = sqlite3_bind_parameter_index(statement, "@VALUE");
 	ret = sqlite3_bind_text(statement, index, value, length, SQLITE_STATIC);
-	SQLITE3_CHECK(ret, EREJECT, sql[table]);
+	if (ret != SQLITE_OK) {
+		err("%s(%d) %ld: %s\n%s", __FUNCTION__, __LINE__, ret, sql[table], sqlite3_errmsg(ctx->db));
+		sqlite3_finalize(statement);
+		return EREJECT;
+	}
 
 	int step = sqlite3_step(statement);
 	if (step == SQLITE_DONE)
@@ -248,7 +256,7 @@ static int _insert_field(_mod_userfilter_t *ctx, int table, const char *value, i
 	return ret;
 }
 
-static int _insert_rule(_mod_userfilter_t *ctx, int methodid, int roleid, const char *exp, int length)
+static int _insert_rule(_mod_userfilter_t *ctx, int64_t methodid, int64_t roleid, const char *exp, int length)
 {
 	int ret = EREJECT;
 	sqlite3_stmt *statement;
@@ -280,7 +288,7 @@ static int _insert_rule(_mod_userfilter_t *ctx, int methodid, int roleid, const 
 	return ret;
 }
 
-static int _delete_rule(_mod_userfilter_t *ctx, int id)
+static int _delete_rule(_mod_userfilter_t *ctx, int64_t id)
 {
 	int ret = EREJECT;
 	sqlite3_stmt *statement;
@@ -298,7 +306,7 @@ static int _delete_rule(_mod_userfilter_t *ctx, int id)
 	return (step == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
 
-static int _jsonifyrule(_mod_userfilter_t *ctx, int id, http_message_t *response)
+static int _jsonifyrule(_mod_userfilter_t *ctx, int64_t id, http_message_t *response)
 {
 	
 	int ret = EREJECT;
@@ -394,7 +402,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	return ret;
 }
 
-static int _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield)
+static int64_t _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield)
 {
 	const char *field[] = {
 		"method=",
@@ -537,7 +545,7 @@ static void *userfilter_config(config_setting_t *iterator, server_t *UNUSED(serv
 mod_userfilter_t g_userfilter_config =
 {
 	.superuser = "root",
-	.configuri = "auth/filter",
+	.configuri = "/auth/filter",
 	.dbname = str_userfilterpath,
 };
 
@@ -554,14 +562,12 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 		return NULL;
 
 	sqlite3 *db;
-	int ret;
 
 	char *configuriexp = calloc(1, strlen(config->configuri) + 2 + 1);
 	sprintf(configuriexp, "^%s*", config->configuri);
 	if (access(config->dbname, R_OK))
 	{
-		ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL);
-		if (ret != SQLITE_OK)
+		if (sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
 			return NULL;
 
 		const char *query[] = {
@@ -592,19 +598,33 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 #endif
 			NULL,
 		};
-		char *error = NULL;
 		int i = 0;
 		while (query[i] != NULL)
 		{
+			int ret;
 			sqlite3_stmt *statement;
 			ret = sqlite3_prepare_v2(db, query[i], -1, &statement, NULL);
+			if (ret != SQLITE_OK) {
+				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
+				return NULL;
+			}
 
 			int index;
 			index = sqlite3_bind_parameter_index(statement, "@SUPERUSER");
 			ret = sqlite3_bind_text(statement, index, config->superuser, -1, SQLITE_STATIC);
+			if (ret != SQLITE_OK) {
+				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
+				sqlite3_finalize(statement);
+				return NULL;
+			}
 
 			index = sqlite3_bind_parameter_index(statement, "@CONFIGURI");
 			ret = sqlite3_bind_text(statement, index, configuriexp, -1, SQLITE_STATIC);
+			if (ret != SQLITE_OK) {
+				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
+				sqlite3_finalize(statement);
+				return NULL;
+			}
 
 			ret = sqlite3_step(statement);
 			sqlite3_finalize(statement);
@@ -618,8 +638,7 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 		sqlite3_close(db);
 		chmod(config->dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
 	}
-	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL);
-	if (ret != SQLITE_OK)
+	if (sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
 	{
 		free(configuriexp);
 		err("userfilter: database not found %s", config->dbname);

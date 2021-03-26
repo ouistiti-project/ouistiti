@@ -69,7 +69,6 @@ struct _mod_authmngt_s
 
 static const char str_put[] = "PUT";
 static const char str_delete[] = "DELETE";
-static const char str_empty[] = "";
 
 static const char str_mngtpath[] = "^/auth/mngt*";
 
@@ -240,7 +239,7 @@ static int authmngt_jsonifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *re
 		httpmessage_appendcontent(response, "\"", -1);
 	}
 	httpmessage_appendcontent(response, "}", -1);
-	return 0;
+	return ESUCCESS;
 }
 
 static int authmngt_stringifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *response, const authsession_t *info)

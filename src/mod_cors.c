@@ -47,18 +47,11 @@
 
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_cors.h"
 
 extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);
 extern int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request);
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 typedef struct _mod_cors_s _mod_cors_t;
 typedef struct _mod_cors_ctx_s _mod_cors_ctx_t;
@@ -77,22 +70,23 @@ static const char str_options[] = "OPTIONS";
 static int _cors_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	_mod_cors_t *mod = (_mod_cors_t *)arg;
+	const _mod_cors_t *mod = (_mod_cors_t *)arg;
 
 	const char *origin = httpmessage_REQUEST(request, "Origin");
 	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
 	{
 		httpmessage_addheader(response, "Access-Control-Allow-Origin", mod->config->origin);
-		const char *method = httpmessage_REQUEST(request, "method");
+		const char *method;
+		method = httpmessage_REQUEST(request, "method");
 		if (!strcmp(method, str_options))
 		{
+			const char *methods = method;
+			if (mod->methods && mod->methods[0] != '\0')
+				methods = mod->methods;
 			const char *ac_request;
 			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
 			if (ac_request && ac_request[0] != '\0')
 			{
-				const char *methods = method;
-				if (mod->methods && mod->methods[0] != '\0')
-					methods = mod->methods;
 				httpmessage_addheader(response, "Access-Control-Allow-Methods", methods);
 			}
 			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
@@ -112,10 +106,13 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
-static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
+static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *UNUSED(addr), int UNUSED(addrsize))
 {
 	_mod_cors_t *mod = (_mod_cors_t *)arg;
 
+	/**
+	 * Methods must be set here, because other modules may append new methods to the server.
+	 */
 	mod->methods = httpserver_INFO(httpclient_server(clt), "methods");
 	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
 
@@ -124,7 +121,6 @@ static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 
 static void _mod_cors_freectx(void *arg)
 {
-	_mod_cors_t *ctx = (_mod_cors_t *)arg;
 }
 
 #ifdef FILE_CONFIG

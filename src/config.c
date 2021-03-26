@@ -166,7 +166,7 @@ static void ouistiticonfig_subconfigfile(const char *filepath, ouistiticonfig_t 
 	ouistiticonfig_servers(configfile, ouistiticonfig);
 }
 
-ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 {
 	int ret;
 

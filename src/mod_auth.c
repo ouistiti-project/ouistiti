@@ -295,7 +295,6 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 		return ret;
 	}
 
-	int i = 0;
 	const struct _authn_s *authn = NULL;
 	for (int i = 0; i < (sizeof(authn_list) / sizeof(*authn_list)); i++)
 	{

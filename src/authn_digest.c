@@ -63,17 +63,16 @@ void *authn_digest_config(const config_setting_t *configauth)
 	authn_digest_config_t *authn_config = NULL;
 
 	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-	config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
+	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
+	config_setting_lookup_string(configauth, "opaque", &authn_config->opaque);
 	return authn_config;
 }
 #endif
 
 static char *utils_stringify(const unsigned char *data, size_t len)
 {
-	size_t i;
 	char *result = calloc(2, len + 1);
-	for (i = 0; i < len; i++)
+	for (size_t i = 0; i < len; i++)
 	{
 		snprintf(result + i * 2, 3, "%02x", data[i]);
 	}

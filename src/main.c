@@ -47,6 +47,7 @@
 #include "daemonize.h"
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
+#include "httpserver/log.h"
 
 #ifndef FILE_CONFIG
 #define STATIC_CONFIG
@@ -55,14 +56,6 @@
 #include "ouistiti.h"
 
 #define PACKAGEVERSION PACKAGE "/" VERSION
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
-
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
 #include "mod_auth.h"
@@ -157,7 +150,7 @@ static server_t *first = NULL;
 static char run = 0;
 static int g_default_port = 80;
 #ifdef HAVE_SIGACTION
-static void handler(int sig, siginfo_t *si, void *arg)
+static void handler(int sig, siginfo_t *UNUSED(si), void *UNUSED(arg))
 #else
 static void handler(int sig)
 #endif
@@ -290,7 +283,7 @@ static void *_config_modules(void *data, const char *name, server_t *server)
 	return NULL;
 }
 
-ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 {
 	return &g_ouistiti_config;
 }

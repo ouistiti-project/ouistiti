@@ -82,7 +82,7 @@ void *authz_unix_config(const config_setting_t *configauth)
 }
 #endif
 
-static void *authz_unix_create(http_server_t *server, void *arg)
+static void *authz_unix_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_unix_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;

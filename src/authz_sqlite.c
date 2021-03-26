@@ -259,7 +259,7 @@ static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, ch
 	return value;
 }
 
-static int _authz_sqlite_storeuser(authz_sqlite_t *ctx, sqlite3_stmt *statement, authsession_t *info)
+static int _authz_sqlite_storeuser(const authz_sqlite_t *UNUSED(ctx), sqlite3_stmt *statement, authsession_t *info)
 {
 	const char *field;
 	int i = 0;
@@ -643,7 +643,6 @@ static int _compute_passwd(const char *input, char *output, int outlen)
 		hash->update(ctx, input, strlen(input));
 		hash->finish(ctx, hashpasswd);
 
-		size_t cnt = 0;
 		strncpy(output, "$5$", outlen - 1);
 		base64->encode(hashpasswd, hash->size, output + 4, outlen - 4);
 		free(hashpasswd);
@@ -752,8 +751,6 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int userid = 0;
-	int groupid = 2;
-	int statusid = 1;
 	int ret = ESUCCESS;
 
 	userid = authz_sqlite_userid(ctx, authinfo->user);
