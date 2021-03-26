@@ -594,7 +594,10 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	if (access(config->dbname, R_OK))
 	{
 		if (sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
+		{
+			err("userfilter: db %s not generated", config->dbname);
 			return NULL;
+		}
 
 		const char *query[] = {
 			"create table methods (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
@@ -637,7 +640,8 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 
 			int index;
 			index = sqlite3_bind_parameter_index(statement, "@SUPERUSER");
-			ret = sqlite3_bind_text(statement, index, config->superuser, -1, SQLITE_STATIC);
+			if (index > 0)
+				ret = sqlite3_bind_text(statement, index, config->superuser, -1, SQLITE_STATIC);
 			if (ret != SQLITE_OK) {
 				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
 				sqlite3_finalize(statement);
@@ -645,7 +649,8 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			}
 
 			index = sqlite3_bind_parameter_index(statement, "@CONFIGURI");
-			ret = sqlite3_bind_text(statement, index, configuriexp, -1, SQLITE_STATIC);
+			if (index > 0)
+				ret = sqlite3_bind_text(statement, index, configuriexp, -1, SQLITE_STATIC);
 			if (ret != SQLITE_OK) {
 				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
 				sqlite3_finalize(statement);
