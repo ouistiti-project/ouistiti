@@ -1,5 +1,2 @@
 HTTP/1.1 201 Created
-Content-Type: application/x-www-form-urlencoded
-Content-Length: 45
 
-user=alibaba&group=anonymous&status=approving
