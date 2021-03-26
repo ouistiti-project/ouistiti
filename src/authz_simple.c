@@ -44,16 +44,16 @@ typedef authz_simple_config_t authz_simple_t;
 void *authz_simple_config(const config_setting_t *configauth)
 {
 	authz_simple_config_t *authz_config = NULL;
-	char *user = NULL;
-	config_setting_lookup_string(configauth, "user", (const char **)&user);
+	const char *user = NULL;
+	config_setting_lookup_string(configauth, "user", &user);
 	if (user != NULL && user[0] != '0')
 	{
-		char *passwd = NULL;
-		char *group = NULL;
-		char *home = NULL;
-		config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
-		config_setting_lookup_string(configauth, "group", (const char **)&group);
-		config_setting_lookup_string(configauth, "home", (const char **)&home);
+		const char *passwd = NULL;
+		const char *group = NULL;
+		const char *home = NULL;
+		config_setting_lookup_string(configauth, "passwd", &passwd);
+		config_setting_lookup_string(configauth, "group", &group);
+		config_setting_lookup_string(configauth, "home", &home);
 		authz_config = calloc(1, sizeof(*authz_config));
 		authz_config->user = user;
 		authz_config->group = group;
@@ -64,7 +64,7 @@ void *authz_simple_config(const config_setting_t *configauth)
 }
 #endif
 
-static void *authz_simple_create(http_server_t *server, void *config)
+static void *authz_simple_create(http_server_t *UNUSED(server), void *config)
 {
 	return config;
 }
@@ -92,9 +92,6 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 static int authz_simple_setsession(void *arg, const char * user, authsession_t *info)
 {
 	const authz_simple_t *config = (const authz_simple_t *)arg;
-	const char *group = NULL;
-	const char *home = NULL;
-	char *token = NULL;
 
 	if (user == NULL)
 		return EREJECT;

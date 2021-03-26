@@ -68,7 +68,7 @@ typedef struct ouistiticonfig_s
 	serverconfig_t *config[MAX_SERVERS];
 } ouistiticonfig_t;
 
-ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid);
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
 int ouistiti_initmodules(const char *pkglib);
