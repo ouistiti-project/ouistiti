@@ -1,4 +1,4 @@
 DESC="remove rules from userfilter"
 CONFIG=test12.conf
-TESTCODE=200
-TESTRESPONSE=result200_rs.txt
+TESTCODE=204
+TESTRESPONSE=result204_rs.txt
