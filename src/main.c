@@ -333,20 +333,58 @@ void main_destroy(server_t *first)
 	__ouistiti_freemodule();
 }
 
+static server_t *ouistiti_loadservers(ouistiticonfig_t *ouistiticonfig, int serverid)
+{
+	server_t *first = NULL;
+	int id = 0;
+	for (int i = 0; i < MAX_SERVERS; i++)
+	{
+		if (serverid != -1 && i != serverid)
+			continue;
+
+		if (ouistiticonfig->config[i] != NULL)
+		{
+			server_t *server = ouistiti_loadserver(ouistiticonfig->config[i], id);
+			id += 1;
+			if (server != NULL)
+			{
+				server->next = first;
+				first = server;
+			}
+		}
+	}
+	return first;
+}
+
+static int ouistiti_kill(const char *configfile, const char *pidfile)
+{
+	ouistiticonfig_t *ouistiticonfig = NULL;
+	if (pidfile == NULL)
+	{
+		ouistiticonfig = ouistiticonfig_create(configfile);
+		if (ouistiticonfig && ouistiticonfig->pidfile)
+			pidfile = ouistiticonfig->pidfile;
+	}
+	killdaemon(pidfile);
+	if (ouistiticonfig)
+		ouistiticonfig_destroy(ouistiticonfig);
+	main_destroy(first);
+	return 0;
+}
+
 #define DAEMONIZE 0x01
 #define KILLDAEMON 0x02
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
 	const char *configfile = DEFAULT_CONFIGPATH;
-	ouistiticonfig_t *ouistiticonfig = NULL;
 	const char *pidfile = NULL;
 	int mode = 0;
 	int serverid = -1;
 	const char *pkglib = PKGLIBDIR;
 
-//	setlinebuf(stdout);
-//	setlinebuf(stderr);
+//	setlinebuf /( stdout /);
+//	setlinebuf /( stderr /);
 	setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
 
@@ -394,30 +432,7 @@ int main(int argc, char * const *argv)
 
 	if (mode & KILLDAEMON)
 	{
-		if (pidfile == NULL)
-		{
-			ouistiticonfig = ouistiticonfig_create(configfile, serverid);
-			if (ouistiticonfig && ouistiticonfig->pidfile)
-				pidfile = ouistiticonfig->pidfile;
-		}
-		killdaemon(pidfile);
-		if (ouistiticonfig)
-			ouistiticonfig_destroy(ouistiticonfig);
-		main_destroy(first);
-		return 0;
-	}
-
-	if (mode & DAEMONIZE)
-	{
-		if (daemonize(pidfile) == -1)
-		{
-			/**
-			 * if main is destroyed, it close the server socket here
-			 * and the true process is not able to receive any connection
-			 */
-			// main_destroy /( first /) /;
-			return 0;
-		}
+		return ouistiti_kill(configfile, pidfile);
 	}
 
 	ouistiti_initmodules(pkglib);
@@ -427,34 +442,28 @@ int main(int argc, char * const *argv)
 		ouistiti_initmodules(modules_path);
 #endif
 
-	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
+	ouistiticonfig_t *ouistiticonfig = NULL;
+	ouistiticonfig = ouistiticonfig_create(configfile);
 
 	if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
 		pidfile = ouistiticonfig->pidfile;
 
+	if (mode & DAEMONIZE && daemonize(pidfile) == -1)
+	{
+		/**
+		 * if main is destroyed, it close the server socket here
+		 * and the true process is not able to receive any connection
+		 */
+		// main_destroy /( first /) /;
+		return 0;
+	}
+
 	if (ouistiticonfig == NULL)
 	{
-		main_destroy(first);
 		return -1;
 	}
 
-	int id = 0;
-	for (int i = 0; i < MAX_SERVERS; i++)
-	{
-		if (serverid != -1 && i != serverid)
-			continue;
-
-		if (ouistiticonfig->config[i] != NULL)
-		{
-			server_t *server = ouistiti_loadserver(ouistiticonfig->config[i], id);
-			id += 1;
-			if (server != NULL)
-			{
-				server->next = first;
-				first = server;
-			}
-		}
-	}
+	first = ouistiti_loadservers(ouistiticonfig, serverid);
 
 #ifdef HAVE_SIGACTION
 	struct sigaction action;
