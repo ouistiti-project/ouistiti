@@ -1,0 +1,9 @@
+PUT /auth/mngt HTTP/1.1
+HOST: 127.0.0.1
+Authorization: Basic cm9vdDpyb290
+Accept: text/json
+Origin: http://ouistiti.net
+Content-Length: 40
+Content-Type: application/x-www-form-urlencoded
+
+user=alibaba&group=users&password=sesame

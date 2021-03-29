@@ -94,6 +94,30 @@ static int _checkname(_mod_webstream_ctx_t *ctx, const char *pathname)
 	return ESUCCESS;
 }
 
+static int _webstream_socket(void *arg, int sock, const char *filepath)
+{
+	struct sockaddr_un addr;
+	memset(&addr, 0, sizeof(struct sockaddr_un));
+	addr.sun_family = AF_UNIX;
+	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
+
+	sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sock > 0)
+	{
+		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
+		if (ret < 0)
+		{
+			close(sock);
+			sock = -1;
+		}
+	}
+	if (sock == -1)
+	{
+		warn("websocket %s error: %s", filepath, strerror(errno));
+	}
+	return sock;
+}
+
 static int _webstream_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -129,12 +153,14 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 			if (fchdir(ctx->mod->fdroot) == -1)
 				warn("webstream: impossible to change directory");
 			int wssock;
+#ifdef WEBSOCKET_RT
 			if (config->options & WEBSTREAM_REALTIME)
 			{
 				wssock = ouistiti_websocket_run(NULL, ctx->socket, uri, request);
 			}
 			else
-				wssock = ouistiti_websocket_socket(NULL, ctx->socket, uri, request);
+#endif
+				wssock = _webstream_socket(NULL, ctx->socket, uri);
 
 			if (wssock > 0)
 			{
@@ -211,7 +237,7 @@ static void webstream_optionscb(void *arg, const char *option, size_t length)
 #ifdef WEBSOCKET_RT
 	if (!strncmp(option, "direct", length))
 	{
-		if (!(conf->options & WEBSOCKET_TLS))
+		if (!(conf->options & WEBSTREAM_TLS))
 			conf->options |= WEBSOCKET_REALTIME;
 		else
 			warn("realtime configuration is not allowed with tls");

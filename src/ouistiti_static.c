@@ -28,12 +28,14 @@
 #include <stdio.h>
 
 #include "httpserver/httpserver.h"
+#include "httpserver/log.h"
 #include "ouistiti.h"
 
 #include "mod_clientfilter.h"
 #include "mod_tls.h"
 #include "mod_cors.h"
 #include "mod_auth.h"
+#include "mod_authmngt.h"
 #include "mod_methodlock.h"
 #include "mod_server.h"
 #include "mod_cookie.h"
@@ -64,6 +66,9 @@ static const module_t *default_modules[] =
 #endif
 #if defined AUTH
 	&mod_auth,
+#endif
+#if defined AUTHZ_MANAGER
+	&mod_authmngt,
 #endif
 #if defined USERFILTER
 	&mod_userfilter,
@@ -102,11 +107,9 @@ static const module_t *default_modules[] =
 	NULL
 };
 
-int ouistiti_initmodules()
+int ouistiti_initmodules(const char *UNUSED(pkglib))
 {
-	int i;
-
-	for (i = 0; default_modules[i] != NULL; i++)
+	for (int i = 0; default_modules[i] != NULL; i++)
 	{
 		ouistiti_registermodule(default_modules[i]);
 	}

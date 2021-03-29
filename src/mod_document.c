@@ -36,6 +36,10 @@
 #include <errno.h>
 #include <time.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "httpserver/log.h"
@@ -86,10 +90,12 @@ static int document_checkname(const _mod_document_mod_t *mod, const char *uri)
 
 	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
+		document_dbg("document: %s deny", uri);
 		return  EREJECT;
 	}
 	if (utils_searchexp(uri, config->allow, NULL) != ESUCCESS)
 	{
+		document_dbg("document: %s not allowed", uri);
 		return  EREJECT;
 	}
 	return ESUCCESS;
@@ -261,7 +267,7 @@ static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const 
 	int fdfile = openat(fdroot, config->defaultpage, O_RDONLY);
 	if (fdfile > 0)
 	{
-		dbg("document: move to %s/%s", url, config->defaultpage);
+		document_dbg("document: move to %s/%s", url, config->defaultpage);
 		/**
 		 * Check uri is only one character.
 		 * It should be "/"
@@ -315,7 +321,7 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 			}
 			else
 			{
-				dbg("document: %s is directory", url);
+				document_dbg("document: %s is directory", url);
 				close(fdfile);
 				return -1;
 			}
@@ -323,7 +329,7 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 	}
 	else if (filestat->st_size == 0)
 	{
-		dbg("document: empty file");
+		document_dbg("document: empty file");
 #if defined(RESULT_204)
 		httpmessage_result(response, RESULT_204);
 #else
@@ -395,7 +401,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 
 	if (document_checkname(mod, uri) == EREJECT)
 	{
-		dbg("document: %s forbidden extension", uri);
+		document_dbg("document: %s forbidden extension", uri);
 		/**
 		 * Another module may have the same docroot and
 		 * accept the name of the uri.
@@ -416,11 +422,14 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	int fdfile = 0;
 	if (length > 0)
 	{
-		dbg("document: open %s", uri);
+		document_dbg("document: open %s", uri);
 		fdfile = openat(fdroot, uri, O_RDONLY );
 	}
 	else
+	{
+		document_dbg("document: try / as URI");
 		fdfile = dup(fdroot);
+	}
 
 	struct stat filestat;
 
@@ -433,13 +442,13 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 					request, response, &connector, &filestat);
 		type |= DOCUMENT_REST;
 	}
-	else if (!strcmp(method, "POST"))
+	else if (fdfile > 0 && !strcmp(method, "POST"))
 	{
 		fdfile = _document_getconnnectorpost(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 		type |= DOCUMENT_REST;
 	}
-	else if (!strcmp(method, str_delete))
+	else if (fdfile > 0 && !strcmp(method, str_delete))
 	{
 		fdfile = _document_getconnnectordelete(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
@@ -447,19 +456,20 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	}
 	else
 #endif
-	if (!strcmp(method, str_get))
+	if (fdfile > 0 && !strcmp(method, str_get))
 	{
 		fdfile = _document_getconnnectorget(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 	}
-	else if (!strcmp(method, str_head))
+	else if (fdfile > 0 && !strcmp(method, str_head))
 	{
 		fdfile = _document_getconnnectorheader(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 	}
 	else
 	{
-		close(fdfile);
+		if (fdfile > 0)
+			close(fdfile);
 		close(fdroot);
 		return EREJECT;
 	}
@@ -470,7 +480,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	}
 	else if (fdfile == -1)
 	{
-		dbg("document: %s not exist %s", uri, strerror(errno));
+		document_dbg("document: %s not exist %s", uri, strerror(errno));
 		close(fdroot);
 		return  EREJECT;
 	}
@@ -559,9 +569,9 @@ static int mod_send_read(document_connector_t *private, http_message_t *response
 		content[size] = 0;
 		httpmessage_addcontent(response, "none", content, size);
 	}
-	else if (ret == 0)
+	else if (size == -1)
 	{
-		ret = ESUCCESS;
+		err("document: response() read file error %s", strerror(errno));
 	}
 	return ret;
 }
@@ -597,8 +607,6 @@ static int _mime_connector(void *arg, http_message_t *request, http_message_t *r
 }
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static const char *str_index = "index.html";
 static void *document_config(config_setting_t *iterator, server_t *server)
 {
@@ -736,6 +744,8 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 
 static void mod_document_destroy(void *data)
 {
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)data;
+	free(mod->config);
 	free(data);
 }
 
@@ -747,7 +757,6 @@ const module_t mod_document =
 	.destroy = &mod_document_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_document);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_document")));
+#endif

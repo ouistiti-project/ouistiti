@@ -40,7 +40,6 @@
 #define auth_dbg(...)
 
 #define MAXNONCE 64
-#define MAXUSER 64
 
 static const char *str_digest;
 
@@ -58,11 +57,22 @@ struct authn_digest_s
 	int encode;
 };
 
+#ifdef FILE_CONFIG
+void *authn_digest_config(const config_setting_t *configauth)
+{
+	authn_digest_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
+	config_setting_lookup_string(configauth, "opaque", &authn_config->opaque);
+	return authn_config;
+}
+#endif
+
 static char *utils_stringify(const unsigned char *data, size_t len)
 {
-	size_t i;
 	char *result = calloc(2, len + 1);
-	for (i = 0; i < len; i++)
+	for (size_t i = 0; i < len; i++)
 	{
 		snprintf(result + i * 2, 3, "%02x", data[i]);
 	}
@@ -536,8 +546,8 @@ static int authn_digest_checkuser(void *data, const char *value, size_t length)
 
 	if (value != NULL)
 	{
-		char user[MAXUSER] = {0};
-		length = (length > (MAXUSER - 1))? MAXUSER - 1: length;
+		char user[USER_MAX + 1] = {0};
+		length = (length > (USER_MAX))? USER_MAX: length;
 		strncpy(user, value, length);
 		info->passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 		if (info->passwd != NULL)

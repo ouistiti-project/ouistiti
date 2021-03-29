@@ -64,7 +64,23 @@ struct authz_file_s
 #endif
 };
 
-static void *authz_file_create(http_server_t *server, void *arg)
+#ifdef FILE_CONFIG
+void *authz_file_config(const config_setting_t *configauth)
+{
+	authz_file_config_t *authz_config = NULL;
+	const char *path = NULL;
+
+	config_setting_lookup_string(configauth, "file", &path);
+	if (path != NULL && path[0] != '0')
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->path = path;
+	}
+	return authz_config;
+}
+#endif
+
+static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_file_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;
@@ -171,7 +187,7 @@ static const char *authz_file_passwd(void *arg, const char *user)
 	{
 		if (fgets(ctx->user, MAXLENGTH, file) == NULL)
 			break;
-		int len = strlen(ctx->user);
+		size_t len = strlen(ctx->user);
 		if (ctx->user[len - 1] == '\n')
 		{
 			ctx->user[len - 1] = '\0';
@@ -217,24 +233,24 @@ static const char *authz_file_check(void *arg, const char *user, const char *pas
 	return NULL;
 }
 
-static const char *authz_file_group(void *arg, const char *user)
+static int authz_file_setsession(void *arg, const char *user, authsession_t *info)
 {
 	const authz_file_t *ctx = (const authz_file_t *)arg;
+	const char *group = "users";
+	const char *home = "";
 
-	if (ctx->group && ctx->group[0] != '\0')
-		return ctx->group;
+	strncpy(info->user, ctx->user, USER_MAX);
 	if (!strcmp(user, "anonymous"))
-		return "anonymous";
-	return NULL;
-}
-
-static const char *authz_file_home(void *arg, const char *UNUSED(user))
-{
-	const authz_file_t *ctx = (const authz_file_t *)arg;
-
+		group = "anonymous";
+	if (ctx->group && ctx->group[0] != '\0')
+		group = ctx->group;
+	strncpy(info->group, group, FIELD_MAX);
 	if (ctx->home && ctx->home[0] != '\0')
-		return ctx->home;
-	return NULL;
+		home = ctx->home;
+	strncpy(info->home, home, PATH_MAX);
+	strncpy(info->status, str_status_activated, FIELD_MAX);
+	
+	return ESUCCESS;
 }
 
 static void authz_file_destroy(void *arg)
@@ -259,7 +275,6 @@ authz_rules_t authz_file_rules =
 	.create = &authz_file_create,
 	.check = &authz_file_check,
 	.passwd = &authz_file_passwd,
-	.group = &authz_file_group,
-	.home = &authz_file_home,
+	.setsession = &authz_file_setsession,
 	.destroy = &authz_file_destroy,
 };

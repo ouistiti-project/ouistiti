@@ -41,22 +41,17 @@
 #include <signal.h>
 #include <wait.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
+#include "httpserver/log.h"
 #include "mod_cors.h"
-
-#define CLIENT_CONNECTOR
 
 extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);
 extern int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request);
-
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
 
 typedef struct _mod_cors_s _mod_cors_t;
 typedef struct _mod_cors_ctx_s _mod_cors_ctx_t;
@@ -67,56 +62,43 @@ struct _mod_cors_s
 {
 	mod_cors_t *config;
 	socket_t socket;
+	const char *methods;
 };
 
 static const char str_cors[] = "cors";
 static const char str_options[] = "OPTIONS";
-#ifdef DOCUMENTREST
-#define RESTMETHODS	", PUT" \
-					", DELETE"
-#else
-#define RESTMETHODS	""
-#endif
-
-static const char str_methodslist[] =
-				"GET, " \
-				"POST, " \
-				"HEAD, " \
-				"OPTIONS" \
-				RESTMETHODS \
-				"";
-
 static int _cors_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	_mod_cors_t *mod = (_mod_cors_t *)arg;
-	mod_cors_t *config = (mod_cors_t *)mod->config;
+	const _mod_cors_t *mod = (_mod_cors_t *)arg;
 
 	const char *origin = httpmessage_REQUEST(request, "Origin");
 	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
 	{
-		const char *method = httpmessage_REQUEST(request, "method");
+		httpmessage_addheader(response, "Access-Control-Allow-Origin", mod->config->origin);
+		const char *method;
+		method = httpmessage_REQUEST(request, "method");
 		if (!strcmp(method, str_options))
 		{
+			const char *methods = method;
+			if (mod->methods && mod->methods[0] != '\0')
+				methods = mod->methods;
 			const char *ac_request;
-			httpmessage_addheader(response, "Access-Control-Allow-Origin", origin);
-
 			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
-			if (ac_request)
+			if (ac_request && ac_request[0] != '\0')
 			{
-				httpmessage_addheader(response, "Access-Control-Allow-Methods", str_methodslist);
+				httpmessage_addheader(response, "Access-Control-Allow-Methods", methods);
 			}
 			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
-			if (ac_request)
+			if (ac_request && ac_request[0] != '\0')
 			{
 				httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request);
 			}
 			httpmessage_addheader(response, "Access-Control-Allow-Credentials", "true");
-			httpmessage_result(response, 200);
 			ret = ESUCCESS;
 		}
 	}
-	else if (origin && origin[0] != '\0')
+	else if ((origin && origin[0] != '\0') || httpmessage_isprotected(request))
 	{
 		httpmessage_result(response, 405);
 		ret = ESUCCESS;
@@ -124,32 +106,31 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	return ret;
 }
 
-#ifdef CLIENT_CONNECTOR
-static void *_mod_cors_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *UNUSED(addr), int UNUSED(addrsize))
 {
 	_mod_cors_t *mod = (_mod_cors_t *)arg;
 
-	httpclient_addconnector(ctl, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
+	/**
+	 * Methods must be set here, because other modules may append new methods to the server.
+	 */
+	mod->methods = httpserver_INFO(httpclient_server(clt), "methods");
+	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
 
 	return mod;
 }
 
 static void _mod_cors_freectx(void *arg)
 {
-	_mod_cors_t *ctx = (_mod_cors_t *)arg;
 }
-#endif
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *cors_config(config_setting_t *iterator, server_t *server)
 {
 	mod_cors_t *config = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *config_set = config_setting_get_member(iterator, "cors");
+	const config_setting_t *config_set = config_setting_get_member(iterator, "cors");
 #else
-	config_setting_t *config_set = config_setting_lookup(iterator, "cors");
+	const config_setting_t *config_set = config_setting_lookup(iterator, "cors");
 #endif
 	if (config_set)
 	{
@@ -174,12 +155,8 @@ static void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 
 	mod->config = config;
 
-	httpserver_addmethod(server, str_options, 1);
-#ifdef CLIENT_CONNECTOR
+	httpserver_addmethod(server, str_options, 0);
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
-#else
-	httpserver_addconnector(server, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
-#endif
 	return mod;
 }
 
@@ -200,7 +177,6 @@ const module_t mod_cors =
 	.destroy = &mod_cors_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_cors);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_cors")));
+#endif

@@ -1,0 +1,4 @@
+DESC="List users on auth manager as root"
+PREPARE="rm -f ${TESTDIR}/conf/passwd.db"
+CONFIG=test12.conf
+TESTCODE=200

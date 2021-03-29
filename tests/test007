@@ -1,3 +1,3 @@
 DESC="test a request with an URI of 261 characters"
 CONFIG=test1.conf
-TESTCODE=414
+TESTCODE=301

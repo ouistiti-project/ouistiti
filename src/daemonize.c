@@ -73,7 +73,7 @@ static void _setpidfile(const char *pidfile)
 			fsync(_pidfd);
 			/**
 			 * the file must be open while the process is running
-			close pidfd ;
+			close pidfd 
 			 */
 		}
 		else

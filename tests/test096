@@ -1,0 +1,4 @@
+DESC="Auth manager in json format"
+PREPARE="rm -f ${TESTDIR}/conf/passwd.db"
+CONFIG=test12.conf
+TESTCODE=201

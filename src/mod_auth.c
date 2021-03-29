@@ -85,13 +85,17 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
-static int _authz_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifndef AUTHZ_JWT
-static char *authz_generatetoken(mod_auth_t *mod, authsession_t *info);
+static char *authz_generatetoken(const mod_auth_t *mod, const authsession_t *info);
 #endif
 
 static const char str_auth[] = "auth";
 static const char str_cachecontrol[] = "Cache-Control";
+
+const char str_status_approving[] = "approving";
+const char str_status_reapproving[] = "reapproving";
+const char str_status_activated[] = "activated";
+const char str_status_repudiated[] = "repudiated";
 
 struct _mod_auth_ctx_s
 {
@@ -108,25 +112,17 @@ struct _mod_auth_s
 	const char *type;
 	authn_t *authn;
 	authz_t *authz;
-	int typelength;
+	size_t typelength;
 };
 
 const char str_authenticate[] = "WWW-Authenticate";
 const char str_authorization[] = "Authorization";
 const char str_anonymous[] = "anonymous";
 
-#ifdef AUTHZ_MANAGER
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
-
-static const char str_authmngt[] = "^/auth/mngt*";
-#endif
-
 static const char *str_xtoken = "X-Auth-Token";
 static const char *str_xuser = "X-Remote-User";
 static const char *str_xgroup = "X-Remote-Group";
 static const char *str_xhome = "X-Remote-Home";
-static const char *str_wilcard = "*";
 
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE
@@ -198,9 +194,8 @@ static const hash_t *_mod_findhash(const char *name, int nameid)
 		NULL
 	};
 
-	int i;
 	static const hash_t *hash = NULL;
-	for (i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
+	for (int i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
 	{
 		hash = hash_list[i];
 		if (hash != NULL &&
@@ -243,96 +238,9 @@ static int _mod_sethash(const _mod_auth_t *mod, const mod_auth_t *config)
 }
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
-#ifdef AUTHN_NONE
-static void *authn_none_config(config_setting_t *configauth)
-{
-	authn_none_config_t *authn_config = NULL;
-	const char *user = NULL;
-
-	config_setting_lookup_string(configauth, "user", (const char **)&user);
-	if (user != NULL)
-	{
-		authn_config = calloc(1, sizeof(*authn_config));
-		authn_config->user = user;
-	}
-	else
-		warn("config: authn_none needs to set the user");
-	return authn_config;
-}
-#endif
-
-#ifdef AUTHN_BASIC
-static void *authn_basic_config(config_setting_t *configauth)
-{
-	authn_basic_config_t *authn_config = NULL;
-
-	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-	return authn_config;
-}
-#endif
-
-#ifdef AUTHN_DIGEST
-static void *authn_digest_config(config_setting_t *configauth)
-{
-	authn_digest_config_t *authn_config = NULL;
-
-	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-	config_setting_lookup_string(configauth, "opaque", (const char **)&authn_config->opaque);
-	return authn_config;
-}
-#endif
-
-#ifdef AUTHN_BEARER
-static void *authn_bearer_config(config_setting_t *configauth)
-{
-	authn_bearer_config_t *authn_config = NULL;
-
-	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-	return authn_config;
-}
-#endif
-
-#ifdef AUTHN_OAUTH2
-static void *authn_oauth2_config(config_setting_t *configauth)
-{
-	authn_oauth2_config_t *authn_config = NULL;
-	const char *auth_ep = NULL;
-	const char *discovery = NULL;
-
-	config_setting_lookup_string(configauth, "discovery", (const char **)&discovery);
-	config_setting_lookup_string(configauth, "auth_ep", (const char **)&auth_ep);
-
-	authn_config = calloc(1, sizeof(*authn_config));
-	authn_config->discovery = discovery;
-	authn_config->auth_ep = auth_ep;
-
-	config_setting_lookup_string(configauth, "realm", (const char **)&authn_config->realm);
-
-	config_setting_lookup_string(configauth, "client_id", (const char **)&authn_config->client_id);
-	if (authn_config->client_id == NULL)
-		authn_config->client_id = authn_config->realm;
-
-	config_setting_lookup_string(configauth, "client_passwd", (const char **)&authn_config->client_passwd);
-	if (authn_config->client_passwd == NULL)
-	{
-		config_setting_lookup_string(configauth, "secret", (const char **)&authn_config->client_passwd);
-	}
-
-	if (authn_config->iss == NULL)
-		authn_config->iss = authn_config->realm;
-
-	return authn_config;
-}
-#endif
-
 struct _authn_s
 {
-	void *(*config)(config_setting_t *);
+	void *(*config)(const config_setting_t *);
 	authn_type_t type;
 	const char *name;
 };
@@ -374,10 +282,9 @@ struct _authn_s *authn_list[] =
 		.name = "None",
 	},
 #endif
-	NULL
 };
 
-static int authn_config(config_setting_t *configauth, mod_authn_t *mod)
+static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 {
 	int ret = EREJECT;
 
@@ -388,19 +295,18 @@ static int authn_config(config_setting_t *configauth, mod_authn_t *mod)
 		return ret;
 	}
 
-	int i = 0;
-	struct _authn_s *authn = authn_list[i];
-	while (authn != NULL && authn->config != NULL)
+	const struct _authn_s *authn = NULL;
+	for (int i = 0; i < (sizeof(authn_list) / sizeof(*authn_list)); i++)
 	{
-		if (!strcmp(type, authn->name))
-			mod->config = authn->config(configauth);
+		if (!strcmp(type, authn_list[i]->name))
+			mod->config = authn_list[i]->config(configauth);
 		if (mod->config != NULL)
 		{
+			authn = authn_list[i];
 			break;
 		}
-		i++;
-		authn = authn_list[i];
 	}
+
 	if (authn != NULL)
 	{
 		mod->type |= authn->type;
@@ -410,88 +316,10 @@ static int authn_config(config_setting_t *configauth, mod_authn_t *mod)
 	return ret;
 }
 
-#ifdef AUTHZ_UNIX
-static void *authz_unix_config(config_setting_t *configauth)
-{
-	authz_file_config_t *authz_config = NULL;
-	char *path = NULL;
-
-	config_setting_lookup_string(configauth, "file", (const char **)&path);
-	if (path != NULL && path[0] != '0' && strstr(path, "shadow"))
-	{
-		authz_config = calloc(1, sizeof(*authz_config));
-		authz_config->path = path;
-	}
-	return authz_config;
-}
-#endif
-#ifdef AUTHZ_FILE
-static void *authz_file_config(config_setting_t *configauth)
-{
-	authz_file_config_t *authz_config = NULL;
-	char *path = NULL;
-
-	config_setting_lookup_string(configauth, "file", (const char **)&path);
-	if (path != NULL && path[0] != '0')
-	{
-		authz_config = calloc(1, sizeof(*authz_config));
-		authz_config->path = path;
-	}
-	return authz_config;
-}
-#endif
-#ifdef AUTHZ_SQLITE
-static void *authz_sqlite_config(config_setting_t *configauth)
-{
-	authz_sqlite_config_t *authz_config = NULL;
-	char *path = NULL;
-
-	config_setting_lookup_string(configauth, "dbname", (const char **)&path);
-	if (path != NULL && path[0] != '0')
-	{
-		authz_config = calloc(1, sizeof(*authz_config));
-		authz_config->dbname = path;
-	}
-	return authz_config;
-}
-#endif
-#ifdef AUTHZ_SIMPLE
-static void *authz_simple_config(config_setting_t *configauth)
-{
-	authz_simple_config_t *authz_config = NULL;
-	char *user = NULL;
-	config_setting_lookup_string(configauth, "user", (const char **)&user);
-	if (user != NULL && user[0] != '0')
-	{
-		char *passwd = NULL;
-		char *group = NULL;
-		char *home = NULL;
-		config_setting_lookup_string(configauth, "passwd", (const char **)&passwd);
-		config_setting_lookup_string(configauth, "group", (const char **)&group);
-		config_setting_lookup_string(configauth, "home", (const char **)&home);
-		authz_config = calloc(1, sizeof(*authz_config));
-		authz_config->user = user;
-		authz_config->group = group;
-		authz_config->home = home;
-		authz_config->passwd = passwd;
-	}
-	return authz_config;
-}
-#endif
-#ifdef AUTHZ_JWT
-	/**
-	 * defautl configuration
-	 */
-static void *authz_jwt_config(config_setting_t *configauth)
-{
-	authz_jwt_config_t *authz_config = calloc(1, sizeof(*authz_config));
-	return authz_config;
-}
-#endif
 
 struct _authz_s
 {
-	void *(*config)(config_setting_t *);
+	void *(*config)(const config_setting_t *);
 	authz_type_t type;
 	const char *name;
 };
@@ -533,7 +361,6 @@ struct _authz_s *authz_list[] =
 		.name = "jwt",
 	},
 #endif
-	NULL
 };
 
 static void authz_optionscb(void *arg, const char *option)
@@ -546,6 +373,8 @@ static void authz_optionscb(void *arg, const char *option)
 		auth->authz.type |= AUTHZ_TOKEN_E;
 	if (utils_searchexp("chown", option, NULL) == ESUCCESS)
 		auth->authz.type |= AUTHZ_CHOWN_E;
+	if (utils_searchexp("management", option, NULL) == ESUCCESS)
+		auth->authz.type |= AUTHZ_MNGT_E;
 
 	if (utils_searchexp("cookie", option, NULL) == ESUCCESS)
 		auth->authn.type |= AUTHN_COOKIE_E;
@@ -555,20 +384,19 @@ static void authz_optionscb(void *arg, const char *option)
 		auth->authn.type |= AUTHN_REDIRECT_E;
 }
 
-static int authz_config(config_setting_t *configauth, mod_authz_t *mod)
+static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 {
 	int ret = EREJECT;
-	int i = 0;
-	struct _authz_s *authz = authz_list[i];
-	while (authz != NULL && authz->config != NULL)
+	const struct _authz_s *authz = NULL;
+	for (int i = 0; i < (sizeof(authz_list) / sizeof(*authz_list)); i++)
 	{
-		mod->config = authz->config(configauth);
+		if (authz_list[i]->config != NULL)
+			mod->config = authz_list[i]->config(configauth);
 		if (mod->config != NULL)
 		{
+			authz = authz_list[i];
 			break;
 		}
-		i++;
-		authz = authz_list[i];
 	}
 	if (authz != NULL)
 	{
@@ -583,9 +411,9 @@ static void *auth_config(config_setting_t *iterator, server_t *server)
 {
 	mod_auth_t *auth = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configauth = config_setting_get_member(iterator, "auth");
+	const config_setting_t *configauth = config_setting_get_member(iterator, "auth");
 #else
-	config_setting_t *configauth = config_setting_lookup(iterator, "auth");
+	const config_setting_t *configauth = config_setting_lookup(iterator, "auth");
 #endif
 	if (configauth)
 	{
@@ -601,14 +429,14 @@ static void *auth_config(config_setting_t *iterator, server_t *server)
 		/**
 		 * algorithm allow to change secret algorithm used during authentication default is md5. (see authn_digest.c)
 		 */
-		config_setting_lookup_string(configauth, "algorithm", (const char **)&auth->algo);
+		config_setting_lookup_string(configauth, "algorithm", &auth->algo);
 		/**
 		 * secret is the secret used during the token generation. (see authz_jwt.c)
 		 */
-		config_setting_lookup_string(configauth, "secret", (const char **)&auth->secret);
+		config_setting_lookup_string(configauth, "secret", &auth->secret);
 
-		char *mode = NULL;
-		config_setting_lookup_string(configauth, "options", (const char **)&mode);
+		const char *mode = NULL;
+		config_setting_lookup_string(configauth, "options", &mode);
 		if (ouistiti_issecure(server))
 			auth->authz.type |= AUTHZ_TLS_E;
 		if (mode != NULL)
@@ -725,10 +553,6 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		mod->type = config->authn.name;
 		mod->typelength = strlen(mod->type);
 		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod, str_auth);
-#ifdef AUTHZ_MANAGER
-		httpserver_addmethod(server, str_put, MESSAGE_ALLOW_CONTENT);
-		httpserver_addmethod(server, str_delete, MESSAGE_ALLOW_CONTENT);
-#endif
 		if (mod != NULL && (config->authz.type & AUTHZ_TOKEN_E) &&
 			(mod->authn->config->secret == NULL || strlen(mod->authn->config->secret) == 0))
 		{
@@ -778,9 +602,6 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 	if (mod->authz->type & AUTHZ_HOME_E)
 		httpclient_addconnector(ctl, _home_connector, ctx, CONNECTOR_AUTH, str_auth);
 	httpclient_addconnector(ctl, _authn_connector, ctx, CONNECTOR_AUTH, str_auth);
-#ifdef AUTHZ_MANAGER
-	httpclient_addconnector(ctl, _authz_connector, ctx, CONNECTOR_DOCUMENT, "authz");
-#endif
 	/**
 	 * authn may require prioritary connector and it has to be added after this one
 	 */
@@ -793,18 +614,9 @@ static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *ad
 static void _mod_auth_freectx(void *vctx)
 {
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
+
 	if (ctx->info)
 	{
-		if (ctx->info->user)
-			free(ctx->info->user);
-		if (ctx->info->type)
-			free(ctx->info->type);
-		if (ctx->info->group)
-			free(ctx->info->group);
-		if (ctx->info->home)
-			free(ctx->info->home);
-		if (ctx->info->token)
-			free(ctx->info->token);
 		free(ctx->info);
 		if (ctx->authorization)
 			free(ctx->authorization);
@@ -813,10 +625,10 @@ static void _mod_auth_freectx(void *vctx)
 	free(ctx);
 }
 
-static int _home_connector(void *arg, http_message_t *request, http_message_t *response)
+static int _home_connector(void *UNUSED(arg), http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL);
+	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL, 0);
 
 	if (info && info->home)
 	{
@@ -828,7 +640,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 		if (websocket && websocket[0] != '\0')
 			return ret;
 		const char *uri = httpmessage_REQUEST(request, "uri");
-		int homelength = strlen(home);
+		size_t homelength = strlen(home);
 		if ((homelength > 0) &&
 			(strncmp(home + 1, uri, homelength - 1) != 0))
 		{
@@ -868,7 +680,7 @@ static int _authz_computepasswd(const hash_t *hash, const char *user, const char
 int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd)
 {
 	int ret = EREJECT;
-	dbg("auth: check %s %s", passwd, checkpasswd);
+	auth_dbg("auth: check %s %s", passwd, checkpasswd);
 	if (checkpasswd[0] == '$')
 	{
 		const hash_t *hash = NULL;
@@ -915,47 +727,13 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 	}
 	else if (!strcmp(passwd, checkpasswd))
 	{
-		ret = ESUCCESS;;
+		ret = ESUCCESS;
 	}
 	return ret;
 }
 
-static authsession_t *_authn_setsession(const _mod_auth_t *mod, const char * user)
-{
-	const char *group = NULL;
-	const char *home = NULL;
-	char *token = NULL;
-	authsession_t *info = NULL;
-
-	if (user == NULL)
-		return NULL;
-
-	info = calloc(1, sizeof(*info));
-	if (mod->authz->rules->group)
-	{
-		group = mod->authz->rules->group(mod->authz->ctx, user);
-	}
-	if (mod->authz->rules->home)
-	{
-		home = mod->authz->rules->home(mod->authz->ctx, user);
-	}
-	if (mod->authz->rules->token)
-	{
-		token = mod->authz->rules->token(mod->authz->ctx, user);
-	}
-	info->user = strdup(user);
-	info->type = strdup(mod->type);
-	if (group)
-		info->group = strdup(mod->authz->rules->group(mod->authz->ctx, user));
-	if (home)
-		info->home = strdup(mod->authz->rules->home(mod->authz->ctx, user));
-	if (token)
-		info->token = strdup(mod->authz->rules->token(mod->authz->ctx, user));
-	return info;
-}
-
 #ifndef AUTHZ_JWT
-static char *authz_generatetoken(mod_auth_t *config, authsession_t *UNUSED(info))
+static char *authz_generatetoken(const mod_auth_t *config, const authsession_t *UNUSED(info))
 {
 	int tokenlen = (((24 + 1 + sizeof(time_t)) * 1.5) + 1) + 1;
 	char *token = calloc(1, tokenlen);
@@ -979,7 +757,7 @@ static char *authz_generatetoken(mod_auth_t *config, authsession_t *UNUSED(info)
 #ifdef AUTH_TOKEN
 static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request)
 {
-	_mod_auth_t *mod = ctx->mod;
+	const _mod_auth_t *mod = ctx->mod;
 	const char *authorization = NULL;
 	/**
 	 * The authorization may be accepted and replaced by a token.
@@ -988,12 +766,20 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
 		authorization = httpmessage_REQUEST(request, str_xtoken);
+		if (authorization != NULL && authorization[0] != '\0')
+		{
+			auth_dbg("token from cookie");
+			return authorization;
+		}
 	}
-	if (authorization == NULL)
+
+	authorization = cookie_get(request, str_xtoken);
+	if (authorization != NULL && authorization[0] != '\0')
 	{
-		authorization = cookie_get(request, str_xtoken);
+		auth_dbg("token from cookie");
+		return authorization;
 	}
-	return authorization;
+	return NULL;
 }
 
 int authn_checksignature(const char *key,
@@ -1015,6 +801,7 @@ int authn_checksignature(const char *key,
 			}
 			char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 			base64_urlencoding->encode(signature, len, b64signature, sizeof(b64signature));
+			auth_dbg("auth: signature %s", b64signature);
 			if (!strncmp(b64signature, sign, signlen))
 				return ESUCCESS;
 		}
@@ -1037,37 +824,45 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 		sign++;
 		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{
-#ifdef AUTHZ_JWT
-			ctx->info = jwt_decode(string);
-			if (ctx->info != NULL)
-			{
-				user = ctx->info->user;
-			}
-#endif
+			ctx->info = calloc(1, sizeof(*ctx->info));
+			strncpy(ctx->info->type, str_xtoken, FIELD_MAX);
 			if (user == NULL)
 				user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
 			if (user == NULL)
 			{
 				user = str_anonymous;
 			}
-			if (ctx->info == NULL)
+
+#ifdef AUTHZ_JWT
+			if (jwt_decode(string, ctx->info) == ESUCCESS)
 			{
-				ctx->info = _authn_setsession(mod, user);
+				auth_dbg("auth: jwt user %s", ctx->info->user);
 			}
-			if (ctx->info->token == NULL)
+			else
+#endif
+			if (user != NULL)
 			{
-				ctx->info->token = strndup(string, sign - string - 1);
+				mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
+			}
+
+			if (ctx->info->token[0] == '\0')
+			{
+				strncpy(ctx->info->token, sign, TOKEN_MAX);
 			}
 			ret = EREJECT;
+		}
+		else
+		{
+			warn("auth: token with bad signature");
 		}
 	}
 	return ret;
 }
 #endif
 
-static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t *request)
+static const char *_authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t *request)
 {
-	_mod_auth_t *mod = ctx->mod;
+	const _mod_auth_t *mod = ctx->mod;
 	const char *authorization = NULL;
 	/**
 	 * with standard authentication, the authorization code
@@ -1090,7 +885,7 @@ static const char *_authn_getauthorization(_mod_auth_ctx_t *ctx, http_message_t 
 
 	if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
 	{
-		err("authorization type: %.*s, %.*s", mod->typelength, authorization, mod->typelength, mod->type);
+		err("authorization type: %.*s, %.*s", (int)mod->typelength, authorization, (int)mod->typelength, mod->type);
 		authorization = NULL;
 	}
 	return authorization;
@@ -1101,22 +896,30 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 			http_message_t *response)
 {
 #ifdef AUTH_TOKEN
-	if (info->token)
+	_mod_auth_t *mod = ctx->mod;
+
+	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
+		char *token = mod->authz->generatetoken(mod->config, info);
 		const char *key = ctx->mod->config->secret;
 		if (hash_macsha256 != NULL && key != NULL)
 		{
-			void *ctx = hash_macsha256->initkey(key, strlen(key));
-			if (ctx)
+			void *hctx = hash_macsha256->initkey(key, strlen(key));
+			if (hctx)
 			{
-				hash_macsha256->update(ctx, info->token, strlen(info->token));
+				hash_macsha256->update(hctx, token, strlen(token));
 				char signature[HASH_MAX_SIZE];
-				int signlen = hash_macsha256->finish(ctx, signature);
+				int signlen = hash_macsha256->finish(hctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
-				cookie_set(response, str_xtoken, info->token, ".", b64signature, NULL);
+				cookie_set(response, str_xtoken, token, ".", b64signature, NULL);
+				if (mod->authz->rules->join)
+					mod->authz->rules->join(mod->authz->ctx, info->user, b64signature, mod->config->expire);
 			}
 		}
+		else if (mod->authz->rules->join)
+			mod->authz->rules->join(mod->authz->ctx, info->user, token, mod->config->expire);
+		free(token);
 	}
 	else
 #endif
@@ -1125,9 +928,9 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 		cookie_set(response, str_authorization, authorization, NULL);
 	}
 	cookie_set(response, str_xuser, info->user, NULL);
-	if (info->group)
+	if (info->group[0] != '\0')
 		cookie_set(response, str_xgroup, info->group, NULL);
-	if (info->home)
+	if (info->home[0] != '\0')
 		cookie_set(response, str_xhome, "~/", NULL);
 	return ESUCCESS;
 }
@@ -1137,23 +940,31 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 			http_message_t *response)
 {
 #ifdef AUTH_TOKEN
-	if (info->token)
+	_mod_auth_t *mod = ctx->mod;
+
+	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
-		httpmessage_addheader(response, str_xtoken, info->token);
+		char *token = mod->authz->generatetoken(mod->config, info);
+		httpmessage_addheader(response, str_xtoken, token);
 		const char *key = ctx->mod->config->secret;
 		if (hash_macsha256 != NULL && key != NULL)
 		{
-			void *ctx = hash_macsha256->initkey(key, strlen(key));
-			if (ctx)
+			void *hctx = hash_macsha256->initkey(key, strlen(key));
+			if (hctx)
 			{
-				hash_macsha256->update(ctx, info->token, strlen(info->token));
+				hash_macsha256->update(hctx, token, strlen(token));
 				char signature[HASH_MAX_SIZE];
-				int signlen = hash_macsha256->finish(ctx, signature);
+				int signlen = hash_macsha256->finish(hctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
 				httpmessage_appendheader(response, str_xtoken, ".", b64signature, NULL);
+				if (mod->authz->rules->join)
+					mod->authz->rules->join(mod->authz->ctx, info->user, b64signature, mod->config->expire);
 			}
 		}
+		else if (mod->authz->rules->join)
+			mod->authz->rules->join(mod->authz->ctx, info->user, token, mod->config->expire);
+		free(token);
 	}
 	else
 #endif
@@ -1162,9 +973,9 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		httpmessage_addheader(response, str_authorization, authorization);
 	}
 	httpmessage_addheader(response, str_xuser, info->user);
-	if (info->group)
+	if (info->group[0] != '\0')
 		httpmessage_addheader(response, str_xgroup, info->group);
-	if (info->home)
+	if (info->home[0] != '\0')
 		httpmessage_addheader(response, str_xhome, "~/");
 	return ESUCCESS;
 }
@@ -1200,21 +1011,27 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	{
 		if (ctx->info == NULL)
 		{
-			ctx->info = _authn_setsession(mod, user);
+			ctx->info = calloc(1, sizeof(*ctx->info));
+			ctx->info->expires = mod->config->expire * 60;
+			mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
+			strncpy(ctx->info->type, mod->type, FIELD_MAX);
 			ctx->authorization = strdup(authorization);
 		}
 
-#ifdef AUTH_TOKEN
-		if (mod->authz->type & AUTHZ_TOKEN_E && ctx->info->token == NULL)
+		if (!strcmp(ctx->info->status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
 		{
-			char *token = mod->authz->generatetoken(mod->config, ctx->info);
-			if (mod->authz->rules->join)
-				mod->authz->rules->join(mod->authz->ctx, ctx->info->user, token, mod->config->expire);
-			ctx->info->token = token;
+			warn("auth: user \"%s\" accepted from %p to change password", ctx->info->user, ctx->ctl);
+			ret = EREJECT;
 		}
-#endif
-		warn("user \"%s\" accepted from %p", ctx->info->user, ctx->ctl);
-		ret = EREJECT;
+		else if (strcmp(ctx->info->status, str_status_activated) != 0)
+		{
+			err("auth: user \"%s\" is not yet activated (%s)", ctx->info->user, ctx->info->status);
+		}
+		else
+		{
+			warn("auth: user \"%s\" accepted from %p", ctx->info->user, ctx->ctl);
+			ret = EREJECT;
+		}
 	}
 	return ret;
 }
@@ -1344,140 +1161,8 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 		httpmessage_result(response, RESULT_403);
 		ret = ESUCCESS;
 	}
-
 	return ret;
 }
-
-#ifdef AUTHZ_MANAGER
-
-static int _authz_connector(void *arg, http_message_t *request, http_message_t *response)
-{
-	int ret = EREJECT;
-	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
-	_mod_auth_t *mod = ctx->mod;
-
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	const char *method = httpmessage_REQUEST(request, "method");
-	const char *user = NULL;
-
-	if (!utils_searchexp(uri, str_authmngt, &user))
-	{
-		const char *group = NULL;
-		const char *home = NULL;
-		const char *token = NULL;
-		const char *passwd = NULL;
-
-		authsession_t session;
-		memset(&session, 0, sizeof(session));
-		const char *query = httpmessage_REQUEST(request, "query");
-
-		char *storage = strdup(query);
-		if (user == NULL)
-		{
-			user = strstr(storage, "user=");
-			if (user != NULL)
-			{
-				user += 5;
-				char *end = strchr(user, '&');
-				if (end != NULL)
-					*end = '\0';
-			}
-		}
-		else
-		{
-			int i = 0;
-			while (user[i] == '/') i++;
-			user += i;
-		}
-
-		group = strstr(storage, "group=");
-		home = strstr(storage, "home=");
-		passwd = strstr(storage, "password=");
-		if (!strcmp(method, str_get))
-		{
-			ret = ESUCCESS;
-			if (user == NULL)
-				user = auth_info(request, "user");
-		}
-		else
-		{
-			int add_passwd = 0;
-
-			if (user != NULL)
-			{
-				session.user = (char *)user;
-			}
-			if (group != NULL)
-			{
-				group += 6;
-				char *end = strchr(group, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.group = (char *)group;
-			}
-			if (home != NULL)
-			{
-				home += 5;
-				char *end = strchr(home, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.home = (char *)home;
-			}
-			if (passwd != NULL)
-			{
-				passwd += 9;
-				char *end = strchr(passwd, '&');
-				if (end != NULL)
-					*end = '\0';
-				session.passwd = (char *)passwd;
-			}
-			auth_dbg("authmngt: on %s %s %s", session.user, session.group, session.passwd);
-			if (!strcmp(method, str_put) && session.user && session.group)
-			{
-				if ((mod->authz->rules->adduser != NULL) &&
-					(ret = mod->authz->rules->adduser(mod->authz->ctx, &session)) == ESUCCESS)
-					add_passwd = 1;
-			}
-			if ((add_passwd || !strcmp(method, str_post)) && session.user && session.passwd)
-			{
-				if (mod->authz->rules->changepasswd != NULL)
-					ret = mod->authz->rules->changepasswd(mod->authz->ctx, &session);
-			}
-			if (!strcmp(method, str_delete) && session.user)
-			{
-				if (mod->authz->rules->removeuser != NULL)
-					ret = mod->authz->rules->removeuser(mod->authz->ctx, &session);
-			}
-		}
-		if (ret != ESUCCESS)
-		{
-			httpmessage_result(response, RESULT_500);
-			ret = ESUCCESS;
-		}
-		else if (user != NULL)
-		{
-			httpmessage_addcontent(response, "application/x-www-form-urlencoded",
-				"user=", -1);
-			httpmessage_appendcontent(response, user, -1);
-			group = mod->authz->rules->group(mod->authz->ctx, user);
-			if (group != NULL)
-			{
-				httpmessage_appendcontent(response, "&group=", -1);
-				httpmessage_appendcontent(response, group, -1);
-			}
-			if (token != NULL)
-			{
-				httpmessage_appendcontent(response, "&token=", -1);
-				httpmessage_appendcontent(response, token, -1);
-			}
-			httpmessage_appendcontent(response, "\n", -1);
-		}
-		free(storage);
-	}
-	return ret;
-}
-
-#endif
 
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
@@ -1486,6 +1171,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	const _mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
 	const char *authorization = NULL;
+
+	/**
+	 * authz may need setup the user setting for each message
+	 **/
+	if(mod->authz->rules->setup)
+		mod->authz->rules->setup(mod->authz->ctx);
 
 	ret = _authn_checkuri(config, request, response);
 	auth_dbg("auth: checkuri %d", ret);
@@ -1516,7 +1207,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ret == ECONTINUE && mod->authz->type & AUTHZ_TOKEN_E)
 	{
 		authorization = _authn_gettoken(ctx, request);
-		if (mod->authn->ctx && authorization != NULL)
+		auth_dbg("auth: gettoken %d", ret);
+		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 		{
 			const char *string = authorization;
 			int fieldnamelen = strlen(str_xtoken);
@@ -1528,21 +1220,22 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 	}
 #endif
-	auth_dbg("auth: gettoken %d", ret);
 	authorization = _authn_getauthorization(ctx, request);
-	if (mod->authn->ctx && authorization != NULL)
+	auth_dbg("auth: getauthorization %d", ret);
+	if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 	{
 		ret = _authn_checkauthorization( ctx, authorization, request);
 	}
-	auth_dbg("auth: getauthorization %d", ret);
+	auth_dbg("auth: checkauthorization %d", ret);
 
 	if (ret != EREJECT)
 	{
+		httpmessage_SESSION(request, str_auth, "", 0);
 		ret = _authn_challenge(ctx, request, response);
 	}
 	else
 	{
-		httpmessage_SESSION(request, str_auth, ctx->info);
+		httpmessage_SESSION(request, str_auth, ctx->info, sizeof(*ctx->info));
 		if (ctx->info && mod->authn->type & AUTHN_HEADER_E)
 		{
 			_authn_setauthorization_header(ctx,
@@ -1561,6 +1254,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			auth_setowner(ctx->info->user);
 		}
 	}
+	/**
+	 * As the setup, the authz may need to cleanup between each message
+	 **/
+	if (mod->authz->ctx  && mod->authz->rules->cleanup)
+	{
+		mod->authz->rules->cleanup(mod->authz->ctx);
+	}
 	return ret;
 }
 
@@ -1572,7 +1272,6 @@ const module_t mod_auth =
 	.destroy = &mod_auth_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_auth);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_auth")));
+#endif

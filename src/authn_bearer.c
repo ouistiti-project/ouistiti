@@ -39,8 +39,6 @@
 
 #define auth_dbg(...)
 
-#define MAX_TOKEN 123
-
 typedef struct authn_bearer_s authn_bearer_t;
 struct authn_bearer_s
 {
@@ -49,6 +47,17 @@ struct authn_bearer_s
 	authz_t *authz;
 	http_client_t *clt;
 };
+
+#ifdef FILE_CONFIG
+void *authn_bearer_config(const config_setting_t *configauth)
+{
+	authn_bearer_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
+	return authn_config;
+}
+#endif
 
 static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg)
 {
@@ -62,7 +71,7 @@ static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg
 	return mod;
 }
 
-static int authn_bearer_challenge(void *arg, http_message_t *request, http_message_t *response)
+static int authn_bearer_challenge(void *arg, http_message_t *UNUSED(request), http_message_t *response)
 {
 	int ret = ECONTINUE;
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;

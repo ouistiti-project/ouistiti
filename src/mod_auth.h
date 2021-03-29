@@ -41,18 +41,27 @@ extern const char str_authenticate[];
 extern const char str_authorization[];
 extern const char str_anonymous[];
 extern const char *str_authenticate_engine[];
+extern const char str_status_approving[];
+extern const char str_status_reapproving[];
+extern const char str_status_activated[];
+extern const char str_status_repudiated[];
 
 typedef struct mod_auth_s mod_auth_t;
 
+#define USER_MAX 64
+#define FIELD_MAX 32
+#define TOKEN_MAX 123
 typedef struct authsession_s
 {
-	char *type;
-	char *user;
-	char *group;
-	char *home;
-	char *passwd;
-	char *urlspace;
-	char *token;
+	int expires;
+	char type[FIELD_MAX + 1];
+	char user[USER_MAX + 1];
+	char group[FIELD_MAX + 1];
+	char home[PATH_MAX + 1];
+	char passwd[TOKEN_MAX + 1];
+	char urlspace[PATH_MAX + 1];
+	char token[TOKEN_MAX + 1];
+	char status[FIELD_MAX + 1];
 } authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
@@ -83,29 +92,23 @@ struct authz_jwt_config_s
 };
 
 typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
+typedef int (*authz_rule_setup_t)(void *arg);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
 typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);
-typedef const char *(*authz_rule_group_t)(void *arg, const char *user);
-typedef const char *(*authz_rule_home_t)(void *arg, const char *user);
-typedef char *(*authz_rule_token_t)(void *arg, const char *user);
-typedef int (*authz_rule_adduser_t)(void *arg, authsession_t *newuser);
-typedef int (*authz_rule_changepasswd_t)(void *arg, authsession_t *newuser);
-typedef int (*authz_rule_removeuser_t)(void *arg, authsession_t *newuser);
+typedef int (*authz_rule_setsession_t)(void* arg, const char *user, authsession_t *info);
+typedef void (*authz_rule_cleanup_t)(void *arg);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
 struct authz_rules_s
 {
 	authz_rule_create_t create;
+	authz_rule_setup_t setup;
 	authz_rule_check_t check;
 	authz_rule_join_t join;
 	authz_rule_passwd_t passwd;
-	authz_rule_group_t group;
-	authz_rule_home_t home;
-	authz_rule_token_t token;
-	authz_rule_adduser_t adduser;
-	authz_rule_changepasswd_t changepasswd;
-	authz_rule_removeuser_t removeuser;
+	authz_rule_setsession_t setsession;
+	authz_rule_cleanup_t cleanup;
 	authz_rule_destroy_t destroy;
 };
 typedef enum
@@ -120,9 +123,10 @@ typedef enum
 	AUTHZ_TOKEN_E = 0x80,
 	AUTHZ_CHOWN_E = 0x100,
 	AUTHZ_TLS_E = 0x200,
+	AUTHZ_MNGT_E = 0x400,
 } authz_type_t;
 typedef struct authz_s authz_t;
-typedef char *(*generatetoken_t)(mod_auth_t *mod, authsession_t *info);
+typedef char *(*generatetoken_t)(const mod_auth_t *mod, const authsession_t *info);
 struct authz_s
 {
 	void *ctx;

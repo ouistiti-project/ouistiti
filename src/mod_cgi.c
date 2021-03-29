@@ -43,6 +43,10 @@
 #include <netinet/in.h>
 #include <sched.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "httpserver/log.h"
@@ -88,13 +92,11 @@ struct mod_cgi_ctx_s
 struct _mod_cgi_s
 {
 	http_server_t *server;
-	const mod_cgi_config_t *config;
+	mod_cgi_config_t *config;
 	int rootfd;
 };
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *cgi_config(config_setting_t *iterator, server_t *server)
 {
 	mod_cgi_config_t *cgi = NULL;
@@ -179,6 +181,9 @@ static void mod_cgi_destroy(void *arg)
 	_mod_cgi_t *mod = (_mod_cgi_t *)arg;
 	// nothing to do
 	close(mod->rootfd);
+	if (mod->config->env)
+		free(mod->config->env);
+	free(mod->config);
 	free(mod);
 }
 
@@ -385,7 +390,7 @@ static int _cgi_parseresponse(mod_cgi_ctx_t *ctx, http_message_t *response, char
 	int ret;
 
 	ret = httpmessage_parsecgi(response, chunk, &rest);
-	cgi_dbg("cgi: parse %d data %d %d\n%s#", ret, size, rest, chunk);
+	cgi_dbg("cgi: parse %d data %d\n%s#", ret, rest, chunk);
 	if (ret == ECONTINUE && ctx->state < STATE_HEADERCOMPLETE)
 	{
 #if defined(RESULT_302)
@@ -429,6 +434,7 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 		}
 		else if (size < 1)
 		{
+			warn("cgi died");
 			ctx->state = STATE_CONTENTCOMPLETE;
 		}
 		else
@@ -467,16 +473,17 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	if (ctx == NULL)
 	{
 		ret = _cgi_start(mod, request, response);
-		if (ret == EINCOMPLETE)
-		{
-			ctx = httpmessage_private(request, NULL);
-			_cgi_request(ctx, request);
-		}
-		return ret;
+		if (ret != EINCOMPLETE)
+			return ret;
+		ctx = httpmessage_private(request, NULL);
+		_cgi_request(ctx, request);
 	}
 	else if (ctx->tocgi[1] > 0 && ctx->state == STATE_START)
 	{
 		_cgi_request(ctx, request);
+		/**
+		 * Read the request. The connector is still EINCOMPLETE
+		 */
 	}
 	/**
 	 * when the request is complete the module must check the CGI immedialty
@@ -497,15 +504,15 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	else if ((ctx->state & STATE_MASK) == STATE_CONTENTCOMPLETE)
 	{
 		close(ctx->fromcgi[0]);
-		httpmessage_parsecgi(response, NULL, 0);
+		ret = httpmessage_parsecgi(response, NULL, 0);
 		ret = ECONTINUE;
 		ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
 	}
 	else if ((ctx->state & STATE_MASK) == STATE_OUTFINISH)
 	{
-		long long length;
+		unsigned long long length;
 		ret = httpmessage_content(response, NULL, &length);
-		cgi_dbg("content len %d %lld", ret, length);
+		cgi_dbg("content len %d %llu", ret, length);
 		if (ret == 0)
 			ctx->state = STATE_END | STATE_SHUTDOWN;
 		ret = ECONTINUE;
@@ -530,7 +537,6 @@ const module_t mod_cgi =
 	.destroy = &mod_cgi_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_cgi);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_cgi")));
+#endif
