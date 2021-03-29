@@ -436,7 +436,10 @@ static int _userfilter_append(_mod_userfilter_t *ctx, const char *query, http_me
 		const char *end = strchr(exp, '&');
 		if (end != NULL)
 			elength = end - exp;
-		ret = _insert_rule(ctx, methodid, roleid, exp, elength);
+		char *decode = utils_urldecode(exp, elength);
+		if (decode != NULL)
+			ret = _insert_rule(ctx, methodid, roleid, decode, -1);
+		free(decode);
 	}
 	if (ret != ESUCCESS)
 		httpmessage_result(response, RESULT_400);
@@ -500,6 +503,8 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	int ret = EREJECT;
 	const char *rest = NULL;
 	const char *uri = httpmessage_REQUEST(request,"uri");
+
+	userfilter_dbg("userfilter: search %s", ctx->configuriexp);
 	if (!utils_searchexp(uri, ctx->configuriexp, &rest))
 	{
 		userfilter_dbg("userfilter: filter configuration %s", uri);
