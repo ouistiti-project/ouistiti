@@ -454,7 +454,7 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 
 static int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
 {
-	int userid = -1;
+	int userid = EREJECT;
 	int ret;
 	const char *sql[] = {
 		"select id from users where name=@NAME;",
@@ -464,14 +464,25 @@ static int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
 		NULL,
 	};
 
-	sqlite3_stmt *statement; /// use a specific statement because name may come from ctx->statement
+	if (group > (sizeof(sql)/sizeof(*sql)) || sql[group] == NULL)
+		return userid;
+
+	sqlite3_stmt *statement = NULL; /// use a specific statement because name may come from ctx->statement
 	ret = sqlite3_prepare_v2(ctx->db, sql[group], -1, &statement, NULL);
-	SQLITE3_CHECK(ret, EREJECT, sql[group]);
+	if (ret != SQLITE_OK) {
+		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
+		return EREJECT;
+	}
 
 	int index;
 	index = sqlite3_bind_parameter_index(statement, "@NAME");
-	ret = sqlite3_bind_text(statement, index, name, -1, SQLITE_STATIC);
-	SQLITE3_CHECK(ret, EREJECT, sql[group]);
+	if (index > 0)
+		ret = sqlite3_bind_text(statement, index, name, -1, SQLITE_STATIC);
+	if (ret != SQLITE_OK) {
+		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
+		sqlite3_finalize(statement);
+		return EREJECT;
+	}
 
 	ret = sqlite3_step(statement);
 	if ((ret == SQLITE_ROW) &&
@@ -500,16 +511,30 @@ static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char 
 
 	sqlite3_stmt *statement; /// use a specific statement because name may come from ctx->statement
 	ret = sqlite3_prepare_v2(ctx->db, sql[group], -1, &statement, NULL);
-	SQLITE3_CHECK(ret, EREJECT, sql[group]);
+	if (ret != SQLITE_OK) {
+		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
+		sqlite3_finalize(statement);
+		return EREJECT;
+	}
 
 	int index;
 	index = sqlite3_bind_parameter_index(statement, "@USERID");
-	ret = sqlite3_bind_int(statement, index, userid);
-	SQLITE3_CHECK(ret, EREJECT, sql[group]);
+	if (index > 0)
+		ret = sqlite3_bind_int(statement, index, userid);
+	if (ret != SQLITE_OK) {
+		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
+		sqlite3_finalize(statement);
+		return EREJECT;
+	}
 
 	index = sqlite3_bind_parameter_index(statement, "@FIELD");
-	ret = sqlite3_bind_text(statement, index, field, -1, SQLITE_STATIC);
-	SQLITE3_CHECK(ret, EREJECT, sql[group]);
+	if (index > 0)
+		ret = sqlite3_bind_text(statement, index, field, -1, SQLITE_STATIC);
+	if (ret != SQLITE_OK) {
+		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
+		sqlite3_finalize(statement);
+		return EREJECT;
+	}
 
 	ret = sqlite3_step(statement);
 	sqlite3_finalize(statement);
@@ -561,7 +586,7 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int userid = authz_sqlite_userid(ctx, user);
 
-	if (userid == -1)
+	if (userid == EREJECT)
 	{
 		err("authz associatie unknown user %s", user);
 		return EREJECT;
@@ -659,7 +684,7 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	if (authz_sqlite_userid(ctx, authinfo->user) != -1)
+	if (authz_sqlite_userid(ctx, authinfo->user) != EREJECT)
 		return ESUCCESS;
 	// force the first status to approving
 	strncpy(authinfo->status, str_status_approving, FIELD_MAX);
@@ -735,7 +760,7 @@ static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 	int ret = ESUCCESS;
 
 	userid = authz_sqlite_userid(ctx, authinfo->user);
-	if (userid == -1)
+	if (userid == EREJECT)
 		return EREJECT;
 
 	if (ret == ESUCCESS && authinfo->passwd[0] != '\0')
@@ -754,12 +779,12 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 	int ret = ESUCCESS;
 
 	userid = authz_sqlite_userid(ctx, authinfo->user);
-	if (userid == -1)
+	if (userid == EREJECT)
 		return EREJECT;
 
 	if (ret == ESUCCESS && authinfo->group[0] != '\0')
 	{
-		if (authz_sqlite_getid(ctx, authinfo->group, FIELD_GROUP) == -1)
+		if (authz_sqlite_getid(ctx, authinfo->group, FIELD_GROUP) == EREJECT)
 		{
 			ret = authz_sqlite_addgroup(ctx, authinfo->group);
 		}
@@ -789,7 +814,7 @@ static int authz_sqlite_removeuser(void *arg, authsession_t *authinfo)
 	int userid = 0;
 
 	userid = authz_sqlite_userid(ctx, authinfo->user);
-	if (userid == -1)
+	if (userid == EREJECT)
 		return EREJECT;
 
 	int ret;

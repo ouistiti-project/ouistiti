@@ -324,6 +324,7 @@ authz_rules_t authz_jwt_rules =
 {
 	.create = &authz_jwt_create,
 	.check = &authz_jwt_check,
+	.passwd = NULL,
 	.setsession = &authz_jwt_setsession,
 	.join = &authz_jwt_join,
 	.destroy = &authz_jwt_destroy,
