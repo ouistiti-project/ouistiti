@@ -550,7 +550,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 	int ret = EREJECT;
 	_mod_authmngt_t *mod = (_mod_authmngt_t *)arg;
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	const char *user;
+	const char *user = NULL;
 
 	authmngt_dbg("authmngt: search %s", str_mngtpath);
 	if (utils_searchexp(uri, str_mngtpath, &user))
