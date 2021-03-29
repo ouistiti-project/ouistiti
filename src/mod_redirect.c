@@ -228,8 +228,10 @@ void mod_redirect_destroy(void *arg)
 	mod_redirect_link_t *link = config->links;
 	while (link != NULL)
 	{
+		mod_redirect_link_t *next = link->next;
 		free(link->origin);
-		link = link->next;
+		free(link);
+		link = next;
 	}
 	free(config);
 #endif
