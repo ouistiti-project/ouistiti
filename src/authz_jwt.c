@@ -75,7 +75,8 @@ char *authz_generatejwtoken(const mod_auth_t *config, const authsession_t *info)
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));
 	json_object_set(jheader, "typ", json_string("JWT"));
-	const char *theader = json_dumps(jheader, 0);
+	char *theader = json_dumps(jheader, 0);
+	json_decref(jheader);
 
 	json_t *jtoken = json_object();
 	json_t *juser = json_string(info->user);
@@ -107,8 +108,9 @@ char *authz_generatejwtoken(const mod_auth_t *config, const authsession_t *info)
 	if (info->urlspace && info->urlspace[0] != '\0')
 		json_object_set(jtoken, "iss", json_string(info->urlspace));
 #endif
-	const char *ttoken = json_dumps(jtoken, 0);
+	char *ttoken = json_dumps(jtoken, 0);
 	auth_dbg("jwt: encode %s", ttoken);
+	json_decref(jtoken);
 
 	int ret;
 	size_t length = (strlen(theader) + 1 + strlen(ttoken) + 1) * 3 / 2;
@@ -119,12 +121,14 @@ char *authz_generatejwtoken(const mod_auth_t *config, const authsession_t *info)
 	ret = base64_urlencoding->encode(theader, strlen(theader), offset, length);
 	offset += ret;
 	length -= ret;
+	free(theader);
 
 	*offset = '.';
 	offset++;
 	length--;
 
 	ret = base64_urlencoding->encode(ttoken, strlen(ttoken), offset, length);
+	free(ttoken);
 	warn("token %s", token);
 	/**
 	 * the signature is added inside mod_auth
