@@ -39,9 +39,6 @@ $(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
 
 $(TARGET)_LIBS-$(MODULES)+=dl
 
-$(TARGET)_SOURCES-$(WEBSOCKET_RT)+=websocket.c
-$(TARGET)_SOURCES-$(WEBSTREAM)+=websocket.c
-
 ifneq ($(MODULES),y)
 $(TARGET)_LIBS-$(MBEDTLS)+=mod_mbedtls
 $(TARGET)_LIBS-$(WOLFSSL)+=mod_wolfssl
@@ -49,8 +46,9 @@ $(TARGET)_LIBS-$(OPENSSL)+=mod_openssl
 $(TARGET)_LIBS-$(DOCUMENT)+=mod_document
 $(TARGET)_LIBS-$(CGI)+=mod_cgi
 $(TARGET)_LIBS-$(AUTH)+=mod_auth
+$(TARGET)_LIBS-$(AUTHZ_MANAGER)+=mod_authmngt
 $(TARGET)_LIBS-$(VHOSTS_DEPRECATED)+=mod_vhosts
-$(TARGET)_LIBS-$(METHODLOCK)+=mod_methodlock
+$(TARGET)_LIBS-$(METHODLOCK_DEPRECATED)+=mod_methodlock
 $(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
 $(TARGET)_LIBS-$(SERVERHEADER)+=mod_server
 $(TARGET)_LIBS-$(CLIENTFILTER)+=mod_clientfilter
@@ -90,6 +88,7 @@ subdir-$(CGI)+=mod_cgi.mk
 subdir-$(COOKIE)+=mod_cookie.mk
 subdir-$(DOCUMENT)+=mod_document.mk
 subdir-$(AUTH)+=mod_auth.mk
+subdir-$(AUTHZ_MANAGER)+=mod_authmngt.mk
 subdir-$(MBEDTLS)+=mod_mbedtls.mk
 subdir-$(SERVERHEADER)+=mod_server.mk
 subdir-$(CLIENTFILTER)+=mod_clientfilter.mk
@@ -97,3 +96,4 @@ subdir-$(REDIRECT)+=mod_redirect404.mk
 subdir-$(REDIRECT)+=mod_redirect.mk
 subdir-$(CORS)+=mod_cors.mk
 subdir-$(WEBSOCKET)+=mod_websocket.mk
+subdir-$(USERFILTER)+=mod_userfilter.mk

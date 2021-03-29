@@ -1,23 +1,2 @@
 user="%USER%";
-servers= ({
-		hostname = "www.ouistiti.net";
-		port = 8080;
-		keepalivetimeout = 5;
-		version="HTTP11";
-		websocket = {
-			docroot = "/tmp";
-			deny = "*";
-			allow = "echo";
-		};
-		webstream = {
-			docroot = "/tmp";
-			deny = "*";
-			allow = "dummy";
-		};
-		upgrade = {
-			docroot = "/tmp";
-			deny = "*";
-			allow = "reverse";
-			upgrade = "rhttp";
-		};
-	});
+config_d="%PWD%/tests/conf/config.d";

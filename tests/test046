@@ -1,5 +1,0 @@
-#this test is the same as test20
-DESC="POST request on CGI script with all variables"
-CONFIG=test3.conf
-TESTCODE=200
-TESTCONTENTLEN=534

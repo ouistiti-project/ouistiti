@@ -154,8 +154,8 @@ int main(int argc, char **argv)
 	int maxclients = 50;
 	const char *username = NULL;
 
-	setlinebuf(stdout);
-	setlinebuf(stderr);
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
 
 	int opt;
 	do

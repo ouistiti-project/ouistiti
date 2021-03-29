@@ -54,6 +54,24 @@ struct authn_none_s
 	char *challenge;
 };
 
+#ifdef FILE_CONFIG
+void *authn_none_config(const config_setting_t *configauth)
+{
+	authn_none_config_t *authn_config = NULL;
+	const char *user = NULL;
+
+	config_setting_lookup_string(configauth, "user", &user);
+	if (user != NULL)
+	{
+		authn_config = calloc(1, sizeof(*authn_config));
+		authn_config->user = user;
+	}
+	else
+		warn("config: authn_none needs to set the user");
+	return authn_config;
+}
+#endif
+
 static void *authn_none_create(const authn_t *authn, authz_t *authz, void *arg)
 {
 	authn_none_t *mod = calloc(1, sizeof(*mod));

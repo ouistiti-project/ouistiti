@@ -1,0 +1,3 @@
+DESC="create user with authmngt from forbidden Origin "
+CONFIG=test12.conf
+TESTCODE=405

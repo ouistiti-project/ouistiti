@@ -1,7 +1,8 @@
 PUT /auth/mngt/alibaba HTTP/1.1
 HOST: 127.0.0.1
-Authorization: Basic cm9vdDp0ZXN0
-Content-Length: 25
+Authorization: Basic cm9vdDpyb290
+Origin: https://localhost
+Content-Length: 15
 Content-Type: application/x-www-form-urlencoded
 
-group=users&password=sesame
+password=sesame

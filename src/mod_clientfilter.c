@@ -34,6 +34,10 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
@@ -64,8 +68,6 @@ static const char *str_wilcard = "*";
 static const char *str_empty = "";
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *mod_clientfilter_config(config_setting_t *iterator, server_t *server)
 {
 	mod_clientfilter_t *clientfilter = NULL;
@@ -167,7 +169,6 @@ const module_t mod_clientfilter =
 	.destroy = &mod_clientfilter_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_clientfilter);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_clientfilter")));
+#endif

@@ -1,3 +1,4 @@
-DESC="authmngt: create user"
+DESC="create user with authmngt"
 CONFIG=test12.conf
-TESTCODE=200
+TESTCODE=201
+TESTRESPONSE=result201_rs.txt

@@ -30,6 +30,14 @@
 #define __AUTHN_SQLITE_H__
 
 #include "mod_auth.h"
+#include "mod_authmngt.h"
+
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+void *authz_sqlite_config(const config_setting_t *configauth);
+#endif
 
 extern authz_rules_t authz_sqlite_rules;
+extern authmngt_rules_t authmngt_sqlite_rules;
+
 #endif

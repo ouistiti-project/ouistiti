@@ -31,7 +31,7 @@ jobs:
         make defconfig && make AUTHN_OAUTH2=n TINYSVCMDNS=n oldconfig &&
         build-wrapper-linux-x86-64 --out-dir bw-output make DEBUG=y G=1 &&
         make hosttools &&
-        LD_LIBRARY_PATH=$PWD/libhttpserver/src:$PWD/libhttpserver/src/httpserver ./tests/run.sh -A -N;
+        ./tests/run.sh -A -N;
         make gcov &&
         sonar-scanner -D sonar.projectKey=${SONARCLOUD_ORGANIZATION}_ouistiti
     - stage: release

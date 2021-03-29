@@ -1,0 +1,4 @@
+HTTP/1.1 200 OK
+Content-Type: text/json
+
+[{"user":"root","group":"root","status":"activated","home":"/home/root","token":""},{"user":"foo","group":"users","status":"activated","home":"/home/foo","token":""}]

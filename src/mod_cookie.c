@@ -147,13 +147,13 @@ static int _cookie_connector(void **arg, http_message_t *request, http_message_t
 	int size = strlen(data);
 	int length = 0;
 	_cookiesession_t * cookie = NULL;
-	cookie = (_cookiesession_t *)httpmessage_SESSION(request, str_Cookie, NULL);
+	cookie = (_cookiesession_t *)httpmessage_SESSION(request, str_Cookie, NULL, 0);
 	if (cookie != NULL)
 		_cookie_free(cookie);
 	cookie = calloc(1, sizeof(*cookie));
 	cookie->data = calloc(size + 1, sizeof(char));
 	strcpy(cookie->data, data);
-	httpmessage_SESSION(request, str_Cookie, cookie);
+	httpmessage_SESSION(request, str_Cookie, cookie, sizeof(*cookie));
 	data = cookie->data;
 
 	data += size + 1;
@@ -216,7 +216,7 @@ const char *cookie_get(http_message_t *request, const char *key)
 {
 	const char *value = NULL;
 	_cookiesession_t * cookie = NULL;
-	cookie = (_cookiesession_t *)httpmessage_SESSION(request, str_Cookie, NULL);
+	cookie = (_cookiesession_t *)httpmessage_SESSION(request, str_Cookie, NULL, 0);
 	if (cookie != NULL)
 	{
 		_cookie_t *it = cookie->next;
@@ -283,7 +283,6 @@ const module_t mod_cookie =
 	.destroy = mod_cookie_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_cookie);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_cookie")));
+#endif

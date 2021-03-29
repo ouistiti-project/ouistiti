@@ -20,6 +20,9 @@ case $1 in
 	-GCOV)
 		GCOV=1
 		;;
+	-V)
+		ENV="valgrind --leak-check=full --show-leak-kinds=all"
+		;;
 	-I)
 		INFO=1
 		;;
@@ -61,8 +64,10 @@ WC=wc
 CURL=curl
 WGET=wget
 USER=$(ls -l $0 | ${AWK} '{print $3}')
-TESTCLIENT="./host/utils/testclient -p 8080"
-LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/
+TESTCLIENT="./host/utils/testclient"
+LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/:$TESTDIR../utils/
+
+export LD_LIBRARY_PATH
 
 if [ -z "$INFO" ]; then
 CURLOUT="-o /dev/null"
@@ -85,16 +90,19 @@ start () {
 	TARGET=$1
 	CONFIG=$2
 
+	export LD_LIBRARY_PATH=./libhttpserver/src:./libhttpserver/src/httpserver
+	export OUISTITI_MODULES_PATH=./src:./staging
 	ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
+	ARGUMENTS=$ARGUMENTS" -M \"\""
 	ARGUMENTS=$ARGUMENTS" -p ${TESTDIR}run.pid"
 	if [ -n "$INFO" ]; then
 		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
 		echo "******************************"
 		cat ${TESTDIR}conf/${CONFIG}
 	fi
-	${SRCDIR}${TARGET} ${ARGUMENTS} -D
+	${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS} -D
 	PID=$(cat ${TESTDIR}run.pid)
 	echo "${TARGET} started with pid ${PID}"
 	sleep 1
@@ -133,12 +141,12 @@ test () {
 	unset PREPARE
 	unset PID
 	TESTDEFAULTPORT=$DEFAULTPORT
-	TESTOPTION="-p ${TESTDEFAULTPORT}"
 	TESTRESPONSE=$(basename ${TEST})_rs.txt
 	if [ -e ${TESTDIR}$(basename ${TEST})_rq.txt ]; then
 		TESTREQUEST=$(basename ${TEST})_rq.txt
 	fi
 	. $TEST
+	TESTOPTION="${TESTOPTION} -p ${TESTDEFAULTPORT}"
 
 	echo
 	echo "******************************"
@@ -161,7 +169,7 @@ test () {
 	fi
 
 	if [ -n "$PREPARE" ]; then
-		$PREPARE
+		eval $PREPARE
 	fi
 
 	if [ $CONTINUE -eq 0 ] && [ -z $DEBUG ]; then
@@ -183,6 +191,7 @@ test () {
 			echo "******************************"
 			echo
 		fi
+		echo cat ${TESTDIR}$TESTREQUEST' |' $TESTCLIENT $TESTOPTION
 		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
 	if [ -n "$CMDREQUEST" ]; then

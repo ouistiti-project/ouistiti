@@ -35,6 +35,10 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_redirect.h"
@@ -69,8 +73,6 @@ struct _mod_redirect_s
 };
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static int redirect_mode(const char *mode)
 {
 	int options = 0;
@@ -226,8 +228,10 @@ void mod_redirect_destroy(void *arg)
 	mod_redirect_link_t *link = config->links;
 	while (link != NULL)
 	{
+		mod_redirect_link_t *next = link->next;
 		free(link->origin);
-		link = link->next;
+		free(link);
+		link = next;
 	}
 	free(config);
 #endif
@@ -379,7 +383,6 @@ const module_t mod_redirect =
 	.destroy = &mod_redirect_destroy
 };
 
-static void __attribute__ ((constructor))_init(void)
-{
-	ouistiti_registermodule(&mod_redirect);
-}
+#ifdef MODULES
+extern module_t mod_info __attribute__ ((weak, alias ("mod_redirect")));
+#endif

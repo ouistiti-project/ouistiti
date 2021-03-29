@@ -47,6 +47,7 @@
 #include "daemonize.h"
 #include "../compliant.h"
 #include "httpserver/httpserver.h"
+#include "httpserver/log.h"
 
 #ifndef FILE_CONFIG
 #define STATIC_CONFIG
@@ -55,14 +56,6 @@
 #include "ouistiti.h"
 
 #define PACKAGEVERSION PACKAGE "/" VERSION
-#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#ifdef DEBUG
-#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
-
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
 #include "mod_auth.h"
@@ -70,16 +63,18 @@
 const char *auth_info(http_message_t *request, const char *key)
 {
 	const authsession_t *info = NULL;
-	info = httpmessage_SESSION(request, "auth", NULL);
+	info = httpmessage_SESSION(request, "auth", NULL, 0);
 	const char *value = NULL;
 
-	if (info && !strcmp(key, "user"))
+	if (info == NULL)
+		return NULL;
+	if (!strcmp(key, "user"))
 		value = (const char *)info->user;
-	if (info && !strcmp(key, "group"))
+	if (!strcmp(key, "group"))
 		value = (const char *)info->group;
-	if (info && !strcmp(key, "type"))
+	if (!strcmp(key, "type"))
 		value = (const char *)info->type;
-	if (info && !strcmp(key, "home"))
+	if (!strcmp(key, "home"))
 		value = (const char *)info->home;
 	return value;
 }
@@ -155,7 +150,7 @@ static server_t *first = NULL;
 static char run = 0;
 static int g_default_port = 80;
 #ifdef HAVE_SIGACTION
-static void handler(int sig, siginfo_t *si, void *arg)
+static void handler(int sig, siginfo_t *UNUSED(si), void *UNUSED(arg))
 #else
 static void handler(int sig)
 #endif
@@ -232,7 +227,18 @@ void ouistiti_registermodule(const module_t *module)
 	dbg("module %s regitered", module->name);
 }
 
-server_t *ouistiti_loadserver(serverconfig_t *config)
+static void __ouistiti_freemodule()
+{
+	module_list_t *iterator = g_modules;
+	while (iterator != NULL)
+	{
+		module_list_t *next = iterator->next;
+		free(iterator);
+		iterator = next;
+	}
+}
+
+static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 {
 	if (first != NULL && first->id == MAX_SERVERS)
 		return NULL;
@@ -248,10 +254,9 @@ server_t *ouistiti_loadserver(serverconfig_t *config)
 
 	server->server = httpserver;
 	server->config = config;
-	server->next = first;
-	if (first != NULL)
-		server->id = first->id + 1;
-	first = server;
+	server->id = id;
+	ouistiti_setmodules(server, NULL, config->modulesconfig);
+
 	return server;
 }
 
@@ -278,27 +283,9 @@ static void *_config_modules(void *data, const char *name, server_t *server)
 	return NULL;
 }
 
-ouistiticonfig_t *ouistiticonfig_create(const char *filepath, int serverid)
+ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 {
-	int count = 1;
-	int i = 0;
-
-	if (serverid != -1)
-	{
-		i = serverid;
-		count = 1;
-		if (serverid < count)
-			serverid = 0;
-	}
-
-	ouistiticonfig_t *ouistiticonfig = &g_ouistiti_config;
-	for (i; i < count && i < MAX_SERVERS; i++)
-	{
-		server_t *server = ouistiti_loadserver(g_ouistiti_config.servers[i]);
-		if (server != NULL)
-			ouistiti_setmodules(server, _config_modules, NULL);
-	}
-	return ouistiticonfig;
+	return &g_ouistiti_config;
 }
 #endif
 
@@ -320,7 +307,14 @@ static int main_run(server_t *first)
 			break;
 	}
 
+	return 0;
+}
+
+void main_destroy(server_t *first)
+{
+	server_t *server = first;
 	server = first;
+
 	while (server != NULL)
 	{
 		server_t *next = server->next;
@@ -336,6 +330,45 @@ static int main_run(server_t *first)
 		free(server);
 		server = next;
 	}
+	__ouistiti_freemodule();
+}
+
+static server_t *ouistiti_loadservers(ouistiticonfig_t *ouistiticonfig, int serverid)
+{
+	server_t *first = NULL;
+	int id = 0;
+	for (int i = 0; i < MAX_SERVERS; i++)
+	{
+		if (serverid != -1 && i != serverid)
+			continue;
+
+		if (ouistiticonfig->config[i] != NULL)
+		{
+			server_t *server = ouistiti_loadserver(ouistiticonfig->config[i], id);
+			id += 1;
+			if (server != NULL)
+			{
+				server->next = first;
+				first = server;
+			}
+		}
+	}
+	return first;
+}
+
+static int ouistiti_kill(const char *configfile, const char *pidfile)
+{
+	ouistiticonfig_t *ouistiticonfig = NULL;
+	if (pidfile == NULL)
+	{
+		ouistiticonfig = ouistiticonfig_create(configfile);
+		if (ouistiticonfig && ouistiticonfig->pidfile)
+			pidfile = ouistiticonfig->pidfile;
+	}
+	killdaemon(pidfile);
+	if (ouistiticonfig)
+		ouistiticonfig_destroy(ouistiticonfig);
+	main_destroy(first);
 	return 0;
 }
 
@@ -345,13 +378,15 @@ static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
 	const char *configfile = DEFAULT_CONFIGPATH;
-	ouistiticonfig_t *ouistiticonfig = NULL;
 	const char *pidfile = NULL;
 	int mode = 0;
 	int serverid = -1;
+	const char *pkglib = PKGLIBDIR;
 
-	setlinebuf(stdout);
-	setlinebuf(stderr);
+//	setlinebuf /( stdout /);
+//	setlinebuf /( stderr /);
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
 
 	httpserver_software = servername;
 
@@ -359,7 +394,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:P:hDKV");
+		opt = getopt(argc, argv, "s:f:p:P:hDKVM:");
 		switch (opt)
 		{
 			case 's':
@@ -370,6 +405,9 @@ int main(int argc, char * const *argv)
 			break;
 			case 'p':
 				pidfile = optarg;
+			break;
+			case 'M':
+				pkglib = optarg;
 			break;
 			case 'P':
 				g_default_port = atoi(optarg);
@@ -392,31 +430,40 @@ int main(int argc, char * const *argv)
 	} while(opt != -1);
 #endif
 
-	ouistiti_initmodules();
-
 	if (mode & KILLDAEMON)
 	{
-		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
-		{
-			ouistiticonfig = ouistiticonfig_create(configfile, serverid);
-			pidfile = ouistiticonfig->pidfile;
-		}
-		killdaemon(pidfile);
+		return ouistiti_kill(configfile, pidfile);
+	}
+
+	ouistiti_initmodules(pkglib);
+#ifdef MODULES
+	const char *modules_path = getenv("OUISTITI_MODULES_PATH");
+	if (modules_path != NULL)
+		ouistiti_initmodules(modules_path);
+#endif
+
+	ouistiticonfig_t *ouistiticonfig = NULL;
+	ouistiticonfig = ouistiticonfig_create(configfile);
+
+	if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
+		pidfile = ouistiticonfig->pidfile;
+
+	if (mode & DAEMONIZE && daemonize(pidfile) == -1)
+	{
+		/**
+		 * if main is destroyed, it close the server socket here
+		 * and the true process is not able to receive any connection
+		 */
+		// main_destroy /( first /) /;
 		return 0;
 	}
 
-	ouistiticonfig = ouistiticonfig_create(configfile, serverid);
-
-	if (mode & DAEMONIZE)
+	if (ouistiticonfig == NULL)
 	{
-		if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
-			pidfile = ouistiticonfig->pidfile;
-		if (daemonize(pidfile) == -1)
-			return 0;
+		return -1;
 	}
 
-	if (ouistiticonfig == NULL)
-		return -1;
+	first = ouistiti_loadservers(ouistiticonfig, serverid);
 
 #ifdef HAVE_SIGACTION
 	struct sigaction action;
@@ -442,6 +489,7 @@ int main(int argc, char * const *argv)
 	main_run(first);
 
 	killdaemon(pidfile);
+	main_destroy(first);
 	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
 	return 0;

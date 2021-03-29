@@ -46,6 +46,17 @@ struct authn_basic_s
 	char *challenge;
 };
 
+#ifdef FILE_CONFIG
+void *authn_basic_config(const config_setting_t *configauth)
+{
+	authn_basic_config_t *authn_config = NULL;
+
+	authn_config = calloc(1, sizeof(*authn_config));
+	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
+	return authn_config;
+}
+#endif
+
 #define FORMAT "Basic realm=\"%s\""
 static void *authn_basic_create(const authn_t *authn, authz_t *authz, void *arg)
 {
@@ -83,6 +94,7 @@ static const char *authn_basic_check(void *arg, const char *method, const char *
 	(void) uri;
 
 	memset(user, 0, 256);
+	auth_dbg("auth basic check: %s", string);
 	base64->decode(string, strlen(string), user, 256);
 	passwd = strchr(user, ':');
 	if (passwd != NULL)

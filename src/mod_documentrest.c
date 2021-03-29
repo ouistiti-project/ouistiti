@@ -57,13 +57,13 @@ static int restheader_connector(document_connector_t *private, http_message_t *r
 	httpmessage_appendcontent(response, "{\"method\":\"", -1);
 	httpmessage_appendcontent(response, method, -1);
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
-	if (httpmessage_result(response, 0) == 200)
-		httpmessage_appendcontent(response, "OK", -1);
-	else
+	if (httpmessage_result(response, 0) != 200 && httpmessage_result(response, 0) != 201)
 	{
 		httpmessage_appendcontent(response, "KO\",\"error\":\"", -1);
 		httpmessage_appendcontent(response, strerror(errno), -1);
 	}
+	else
+		httpmessage_appendcontent(response, "OK", -1);
 	httpmessage_appendcontent(response, "\",\"name\":\"", -1);
 	httpmessage_appendcontent(response, uri, -1);
 	httpmessage_appendcontent(response, "\"}\n", -1);
@@ -168,10 +168,12 @@ static int putcontent_connector(document_connector_t *private, http_message_t *r
 #else
 				httpmessage_result(response, RESULT_400);
 #endif
+			else
 #endif
 #if defined RESULT_201
-			else
 				httpmessage_result(response, RESULT_201);
+#else
+				httpmessage_result(response, RESULT_200);
 #endif
 			close(private->fdfile);
 		}

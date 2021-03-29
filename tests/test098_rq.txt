@@ -1,0 +1,8 @@
+OPTIONS /form.cgi HTTP/1.1
+Host: localhost
+Referer: http://localhost/form.cgi
+Content-Type: application/x-www-form-urlencoded
+Origin: http://localhost
+Access-Control-Request-Method: PUT
+Upgrade-Insecure-Requests: 1
+

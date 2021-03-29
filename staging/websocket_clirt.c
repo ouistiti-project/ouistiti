@@ -39,7 +39,6 @@
 #include <sys/un.h>
 
 #include "httpserver/httpserver.h"
-#include "mod_websocket.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -97,7 +96,8 @@ static int _websocket_connect(int client, int socket)
 	cmsg->cmsg_len = CMSG_LEN(sizeof(socket));
 
 	/* Initialize the payload: */
-	*((int *) CMSG_DATA(cmsg)) = socket;
+	fdptr = (int *)CMSG_DATA(cmsg);
+	*fdptr = socket;
 	/* Sum of the length of all control messages in the buffer: */
 	msg.msg_controllen = cmsg->cmsg_len;
 

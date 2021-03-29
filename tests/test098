@@ -1,0 +1,4 @@
+DESC="OPTION request for cors access"
+CONFIG=test3.conf
+TESTCODE=200
+TESTCONTENTLEN=61

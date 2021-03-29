@@ -42,9 +42,10 @@ extern "C"
 typedef struct mod_websocket_s mod_websocket_t;
 struct mod_websocket_s
 {
-	char *docroot;
-	char *allow;
-	char *deny;
+	const char *docroot;
+	const char *allow;
+	const char *deny;
+	const char *server;
 	int options;
 };
 
