@@ -291,6 +291,7 @@ static int _authmngt_parsesession(_mod_authmngt_t *mod, const char *user, http_m
 {
 	int ret = ESUCCESS;
 	const char *query = httpmessage_REQUEST(request, "query");
+
 	if (user == NULL)
 	{
 		user = strstr(query, "user=");
@@ -299,10 +300,14 @@ static int _authmngt_parsesession(_mod_authmngt_t *mod, const char *user, http_m
 	if (user != NULL)
 	{
 		size_t length = USER_MAX;
-		const char *end = strchr(user, '&');
-		if (end != NULL && (end - user) < USER_MAX)
-			length = end - user;
-		strncpy(session->user, user, length);
+		char *decode = utils_urldecode(user, -1);
+		if (decode != NULL)
+		{
+			length = strlen(decode);
+			length = (length > USER_MAX)? USER_MAX : length;
+			strncpy(session->user, decode, length);
+			free(decode);
+		}
 	}
 	else
 		return EREJECT;
@@ -336,10 +341,14 @@ static int _authmngt_parsesession(_mod_authmngt_t *mod, const char *user, http_m
 	{
 		size_t length = TOKEN_MAX;
 		passwd += 7;
-		const char *end = strchr(passwd, '&');
-		if (end != NULL && (end - passwd) < TOKEN_MAX)
-			length = end - passwd;
-		strncpy(session->passwd, passwd, length);
+		char *decode = utils_urldecode(passwd, -1);
+		if (decode != NULL)
+		{
+			length = strlen(decode);
+			length = (length > TOKEN_MAX)? TOKEN_MAX : length;
+			strncpy(session->passwd, decode, length);
+			free(decode);
+		}
 		if (!mod->isuser)
 			ret = EREJECT;
 	}
@@ -421,6 +430,7 @@ static int _authmngt_errorresponse(_mod_authmngt_t *mod, const char *user, http_
 static int _authmngt_getconnector(_mod_authmngt_t *mod, const char *user, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
+
 	if (user != NULL)
 	{
 		authsession_t info = {0};
@@ -476,6 +486,7 @@ static int _authmngt_deleteconnector(_mod_authmngt_t *mod, const char *user, htt
 static int _authmngt_putconnector(_mod_authmngt_t *mod, const char *user, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
+
 	_authmngt_checkrights(mod, user, request);
 	mod->isuser = 1;
 
@@ -540,6 +551,8 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 	_mod_authmngt_t *mod = (_mod_authmngt_t *)arg;
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	const char *user;
+
+	authmngt_dbg("authmngt: search %s", str_mngtpath);
 	if (utils_searchexp(uri, str_mngtpath, &user))
 		return EREJECT;
 
