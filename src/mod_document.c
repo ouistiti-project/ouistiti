@@ -442,13 +442,13 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 					request, response, &connector, &filestat);
 		type |= DOCUMENT_REST;
 	}
-	else if (!strcmp(method, "POST"))
+	else if (fdfile > 0 && !strcmp(method, "POST"))
 	{
 		fdfile = _document_getconnnectorpost(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 		type |= DOCUMENT_REST;
 	}
-	else if (!strcmp(method, str_delete))
+	else if (fdfile > 0 && !strcmp(method, str_delete))
 	{
 		fdfile = _document_getconnnectordelete(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
@@ -456,19 +456,20 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	}
 	else
 #endif
-	if (!strcmp(method, str_get))
+	if (fdfile > 0 && !strcmp(method, str_get))
 	{
 		fdfile = _document_getconnnectorget(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 	}
-	else if (!strcmp(method, str_head))
+	else if (fdfile > 0 && !strcmp(method, str_head))
 	{
 		fdfile = _document_getconnnectorheader(mod, fdroot, fdfile, uri,
 					request, response, &connector, &filestat);
 	}
 	else
 	{
-		close(fdfile);
+		if (fdfile > 0)
+			close(fdfile);
 		close(fdroot);
 		return EREJECT;
 	}
