@@ -141,9 +141,8 @@ json_t *jwt_decode_json(const char *id_token)
 	if (id_token == NULL)
 		return NULL;
 	const char *b64header = id_token;
-	int b64headerlength = 0;
 	const char *b64payload = strchr(b64header, '.');
-	int b64payloadlength = 0;
+	long b64payloadlength = 0;
 	const char *b64signature = strrchr(b64header, '.');
 	int length = 0;
 	json_error_t error;
@@ -153,6 +152,7 @@ json_t *jwt_decode_json(const char *id_token)
 	{
 		b64payload++;
 #if 0
+		long b64headerlength = 0;
 		b64headerlength = b64payload - b64header;
 		length = base64_urlencoding->decode(b64header, b64headerlength, data, 1024);
 		auth_dbg("id_token header %s", data);
@@ -207,7 +207,7 @@ static int _jwt_checkexpiration(json_t *jinfo)
 	return ESUCCESS;
 }
 
-static const char *_jwt_getuser(json_t *jinfo)
+static const char *_jwt_getuser(const json_t *jinfo)
 {
 	const char *user = NULL;
 	const json_t *juser = json_object_get(jinfo, "preferred_username");

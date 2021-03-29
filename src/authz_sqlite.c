@@ -158,7 +158,6 @@ static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
 	const authz_sqlite_config_t *config = (const authz_sqlite_config_t *)arg;
-	int ret;
 
 	if (access(config->dbname, R_OK))
 	{

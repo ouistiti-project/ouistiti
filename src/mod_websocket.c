@@ -230,7 +230,6 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 {
 	int ret = EREJECT;
 	_mod_websocket_ctx_t *ctx = (_mod_websocket_ctx_t *)arg;
-	_mod_websocket_t *mod = ctx->mod;
 	const char *connection = httpmessage_REQUEST(request, str_connection);
 	const char *upgrade = httpmessage_REQUEST(request, str_upgrade);
 
@@ -534,10 +533,10 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	int ret = EINCOMPLETE;
 	int outlength = 0;
 	char *out = calloc(1, length + MAX_FRAGMENTHEADER_SIZE);
-	length = websocket_framed(info->type, (char *)buffer, length, out, &outlength, (void *)info);
+	length = websocket_framed(info->type, buffer, length, out, &outlength, (void *)info);
 	while (outlength > 0 && ret == EINCOMPLETE)
 	{
-		ret = info->sendresp(info->ctx, (char *)out, outlength);
+		ret = info->sendresp(info->ctx, out, outlength);
 		websocket_dbg("%s: u => ws: send %d/%d bytes\n\t%.*s", str_websocket, ret, outlength, (int)length, buffer);
 		if (ret > 0)
 			outlength -= ret;
