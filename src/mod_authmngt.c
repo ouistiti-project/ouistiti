@@ -287,6 +287,78 @@ static int _authmngt_checkrights(_mod_authmngt_t *mod, const char *user, http_me
 	return mod->isuser;
 }
 
+static int _authmngt_parsegroup(const char *query, authsession_t *session)
+{
+	int ret = EREJECT;
+	const char *group = strstr(query, "group=");
+	if (group != NULL)
+	{
+		size_t length = FIELD_MAX;
+		group += 6;
+		const char *end = strchr(group, '&');
+		if (end != NULL && (end - group) < FIELD_MAX)
+			length = end - group;
+		strncpy(session->group, group, length);
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+static int _authmngt_parsehome(const char *query, authsession_t *session)
+{
+	int ret = EREJECT;
+	const char *home = strstr(query, "home=");
+	if (home != NULL)
+	{
+		size_t length = PATH_MAX;
+		home += 5;
+		const char *end = strchr(home, '&');
+		if (end != NULL && (end - home) < PATH_MAX)
+			length = end - home;
+		strncpy(session->home, home, length);
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+static int _authmngt_parsepasswd(const char *query, authsession_t *session)
+{
+	int ret = EREJECT;
+	const char *passwd = strstr(query, "passwd=");
+	if (passwd != NULL)
+	{
+		size_t length = TOKEN_MAX;
+		passwd += 7;
+		char *decode = utils_urldecode(passwd, -1);
+		if (decode != NULL)
+		{
+			length = strlen(decode);
+			length = (length > TOKEN_MAX)? TOKEN_MAX : length;
+			strncpy(session->passwd, decode, length);
+			free(decode);
+		}
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+static int _authmngt_parsestatus(const char *query, authsession_t *session)
+{
+	int ret = EREJECT;
+	const char *status = strstr(query, "status=");
+	if (status != NULL)
+	{
+		size_t length = FIELD_MAX;
+		status += 7;
+		const char *end = strchr(status, '&');
+		if (end != NULL && (end - status) < FIELD_MAX)
+			length = end - status;
+		strncpy(session->status, status, length);
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
 static int _authmngt_parsesession(_mod_authmngt_t *mod, const char *user, http_message_t *request, authsession_t *session)
 {
 	int ret = ESUCCESS;
@@ -312,58 +384,26 @@ static int _authmngt_parsesession(_mod_authmngt_t *mod, const char *user, http_m
 	else
 		return EREJECT;
 
-	const char *group = strstr(query, "group=");
-	if (group != NULL)
-	{
-		size_t length = FIELD_MAX;
-		group += 6;
-		const char *end = strchr(group, '&');
-		if (end != NULL && (end - group) < FIELD_MAX)
-			length = end - group;
-		strncpy(session->group, group, length);
-		if (!mod->isroot)
-			ret = EREJECT;
-	}
-	const char *home = strstr(query, "home=");
-	if (home != NULL)
-	{
-		size_t length = PATH_MAX;
-		home += 5;
-		const char *end = strchr(home, '&');
-		if (end != NULL && (end - home) < PATH_MAX)
-			length = end - home;
-		strncpy(session->home, home, length);
-		if (!mod->isroot)
-			ret = EREJECT;
-	}
-	const char *passwd = strstr(query, "passwd=");
-	if (passwd != NULL)
-	{
-		size_t length = TOKEN_MAX;
-		passwd += 7;
-		char *decode = utils_urldecode(passwd, -1);
-		if (decode != NULL)
-		{
-			length = strlen(decode);
-			length = (length > TOKEN_MAX)? TOKEN_MAX : length;
-			strncpy(session->passwd, decode, length);
-			free(decode);
-		}
-		if (!mod->isuser)
-			ret = EREJECT;
-	}
-	const char *status = strstr(query, "status=");
-	if (status != NULL)
-	{
-		size_t length = FIELD_MAX;
-		status += 7;
-		const char *end = strchr(status, '&');
-		if (end != NULL && (end - status) < FIELD_MAX)
-			length = end - status;
-		strncpy(session->status, status, length);
-		if (!mod->isroot)
-			ret = EREJECT;
-	}
+	if (ret == ESUCCESS &&
+		_authmngt_parsegroup(query, session) == ESUCCESS &&
+		!mod->isroot)
+		ret = EREJECT;
+
+	if (ret == ESUCCESS &&
+		_authmngt_parsehome(query, session) == ESUCCESS &&
+		!mod->isroot)
+		ret = EREJECT;
+
+	if (ret == ESUCCESS &&
+		_authmngt_parsestatus(query, session) == ESUCCESS &&
+		!mod->isroot)
+		ret = EREJECT;
+
+	if (ret == ESUCCESS &&
+		_authmngt_parsepasswd(query, session) == ESUCCESS &&
+		!mod->isuser)
+		ret = EREJECT;
+
 	return ret;
 }
 
@@ -571,7 +611,6 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 	}
 	else if (!strcmp(method, str_put))
 	{
-		authsession_t info = {0};
 		ret = _authmngt_putconnector(mod, user, request, response);
 	}
 	else if (!strcmp(method, str_post))
