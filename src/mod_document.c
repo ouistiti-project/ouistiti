@@ -568,6 +568,7 @@ static int mod_send_read(document_connector_t *private, http_message_t *response
 		ret = size;
 		content[size] = 0;
 		httpmessage_addcontent(response, "none", content, size);
+		document_dbg("document: send %d", size);
 	}
 	else if (size == -1)
 	{
