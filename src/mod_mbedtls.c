@@ -300,6 +300,7 @@ static int _mod_mbedtls_read(void *arg, unsigned char *data, int size)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)arg;
 	int ret = ctx->protocolops->recvreq(ctx->protocol, (char *)data, size);
+	tls_dbg("tls: recvreq %d", ret);
 	if (ret == EINCOMPLETE)
 		ret = MBEDTLS_ERR_SSL_WANT_READ;
 	else if (ret == EREJECT)
@@ -311,6 +312,7 @@ static int _mod_mbedtls_write(void *arg, unsigned char *data, int size)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)arg;
 	int ret = ctx->protocolops->sendresp(ctx->protocol, (char *)data, size);
+	tls_dbg("tls: sendresp %d", ret);
 	if (ret == EINCOMPLETE)
 	{
 		ret = MBEDTLS_ERR_SSL_WANT_WRITE;
@@ -478,6 +480,7 @@ static void _tls_disconnect(void *vctx)
 static void _tls_destroy(void *vctx)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
+	tls_dbg("tls: end");
 	mbedtls_ssl_free(&ctx->ssl);
 	ctx->protocolops->destroy(ctx->protocol);
 	free(ctx);
@@ -493,7 +496,10 @@ static int _tls_recv(void *vctx, char *data, int size)
 #endif
 	{
 		ret = mbedtls_ssl_read(&ctx->ssl, (unsigned char *)data, size);
-		tls_dbg("tls recv %d %.*s", ret, ret, data);
+		if (ret > 0)
+			tls_dbg("tls: recv %d %.*s", ret, ret, data);
+		else
+			tls_dbg("tls: recv %X %X", ret, MBEDTLS_ERR_SSL_WANT_READ);
 	}
 	if (ret == MBEDTLS_ERR_SSL_WANT_READ)
 	{
@@ -523,7 +529,7 @@ static int _tls_send(void *vctx, const char *data, int size)
 	int ret;
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
 	ret = mbedtls_ssl_write(&ctx->ssl, (const unsigned char *)data, size);
-	tls_dbg("tls send %d %.*s", ret, size, data);
+	tls_dbg("tls: send %d %.*s", ret, size, data);
 	if (ret == MBEDTLS_ERR_SSL_WANT_WRITE)
 		ret = EINCOMPLETE;
 	else if (ret < 0)
