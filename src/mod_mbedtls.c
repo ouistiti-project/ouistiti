@@ -113,9 +113,9 @@ static void *tls_config(config_setting_t *iterator, server_t *server)
 {
 	mod_tls_t *tls = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configtls = config_setting_get_member(iterator, "tls");
+	config_setting_t *configtls = config_setting_get_member(iterator, str_mbedtls);
 #else
-	config_setting_t *configtls = config_setting_lookup(iterator, "tls");
+	config_setting_t *configtls = config_setting_lookup(iterator, str_mbedtls);
 #endif
 	if (configtls)
 	{
@@ -129,10 +129,10 @@ static void *tls_config(config_setting_t *iterator, server_t *server)
 }
 #else
 static const mod_tls_t g_tls_config = {
-	.crtfile = "./tests/conf/ouistiti_srv.crt",
-	.pemfile = "./tests/conf/ouistiti_srv.key",
-	.cachain = "./tests/conf/ouistiti_ca.crt",
-	.dhmfile = "./tests/conf/ouistiti_dhparam.crt",
+	.crtfile = SYSCONFDIR"/ouistiti_srv.crt",
+	.pemfile = SYSCONFDIR"/ouistiti_srv.key",
+	.cachain = SYSCONFDIR"/ouistiti_ca.crt",
+	.dhmfile = SYSCONFDIR"/ouistiti_dhparam.crt",
 };
 
 static void *tls_config(void *iterator, server_t *server)
