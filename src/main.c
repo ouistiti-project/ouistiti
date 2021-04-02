@@ -394,7 +394,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:P:hDKVM:");
+		opt = getopt(argc, argv, "s:f:p:P:hDKVM:W:");
 		switch (opt)
 		{
 			case 's':
@@ -423,6 +423,9 @@ int main(int argc, char * const *argv)
 			break;
 			case 'K':
 				mode |= KILLDAEMON;
+			break;
+			case 'W':
+				chdir(optarg);
 			break;
 			default:
 			break;
