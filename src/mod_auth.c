@@ -837,19 +837,28 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			if (jwt_decode(string, ctx->info) == ESUCCESS)
 			{
 				auth_dbg("auth: jwt user %s", ctx->info->user);
+				ret = EREJECT;
 			}
 			else
 #endif
 			if (user != NULL)
 			{
 				mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
+#ifndef DEBUG
+				time_t now = time(NULL);
+				if (mod->config->expire > 0 &&
+					ctx->info->expires > now &&
+					(ctx->info->expires + mod->config->expire) < now)
+					ret = EREJECT;
+#else
+				ret = EREJECT;
+#endif
 			}
 
 			if (ctx->info->token[0] == '\0')
 			{
 				strncpy(ctx->info->token, sign, TOKEN_MAX);
 			}
-			ret = EREJECT;
 		}
 		else
 		{
@@ -1013,6 +1022,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 		{
 			ctx->info = calloc(1, sizeof(*ctx->info));
 			ctx->info->expires = mod->config->expire * 60;
+			ctx->info->expires += time(NULL);
 			mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
 			strncpy(ctx->info->type, mod->type, FIELD_MAX);
 			ctx->authorization = strdup(authorization);
