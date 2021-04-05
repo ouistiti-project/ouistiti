@@ -1,0 +1,4 @@
+DESC="GET request with double / '/test//index.html'"
+CONFIG=test1.conf
+TESTRESPONSE=index_rs.txt
+TESTCODE=200
