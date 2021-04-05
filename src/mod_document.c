@@ -129,7 +129,7 @@ static int _document_docroot(_mod_document_mod_t *mod,
 		}
 		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
 		{
-			mkdirat(mod->fdhome, user, 0644);
+			mkdirat(mod->fdhome, user, 0640);
 			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
 		}
 		if (fdroot == -1)
