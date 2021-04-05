@@ -137,6 +137,7 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_m
 #endif
 		if (ent)
 		{
+			document_dbg("dirlisting: dirlisting contains %s", ent->d_name);
 			if (ent->d_name[0] != '.')
 			{
 				unsigned int length = strlen(ent->d_name);
@@ -168,9 +169,9 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_m
 				length += 4 + 2 + 4;
 				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
 				snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
-				dbg("dirlisting: %s", data);
+				document_dbg("dirlisting: %s", data);
 				httpmessage_addcontent(response, NULL, data, -1);
-				dbg("dirlisting: next");
+				document_dbg("dirlisting: next");
 				free(data);
 				ret = ECONTINUE;
 			}
@@ -192,7 +193,7 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_m
 			 * the content length is unknown before the sending.
 			 * We must close the socket to advertise the client.
 			 */
-			dbg("dirlisting: socket shutdown");
+			document_dbg("dirlisting: socket shutdown");
 			httpclient_shutdown(httpmessage_client(request));
 			closedir(private->dir);
 			private->dir = NULL;
