@@ -118,19 +118,36 @@ static int _document_docroot(_mod_document_mod_t *mod,
 		if ((config->options & DOCUMENT_HOME) && (home != NULL))
 		{
 			fdroot = open(home, O_DIRECTORY);
+			if (fdroot != -1)
+			{
+				document_dbg("document: home directory is %s", home);
+			}
 		}
 		if ((fdroot == -1) && (home != NULL) && (mod->fdhome > 0))
 		{
+			while (home[0] == '/' && home[0] != '\0') home++;
 			fdroot = openat(mod->fdhome, home, O_DIRECTORY);
+			if (fdroot != -1)
+			{
+				document_dbg("document: root directory is %s/%s", mod->config->dochome, home);
+			}
 		}
 		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
 		{
 			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
+			if (fdroot != -1)
+			{
+				document_dbg("document: root directory is %s/%s", mod->config->dochome, user);
+			}
 		}
 		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
 		{
 			mkdirat(mod->fdhome, user, 0640);
 			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
+			if (fdroot != -1)
+			{
+				document_dbg("document: root directory is %s/%s", mod->config->dochome, user);
+			}
 		}
 		if (fdroot == -1)
 		{
@@ -142,7 +159,10 @@ static int _document_docroot(_mod_document_mod_t *mod,
 #endif
 	*uri += i;
 	if (fdroot == -1)
+	{
 		fdroot = mod->fdroot;
+		document_dbg("document: root directory is %s", mod->config->docroot);
+	}
 
 	return fdroot;
 }
@@ -718,6 +738,10 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 	{
 		err("document: docroot %s not found", config->docroot);
 	}
+	else
+	{
+		document_dbg("document: root directory is %s", config->docroot);
+	}
 #ifdef DOCUMENTHOME
 	if (config->dochome != NULL)
 	{
@@ -725,6 +749,10 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 		if (mod->fdhome == -1)
 		{
 			err("document: dochome %s not found", config->dochome);
+		}
+		else
+		{
+			document_dbg("document: home directory is %s", config->dochome);
 		}
 	}
 #endif
