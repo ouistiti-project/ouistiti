@@ -302,7 +302,10 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 			(config->options & DOCUMENT_DIRLISTING))
 		{
 			close(fdfile);
-			fdfile = openat(fdroot, url, O_DIRECTORY);
+			if (url[0] != '\0')
+				fdfile = openat(fdroot, url, O_DIRECTORY);
+			else
+				fdfile = openat(fdroot, ".",  O_DIRECTORY);
 			*connector = dirlisting_connector;
 		}
 		else
