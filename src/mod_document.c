@@ -412,13 +412,13 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		 */
 		return  EREJECT;
 	}
-
-	int fdroot = dup(_document_docroot(mod, request, &uri));
+	int fdroot = _document_docroot(mod, request, &uri);
 	if (fdroot == EREJECT)
 	{
 		httpmessage_result(response, RESULT_404);
 		return  ESUCCESS;
 	}
+	fdroot = dup(fdroot);
 
 	int length = strlen(uri);
 
