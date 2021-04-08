@@ -172,6 +172,8 @@ bindir?=$(exec_prefix)/bin
 bindir:=$(bindir:"%"=%)
 sbindir?=$(exec_prefix)/sbin
 sbindir:=$(sbindir:"%"=%)
+libexecdir?=$(exec_prefix)/libexec/$(package:"%"=%)
+libexecdir:=$(libexecdir:"%"=%)
 libdir?=$(word 1,$(wildcard $(exec_prefix)/lib$(libsuffix) $(exec_prefix)/lib))
 libdir:=$(if $(libdir), $(libdir),$(exec_prefix)/lib)
 libdir:=$(libdir:"%"=%)
@@ -361,8 +363,12 @@ include-install:=$(addprefix $(DESTDIR)$(includedir:%/=%)/,$(include-y))
 lib-static-install:=$(addprefix $(DESTDIR)$(libdir:%/=%)/,$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(slib-y))))
 lib-dynamic-install:=$(addprefix $(DESTDIR)$(libdir:%/=%)/,$(addsuffix $(version:%=.%),$(addsuffix $(dlib-ext:%=.%),$(addprefix lib,$(lib-y)))))
 modules-install:=$(addprefix $(DESTDIR)$(pkglibdir:%/=%)/,$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
-bin-install:=$(addprefix $(DESTDIR)$(bindir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(bin-y))))
+
+$(foreach t,$(bin-y),$(if $(findstring libexec,$($(t)_INSTALL)),$(eval libexec-y+=$(t))))
+$(foreach t,$(bin-y),$(if $(findstring sbin,$($(t)_INSTALL)),$(eval sbin-y+=$(t))))
+bin-install:=$(addprefix $(DESTDIR)$(bindir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(filter-out $(libexec-y) $(sbin-y),$(bin-y)))))
 sbin-install:=$(addprefix $(DESTDIR)$(sbindir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(sbin-y))))
+libexec-install:=$(addprefix $(DESTDIR)$(libexecdir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(libexec-y))))
 
 DEVINSTALL?=y
 install:=
@@ -375,6 +381,7 @@ install+=$(sysconf-install)
 dev-install-$(DEVINSTALL)+=$(include-install)
 install+=$(bin-install)
 install+=$(sbin-install)
+install+=$(libexec-install)
 
 ##
 # main entries
@@ -715,6 +722,10 @@ $(bin-install): $(DESTDIR)$(bindir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%
 $(sbin-install): $(DESTDIR)$(sbindir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
 	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(sbindir) && rm -f $(a) && ln -s $(sbindir:%/=%)/$*$(bin-ext:%=.%) $(a)))
+
+$(libexec-install): $(DESTDIR)$(libexecdir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
+	@$(call cmd,install_bin)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(libexecdir) && rm -f $(a) && ln -s $(libexecdir:%/=%)/$*$(bin-ext:%=.%) $(a)))
 
 ##
 # Commands for download
