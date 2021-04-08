@@ -1,5 +1,5 @@
 modules-$(MODULES)+=mod_auth
-slib-y+=mod_auth
+slib-$(STATIC)+=mod_auth
 mod_auth_SOURCES+=mod_auth.c
 mod_auth_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 mod_auth_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
