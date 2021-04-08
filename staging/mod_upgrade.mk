@@ -1,6 +1,5 @@
-
 modules-$(MODULES)+=mod_upgrade
-slib-y+=mod_upgrade
+slib-$(STATIC)+=mod_upgrade
 mod_upgrade_SOURCES+=mod_upgrade.c
 mod_upgrade_CFLAGS+=-I$(srcdir)src
 mod_upgrade_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
