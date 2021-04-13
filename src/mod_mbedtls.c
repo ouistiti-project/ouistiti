@@ -67,6 +67,9 @@
 
 #include "httpserver/log.h"
 #include "httpserver/httpserver.h"
+#ifdef httpserver_config
+#include "httpserver/config.h"
+#endif
 #include "mod_tls.h"
 
 #define tls_dbg(...)
