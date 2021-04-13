@@ -41,6 +41,10 @@
 #include <signal.h>
 #include <wait.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "httpserver/httpserver.h"
 #include "httpserver/utils.h"
 #include "mod_webstream.h"
@@ -229,21 +233,6 @@ static void _mod_webstream_freectx(void *arg)
 }
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
-static void webstream_optionscb(void *arg, const char *option, size_t length)
-{
-	mod_webstream_t *conf = (mod_webstream_t *)arg;
-#ifdef WEBSOCKET_RT
-	if (!strncmp(option, "direct", length))
-	{
-		if (!(conf->options & WEBSTREAM_TLS))
-			conf->options |= WEBSOCKET_REALTIME;
-		else
-			warn("realtime configuration is not allowed with tls");
-	}
-#endif
-}
 
 static void *webstream_config(config_setting_t *iterator, server_t *server)
 {
@@ -255,7 +244,6 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (configws)
 	{
-		char *url = NULL;
 		char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
 		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);

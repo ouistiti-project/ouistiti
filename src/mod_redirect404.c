@@ -71,7 +71,6 @@ static void mod_redirect404_destroy(void *arg)
 
 static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	mod_redirect404_t *conf = (mod_redirect404_t *)arg;
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	warn("redirect 404: %s", uri);
 	httpmessage_result(response, RESULT_404);

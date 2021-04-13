@@ -163,7 +163,7 @@ static void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 static void mod_cors_destroy(void *data)
 {
 	_mod_cors_t *mod = (_mod_cors_t *)data;
-#if FILE_CONFIG
+#ifdef FILE_CONFIG
 	free(mod->config);
 #endif
 	free(data);
