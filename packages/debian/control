@@ -1,9 +1,13 @@
 Source: ouistiti
 Section: net
 Priority: extra
-Version: 1.0
-Package: ouistiti
+Build-Depends: debhelper (>=9), libmbedtls-dev, libconfig-dev, libjansson-dev, libsqlite3-dev
+Standards-Version: 3.9.8
 Description: lightweight and fast HTTP server
-Maintainer: marc.chalain@gmail.com
+Maintainer: Marc Chalain <marc.chalain@gmail.com>
+
+Package: ouistiti
 Architecture: any
-Depends: libconfig
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: HTTP server for embedded devices
