@@ -107,7 +107,6 @@ struct _mod_mbedtls_config_s
 	mbedtls_dhm_context dhm;
 };
 
-static http_server_config_t mod_mbedtls_config;
 static const httpclient_ops_t *_tlsclient_ops;
 static const httpclient_ops_t *_tlsserver_ops;
 
@@ -193,7 +192,6 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 {
 	mod_tls_t *config = mod->config;
 	int ret;
-	int is_set_pemkey = 0;
 
 	if (config == NULL)
 		return ECONTINUE;
@@ -358,7 +356,6 @@ static void *_tlsclient_create(void *arg, http_client_t *clt)
 {
 	_mod_mbedtls_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_mbedtls_config_t *config = (_mod_mbedtls_config_t *)arg;
-	void *protocolconfig;
 
 	ctx->clt = clt;
 
@@ -395,7 +392,7 @@ static void *_tlsclient_create(void *arg, http_client_t *clt)
 
 	if (tls_certificat != NULL)
 	{
-		ret = mbedtls_x509_crt_parse_file( &config->srvcert, (const unsigned char *) tls_certificat);
+		ret = mbedtls_x509_crt_parse_file( &config->srvcert, tls_certificat);
 		if (ret)
 		{
 			err("mbedtls_x509_crt_parse %d\n", ret);
@@ -438,7 +435,6 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 {
 	_mod_mbedtls_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_mbedtls_config_t *config = (_mod_mbedtls_config_t *)arg;
-	void *protocolconfig;
 
 	_mod_mbedtls_setup(config);
 	ctx->clt = clt;

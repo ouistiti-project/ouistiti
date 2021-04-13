@@ -356,7 +356,6 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 
 static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 {
-	_mod_cgi_t *mod = ctx->mod;
 	int ret = ECONTINUE;
 	char *input = NULL;
 	int inputlen;

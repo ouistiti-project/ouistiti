@@ -64,9 +64,6 @@ struct _mod_clientfilter_s
 	http_client_t *ctl;
 };
 
-static const char *str_wilcard = "*";
-static const char *str_empty = "";
-
 #ifdef FILE_CONFIG
 static void *mod_clientfilter_config(config_setting_t *iterator, server_t *server)
 {

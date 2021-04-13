@@ -70,7 +70,7 @@ typedef struct _document_connector_s document_connector_t;
 
 int mod_send(document_connector_t *private, http_message_t *response);
 
-int document_close(document_connector_t *private, http_message_t *request)
+void document_close(document_connector_t *private, http_message_t *request)
 {
 	if (private->fdfile > 0)
 		close(private->fdfile);
@@ -410,7 +410,6 @@ static int _document_getconnnectorheader(_mod_document_mod_t *mod,
 
 static int _document_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	int ret =  EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	http_connector_t connector = getfile_connector;
@@ -658,7 +657,6 @@ static void *document_config(config_setting_t *iterator, server_t *server)
 
 	if (configstaticfile)
 	{
-		int length;
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
 		config_setting_lookup_string(configstaticfile, "dochome", (const char **)&static_file->dochome);

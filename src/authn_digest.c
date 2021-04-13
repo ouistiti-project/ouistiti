@@ -139,7 +139,6 @@ static int authn_digest_noncetime(void *arg, char *nonce, size_t noncelen)
 static int authn_digest_nonce(void *arg, char *nonce, size_t noncelen)
 {
 	int ret = EREJECT;
-	const authn_digest_t *mod = (authn_digest_t *)arg;
 
 /**
  *  nonce and opaque may be B64 encoded data
@@ -163,6 +162,8 @@ static int authn_digest_nonce(void *arg, char *nonce, size_t noncelen)
 		ret = ESUCCESS;
 	}
 #else
+	const authn_digest_t *mod = (authn_digest_t *)arg;
+
 	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
 	if (!strcmp(mod->opaque, str_opaque))
 		strncpy(nonce, "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", noncelen); //RFC7616
@@ -179,6 +180,7 @@ static int authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct sock
 
 	mod->stale = 0;
 	authn_digest_nonce(arg, mod->nonce, MAXNONCE);
+	return 0;
 }
 
 static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)

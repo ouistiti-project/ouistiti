@@ -188,7 +188,6 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 {
 	int ret =  EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 
 	if (private->type & DOCUMENT_DIRLISTING)
 	{
@@ -235,7 +234,6 @@ static int changename(document_connector_t *private, http_message_t *UNUSED(requ
 int postfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 
 	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
 

@@ -109,7 +109,7 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 int deletefile_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
 
-int document_close(document_connector_t *private, http_message_t *request);
+void document_close(document_connector_t *private, http_message_t *request);
 
 #ifdef __cplusplus
 }
