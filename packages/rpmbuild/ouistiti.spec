@@ -32,7 +32,7 @@ Small utilities for websocket with ouistiti HTTP server
 rm -f .config
 
 %build
-CFLAGS="$RPM_OPT_FLAGS" make prefix=/usr libdir=/usr/lib64 pkglibdir=/usr/lib64/ouistiti LIBURI=n STATIC=n TINYSVCMDNS=n fullforked_defconfig
+CFLAGS="$RPM_OPT_FLAGS" make prefix=/usr sysconfdir=/etc/ouistiti libdir=/usr/lib64 pkglibdir=/usr/lib64/ouistiti STATIC=n TINYSVCMDNS=n fullforked_defconfig
 CFLAGS="$RPM_OPT_FLAGS" make LIBHTTPSERVER_NAME=ouistiti
 
 %install
