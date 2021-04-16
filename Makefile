@@ -20,6 +20,10 @@ libhttpserver_SITE_METHOD=git
 LIBHTTPSERVER_DIR?=libhttpserver
 export LIBHTTPSERVER_DIR
 
+ifneq ($(wildcard $(sysroot)$(includedir)/httpserver/version.h),)
+LIBHTTPSERVER_NAME?=$(shell cat $(sysroot)$(includedir)/httpserver/version.h | awk '/PACKAGE /{print $$3}')
+endif
+
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
 LIBHTTPSERVER_NAME?=$(package)
 subdir-y+=$(LIBHTTPSERVER_DIR)
