@@ -63,6 +63,10 @@ endif
 export LIBHTTPSERVER_LDFLAGS
 export LIBHTTPSERVER_CFLAGS
 
+ifeq ($(HTTPCLIENT_FEATURES),y)
+override AUTHN_OAUTH2:=n
+endif
+
 subdir-y+=staging
 subdir-y+=src
 subdir-y+=utils
