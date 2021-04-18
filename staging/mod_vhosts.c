@@ -43,7 +43,7 @@
 #include <dlfcn.h>
 #endif
 
-#include "httpserver/httpserver.h"
+#include "ouistiti/httpserver.h"
 #include "mod_websocket.h"
 #include "mod_document.h"
 #include "mod_cgi.h"

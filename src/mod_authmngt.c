@@ -39,10 +39,10 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/hash.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/hash.h"
+#include "ouistiti/log.h"
 
 #include "mod_auth.h"
 #include "mod_authmngt.h"

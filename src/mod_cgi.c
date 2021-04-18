@@ -47,9 +47,9 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_cgi.h"
 
 #define cgi_dbg(...)

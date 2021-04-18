@@ -34,9 +34,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "log.h"
-#include "httpserver.h"
-#include "httpserver/dbentry.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/dbentry.h"
 #include "mod_form_urlencoded.h"
 
 typedef struct _mod_form_urlencoded_config_s _mod_form_urlencoded_config_t;

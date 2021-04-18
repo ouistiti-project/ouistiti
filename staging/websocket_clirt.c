@@ -38,7 +38,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "httpserver/httpserver.h"
+#include "ouistiti/httpserver.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)

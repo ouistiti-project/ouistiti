@@ -50,12 +50,12 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
-#include "httpserver/hash.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/hash.h"
 #include "mod_websocket.h"
-#include "httpserver/utils.h"
-#include "httpserver/websocket.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/websocket.h"
 
 typedef int (*mod_websocket_run_t)(void *arg, int socket, char *filepath, http_message_t *request);
 int default_websocket_run(void *arg, int socket, char *filepath, http_message_t *request);

@@ -1,7 +1,7 @@
-include scripts.mk
-
 package=ouistiti
 version=3.1
+
+include scripts.mk
 
 #libhttpserver has to be static in all configuration
 export SLIB_HTTPSERVER=y
@@ -20,27 +20,24 @@ libhttpserver_SITE_METHOD=git
 LIBHTTPSERVER_DIR?=libhttpserver
 export LIBHTTPSERVER_DIR
 
-ifneq ($(wildcard $(sysroot)$(includedir)/httpserver/version.h),)
-LIBHTTPSERVER_NAME?=$(shell cat $(sysroot)$(includedir)/httpserver/version.h | awk '/PACKAGE /{print $$3}')
-endif
-
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
+ifneq ($(wildcard $(sysroot)$(includedir)/ouistiti/version.h),)
+LIBHTTPSERVER_NAME?=$(shell cat $(sysroot)$(includedir)/ouistiti/version.h | awk '/PACKAGE /{print $$3}')
+else
+ ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
 LIBHTTPSERVER_NAME?=$(package)
 subdir-y+=$(LIBHTTPSERVER_DIR)
-endif
-LIBHTTPSERVER_NAME?=httpserver
-export LIBHTTPSERVER_NAME
+ endif
 
-ifeq ($(LIBHTTPSERVER_CFLAGS), )
+ ifeq ($(LIBHTTPSERVER_CFLAGS), )
 
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
+  ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
 LIBHTTPSERVER_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/src/httpserver
 LIBHTTPSERVER_LDFLAGS+=-L$(LIBHTTPSERVER_DIR)/src
-endif
-ifneq ($(wildcard $(srcdir)$(LIBHTTPSERVER_DIR)/Makefile),)
+  endif
+  ifneq ($(wildcard $(srcdir)$(LIBHTTPSERVER_DIR)/Makefile),)
 LIBHTTPSERVER_LDFLAGS+=-L$(srcdir)$(LIBHTTPSERVER_DIR)/src/httpserver
 LIBHTTPSERVER_LDFLAGS+=-L$(srcdir)$(LIBHTTPSERVER_DIR)/src
-endif
+  endif
 
 LIBHTTPSERVER_LDFLAGS+=-L$(obj)$(LIBHTTPSERVER_DIR)/src/httpserver
 LIBHTTPSERVER_LDFLAGS+=-L$(obj)$(LIBHTTPSERVER_DIR)/src
@@ -48,18 +45,24 @@ LIBHTTPSERVER_LDFLAGS+=-L$(obj)$(LIBHTTPSERVER_DIR)/src
 LIBHTTPSERVER_LDFLAGS+=-L$(hostobj)$(LIBHTTPSERVER_DIR)/src/httpserver
 LIBHTTPSERVER_LDFLAGS+=-L$(hostobj)$(LIBHTTPSERVER_DIR)/src
 
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/lib/libhttpserver.so),)
-LIBHTTPSERVER_LDFLAGS+=-L$(buildpath)$(LIBHTTPSERVER_DIR)/lib
-endif
+  ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/lib/libhttpserver.so),)
+LIBHTTPSERVER_LDFLAGS+=-L$(builddir)$(LIBHTTPSERVER_DIR)/lib
+  endif
 
-ifneq ($(wildcard $(srcdir)$(LIBHTTPSERVER_DIR)/include/httpserver/httpserver.h), )
+  ifneq ($(wildcard $(srcdir)$(LIBHTTPSERVER_DIR)/include/ouistiti/httpserver.h), )
 LIBHTTPSERVER_CFLAGS+=-I$(srcdir)$(LIBHTTPSERVER_DIR)/include
-endif
-ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/include/httpserver/httpserver.h), )
+  endif
+  ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/include/osuititi/httpserver.h), )
 LIBHTTPSERVER_CFLAGS+=-I$(LIBHTTPSERVER_DIR)/include
-endif
+  endif
+ endif
 
 endif
+ifeq ($(LIBHTTPSERVER_NAME), )
+$(warning libouistiti not found $(LIBHTTPSERVER_NAME))
+endif
+LIBHTTPSERVER_NAME:=$(LIBHTTPSERVER_NAME:lib%=%)
+export LIBHTTPSERVER_NAME
 export LIBHTTPSERVER_LDFLAGS
 export LIBHTTPSERVER_CFLAGS
 

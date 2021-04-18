@@ -35,7 +35,7 @@
 #include <errno.h>
 #include <dirent.h>
 
-#include "httpserver/httpserver.h"
+#include "ouistiti/httpserver.h"
 #include "mod_auth.h"
 #include "mod_methodlock.h"
 
