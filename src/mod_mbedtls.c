@@ -65,10 +65,10 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
 #ifdef httpserver_config
-#include "httpserver/config.h"
+#include "ouistiti/config.h"
 #endif
 #include "mod_tls.h"
 

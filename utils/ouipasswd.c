@@ -32,7 +32,7 @@
 #include <unistd.h>
 #define HAVE_GETOPT
 
-#include "httpserver/hash.h"
+#include "ouistiti/hash.h"
 
 #define PACKAGEVERSION PACKAGE "/" VERSION
 

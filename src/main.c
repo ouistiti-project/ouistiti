@@ -46,8 +46,8 @@
 
 #include "daemonize.h"
 #include "../compliant.h"
-#include "httpserver/httpserver.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/log.h"
 
 #ifndef FILE_CONFIG
 #define STATIC_CONFIG

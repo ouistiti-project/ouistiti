@@ -32,7 +32,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include "httpserver/httpserver.h"
+#include "ouistiti/httpserver.h"
 #define CHUNKSIZE 64
 
 const httpclient_ops_t *tlsclient_ops = NULL;

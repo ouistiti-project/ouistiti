@@ -30,10 +30,10 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/hash.h"
-#include "httpserver/utils.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/hash.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_auth.h"
 #include "authn_digest.h"
 

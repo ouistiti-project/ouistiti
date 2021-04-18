@@ -32,8 +32,8 @@
 #include <unistd.h>
 #include <libgen.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/log.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 

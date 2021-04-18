@@ -31,9 +31,9 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_auth.h"
 #include "authn_bearer.h"
 

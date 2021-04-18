@@ -40,7 +40,7 @@
 #include <sys/stat.h>
 #include <sqlite3.h>
 
-#include "httpserver/hash.h"
+#include "ouistiti/hash.h"
 #include "../websocket.h"
 #include "jsonrpc.h"
 

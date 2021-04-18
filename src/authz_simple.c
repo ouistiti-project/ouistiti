@@ -31,8 +31,8 @@
 #include <stdio.h>
 #include <pwd.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/log.h"
 #include "mod_auth.h"
 #include "authz_simple.h"
 

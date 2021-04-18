@@ -27,8 +27,8 @@
  *****************************************************************************/
 #include <stdio.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/log.h"
 #include "ouistiti.h"
 
 #include "mod_clientfilter.h"

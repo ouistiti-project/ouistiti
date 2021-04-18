@@ -45,8 +45,8 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 #include "mod_webstream.h"
 
 extern int ouistiti_websocket_run(void *arg, int sock, const char *protocol, http_message_t *request);

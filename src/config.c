@@ -37,8 +37,8 @@
 
 #include <libconfig.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 
 #include "mod_tls.h"
 #include "mod_websocket.h"
@@ -53,7 +53,7 @@
 #include "mod_clientfilter.h"
 #include "mod_redirect.h"
 
-#include "httpserver/log.h"
+#include "ouistiti/log.h"
 #include "ouistiti.h"
 
 char str_hostname[HOST_NAME_MAX + 7];

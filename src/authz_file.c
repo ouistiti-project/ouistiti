@@ -38,8 +38,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/log.h"
 #include "mod_auth.h"
 #include "authz_file.h"
 

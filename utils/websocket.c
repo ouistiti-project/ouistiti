@@ -36,7 +36,7 @@
 #include <string.h>
 
 #include "websocket.h"
-#include "httpserver/websocket.h"
+#include "ouistiti/websocket.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)

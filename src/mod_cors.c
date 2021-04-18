@@ -45,9 +45,9 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_cors.h"
 
 extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);

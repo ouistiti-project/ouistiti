@@ -37,8 +37,8 @@
 #include <stdarg.h>
 #endif
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
 #include "mod_cookie.h"
 
 typedef struct _mod_cookie_ctx_s _mod_cookie_ctx_t;

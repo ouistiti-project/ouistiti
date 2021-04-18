@@ -38,9 +38,9 @@
 #include <time.h>
 #include <libgen.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_document.h"
 #include "mod_auth.h"
 

@@ -51,11 +51,11 @@
 #include <arpa/inet.h>
 #endif
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
-#include "httpserver/hash.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/hash.h"
 #include "mod_upgrade.h"
-#include "httpserver/utils.h"
+#include "ouistiti/utils.h"
 
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0

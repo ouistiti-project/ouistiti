@@ -35,8 +35,8 @@
 typedef int (wolftls_ssl_send_t)(void *, const unsigned char *, size_t);
 typedef int (wolfls_ssl_recv_t)(void *, unsigned char *, size_t);
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
 #include "mod_tls.h"
 
 static const char str_wolftls[] = "tls";
