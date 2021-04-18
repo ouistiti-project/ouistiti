@@ -5,9 +5,9 @@ export makemore
 file?=$(notdir $(firstword $(MAKEFILE_LIST)))
 inside_makemore:=yes
 
-package?=$(notdir $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
-version?=0.1
-export package version
+VERSION_MAJOR=$(firstword $(subst ., ,$(version)))
+export package
+export version
 
 ##
 # debug tools
@@ -55,6 +55,8 @@ else
   builddir=$(srcdir)
 endif
 
+# internal configuration to install HEADERS file or not
+DEVINSTALL?=y
 # CONFIG could define LD CC or/and CFLAGS
 # CONFIG must be included before "Commands for build and link"
 VERSIONFILE?=$(builddir)version.h
@@ -253,6 +255,8 @@ $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LIBRARY+=$($(s:%.c=%)_LIBRARY)) ))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LIBRARY+=$($(s:%.cpp=%)_LIBRARY)) ))
 
+$(foreach t,$(lib-y) $(modules-y),$(eval $(t)_LDFLAGS+=-Wl,-soname,lib$(t).so$(VERSION_MAJOR:%=.%)))
+
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CFLAGS+=$($(t)_CFLAGS-y)))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CXXFLAGS+=$($(t)_CXXFLAGS-y)))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_LDFLAGS+=$($(t)_LDFLAGS-y)))
@@ -360,7 +364,6 @@ bin-install:=$(addprefix $(DESTDIR)$(bindir:%/=%)/,$(addprefix $(program_prefix)
 sbin-install:=$(addprefix $(DESTDIR)$(sbindir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(sbin-y))))
 libexec-install:=$(addprefix $(DESTDIR)$(libexecdir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(libexec-y))))
 
-DEVINSTALL?=y
 install:=
 dev-install-y:=
 dev-install-$(DEVINSTALL)+=$(lib-static-install)
@@ -381,7 +384,7 @@ action:=_build
 build:=$(action) -f $(srcdir)$(makemore) file
 .DEFAULT_GOAL:=_entry
 .PHONY:_entry _build _install _clean _distclean _check _hostbuild
-_entry: _lib-storage-clean _configbuild _versionbuild default_action pc
+_entry: _lib-storage-clean _configbuild _versionbuild default_action
 
 _info:
 	@:
@@ -458,8 +461,6 @@ gcov: default_action ;
 default_action: _info
 	$(Q)$(MAKE) $(build)=$(file)
 	@:
-
-pc: $(pkgconfig-target) ;
 
 all: _configbuild _versionbuild default_action ;
 
@@ -549,7 +550,7 @@ quiet_cmd_ld_slib=LD $*
 	$(TARGETAR) -cvq $@ $^ > /dev/null && \
 	$(TARGETRANLIB) $@
 quiet_cmd_ld_dlib=LD $*
- cmd_ld_dlib=$(TARGETCC) $($*_LDFLAGS) $(LDFLAGS) $(SYSROOT_LDFLAGS) $(RPATHFLAGS) -Bdynamic -shared -Wl,-soname,$(strip $(notdir $@)) -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
+ cmd_ld_dlib=$(TARGETCC) $($*_LDFLAGS) $(LDFLAGS) $(SYSROOT_LDFLAGS) $(RPATHFLAGS) -Bdynamic -shared -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
 
 quiet_cmd_hostcc_o_c=HOSTCC $*
  cmd_hostcc_o_c=$(HOSTCC) $(HOSTCFLAGS) $($*_CFLAGS) -c -o $@ $<
