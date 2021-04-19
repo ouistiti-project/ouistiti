@@ -67,7 +67,7 @@ int ouistiti_initmodules(const char *pkglib)
 			const char *name = namelist[i]->d_name;
 			char path[PATH_MAX];
 			snprintf(path, PATH_MAX, "%s/%s", iterator, name);
-			if (access(path, X_OK) == -1)
+			if (access(path, R_OK) == -1)
 				continue;
 
 			void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);

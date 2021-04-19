@@ -141,6 +141,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-h \t\tshow this help and exit\n");
 	fprintf(stderr, "\t-V \t\treturn the version and exit\n");
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
+	fprintf(stderr, "\t-M <modules_path>\tset the path to modules\n");
 	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
 	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
 	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
