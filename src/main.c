@@ -55,7 +55,7 @@
 
 #include "ouistiti.h"
 
-#define PACKAGEVERSION PACKAGE "/" VERSION
+#define PACKAGEVERSION PACKAGE_NAME "/" PACKAGE_VERSION
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
 #include "mod_auth.h"
@@ -135,12 +135,13 @@ struct server_s
 
 void display_help(char * const *argv)
 {
-	fprintf(stderr, PACKAGE" "VERSION" build: "__DATE__" "__TIME__"\n");
+	fprintf(stderr, PACKAGE_NAME" "PACKAGE_VERSION" build: "__DATE__" "__TIME__"\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "%s [-h][-V][-f <configfile>]\n", argv[0]);
 	fprintf(stderr, "\t-h \t\tshow this help and exit\n");
 	fprintf(stderr, "\t-V \t\treturn the version and exit\n");
 	fprintf(stderr, "\t-f <configfile>\tset the configuration file path\n");
+	fprintf(stderr, "\t-M <modules_path>\tset the path to modules\n");
 	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
 	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
 	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
