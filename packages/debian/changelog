@@ -1,3 +1,13 @@
+ouistiti (3.1.0-1) unstable; urgency=low
+
+  * libhttpserver renamed libouistiti
+  * libwebsocket renamed libouibsocket
+  * -W to set the working directory
+  * expiration managed by authentication
+  * dirlisting on / URI
+  * remove double / in the URI
+
+ -- Marc Chalain <marc.chalain@gmail.com>  Thu, 11 Mar 2021 17:48:46 +0100
 ouistiti (3.0-1) stable; urgency=medium
 
   * authentication

@@ -6,7 +6,7 @@ SRCDIR := ..
 
 MAKE_OPTIONS := package=ouistiti
 CONFIG_FILE := fullforked_defconfig
-CONFIG_OPTIONS := prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n STATIC=n
+CONFIG_OPTIONS := prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n STATIC=n AUTHN_OAUTH2=n
 MAKE_OPTIONS := LIBHTTPSERVER_NAME=ouistiti
 %:
 	dh $@
@@ -23,6 +23,5 @@ override_dh_auto_install:
 	$(MAKE) -C $(SRCDIR) DESTDIR=$(DESTDIR) $(MAKE_OPTIONS) install
 
 override_dh_auto_clean:
-	$(MAKE) -C $(SRCDIR) clean
-
+	$(MAKE) -C $(SRCDIR) distclean
 
