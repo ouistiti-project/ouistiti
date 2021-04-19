@@ -91,14 +91,3 @@ USERFILTER=y
 CERTIFICATE=n
 
 HOST_UTILS=y
-
-prefix=/usr
-#bindir=
-#sbindir=
-#includedir=
-libdir=/usr/lib/ouistiti
-pkglibdir=/usr/lib/ouistiti
-sysconfdir=/etc/ouistiti
-
-#sysroot=
-#CROSS_COMPILER=
