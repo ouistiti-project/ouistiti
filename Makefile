@@ -20,13 +20,9 @@ libhttpserver_SITE_METHOD=git
 LIBHTTPSERVER_DIR?=libhttpserver
 export LIBHTTPSERVER_DIR
 
-ifneq ($(wildcard $(sysroot)$(includedir)/ouistiti/version.h),)
-LIBHTTPSERVER_NAME?=$(shell cat $(sysroot)$(includedir)/ouistiti/version.h | awk '/PACKAGE /{print $$3}')
-else
- ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
+ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
 LIBHTTPSERVER_NAME?=$(package)
 subdir-y+=$(LIBHTTPSERVER_DIR)
- endif
 
  ifeq ($(LIBHTTPSERVER_CFLAGS), )
 
@@ -56,7 +52,11 @@ LIBHTTPSERVER_CFLAGS+=-I$(srcdir)$(LIBHTTPSERVER_DIR)/include
 LIBHTTPSERVER_CFLAGS+=-I$(LIBHTTPSERVER_DIR)/include
   endif
  endif
-
+else
+ ifneq ($(wildcard $(sysroot)$(includedir)/ouistiti/version.h),)
+LIBHTTPSERVER_NAME?=$(shell cat $(sysroot)$(includedir)/ouistiti/version.h | awk '/PACKAGE /{print $$3}')
+HTTPCLIENT_FEATURES?=$(shell cat $(sysroot)$(includedir)/ouistiti/config.h | awk '/HTTPCLIENT_FEATURES /{print $$3}')
+ endif
 endif
 ifeq ($(LIBHTTPSERVER_NAME), )
 $(warning libouistiti not found $(LIBHTTPSERVER_NAME))
@@ -66,7 +66,7 @@ export LIBHTTPSERVER_NAME
 export LIBHTTPSERVER_LDFLAGS
 export LIBHTTPSERVER_CFLAGS
 
-ifeq ($(HTTPCLIENT_FEATURES),y)
+ifneq ($(HTTPCLIENT_FEATURES),y)
 override AUTHN_OAUTH2:=n
 endif
 
