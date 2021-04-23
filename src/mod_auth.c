@@ -119,10 +119,10 @@ const char str_authenticate[] = "WWW-Authenticate";
 const char str_authorization[] = "Authorization";
 const char str_anonymous[] = "anonymous";
 
-static const char *str_xtoken = "X-Auth-Token";
-static const char *str_xuser = "X-Remote-User";
-static const char *str_xgroup = "X-Remote-Group";
-static const char *str_xhome = "X-Remote-Home";
+static const char str_xtoken[] = "X-Auth-Token";
+static const char str_xuser[] = "X-Remote-User";
+static const char str_xgroup[] = "X-Remote-Group";
+static const char str_xhome[] = "X-Remote-Home";
 
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE
@@ -768,7 +768,7 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 		authorization = httpmessage_REQUEST(request, str_xtoken);
 		if (authorization != NULL && authorization[0] != '\0')
 		{
-			auth_dbg("token from cookie");
+			auth_dbg("token from headers");
 			return authorization;
 		}
 	}
