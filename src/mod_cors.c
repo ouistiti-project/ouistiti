@@ -114,7 +114,7 @@ static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *UN
 	 * Methods must be set here, because other modules may append new methods to the server.
 	 */
 	mod->methods = httpserver_INFO(httpclient_server(clt), "methods");
-	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
+	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_FILTER, str_cors);
 
 	return mod;
 }
