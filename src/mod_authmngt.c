@@ -327,14 +327,11 @@ static int _authmngt_parsepasswd(const char *query, authsession_t *session)
 	const char *passwd = strstr(query, "passwd=");
 	if (passwd != NULL)
 	{
-		size_t length = TOKEN_MAX;
 		passwd += 7;
 		char *decode = utils_urldecode(passwd, -1);
 		if (decode != NULL)
 		{
-			length = strlen(decode);
-			length = (length > TOKEN_MAX)? TOKEN_MAX : length;
-			strncpy(session->passwd, decode, length);
+			strncpy(session->passwd, decode, TOKEN_MAX);
 			free(decode);
 		}
 		ret = ESUCCESS;
@@ -371,13 +368,10 @@ static int _authmngt_parsesession(_mod_authmngt_t *mod, const char *user, http_m
 	}
 	if (user != NULL)
 	{
-		size_t length = USER_MAX;
 		char *decode = utils_urldecode(user, -1);
 		if (decode != NULL)
 		{
-			length = strlen(decode);
-			length = (length > USER_MAX)? USER_MAX : length;
-			strncpy(session->user, decode, length);
+			strncpy(session->user, decode, USER_MAX);
 			free(decode);
 		}
 	}
