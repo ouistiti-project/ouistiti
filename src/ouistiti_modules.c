@@ -61,13 +61,14 @@ int ouistiti_initmodules(const char *pkglib)
 	char *iterator = strtok_r(cwd, ":", &it_r);
 	while (iterator != NULL)
 	{
+		warn("Look for modules into %s", iterator);
 		ret = scandir(iterator, &namelist, &modulefilter, alphasort);
 		for (i = 0; i < ret; i++)
 		{
 			const char *name = namelist[i]->d_name;
 			char path[PATH_MAX];
 			snprintf(path, PATH_MAX, "%s/%s", iterator, name);
-			if (access(path, R_OK) == -1)
+			if (strstr(name, ".so") == NULL)
 				continue;
 
 			void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
