@@ -78,23 +78,23 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 		httpmessage_addheader(response, "Access-Control-Allow-Origin", origin);
 		const char *method;
 		method = httpmessage_REQUEST(request, "method");
+		const char *methods = method;
+		if (mod->methods && mod->methods[0] != '\0')
+			methods = mod->methods;
+		const char *ac_request;
+		ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
+		if (ac_request && ac_request[0] != '\0')
+		{
+			httpmessage_addheader(response, "Access-Control-Allow-Methods", methods);
+		}
+		ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
+		if (ac_request && ac_request[0] != '\0')
+		{
+			httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request);
+		}
+		httpmessage_addheader(response, "Access-Control-Allow-Credentials", "true");
 		if (!strcmp(method, str_options))
 		{
-			const char *methods = method;
-			if (mod->methods && mod->methods[0] != '\0')
-				methods = mod->methods;
-			const char *ac_request;
-			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
-			if (ac_request && ac_request[0] != '\0')
-			{
-				httpmessage_addheader(response, "Access-Control-Allow-Methods", methods);
-			}
-			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
-			if (ac_request && ac_request[0] != '\0')
-			{
-				httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request);
-			}
-			httpmessage_addheader(response, "Access-Control-Allow-Credentials", "true");
 			ret = ESUCCESS;
 		}
 	}
