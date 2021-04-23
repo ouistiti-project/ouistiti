@@ -75,7 +75,7 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	const char *origin = httpmessage_REQUEST(request, "Origin");
 	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
 	{
-		httpmessage_addheader(response, "Access-Control-Allow-Origin", mod->config->origin);
+		httpmessage_addheader(response, "Access-Control-Allow-Origin", origin);
 		const char *method;
 		method = httpmessage_REQUEST(request, "method");
 		if (!strcmp(method, str_options))
