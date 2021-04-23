@@ -1231,12 +1231,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 		{
 			const char *string = authorization;
-			int fieldnamelen = strlen(str_xtoken);
-			if (!strncmp(string, str_xtoken, fieldnamelen))
+			while (ret == ECONTINUE && string != NULL)
 			{
-				string += fieldnamelen + 1; // +1 for the tailing '='
+				ret = authn_checktoken( ctx, string);
+				string = strstr(string + 1, str_xtoken);
 			}
-			ret = authn_checktoken( ctx, string);
 		}
 	}
 #endif
