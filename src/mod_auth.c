@@ -984,6 +984,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		else if (mod->authz->rules->join)
 			mod->authz->rules->join(mod->authz->ctx, info->user, token, mod->config->expire);
 		free(token);
+		httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xtoken);
 	}
 	else
 #endif
@@ -992,10 +993,16 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		httpmessage_addheader(response, str_authorization, authorization);
 	}
 	httpmessage_addheader(response, str_xuser, info->user);
+	httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xuser);
 	if (info->group[0] != '\0')
+	{
 		httpmessage_addheader(response, str_xgroup, info->group);
+		httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xgroup);
+	}
 	if (info->home[0] != '\0')
+	{
 		httpmessage_addheader(response, str_xhome, "~/");
+	}
 	return ESUCCESS;
 }
 
