@@ -816,13 +816,23 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 
 	const char *string = token;
 	const char *user = NULL;
+	if (!strncmp(string, str_xtoken, sizeof(str_xtoken) - 1))
+	{
+		string += sizeof(str_xtoken) - 1 + 1; // +1 for the tailing '='
+	}
 	const char *data = string;
 	const char *sign = strrchr(string, '.');
 	if (sign != NULL)
 	{
+		size_t signlen = 0;
+		const char *end = strchr(sign, ';');
+		if (end != NULL)
+			signlen = end - sign - 1;
+		else
+			signlen = strlen(sign);
 		size_t datalen = sign - data;
 		sign++;
-		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, signlen) == ESUCCESS)
 		{
 			ctx->info = calloc(1, sizeof(*ctx->info));
 			strncpy(ctx->info->type, str_xtoken, FIELD_MAX);
