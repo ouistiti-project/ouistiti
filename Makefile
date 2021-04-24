@@ -56,10 +56,8 @@ else
  ifneq ($(wildcard $(sysroot)$(includedir)/ouistiti/version.h),)
 LIBHTTPSERVER_NAME?=$(shell cat $(sysroot)$(includedir)/ouistiti/version.h | awk '/PACKAGE /{print $$3}')
 HTTPCLIENT_FEATURES?=$(shell cat $(sysroot)$(includedir)/ouistiti/config.h | awk '/HTTPCLIENT_FEATURES /{print $$3}')
+else
  endif
-endif
-ifeq ($(LIBHTTPSERVER_NAME), )
-$(warning libouistiti not found $(LIBHTTPSERVER_NAME))
 endif
 LIBHTTPSERVER_NAME:=$(LIBHTTPSERVER_NAME:lib%=%)
 export LIBHTTPSERVER_NAME

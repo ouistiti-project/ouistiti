@@ -5,7 +5,7 @@ ouistiti_ws_SOURCES+=websocket.c utils.c
 ouistiti_ws_LIBS+=dl
 ouistiti_ws_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 ouistiti_ws_CFLAGS-$(DEBUG)+=-g -DDEBUG
-ouistiti_ws_LIBS+=websocket
+ouistiti_ws_LIBS+=ouibsocket
 ouistiti_ws_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 
 ifneq ($(USE_PTHREAD),y)
@@ -20,7 +20,7 @@ bin-$(WS_ECHO)+=websocket_echo
 websocket_echo_INSTALL:=libexec
 websocket_echo_SOURCES+=$(WS_SRC)echo.c
 websocket_echo_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
-websocket_echo_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket c
+websocket_echo_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket c
 websocket_echo_LIBS-$(USE_PTHREAD)+=pthread
 
 websocket_echo_CFLAGS-$(DEBUG)+=-g -DDEBUG
@@ -30,7 +30,7 @@ websocket_gps_INSTALL:=libexec
 websocket_gps_SOURCES+=$(WS_SRC)nmea.c
 websocket_gps_CFLAGS+=-DPTHREAD
 websocket_gps_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
-websocket_gps_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket
+websocket_gps_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket
 websocket_gps_LIBS+=pthread nmea
 
 websocket_gps_CFLAGS-$(DEBUG)+=-g -DDEBUG
@@ -39,7 +39,7 @@ bin-$(WS_CHAT)+=websocket_chat
 websocket_chat_INSTALL:=libexec
 websocket_chat_SOURCES+=$(WS_SRC)chat.c
 websocket_chat_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
-websocket_chat_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket
+websocket_chat_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket
 
 websocket_chat_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
@@ -56,7 +56,7 @@ websocket_jsonrpc_INSTALL:=libexec
 websocket_jsonrpc_SOURCES+=$(WS_SRC)jsonrpc.c
 websocket_jsonrpc_SOURCES+=jsonrpc/jsonrpc.c
 websocket_jsonrpc_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
-websocket_jsonrpc_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket c
+websocket_jsonrpc_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket c
 websocket_jsonrpc_LIBS+=jansson
 websocket_jsonrpc_LIBS+=dl
 websocket_jsonrpc_LIBS-$(USE_PTHREAD)+=pthread
@@ -82,7 +82,7 @@ websocket_authrpc_INSTALL:=libexec
 websocket_authrpc_SOURCES+=$(WS_SRC)jsonrpc.c
 websocket_authrpc_SOURCES+=jsonrpc/jsonrpc.c
 websocket_authrpc_SOURCES+=$(WS_SRC)authrpc.c
-websocket_authrpc_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket c
+websocket_authrpc_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket c
 websocket_authrpc_LIBS+=jansson
 websocket_authrpc_LIBRARY+=sqlite3
 websocket_authrpc_LIBS+=ouihash
@@ -100,6 +100,6 @@ websocket_syslogd_INSTALL:=libexec
 websocket_syslogd_SOURCES+=$(WS_SRC)syslogd.c
 websocket_syslogd_CFLAGS-$(WEBSOCKET_RT)+=-DPTHREAD
 websocket_syslogd_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
-websocket_syslogd_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws websocket c pthread
+websocket_syslogd_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket c pthread
 
 websocket_syslogd_CFLAGS-$(DEBUG)+=-g -DDEBUG

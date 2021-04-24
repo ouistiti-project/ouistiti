@@ -73,11 +73,7 @@ $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
 $(TARGET)_LIBRARY-$(TINYSVCMDNS)+=tinysvcmdns
 
 endif
-ifneq ($(wildcard $(sysroot)$(libdir)/libouibsocket.so),)
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouibsocket
-else
-$(TARGET)_LIBS-$(WEBSOCKET)+=websocket
-endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouihash
 $(TARGET)_LIBS-$(AUTH)+=ouihash
 
