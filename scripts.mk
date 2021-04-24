@@ -5,7 +5,7 @@ export makemore
 file?=$(notdir $(firstword $(MAKEFILE_LIST)))
 inside_makemore:=yes
 
-VERSION_MAJOR=$(firstword $(subst ., ,$(version)))
+version_m=$(firstword $(subst ., ,$(version)))
 export package
 export version
 
@@ -95,6 +95,7 @@ TESTFILE:=makemore_test
 AWK?=awk
 GREP?=grep
 RM?=rm -f
+LN?=ln -f -s
 INSTALL?=install
 INSTALL_PROGRAM?=$(INSTALL) -D
 INSTALL_DATA?=$(INSTALL) -m 644 -D
@@ -188,6 +189,10 @@ datadir?=$(prefix)/share/$(package:"%"=%)
 pkgdatadir?=$(datadir)
 pkglibdir?=$(libdir)/$(package:"%"=%)
 PATHES=prefix exec_prefix library_prefix bindir sbindir libexecdir libdir sysconfdir includedir datadir pkgdatadir pkglibdir
+ifeq ($(destdir),)
+destdir:=$(abspath $(DESTDIR))
+export destdir
+endif
 
 #CFLAGS+=$(foreach macro,$(DIRECTORIES_LIST),-D$(macro)=\"$($(macro))\")
 LIBRARY+=
@@ -199,22 +204,22 @@ GCOV_LIBS:=gcov
 
 ifneq ($(strip $(includedir)),)
 SYSROOT_CFLAGS+=-I$(TARGETPATHPREFIX)$(strip $(includedir))
-ifneq ($(DESTDIR),)
-SYSROOT_CFLAGS+=-I$(DESTDIR)$(strip $(includedir))
+ifneq ($(destdir),)
+SYSROOT_CFLAGS+=-I$(destdir)$(strip $(includedir))
 endif
 endif
 ifneq ($(strip $(libdir)),)
 RPATHFLAGS+=-Wl,-rpath,$(strip $(libdir))
 SYSROOT_LDFLAGS+=-L$(TARGETPATHPREFIX)$(strip $(libdir))
-ifneq ($(DESTDIR),)
-SYSROOT_LDFLAGS+=-L$(DESTDIR)$(strip $(libdir))
+ifneq ($(destdir),)
+SYSROOT_LDFLAGS+=-L$(destdir)$(strip $(libdir))
 endif
 endif
 ifneq ($(strip $(pkglibdir)),)
 RPATHFLAGS+=-Wl,-rpath,$(strip $(pkglibdir))
 SYSROOT_LDFLAGS+=-L$(TARGETPATHPREFIX)$(strip $(pkglibdir))
-ifneq ($(DESTDIR),)
-SYSROOT_LDFLAGS+=-L$(DESTDIR)$(strip $(pkglibdir))
+ifneq ($(destdir),)
+SYSROOT_LDFLAGS+=-L$(destdir)$(strip $(pkglibdir))
 endif
 endif
 
@@ -255,7 +260,7 @@ $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LIBRARY+=$($(s:%.c=%)_LIBRARY)) ))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(t)_LIBRARY+=$($(s:%.cpp=%)_LIBRARY)) ))
 
-$(foreach t,$(lib-y) $(modules-y),$(eval $(t)_LDFLAGS+=-Wl,-soname,lib$(t).so$(VERSION_MAJOR:%=.%)))
+$(foreach t,$(lib-y) $(modules-y),$(eval $(t)_LDFLAGS+=-Wl,-soname,lib$(t).so$(version_m:%=.%)))
 
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CFLAGS+=$($(t)_CFLAGS-y)))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CXXFLAGS+=$($(t)_CXXFLAGS-y)))
@@ -276,7 +281,7 @@ CFLAGS+=-O2
 endif
 gcov-target:=$(target-objs:%.o=%.gcov)
 
-pkgconfig-y:=$(if $(package), $(package:%=%.pc))
+pkgconfig-y:=$(if $(package),$(package:%=%.pc))
 pkgconfig-target:=$(if $(pkgconfig-y), $(if $(package), $(join $(builddir),$(pkgconfig-y))))
 $(foreach t,$(slib-y) $(lib-y),$(eval include-y+=$($(t)_HEADERS)))
 
@@ -345,29 +350,31 @@ targets+=$(lib-static-target)
 targets+=$(bin-target)
 
 ifneq ($(CROSS_COMPILE),)
-DESTDIR?=$(sysroot:"%"=%)
+destdir?=$(sysroot:"%"=%)
 endif
 ##
 # install recipes generation
 ##
-sysconf-install:=$(addprefix $(DESTDIR)$(sysconfdir:%/=%)/,$(sysconf-y))
-data-install:=$(addprefix $(DESTDIR)$(datadir:%/=%)/,$(data-y))
-include-install:=$(addprefix $(DESTDIR)$(includedir:%/=%)/,$(include-y))
-lib-static-install:=$(addprefix $(DESTDIR)$(libdir:%/=%)/,$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(slib-y))))
-lib-dynamic-install:=$(addprefix $(DESTDIR)$(libdir:%/=%)/,$(addsuffix $(version:%=.%),$(addsuffix $(dlib-ext:%=.%),$(addprefix lib,$(lib-y)))))
-modules-install:=$(addprefix $(DESTDIR)$(pkglibdir:%/=%)/,$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
-pkgconfig-install:=$(addprefix $(DESTDIR)$(libdir:%/=%)/pkgconfig/,$(pkgconfig-y))
+sysconf-install:=$(addprefix $(destdir)$(sysconfdir:%/=%)/,$(sysconf-y))
+data-install:=$(addprefix $(destdir)$(datadir:%/=%)/,$(data-y))
+include-install:=$(addprefix $(destdir)$(includedir:%/=%)/,$(include-y))
+lib-static-install:=$(addprefix $(destdir)$(libdir:%/=%)/,$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(slib-y))))
+lib-dynamic-install:=$(addprefix $(destdir)$(libdir:%/=%)/,$(addsuffix $(version:%=.%),$(addsuffix $(dlib-ext:%=.%),$(addprefix lib,$(lib-y)))))
+lib-link-install:=$(addprefix $(destdir)$(libdir:%/=%)/,$(addsuffix $(version_m:%=.%),$(addsuffix $(dlib-ext:%=.%),$(addprefix lib,$(lib-y)))))
+modules-install:=$(addprefix $(destdir)$(pkglibdir:%/=%)/,$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
+pkgconfig-install:=$(addprefix $(destdir)$(libdir:%/=%)/pkgconfig/,$(pkgconfig-y))
 
 $(foreach t,$(bin-y),$(if $(findstring libexec,$($(t)_INSTALL)),$(eval libexec-y+=$(t))))
 $(foreach t,$(bin-y),$(if $(findstring sbin,$($(t)_INSTALL)),$(eval sbin-y+=$(t))))
-bin-install:=$(addprefix $(DESTDIR)$(bindir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(filter-out $(libexec-y) $(sbin-y),$(bin-y)))))
-sbin-install:=$(addprefix $(DESTDIR)$(sbindir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(sbin-y))))
-libexec-install:=$(addprefix $(DESTDIR)$(libexecdir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(libexec-y))))
+bin-install:=$(addprefix $(destdir)$(bindir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(filter-out $(libexec-y) $(sbin-y),$(bin-y)))))
+sbin-install:=$(addprefix $(destdir)$(sbindir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(sbin-y))))
+libexec-install:=$(addprefix $(destdir)$(libexecdir:%/=%)/,$(addprefix $(program_prefix),$(addsuffix $(bin-ext:%=.%),$(libexec-y))))
 
 install:=
 dev-install-y:=
 dev-install-$(DEVINSTALL)+=$(lib-static-install)
 install+=$(lib-dynamic-install)
+install+=$(lib-link-install)
 install+=$(modules-install)
 install+=$(data-install)
 install+=$(sysconf-install)
@@ -375,7 +382,7 @@ dev-install-$(DEVINSTALL)+=$(include-install)
 install+=$(bin-install)
 install+=$(sbin-install)
 install+=$(libexec-install)
-dev-install-$(DEVINSTALL)+=$(pkgconfig-install)
+#dev-install-$(DEVINSTALL)+=$(pkgconfig-install)
 
 ##
 # main entries
@@ -384,7 +391,7 @@ action:=_build
 build:=$(action) -f $(srcdir)$(makemore) file
 .DEFAULT_GOAL:=_entry
 .PHONY:_entry _build _install _clean _distclean _check _hostbuild
-_entry: _lib-storage-clean _configbuild _versionbuild default_action
+_entry: _configbuild _versionbuild default_action
 
 _info:
 	@:
@@ -402,7 +409,7 @@ _gcov: _info $(subdir-target) $(gcov-target)
 _configbuild: $(obj) $(if $(wildcard $(CONFIG)),$(CONFIGFILE))
 _versionbuild: $(if $(package) $(version), $(VERSIONFILE))
 
-_build: _info $(download-target) $(gitclone-target) $(objdir) $(subdir-project) $(subdir-target) $(data-y) $(targets) _lib-storage
+_build: _info $(download-target) $(gitclone-target) $(objdir) $(subdir-project) $(subdir-target) $(data-y) $(targets)
 	@:
 
 _install: action:=_install
@@ -663,55 +670,56 @@ define cmd_install_bin
 endef
 quiet_cmd_install_link=INSTALL $*
 define cmd_install_link
-	$(LN) -t $(dirname $@) $(basename $<) $(basename $@)
+$(LN) $(subst $(destdir),,$(subst .$(version_m),,$@))$(version:%=.%) $@
 endef
 
 ##
 # install rules
 ##
-$(foreach dir, includedir datadir sysconfdir libdir bindir sbindir ,$(DESTDIR)$($(dir))/):
+$(foreach dir, includedir datadir sysconfdir libdir bindir sbindir ,$(destdir)$($(dir))/):
 	$(Q)mkdir -p $@
 
-$(include-install): $(DESTDIR)$(includedir:%/=%)/%: %
+$(include-install): $(destdir)$(includedir:%/=%)/%: %
 	@$(call cmd,install_data)
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(includedir) && rm -f $(a) && ln -s $(includedir:%/=%)/$* $(a)))
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s $(includedir:%/=%)/$* $(a)))
 
-$(sysconf-install): $(DESTDIR)$(sysconfdir:%/=%)/%: %
+$(sysconf-install): $(destdir)$(sysconfdir:%/=%)/%: %
 	@$(call cmd,install_data)
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(sysconfdir) && rm -f $(a) && ln -s $(sysconfdir:%/=%)/$* $(a)))
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s $(sysconfdir:%/=%)/$* $(a)))
 
-$(data-install): $(DESTDIR)$(datadir:%/=%)/%: %
+$(data-install): $(destdir)$(datadir:%/=%)/%: %
 	@$(call cmd,install_data)
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(datadir) && rm -f $(a) && ln -s $(datadir:%/=%)/$* $(a)))
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s $(datadir:%/=%)/$* $(a)))
 
-$(lib-static-install): $(DESTDIR)$(libdir:%/=%)/lib%$(slib-ext:%=.%): $(obj)lib%$(slib-ext:%=.%)
+$(lib-static-install): $(destdir)$(libdir:%/=%)/lib%$(slib-ext:%=.%): $(obj)lib%$(slib-ext:%=.%)
 	@$(call cmd,install_bin)
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(libdir) && rm -f $(a) && ln -s (libdir:%/=%)/lib$*$(slib-ext:%=.%) $(a)))
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s (libdir:%/=%)/lib$*$(slib-ext:%=.%) $(a)))
 
-$(lib-dynamic-install): $(DESTDIR)$(libdir:%/=%)/lib%$(dlib-ext:%=.%)$(version:%=.%): $(DESTDIR)$(libdir)/
-$(lib-dynamic-install): $(DESTDIR)$(libdir:%/=%)/lib%$(dlib-ext:%=.%)$(version:%=.%): $(obj)lib%$(dlib-ext:%=.%)
-	@$(call cmd,install_bin)
-	@$(if $(version),$(shell cd $(DESTDIR)$(libdir) && rm -f lib$*$(dlib-ext:%=.%) && ln -s lib$*$(dlib-ext:%=.%)$(version:%=.%) lib$*$(dlib-ext:%=.%)))
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(libdir) && rm -f $(a) && ln -s $(libdir:%/=%)/lib$*$(dlib-ext:%=.%) $(a)))
+$(lib-link-install):
+	@$(call cmd,install_link)
 
-$(modules-install): $(DESTDIR)$(pkglibdir:%/=%)/%$(dlib-ext:%=.%): $(obj)%$(dlib-ext:%=.%)
+$(lib-dynamic-install): $(destdir)$(libdir:%/=%)/lib%$(dlib-ext:%=.%)$(version:%=.%): $(obj)lib%$(dlib-ext:%=.%)
 	@$(call cmd,install_bin)
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(pkglibdir) && rm -f $(a) && ln -s $(pkglibdir:%/=%)/$*$(dlib-ext:%=.%) $(a)))
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s $(libdir:%/=%)/lib$*$(dlib-ext:%=.%) $(a)))
 
-$(bin-install): $(DESTDIR)$(bindir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
+$(modules-install): $(destdir)$(pkglibdir:%/=%)/%$(dlib-ext:%=.%): $(obj)%$(dlib-ext:%=.%)
 	@$(call cmd,install_bin)
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(bindir) && rm -f $(a) && ln -s $(bindir:%/=%)/$*$(bin-ext:%=.%) $(a)))
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s $(pkglibdir:%/=%)/$*$(dlib-ext:%=.%) $(a)))
 
-$(sbin-install): $(DESTDIR)$(sbindir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
+$(bin-install): $(destdir)$(bindir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(sbindir) && rm -f $(a) && ln -s $(sbindir:%/=%)/$*$(bin-ext:%=.%) $(a)))
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s $(bindir:%/=%)/$*$(bin-ext:%=.%) $(a)))
 
-$(libexec-install): $(DESTDIR)$(libexecdir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
+$(sbin-install): $(destdir)$(sbindir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
-	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(DESTDIR)$(libexecdir) && rm -f $(a) && ln -s $(libexecdir:%/=%)/$*$(bin-ext:%=.%) $(a)))
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s $(sbindir:%/=%)/$*$(bin-ext:%=.%) $(a)))
 
-$(pkgconfig-install): $(DESTDIR)$(libdir:%/=%)/pkgconfig/%.pc: $(builddir)%.pc
+$(libexec-install): $(destdir)$(libexecdir:%/=%)/%$(bin-ext:%=.%): $(obj)%$(bin-ext:%=.%)
 	@$(call cmd,install_bin)
+	@$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(shell cd $(dir $@) && $(RM) $(a) && ln -s $(libexecdir:%/=%)/$*$(bin-ext:%=.%) $(a)))
+
+$(pkgconfig-install): $(destdir)$(libdir:%/=%)/pkgconfig/%.pc: $(builddir)%.pc
+	@$(call cmd,install_data)
 ##
 # Commands for download
 ##
