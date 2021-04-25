@@ -91,7 +91,6 @@ start () {
 	TARGET=$1
 	CONFIG=$2
 
-	export LD_LIBRARY_PATH=./libhttpserver/src:./libhttpserver/src/httpserver
 	export OUISTITI_MODULES_PATH=./src:./staging
 	ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
@@ -266,6 +265,7 @@ test () {
 	fi
 }
 
+stop ouistiti
 for TEST in ${TESTS}
 do
 	test $TEST
