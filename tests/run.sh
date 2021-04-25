@@ -66,8 +66,9 @@ WGET=wget
 USER=$(ls -l $0 | ${AWK} '{print $3}')
 TESTCLIENT="./host/utils/testclient"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/:$TESTDIR../utils/
+LD_PRELOAD=libouistiti.so:libwebsocket.so:libouihash.so:libouiutils.so
 
-export LD_LIBRARY_PATH
+export LD_LIBRARY_PATH LD_PRELOAD
 
 if [ -z "$INFO" ]; then
 CURLOUT="-o /dev/null"
