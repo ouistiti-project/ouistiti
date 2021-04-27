@@ -100,8 +100,12 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	}
 	else if ((origin && origin[0] != '\0') || httpmessage_isprotected(request))
 	{
-		httpmessage_result(response, 405);
-		ret = ESUCCESS;
+		const char *host = httpmessage_REQUEST(request, "Host");
+		if (strstr(host, origin) == NULL)
+		{
+			httpmessage_result(response, 405);
+			ret = ESUCCESS;
+		}
 	}
 	return ret;
 }
