@@ -6,7 +6,7 @@ SED=sed
 MAKE=make
 DEFCONFIG=defconfig
 CONFIG=.config
-CONFIGURE_STATUS=.config.cache
+CONFIGURE_STATUS=.pathcache
 out=$CONFIGURE_STATUS
 
 srcdir=$(dirname $(readlink -f $0))/
@@ -51,9 +51,9 @@ function help {
 	printf "\nFeatures:\n"
 	for option in $OPTIONS
 	do
-		default=$(echo $option | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print $2}')
+		default=$(echo $option | ${SED} -e 's/_/-/g' -e 's/=/ /g' -e 's/:.*)/)/' | ${AWK} '{print $2}')
 		if [ "$default" != "y" -a  "$default" != "n" ]; then
-			with=$(echo $option | ${SED} 's/_/-/g' | ${SED} 's/=/ /g' | ${AWK} '{print "--with-"tolower($1)}')
+			with=$(echo $option | ${SED} -e 's/_/-/g' -e 's/=/ /g' | ${AWK} '{print "--with-"tolower($1)}')
 			printf "\t$with=<value>\tdefault:$default\n"
 		fi
 	done
@@ -258,7 +258,7 @@ if [ -n "$OPTIONS" ]; then
 	for option in $OPTIONS
 	do
 		name=$(echo ${option} | ${AWK} -F= '{print $1}')
-		value=$(echo ${option} | ${AWK} -F= '{print $2}')
+		value=$(echo ${option} | ${SED} "s/$name*=//")
 		found=$(echo $ENABLEOPTIONS | grep -w $name)
 		if [ x"$found" != x"" ]; then
 			value=y
@@ -271,7 +271,7 @@ if [ -n "$OPTIONS" ]; then
 		if [ x"$found" != x"" ]; then
 			value=${!name}
 		fi
-		printf "  $name:\t$value\n"
+		printf "  $name:\t$value\n" 2> /dev/null
 		echo $name=$value >> ${builddir}${CONFIG}
 	done
 else
@@ -295,7 +295,7 @@ fi
 
 printf "\nDependencies checking:\n"
 if [ "$check" != "disable" ]; then
-	${MAKE} BUILDDIR=${builddir} -C${srcdir} check 2> /dev/null
+	${MAKE} --no-print-directory BUILDDIR=${builddir} -C${srcdir} check
 	if [ $? != 0 ]; then
 		echo "binary dependencies failed"
 		exit -1

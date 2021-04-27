@@ -36,8 +36,8 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
 #include "mod_tls.h"
 
 #define tls_dbg(...)

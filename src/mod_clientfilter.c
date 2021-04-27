@@ -39,8 +39,8 @@
 #endif
 
 #include "../compliant.h"
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 #include "mod_clientfilter.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -63,9 +63,6 @@ struct _mod_clientfilter_s
 	mod_clientfilter_t	*config;
 	http_client_t *ctl;
 };
-
-static const char *str_wilcard = "*";
-static const char *str_empty = "";
 
 #ifdef FILE_CONFIG
 static void *mod_clientfilter_config(config_setting_t *iterator, server_t *server)

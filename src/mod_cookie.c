@@ -37,19 +37,13 @@
 #include <stdarg.h>
 #endif
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
 #include "mod_cookie.h"
 
 typedef struct _mod_cookie_ctx_s _mod_cookie_ctx_t;
 typedef struct _mod_cookie_s _mod_cookie_t;
 
-static void *_mod_cookie_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
-static void _mod_cookie_freectx(void *vctx);
-static int _cookie_connector(void **arg, http_message_t *request, http_message_t *response);
-
-static const char str_cookie[] = "Cookie";
-static const char str_Cookie[] = "Cookie";
 static const char str_SetCookie[] = "Set-Cookie";
 
 struct _mod_cookie_ctx_s

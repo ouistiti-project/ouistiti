@@ -44,10 +44,10 @@
 #include <pwd.h>
 #include <time.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/hash.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/hash.h"
+#include "ouistiti/log.h"
 #include "mod_auth.h"
 #include "authn_none.h"
 #ifdef AUTHN_BASIC
@@ -119,10 +119,10 @@ const char str_authenticate[] = "WWW-Authenticate";
 const char str_authorization[] = "Authorization";
 const char str_anonymous[] = "anonymous";
 
-static const char *str_xtoken = "X-Auth-Token";
-static const char *str_xuser = "X-Remote-User";
-static const char *str_xgroup = "X-Remote-Group";
-static const char *str_xhome = "X-Remote-Home";
+static const char str_xtoken[] = "X-Auth-Token";
+static const char str_xuser[] = "X-Remote-User";
+static const char str_xgroup[] = "X-Remote-Group";
+static const char str_xhome[] = "X-Remote-Home";
 
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE
@@ -768,7 +768,7 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 		authorization = httpmessage_REQUEST(request, str_xtoken);
 		if (authorization != NULL && authorization[0] != '\0')
 		{
-			auth_dbg("token from cookie");
+			auth_dbg("token from headers");
 			return authorization;
 		}
 	}
@@ -816,13 +816,23 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 
 	const char *string = token;
 	const char *user = NULL;
+	if (!strncmp(string, str_xtoken, sizeof(str_xtoken) - 1))
+	{
+		string += sizeof(str_xtoken) - 1 + 1; // +1 for the tailing '='
+	}
 	const char *data = string;
 	const char *sign = strrchr(string, '.');
 	if (sign != NULL)
 	{
+		size_t signlen = 0;
+		const char *end = strchr(sign, ';');
+		if (end != NULL)
+			signlen = end - sign - 1;
+		else
+			signlen = strlen(sign);
 		size_t datalen = sign - data;
 		sign++;
-		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, signlen) == ESUCCESS)
 		{
 			ctx->info = calloc(1, sizeof(*ctx->info));
 			strncpy(ctx->info->type, str_xtoken, FIELD_MAX);
@@ -837,19 +847,28 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			if (jwt_decode(string, ctx->info) == ESUCCESS)
 			{
 				auth_dbg("auth: jwt user %s", ctx->info->user);
+				ret = EREJECT;
 			}
 			else
 #endif
 			if (user != NULL)
 			{
 				mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
+#ifndef DEBUG
+				time_t now = time(NULL);
+				if (mod->config->expire > 0 &&
+					ctx->info->expires > now &&
+					(ctx->info->expires + mod->config->expire) < now)
+					ret = EREJECT;
+#else
+				ret = EREJECT;
+#endif
 			}
 
 			if (ctx->info->token[0] == '\0')
 			{
 				strncpy(ctx->info->token, sign, TOKEN_MAX);
 			}
-			ret = EREJECT;
 		}
 		else
 		{
@@ -965,6 +984,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		else if (mod->authz->rules->join)
 			mod->authz->rules->join(mod->authz->ctx, info->user, token, mod->config->expire);
 		free(token);
+		httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xtoken);
 	}
 	else
 #endif
@@ -973,10 +993,16 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		httpmessage_addheader(response, str_authorization, authorization);
 	}
 	httpmessage_addheader(response, str_xuser, info->user);
+	httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xuser);
 	if (info->group[0] != '\0')
+	{
 		httpmessage_addheader(response, str_xgroup, info->group);
+		httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xgroup);
+	}
 	if (info->home[0] != '\0')
+	{
 		httpmessage_addheader(response, str_xhome, "~/");
+	}
 	return ESUCCESS;
 }
 
@@ -1013,6 +1039,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 		{
 			ctx->info = calloc(1, sizeof(*ctx->info));
 			ctx->info->expires = mod->config->expire * 60;
+			ctx->info->expires += time(NULL);
 			mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
 			strncpy(ctx->info->type, mod->type, FIELD_MAX);
 			ctx->authorization = strdup(authorization);
@@ -1211,12 +1238,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 		{
 			const char *string = authorization;
-			int fieldnamelen = strlen(str_xtoken);
-			if (!strncmp(string, str_xtoken, fieldnamelen))
+			while (ret == ECONTINUE && string != NULL)
 			{
-				string += fieldnamelen + 1; // +1 for the tailing '='
+				ret = authn_checktoken( ctx, string);
+				string = strstr(string + 1, str_xtoken);
 			}
-			ret = authn_checktoken( ctx, string);
 		}
 	}
 #endif
@@ -1249,7 +1275,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					response);
 		}
 
-		if (mod->authz->type & AUTHZ_CHOWN_E)
+		if (ctx->info && mod->authz->type & AUTHZ_CHOWN_E)
 		{
 			auth_setowner(ctx->info->user);
 		}

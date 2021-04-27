@@ -39,9 +39,9 @@
 #include <errno.h>
 #include <sqlite3.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/hash.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/hash.h"
+#include "ouistiti/log.h"
 #include "mod_auth.h"
 #include "authz_sqlite.h"
 

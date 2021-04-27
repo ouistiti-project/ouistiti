@@ -45,9 +45,9 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_cors.h"
 
 extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);
@@ -75,33 +75,37 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	const char *origin = httpmessage_REQUEST(request, "Origin");
 	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
 	{
-		httpmessage_addheader(response, "Access-Control-Allow-Origin", mod->config->origin);
+		httpmessage_addheader(response, "Access-Control-Allow-Origin", origin);
 		const char *method;
 		method = httpmessage_REQUEST(request, "method");
+		const char *methods = method;
+		if (mod->methods && mod->methods[0] != '\0')
+			methods = mod->methods;
+		const char *ac_request;
+		ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
+		if (ac_request && ac_request[0] != '\0')
+		{
+			httpmessage_addheader(response, "Access-Control-Allow-Methods", methods);
+		}
+		ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
+		if (ac_request && ac_request[0] != '\0')
+		{
+			httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request);
+		}
+		httpmessage_addheader(response, "Access-Control-Allow-Credentials", "true");
 		if (!strcmp(method, str_options))
 		{
-			const char *methods = method;
-			if (mod->methods && mod->methods[0] != '\0')
-				methods = mod->methods;
-			const char *ac_request;
-			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
-			if (ac_request && ac_request[0] != '\0')
-			{
-				httpmessage_addheader(response, "Access-Control-Allow-Methods", methods);
-			}
-			ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
-			if (ac_request && ac_request[0] != '\0')
-			{
-				httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request);
-			}
-			httpmessage_addheader(response, "Access-Control-Allow-Credentials", "true");
 			ret = ESUCCESS;
 		}
 	}
 	else if ((origin && origin[0] != '\0') || httpmessage_isprotected(request))
 	{
-		httpmessage_result(response, 405);
-		ret = ESUCCESS;
+		const char *host = httpmessage_REQUEST(request, "Host");
+		if (strstr(host, origin) == NULL)
+		{
+			httpmessage_result(response, 405);
+			ret = ESUCCESS;
+		}
 	}
 	return ret;
 }
@@ -114,7 +118,7 @@ static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *UN
 	 * Methods must be set here, because other modules may append new methods to the server.
 	 */
 	mod->methods = httpserver_INFO(httpclient_server(clt), "methods");
-	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_DOCFILTER, str_cors);
+	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_FILTER, str_cors);
 
 	return mod;
 }
@@ -163,7 +167,7 @@ static void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 static void mod_cors_destroy(void *data)
 {
 	_mod_cors_t *mod = (_mod_cors_t *)data;
-#if FILE_CONFIG
+#ifdef FILE_CONFIG
 	free(mod->config);
 #endif
 	free(data);

@@ -18,7 +18,7 @@ VTHREAD_TYPE=fork
 
 USE_STDARG=y
 USE_REENTRANT=y
-USE_EXECVEAT=n
+# USE_EXECVEAT is not set
 USE_POLL=y
 USE_PTHREAD=y
 
@@ -48,7 +48,6 @@ AUTHN_BASIC=y
 AUTHN_DIGEST=y
 AUTHN_BEARER=y
 AUTHN_OAUTH2=y
-HTTPCLIENT_FEATURES=y
 AUTHZ_SIMPLE=y
 AUTHZ_FILE=y
 AUTHZ_UNIX=y
@@ -91,14 +90,6 @@ USERFILTER=y
 CERTIFICATE=n
 
 HOST_UTILS=y
-
-prefix=/usr
-#bindir=
-#sbindir=
-#includedir=
-libdir=/usr/lib/ouistiti
-pkglibdir=/usr/lib/ouistiti
-sysconfdir=/etc/ouistiti
 
 #sysroot=
 #CROSS_COMPILER=

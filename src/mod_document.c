@@ -40,9 +40,9 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_document.h"
 #include "mod_auth.h"
 
@@ -70,7 +70,7 @@ typedef struct _document_connector_s document_connector_t;
 
 int mod_send(document_connector_t *private, http_message_t *response);
 
-int document_close(document_connector_t *private, http_message_t *request)
+void document_close(document_connector_t *private, http_message_t *request)
 {
 	if (private->fdfile > 0)
 		close(private->fdfile);
@@ -118,19 +118,36 @@ static int _document_docroot(_mod_document_mod_t *mod,
 		if ((config->options & DOCUMENT_HOME) && (home != NULL))
 		{
 			fdroot = open(home, O_DIRECTORY);
+			if (fdroot != -1)
+			{
+				document_dbg("document: home directory is %s", home);
+			}
 		}
 		if ((fdroot == -1) && (home != NULL) && (mod->fdhome > 0))
 		{
+			while (home[0] == '/' && home[0] != '\0') home++;
 			fdroot = openat(mod->fdhome, home, O_DIRECTORY);
+			if (fdroot != -1)
+			{
+				document_dbg("document: root directory is %s/%s", mod->config->dochome, home);
+			}
 		}
 		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
 		{
 			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
+			if (fdroot != -1)
+			{
+				document_dbg("document: root directory is %s/%s", mod->config->dochome, user);
+			}
 		}
 		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
 		{
-			mkdirat(mod->fdhome, user, 0644);
+			mkdirat(mod->fdhome, user, 0640);
 			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
+			if (fdroot != -1)
+			{
+				document_dbg("document: root directory is %s/%s", mod->config->dochome, user);
+			}
 		}
 		if (fdroot == -1)
 		{
@@ -142,7 +159,10 @@ static int _document_docroot(_mod_document_mod_t *mod,
 #endif
 	*uri += i;
 	if (fdroot == -1)
+	{
 		fdroot = mod->fdroot;
+		document_dbg("document: root directory is %s", mod->config->docroot);
+	}
 
 	return fdroot;
 }
@@ -163,6 +183,7 @@ static int _document_getconnnectorput(_mod_document_mod_t *mod,
 	}
 
 	int length = strlen(url);
+	const char *contenttype = httpmessage_REQUEST(request,"Content-Type");
 	if (fdfile > 0 || length < 1)
 	{
 		close(fdfile);
@@ -179,7 +200,7 @@ static int _document_getconnnectorput(_mod_document_mod_t *mod,
 #endif
 		return 0;
 	}
-	else if (url[length - 1] == '/')
+	else if (url[length - 1] == '/' || (contenttype && !strcmp(contenttype, "text/directory")))
 	{
 		err("document: %s found dir", url);
 		fdfile = dup(fdroot);
@@ -302,7 +323,10 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 			(config->options & DOCUMENT_DIRLISTING))
 		{
 			close(fdfile);
-			fdfile = openat(fdroot, url, O_DIRECTORY);
+			if (url[0] != '\0')
+				fdfile = openat(fdroot, url, O_DIRECTORY);
+			else
+				fdfile = openat(fdroot, ".",  O_DIRECTORY);
 			*connector = dirlisting_connector;
 		}
 		else
@@ -387,7 +411,6 @@ static int _document_getconnnectorheader(_mod_document_mod_t *mod,
 
 static int _document_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	int ret =  EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 	http_connector_t connector = getfile_connector;
@@ -409,13 +432,13 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		 */
 		return  EREJECT;
 	}
-
-	int fdroot = dup(_document_docroot(mod, request, &uri));
+	int fdroot = _document_docroot(mod, request, &uri);
 	if (fdroot == EREJECT)
 	{
 		httpmessage_result(response, RESULT_404);
 		return  ESUCCESS;
 	}
+	fdroot = dup(fdroot);
 
 	int length = strlen(uri);
 
@@ -568,6 +591,7 @@ static int mod_send_read(document_connector_t *private, http_message_t *response
 		ret = size;
 		content[size] = 0;
 		httpmessage_addcontent(response, "none", content, size);
+		document_dbg("document: send %d", size);
 	}
 	else if (size == -1)
 	{
@@ -634,7 +658,6 @@ static void *document_config(config_setting_t *iterator, server_t *server)
 
 	if (configstaticfile)
 	{
-		int length;
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
 		config_setting_lookup_string(configstaticfile, "dochome", (const char **)&static_file->dochome);
@@ -714,6 +737,10 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 	{
 		err("document: docroot %s not found", config->docroot);
 	}
+	else
+	{
+		document_dbg("document: root directory is %s", config->docroot);
+	}
 #ifdef DOCUMENTHOME
 	if (config->dochome != NULL)
 	{
@@ -721,6 +748,10 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 		if (mod->fdhome == -1)
 		{
 			err("document: dochome %s not found", config->dochome);
+		}
+		else
+		{
+			document_dbg("document: home directory is %s", config->dochome);
 		}
 	}
 #endif

@@ -66,8 +66,9 @@ WGET=wget
 USER=$(ls -l $0 | ${AWK} '{print $3}')
 TESTCLIENT="./host/utils/testclient"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/:$TESTDIR../utils/
+LD_PRELOAD=libouistiti.so:libouibsocket.so:libouihash.so:libouiutils.so
 
-export LD_LIBRARY_PATH
+export LD_LIBRARY_PATH LD_PRELOAD
 
 if [ -z "$INFO" ]; then
 CURLOUT="-o /dev/null"
@@ -90,7 +91,6 @@ start () {
 	TARGET=$1
 	CONFIG=$2
 
-	export LD_LIBRARY_PATH=./libhttpserver/src:./libhttpserver/src/httpserver
 	export OUISTITI_MODULES_PATH=./src:./staging
 	ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
@@ -265,6 +265,7 @@ test () {
 	fi
 }
 
+stop ouistiti
 for TEST in ${TESTS}
 do
 	test $TEST

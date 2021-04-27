@@ -42,9 +42,9 @@
 //#include <mbedtls/md.h>
 #include <jansson.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/hash.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/hash.h"
+#include "ouistiti/log.h"
 #include "mod_auth.h"
 #include "authz_jwt.h"
 
@@ -178,7 +178,7 @@ json_t *jwt_decode_json(const char *id_token)
 	return jpayload;
 }
 
-static int _jwt_checkexpiration(json_t *jinfo)
+static int _jwt_checkexpiration(json_t *jinfo, authsession_t *authsession)
 {
 	const json_t *jexpire = json_object_get(jinfo, "exp");
 	if (jexpire && json_is_integer(jexpire))
@@ -189,7 +189,9 @@ static int _jwt_checkexpiration(json_t *jinfo)
 #else
 		time_t now = 0;
 #endif
-		if (expire < now)
+		if (expire > now)
+			authsession->expires = expire;
+		else
 		{
 			warn("auth: jwt expired");
 #ifndef DEBUG
@@ -230,7 +232,7 @@ int jwt_decode(const char *id_token, authsession_t *authsession)
 	json_t *jinfo = jwt_decode_json(id_token);
 	if (jinfo != NULL)
 	{
-		if (_jwt_checkexpiration(jinfo) != ESUCCESS)
+		if (_jwt_checkexpiration(jinfo, authsession) != ESUCCESS)
 			return EREJECT;
 
 		strncpy(authsession->user, _jwt_getuser(jinfo), USER_MAX);
@@ -278,6 +280,7 @@ static void *authz_jwt_create(http_server_t *UNUSED(server), void *arg)
 
 static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
+	ctx->token.user[0] = '\0';
 	jwt_decode(token, &ctx->token);
 	if (ctx->token.user[0] != '\0')
 		return ctx->token.user;
@@ -298,10 +301,10 @@ static int authz_jwt_setsession(void *arg, const char *UNUSED(user), authsession
 }
 
 #ifdef AUTH_TOKEN
-static int authz_jwt_join(void *arg, const char *user, const char *UNUSED(token), int UNUSED(expire))
+static int authz_jwt_join(void *arg, const char *user, const char *UNUSED(token), int expire)
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	if (!strcmp(ctx->token.user, user))
+	if (!strcmp(ctx->token.user, user) && (expire + time(NULL)) > ctx->token.expires)
 		return ESUCCESS;
 	return EREJECT;
 }

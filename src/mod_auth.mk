@@ -1,5 +1,5 @@
 modules-$(MODULES)+=mod_auth
-slib-y+=mod_auth
+slib-$(STATIC)+=mod_auth
 mod_auth_SOURCES+=mod_auth.c
 mod_auth_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 mod_auth_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
@@ -13,8 +13,10 @@ mod_auth_SOURCES-$(AUTHN_DIGEST)+=authn_digest.c
 
 mod_auth_SOURCES-$(AUTHN_BEARER)+=authn_bearer.c
 
+ifeq ($(HTTPCLIENT_FEATURES),y)
 mod_auth_SOURCES-$(AUTHN_OAUTH2)+=authn_oauth2.c
 mod_auth_LIBRARY-$(AUTHN_OAUTH2)+=jansson
+endif
 
 mod_auth_SOURCES-$(AUTHZ_SIMPLE)+=authz_simple.c
 
