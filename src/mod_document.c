@@ -183,6 +183,7 @@ static int _document_getconnnectorput(_mod_document_mod_t *mod,
 	}
 
 	int length = strlen(url);
+	const char *contenttype = httpmessage_REQUEST(request,"Content-Type");
 	if (fdfile > 0 || length < 1)
 	{
 		close(fdfile);
@@ -199,7 +200,7 @@ static int _document_getconnnectorput(_mod_document_mod_t *mod,
 #endif
 		return 0;
 	}
-	else if (url[length - 1] == '/')
+	else if (url[length - 1] == '/' || (contenttype && !strcmp(contenttype, "text/directory")))
 	{
 		err("document: %s found dir", url);
 		fdfile = dup(fdroot);
