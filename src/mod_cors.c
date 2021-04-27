@@ -73,6 +73,7 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	const _mod_cors_t *mod = (_mod_cors_t *)arg;
 
 	const char *origin = httpmessage_REQUEST(request, "Origin");
+	const char *host = httpmessage_REQUEST(request, "Host");
 	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
 	{
 		httpmessage_addheader(response, "Access-Control-Allow-Origin", origin);
@@ -98,14 +99,10 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 			ret = ESUCCESS;
 		}
 	}
-	else if ((origin && origin[0] != '\0') || httpmessage_isprotected(request))
+	else if (origin && origin[0] != '\0' && httpmessage_isprotected(request) && (strstr(host, origin) == NULL))
 	{
-		const char *host = httpmessage_REQUEST(request, "Host");
-		if (strstr(host, origin) == NULL)
-		{
-			httpmessage_result(response, 405);
-			ret = ESUCCESS;
-		}
+		httpmessage_result(response, 405);
+		ret = ESUCCESS;
 	}
 	return ret;
 }
