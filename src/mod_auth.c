@@ -814,14 +814,9 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 
-	const char *string = token;
 	const char *user = NULL;
-	if (!strncmp(string, str_xtoken, sizeof(str_xtoken) - 1))
-	{
-		string += sizeof(str_xtoken) - 1 + 1; // +1 for the tailing '='
-	}
-	const char *data = string;
-	const char *sign = strrchr(string, '.');
+	const char *data = token;
+	const char *sign = strrchr(token, '.');
 	if (sign != NULL)
 	{
 		size_t signlen = 0;
@@ -837,14 +832,14 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			ctx->info = calloc(1, sizeof(*ctx->info));
 			strncpy(ctx->info->type, str_xtoken, FIELD_MAX);
 			if (user == NULL)
-				user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
+				user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, token);
 			if (user == NULL)
 			{
 				user = str_anonymous;
 			}
 
 #ifdef AUTHZ_JWT
-			if (jwt_decode(string, ctx->info) == ESUCCESS)
+			if (jwt_decode(token, ctx->info) == ESUCCESS)
 			{
 				auth_dbg("auth: jwt user %s", ctx->info->user);
 				ret = EREJECT;
@@ -875,6 +870,23 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			warn("auth: token with bad signature");
 		}
 	}
+	return ret;
+}
+
+int authn_checktokens(_mod_auth_ctx_t *ctx, const char *token)
+{
+	int ret = ECONTINUE;
+	_mod_auth_t *mod = ctx->mod;
+	const char *string = token;
+	do
+	{
+		if (!strncmp(string, str_xtoken, sizeof(str_xtoken) - 1))
+		{
+			string += sizeof(str_xtoken) - 1 + 1; // +1 for the tailing '='
+		}
+		ret = authn_checktoken(ctx, string);
+		string = strstr(string, str_xtoken);
+	} while ((ret == ECONTINUE) && (string != NULL));
 	return ret;
 }
 #endif
@@ -1237,12 +1249,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		auth_dbg("auth: gettoken %d", ret);
 		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
 		{
-			const char *string = authorization;
-			while (ret == ECONTINUE && string != NULL)
-			{
-				ret = authn_checktoken( ctx, string);
-				string = strstr(string + 1, str_xtoken);
-			}
+			ret = authn_checktokens( ctx, authorization);
 		}
 	}
 #endif
