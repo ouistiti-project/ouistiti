@@ -1275,7 +1275,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 					response);
 		}
 
-		if (mod->authz->type & AUTHZ_CHOWN_E)
+		if (ctx->info && mod->authz->type & AUTHZ_CHOWN_E)
 		{
 			auth_setowner(ctx->info->user);
 		}
