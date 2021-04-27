@@ -1,5 +1,5 @@
 modules-$(MODULES)+=mod_cgi
-slib-y+=mod_cgi
+slib-$(STATIC)+=mod_cgi
 mod_cgi_SOURCES+=mod_cgi.c
 mod_cgi_SOURCES+=cgi_env.c
 mod_cgi_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)

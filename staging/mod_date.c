@@ -30,8 +30,8 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "log.h"
-#include "httpserver.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
 #include "mod_date.h"
 
 static int _date_connector(void *arg, http_message_t *request, http_message_t *response);

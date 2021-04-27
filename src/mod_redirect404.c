@@ -35,8 +35,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 #include "mod_redirect404.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -71,7 +71,6 @@ static void mod_redirect404_destroy(void *arg)
 
 static int _mod_redirect404_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	mod_redirect404_t *conf = (mod_redirect404_t *)arg;
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	warn("redirect 404: %s", uri);
 	httpmessage_result(response, RESULT_404);

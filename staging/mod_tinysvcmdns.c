@@ -48,8 +48,8 @@
 #include <mdns.h>
 #include <mdnsd.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 #include "mod_tinysvcmdns.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)

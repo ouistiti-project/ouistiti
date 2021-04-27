@@ -38,9 +38,9 @@
 #include <time.h>
 #include <libgen.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_document.h"
 #include "mod_auth.h"
 
@@ -79,9 +79,9 @@ static int putdir_connector(document_connector_t *private, http_message_t *reque
 {
 	int ret =  EREJECT;
 
-	if (mkdirat(private->fdroot, private->url, 0777) > 0)
+	if (mkdirat(private->fdroot, private->url, 0777) < 0)
 	{
-		err("document: directory creation not allowed %s", private->url);
+		err("document: directory creation not allowed %s: %s", private->url, strerror(errno));
 #if defined RESULT_405
 		httpmessage_result(response, RESULT_405);
 #else
@@ -188,7 +188,6 @@ int putfile_connector(void *arg, http_message_t *request, http_message_t *respon
 {
 	int ret =  EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 
 	if (private->type & DOCUMENT_DIRLISTING)
 	{
@@ -235,7 +234,6 @@ static int changename(document_connector_t *private, http_message_t *UNUSED(requ
 int postfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 
 	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
 

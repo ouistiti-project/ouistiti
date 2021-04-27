@@ -65,8 +65,11 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/log.h"
-#include "httpserver/httpserver.h"
+#include "ouistiti/log.h"
+#include "ouistiti/httpserver.h"
+#ifdef httpserver_config
+#include "ouistiti/config.h"
+#endif
 #include "mod_tls.h"
 
 #define tls_dbg(...)
@@ -104,7 +107,6 @@ struct _mod_mbedtls_config_s
 	mbedtls_dhm_context dhm;
 };
 
-static http_server_config_t mod_mbedtls_config;
 static const httpclient_ops_t *_tlsclient_ops;
 static const httpclient_ops_t *_tlsserver_ops;
 
@@ -113,9 +115,9 @@ static void *tls_config(config_setting_t *iterator, server_t *server)
 {
 	mod_tls_t *tls = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configtls = config_setting_get_member(iterator, "tls");
+	config_setting_t *configtls = config_setting_get_member(iterator, str_mbedtls);
 #else
-	config_setting_t *configtls = config_setting_lookup(iterator, "tls");
+	config_setting_t *configtls = config_setting_lookup(iterator, str_mbedtls);
 #endif
 	if (configtls)
 	{
@@ -129,10 +131,10 @@ static void *tls_config(config_setting_t *iterator, server_t *server)
 }
 #else
 static const mod_tls_t g_tls_config = {
-	.crtfile = "./tests/conf/ouistiti_srv.crt",
-	.pemfile = "./tests/conf/ouistiti_srv.key",
-	.cachain = "./tests/conf/ouistiti_ca.crt",
-	.dhmfile = "./tests/conf/ouistiti_dhparam.crt",
+	.crtfile = SYSCONFDIR"/ouistiti_srv.crt",
+	.pemfile = SYSCONFDIR"/ouistiti_srv.key",
+	.cachain = SYSCONFDIR"/ouistiti_ca.crt",
+	.dhmfile = SYSCONFDIR"/ouistiti_dhparam.crt",
 };
 
 static void *tls_config(void *iterator, server_t *server)
@@ -190,7 +192,6 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 {
 	mod_tls_t *config = mod->config;
 	int ret;
-	int is_set_pemkey = 0;
 
 	if (config == NULL)
 		return ECONTINUE;
@@ -300,6 +301,7 @@ static int _mod_mbedtls_read(void *arg, unsigned char *data, int size)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)arg;
 	int ret = ctx->protocolops->recvreq(ctx->protocol, (char *)data, size);
+	tls_dbg("tls: recvreq %d", ret);
 	if (ret == EINCOMPLETE)
 		ret = MBEDTLS_ERR_SSL_WANT_READ;
 	else if (ret == EREJECT)
@@ -311,6 +313,7 @@ static int _mod_mbedtls_write(void *arg, unsigned char *data, int size)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)arg;
 	int ret = ctx->protocolops->sendresp(ctx->protocol, (char *)data, size);
+	tls_dbg("tls: sendresp %d", ret);
 	if (ret == EINCOMPLETE)
 	{
 		ret = MBEDTLS_ERR_SSL_WANT_WRITE;
@@ -353,7 +356,6 @@ static void *_tlsclient_create(void *arg, http_client_t *clt)
 {
 	_mod_mbedtls_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_mbedtls_config_t *config = (_mod_mbedtls_config_t *)arg;
-	void *protocolconfig;
 
 	ctx->clt = clt;
 
@@ -390,7 +392,7 @@ static void *_tlsclient_create(void *arg, http_client_t *clt)
 
 	if (tls_certificat != NULL)
 	{
-		ret = mbedtls_x509_crt_parse_file( &config->srvcert, (const unsigned char *) tls_certificat);
+		ret = mbedtls_x509_crt_parse_file( &config->srvcert, tls_certificat);
 		if (ret)
 		{
 			err("mbedtls_x509_crt_parse %d\n", ret);
@@ -433,7 +435,6 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 {
 	_mod_mbedtls_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_mbedtls_config_t *config = (_mod_mbedtls_config_t *)arg;
-	void *protocolconfig;
 
 	_mod_mbedtls_setup(config);
 	ctx->clt = clt;
@@ -478,6 +479,7 @@ static void _tls_disconnect(void *vctx)
 static void _tls_destroy(void *vctx)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
+	tls_dbg("tls: end");
 	mbedtls_ssl_free(&ctx->ssl);
 	ctx->protocolops->destroy(ctx->protocol);
 	free(ctx);
@@ -493,7 +495,10 @@ static int _tls_recv(void *vctx, char *data, int size)
 #endif
 	{
 		ret = mbedtls_ssl_read(&ctx->ssl, (unsigned char *)data, size);
-		tls_dbg("tls recv %d %.*s", ret, ret, data);
+		if (ret > 0)
+			tls_dbg("tls: recv %d %.*s", ret, ret, data);
+		else
+			tls_dbg("tls: recv %X %X", ret, MBEDTLS_ERR_SSL_WANT_READ);
 	}
 	if (ret == MBEDTLS_ERR_SSL_WANT_READ)
 	{
@@ -523,7 +528,7 @@ static int _tls_send(void *vctx, const char *data, int size)
 	int ret;
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
 	ret = mbedtls_ssl_write(&ctx->ssl, (const unsigned char *)data, size);
-	tls_dbg("tls send %d %.*s", ret, size, data);
+	tls_dbg("tls: send %d %.*s", ret, size, data);
 	if (ret == MBEDTLS_ERR_SSL_WANT_WRITE)
 		ret = EINCOMPLETE;
 	else if (ret < 0)

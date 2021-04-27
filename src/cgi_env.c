@@ -32,8 +32,8 @@
 #include <unistd.h>
 #include <libgen.h>
 
-#include "httpserver/httpserver.h"
-#include "httpserver/log.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/log.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 
@@ -41,7 +41,6 @@
 
 static char str_null[] = "";
 static char str_gatewayinterface[] = "CGI/1.1";
-static char str_contenttype[] = "Content-Type";
 
 #define ENV_NOTREQUIRED 0x01
 typedef const char *(*httpenv_callback_t)(const mod_cgi_config_t *config, http_message_t *request, const char *cgi_path);

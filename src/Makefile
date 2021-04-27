@@ -73,7 +73,7 @@ $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
 $(TARGET)_LIBRARY-$(TINYSVCMDNS)+=tinysvcmdns
 
 endif
-$(TARGET)_LIBS-$(WEBSOCKET)+=websocket
+$(TARGET)_LIBS-$(WEBSOCKET)+=ouibsocket
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouihash
 $(TARGET)_LIBS-$(AUTH)+=ouihash
 

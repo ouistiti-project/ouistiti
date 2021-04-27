@@ -33,7 +33,7 @@
 #include <dirent.h>
 #include <dlfcn.h>
 
-#include "httpserver/httpserver.h"
+#include "ouistiti/httpserver.h"
 #include "ouistiti.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -61,13 +61,14 @@ int ouistiti_initmodules(const char *pkglib)
 	char *iterator = strtok_r(cwd, ":", &it_r);
 	while (iterator != NULL)
 	{
+		warn("Look for modules into %s", iterator);
 		ret = scandir(iterator, &namelist, &modulefilter, alphasort);
 		for (i = 0; i < ret; i++)
 		{
 			const char *name = namelist[i]->d_name;
 			char path[PATH_MAX];
 			snprintf(path, PATH_MAX, "%s/%s", iterator, name);
-			if (access(path, X_OK) == -1)
+			if (strstr(name, ".so") == NULL)
 				continue;
 
 			void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);

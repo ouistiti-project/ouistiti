@@ -39,8 +39,8 @@
 #include <libconfig.h>
 #endif
 
-#include "httpserver/httpserver.h"
-#include "httpserver/utils.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 #include "mod_redirect.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -63,7 +63,6 @@ static const char str_redirect[] = "redirect";
 #ifndef __STR_HTTPS
 static const char str_https[] = "https";
 #endif
-static const char str_wss[] = "wss";
 static const char str_upgrade_insec_req[] = "Upgrade-Insecure-Requests";
 
 struct _mod_redirect_s
@@ -332,7 +331,6 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 			const char *upgrade = httpmessage_REQUEST(request, str_upgrade_insec_req);
 			if (!strcmp(upgrade, "1"))
 			{
-				char location[1024];
 				httpmessage_addheader(response, str_location, scheme);
 				httpmessage_appendheader(response, str_location, "://", host, portseparator, port, uri, NULL);
 				httpmessage_addheader(response, "Vary", str_upgrade_insec_req);

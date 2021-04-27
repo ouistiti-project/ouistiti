@@ -1,5 +1,5 @@
 modules-$(MODULES)+=mod_vhosts
-slib-y+=mod_vhosts
+slib-$(STATIC)+=mod_vhosts
 mod_vhosts_SOURCES+=mod_vhosts.c
 mod_vhosts_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 mod_vhosts_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
