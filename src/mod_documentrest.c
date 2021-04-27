@@ -79,9 +79,9 @@ static int putdir_connector(document_connector_t *private, http_message_t *reque
 {
 	int ret =  EREJECT;
 
-	if (mkdirat(private->fdroot, private->url, 0777) > 0)
+	if (mkdirat(private->fdroot, private->url, 0777) < 0)
 	{
-		err("document: directory creation not allowed %s", private->url);
+		err("document: directory creation not allowed %s: %s", private->url, strerror(errno));
 #if defined RESULT_405
 		httpmessage_result(response, RESULT_405);
 #else
