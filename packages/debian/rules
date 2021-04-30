@@ -1,0 +1,34 @@
+#!/usr/bin/make -f
+
+# Where we install every file before calling dh_install
+DESTDIR := $(PWD)/debian/tmp
+PKGDIR := $(PWD)/debian/ouistiti
+SRCDIR := ..
+
+MAKE_OPTIONS := package=ouistiti
+CONFIG_FILE := fullforked_defconfig
+CONFIG_OPTIONS := prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n STATIC=n AUTHN_OAUTH2=n HTTPCLIENT_FEATURES=n
+MAKE_OPTIONS := LIBHTTPSERVER_NAME=ouistiti
+%:
+	dh $@
+
+.PHONY: configure
+override_dh_auto_configure:
+	$(MAKE) -C $(SRCDIR) $(CONFIG_OPTIONS) $(MAKE_OPTIONS) $(CONFIG_FILE)
+
+override_dh_auto_build-arch:
+	$(MAKE) -C $(SRCDIR) $(MAKE_OPTIONS)
+
+
+override_dh_auto_install:
+	$(MAKE) -C $(SRCDIR) DESTDIR=$(DESTDIR) $(MAKE_OPTIONS) install
+	find $(DESTDIR) -name 'libmod*.a' -delete
+	install -D $(PWD)/ouistiti.service $(DESTDIR)/lib/systemd/system/ouistiti.service
+
+override_dh_fixperms:
+	dh_fixperms
+	find $(PKGDIR) -name 'mod_*.so*' -exec chmod a+x {} \;
+
+override_dh_auto_clean:
+	$(MAKE) -C $(SRCDIR) distclean
+

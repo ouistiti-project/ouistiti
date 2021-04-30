@@ -1,0 +1,16 @@
+ouistiti (3.0.4-1) stable; urgency=low
+
+  * FIX: dirlisting of the / directory
+  * FIX: directory creation with rights and error
+  * FIX: CHange process user without authentication
+  * FIX: multi tokens into the COOKIE
+
+ -- Marc Chalain <marc.chalain@gmail.com>  Thu, 11 Mar 2021 17:48:46 +0100
+ouistiti (3.0-1) stable; urgency=medium
+
+  * authentication
+  * userfilter
+  * user management
+
+ -- Marc Chalain <marc.chalain@gmail.com>  Thu, 11 Mar 2021 17:48:46 +0100
+

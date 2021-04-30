@@ -1,0 +1,10 @@
+[Unit]
+Description=Ouistiti Embedded Web server
+After=network.target
+
+[Service]
+ExecStart=/usr/sbin/ouistiti
+ExecStop=/usr/sbin/ouistiti -K
+
+[Install]
+WantedBy=multi-user.target
