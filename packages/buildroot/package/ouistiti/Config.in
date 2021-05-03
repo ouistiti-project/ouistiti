@@ -109,7 +109,7 @@ config BR2_PACKAGE_OUISTITI_AUTH_BEARER
 config BR2_PACKAGE_OUISTITI_AUTH_OAUTH2
 	bool "auth: oAuth2 authentication"
 	depends on BR2_PACKAGE_OUISTITI_AUTH_JWT
-	select BR2_PACKAGE_LIBOUISTITI_CLIENT
+	depends on BR2_PACKAGE_LIBOUISTITI_CLIENT
 	help
 	  oAuth2 Authentication RFC
 

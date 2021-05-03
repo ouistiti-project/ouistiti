@@ -39,6 +39,9 @@ define LIBOUISTITI_FEATURES_OPTS
 	$(if $(findstring y,$(BR2_TOOLCHAIN_HAS_THREADS)),
 		$(call KCONFIG_ENABLE_OPT,USE_PTHREAD,$(@D)/.config),
 		$(call KCONFIG_DISABLE_OPT,USE_PTHREAD,$(@D)/.config))
+	$(if $(findstring y,$(BR2_PACKAGE_LIBOUISTITI_CLIENT)),
+		$(call KCONFIG_ENABLE_OPT,HTTPCLIENT_FEATURES,$(@D)/.config),
+		$(call KCONFIG_DISABLE_OPT,HTTPCLIENT_FEATURES,$(@D)/.config))
 endef
 
 define LIBOUISTITI_LIBRARIES_OPTS
@@ -69,9 +72,7 @@ endef
 
 define LIBOUISTITI_WEBSOCKET_OPTS
 	$(if $(findstring y,$(BR2_PACKAGE_LIBOUISTITI_WEBSOCKET)),
-		$(call KCONFIG_ENABLE_OPT,WEBSOCKET,$(@D)/.config)
 		$(call KCONFIG_ENABLE_OPT,LIBWEBSOCKET,$(@D)/.config),
-		$(call KCONFIG_DISABLE_OPT,WEBSOCKET,$(@D)/.config)
 		$(call KCONFIG_DISABLE_OPT,LIBWEBSOCKET,$(@D)/.config))
 endef
 
