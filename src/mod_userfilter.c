@@ -61,7 +61,6 @@
 static const char str_userfilter[] = "userfilter";
 static const char str_put[] = "PUT";
 static const char str_delete[] = "DELETE";
-static const char str_annonymous[] = "annonymous";
 static const char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
 typedef struct _mod_userfilter_s _mod_userfilter_t;
@@ -368,7 +367,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	const char *method = httpmessage_REQUEST(request, "method");
 	const char *user = auth_info(request, "user");
 	if (user == NULL)
-		user = str_annonymous;
+		user = str_anonymous;
 
 	if ((utils_searchexp(uri, config->allow, NULL) == ESUCCESS) &&
 		(strcmp(uri, config->configuri) != 0))
@@ -389,7 +388,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	else
 	{
 		warn("userfilter: role %s forbidden for %s", user, uri);
-		if (user == str_annonymous)
+		if (user == str_anonymous)
 			httpmessage_result(response, RESULT_401);
 		else
 #if defined RESULT_403
@@ -613,7 +612,7 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 			"insert into methods (name) values(\"HEAD\");",
 			"create table roles (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
 			"insert into roles (id, name) values(0, @SUPERUSER);",
-			"insert into roles (id, name) values(1, \"annonymous\");",
+			"insert into roles (id, name) values(1, \"anonymous\");",
 			"insert into roles (id, name) values(2, \"*\");",
 #ifdef DEBUG
 			"insert into roles (id, name) values(3, \"users\");",
