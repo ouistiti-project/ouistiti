@@ -112,13 +112,13 @@ static int _authz_sqlite_createdb(const char *dbname)
 					"FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
 		"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER,"
 					"FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
-		"insert into status (name) values(\"approving\");",
-		"insert into status (name) values(\"activated\");",
-		"insert into status (name) values(\"repudiated\");",
-		"insert into status (name) values(\"reapproving\");",
-		"insert into groups (name) values(\"root\");",
-		"insert into groups (name) values(\"anonymous\");",
-		"insert into groups (name) values(\"users\");",
+		"insert into status (id, name) values(1, \"approving\");",
+		"insert into status (id, name) values(2, \"activated\");",
+		"insert into status (id, name) values(3, \"repudiated\");",
+		"insert into status (id, name) values(4, \"reapproving\");",
+		"insert into groups (id, name) values(0, \"root\");",
+		"insert into groups (id, name) values(1, \"anonymous\");",
+		"insert into groups (id, name) values(2, \"users\");",
 		"insert into users (name,groupid, statusid,passwd,home)"
 #ifdef DEBUG
 			"values(\"root\",(select id from groups where name=\"root\"),(select id from status where name=\"activated\"),\"root\",\"/home/root\");",
