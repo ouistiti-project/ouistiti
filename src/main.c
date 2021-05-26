@@ -60,6 +60,8 @@
 
 #include "mod_auth.h"
 
+extern const char str_hostname[];
+
 const char *auth_info(http_message_t *request, const char *key)
 {
 	const authsession_t *info = NULL;
@@ -131,6 +133,29 @@ struct server_s
 
 	struct server_s *next;
 	unsigned int id;
+};
+
+void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticonfig)
+{
+	fprintf(stdout, "sysconfdir=\"" SYSCONFDIR "\"\n");
+	fprintf(stdout, "prefix=\"" PREFIX "\"\n");
+	fprintf(stdout, "libdir=\"" LIBDIR "\"\n");
+	fprintf(stdout, "pkglibdir=\"" PKGLIBDIR "\"\n");
+	fprintf(stdout, "datadir=\"" DATADIR "\"\n");
+	char *path;
+	path = realpath(configfile, NULL);
+	if (path != NULL)
+	{
+		fprintf(stdout, "configfile=\"%s\"\n", path);
+		free(path);
+	}
+	path = realpath(ouistiticonfig->pidfile, NULL);
+	if (path != NULL)
+	{
+		fprintf(stdout, "pidfile=\"%s\"\n", path);
+		free(path);
+	}
+	fprintf(stdout, "hostname=\"%s\"\n", str_hostname);
 };
 
 void display_help(char * const *argv)
@@ -376,6 +401,7 @@ static int ouistiti_kill(const char *configfile, const char *pidfile)
 
 #define DAEMONIZE 0x01
 #define KILLDAEMON 0x02
+#define CONFIGURATION 0x04
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
@@ -397,7 +423,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:P:hDKVM:W:");
+		opt = getopt(argc, argv, "s:f:p:P:hDKCVM:W:");
 		switch (opt)
 		{
 			case 's':
@@ -427,6 +453,9 @@ int main(int argc, char * const *argv)
 			case 'K':
 				mode |= KILLDAEMON;
 			break;
+			case 'C':
+				mode |= CONFIGURATION;
+			break;
 			case 'W':
 				 workingdir = optarg;
 			break;
@@ -455,6 +484,12 @@ int main(int argc, char * const *argv)
 
 	if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
 		pidfile = ouistiticonfig->pidfile;
+
+	if (mode & CONFIGURATION)
+	{
+		display_configuration(configfile, ouistiticonfig);
+		return 0;
+	}
 
 	if (mode & DAEMONIZE && daemonize(pidfile) == -1)
 	{
