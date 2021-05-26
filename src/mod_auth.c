@@ -73,6 +73,9 @@
 #ifndef RESULT_401
 #error mod_auth require RESULT_401
 #endif
+#ifndef RESULT_403
+#error mod_auth require RESULT_403
+#endif
 
 #ifdef DEBUG
 #warning "debug mode in unsafe"

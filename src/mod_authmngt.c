@@ -561,17 +561,19 @@ static int _authmngt_postconnector(_mod_authmngt_t *mod, const char *user, http_
 
 	if (ret == ESUCCESS && mod->isroot && mod->config->mngt.rules->changeinfo != NULL)
 	{
+		authmngt_dbg("authmngt: userinfo\n\tuser: %s\n\tstatus: %s\n\tgroup: %s", info.user, info.status, info.group);
 		ret = mod->config->mngt.rules->changeinfo(mod->ctx, &info);
 	}
 	if (ret == ESUCCESS && mod->isuser && mod->config->mngt.rules->changepasswd != NULL)
 	{
+		int checkreapproving = 1;
+		if (info.status[0] != '\0')
+			checkreapproving = 0;
 		ret = mod->config->mngt.rules->changepasswd(mod->ctx, &info);
-		if (!strcmp(info.status, str_status_reapproving) && mod->config->mngt.rules->changeinfo != NULL)
+		if (checkreapproving && !strcmp(info.status, str_status_reapproving) && mod->config->mngt.rules->changeinfo != NULL)
 		{
-			authsession_t newinfo;
-			strncpy(newinfo.user, info.user, USER_MAX);
-			strncpy(newinfo.status, str_status_activated, FIELD_MAX);
-			ret = mod->config->mngt.rules->changeinfo(mod->ctx, &newinfo);
+			strncpy(info.status, str_status_activated, FIELD_MAX);
+			ret = mod->config->mngt.rules->changeinfo(mod->ctx, &info);
 		}
 	}
 	if (ret == EREJECT)
