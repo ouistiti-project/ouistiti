@@ -1268,6 +1268,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret != EREJECT)
 	{
+		if (ctx->info != NULL)
+		{
+			free(ctx->info);
+			ctx->info = NULL;
+		}
 		httpmessage_SESSION(request, str_auth, "", 0);
 		ret = _authn_challenge(ctx, request, response);
 	}
