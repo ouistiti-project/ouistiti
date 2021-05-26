@@ -144,6 +144,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-M <modules_path>\tset the path to modules\n");
 	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
 	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
+	fprintf(stderr, "\t-K \t\tto kill other instances of the server\n");
 	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
 }
 
@@ -380,6 +381,7 @@ int main(int argc, char * const *argv)
 {
 	const char *configfile = DEFAULT_CONFIGPATH;
 	const char *pidfile = NULL;
+	const char *workingdir = NULL;
 	int mode = 0;
 	int serverid = -1;
 	const char *pkglib = PKGLIBDIR;
@@ -418,7 +420,7 @@ int main(int argc, char * const *argv)
 			return -1;
 			case 'V':
 				printf("%s\n",PACKAGEVERSION);
-			return -1;
+			return 1;
 			case 'D':
 				mode |= DAEMONIZE;
 			break;
@@ -426,7 +428,7 @@ int main(int argc, char * const *argv)
 				mode |= KILLDAEMON;
 			break;
 			case 'W':
-				chdir(optarg);
+				 workingdir = optarg;
 			break;
 			default:
 			break;
@@ -438,6 +440,8 @@ int main(int argc, char * const *argv)
 	{
 		return ouistiti_kill(configfile, pidfile);
 	}
+
+	chdir(workingdir);
 
 	ouistiti_initmodules(pkglib);
 #ifdef MODULES
