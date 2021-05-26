@@ -498,8 +498,8 @@ static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char 
 	int ret;
 	const char *sql[] = {
 		"update users set name=@FIELD where id=@USERID",
-		"update users set groupid=(select id from groups where name=@FIELD) where id=@USERID",
-		"update users set statusid=(select id from status where name=@FIELD) where id=@USERID",
+		"update users set groupid=@FIELDID where id=@USERID",
+		"update users set statusid=@FIELDID where id=@USERID",
 		"update users set passwd=@FIELD where id=@USERID",
 		"update users set home=@FIELD where id=@USERID",
 		NULL,
@@ -516,6 +516,8 @@ static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char 
 		return EREJECT;
 	}
 
+	int fieldid = authz_sqlite_getid(ctx, field, group);
+
 	int index;
 	index = sqlite3_bind_parameter_index(statement, "@USERID");
 	if (index > 0)
@@ -529,6 +531,20 @@ static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char 
 	index = sqlite3_bind_parameter_index(statement, "@FIELD");
 	if (index > 0)
 		ret = sqlite3_bind_text(statement, index, field, -1, SQLITE_STATIC);
+	if (ret != SQLITE_OK) {
+		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
+		sqlite3_finalize(statement);
+		return EREJECT;
+	}
+
+	index = sqlite3_bind_parameter_index(statement, "@FIELDID");
+	if (index > 0)
+	{
+		if (fieldid >= 0)
+			ret = sqlite3_bind_int(statement, index, fieldid);
+		else
+			ret = SQLITE_ABORT;
+	}
 	if (ret != SQLITE_OK) {
 		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
 		sqlite3_finalize(statement);
@@ -793,7 +809,8 @@ static int authz_sqlite_changeinfo(void *arg, authsession_t *authinfo)
 
 	if (ret == ESUCCESS && authinfo->status[0] != '\0')
 	{
-		if (authz_sqlite_getid(ctx, authinfo->status, FIELD_STATUS) == -1)
+		int statusid = authz_sqlite_getid(ctx, authinfo->status, FIELD_STATUS);
+		if (statusid == -1)
 			err("authmngt: update unknown status %s", authinfo->status);
 		else
 			ret = authz_sqlite_updatefield(ctx, userid, authinfo->status, FIELD_STATUS);
