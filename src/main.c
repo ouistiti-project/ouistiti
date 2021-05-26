@@ -25,6 +25,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,9 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <libgen.h>
+#include <sched.h>
+#include <dirent.h>
 
 #ifndef WIN32
 # include <sys/socket.h>
@@ -134,6 +138,64 @@ struct server_s
 	struct server_s *next;
 	unsigned int id;
 };
+
+static int main_exec(int rootfd,  const char *scriptpath)
+{
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+
+                char * const argv[2] = { (char *)scriptpath, NULL };
+                setlinebuf(stdout);
+                sched_yield();
+
+                char * const env[1] = { NULL };
+#ifdef USE_EXECVEAT
+                execveat(rootfd, scriptpath, argv, env);
+#elif defined(USE_EXECVE)
+				fchdir(rootfd);
+                execve(scriptpath, argv, env);
+#else
+                int scriptfd = openat(rootfd, scriptpath, O_PATH);
+                close(rootfd);
+                fexecve(scriptfd, argv, env);
+#endif
+                err("cgi error: %s", strerror(errno));
+                exit(0);
+	}
+	return pid;
+}
+
+static int main_initat(int rootfd, const char *path)
+{
+	struct stat filestat = {0};
+	if (fstatat(rootfd, path, &filestat, 0) != 0)
+		return EREJECT;
+	if (S_ISDIR(filestat.st_mode))
+	{
+		struct dirent **namelist;
+		int n;
+		n = scandirat(rootfd, path, &namelist, NULL, alphasort);
+		if (n == -1)
+			return EREJECT;
+		int newrootfd = openat(rootfd, path, O_DIRECTORY);
+		while (n--)
+		{
+			if (namelist[n]->d_name[0] != '.')
+				main_initat(newrootfd, namelist[n]->d_name);
+			free(namelist[n]);
+		}
+		close(newrootfd);
+
+	}
+	else if (faccessat(rootfd, path, X_OK, 0) == 0)
+	{
+		main_exec(rootfd, path);
+	}
+	int n = faccessat(rootfd, path, X_OK, 0);
+
+	return ESUCCESS;
+}
 
 void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticonfig)
 {
@@ -292,6 +354,7 @@ static ouistiticonfig_t g_ouistiti_config =
 {
 	.user = "www-data",
 	.pidfile = "/var/run/ouistiti.pid",
+	.init_d = SYSCONFDIR"/init.d",
 	.servers = {
 		&(serverconfig_t){
 			.server = &(http_server_config_t){
@@ -489,6 +552,12 @@ int main(int argc, char * const *argv)
 	{
 		display_configuration(configfile, ouistiticonfig);
 		return 0;
+	}
+
+	if (ouistiticonfig->init_d != NULL)
+	{
+		int rootfd = AT_FDCWD;
+		main_initat(rootfd, ouistiticonfig->init_d);
 	}
 
 	if (mode & DAEMONIZE && daemonize(pidfile) == -1)
