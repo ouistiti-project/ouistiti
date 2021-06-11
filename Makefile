@@ -3,6 +3,8 @@ version=3.1
 
 include scripts.mk
 
+CFLAGS+=-I$(srcdir)/include/ouistiti
+export CFLAGS
 #libhttpserver has to be static in all configuration
 export SLIB_HTTPSERVER=y
 export MAXCHUNKS_HEADER=20
@@ -68,6 +70,7 @@ ifneq ($(HTTPCLIENT_FEATURES),y)
 override AUTHN_OAUTH2:=n
 endif
 
+subdir-y+=include
 subdir-y+=staging
 subdir-y+=src
 subdir-y+=utils
