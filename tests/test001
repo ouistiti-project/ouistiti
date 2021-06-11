@@ -1,4 +1,4 @@
-DESC="request with relative URI"
+DESC="Parsing: request with relative (bad) URI"
 CONFIG=test1.conf
 TESTCODE=400
 TESTCONTENTLEN=0
