@@ -1,0 +1,8 @@
+config BR2_PACKAGE_OUILOGIN
+	bool "ouilogin"
+	depends on BR2_PACKAGE_OUISTITI
+	help
+	  authenticator website for ouistiti
+
+	  https://github.com/ouistiti-project
+
