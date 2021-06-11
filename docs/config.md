@@ -43,6 +43,28 @@ the value is the standard error pipe.
 defines the path to a file where Ouistiti will store the
 main process id. This value is optional.
 
+### "config_d" :
+defines the path to a directory which contains configuration
+files for servers.
+
+Each server available inside the sub file are stored in the
+same list of the application.
+
+*Note:* Each server must run on different port.
+
+*Note:* Only *servers* entry is used.
+
+### "init_d" :
+defines the path to a script or a directory contening files.
+Each executable file is launched after module configuration
+and before starting the servers.
+
+This is useful to start daemon for websocket or to set data inside
+DB.
+
+*Note:* non-executable file are not called. It may be important to
+change rights of the files after initialization.
+
 ### "mimetypes" :
 defines a table of objects :
    * "ext" : define a list of extensions file
@@ -58,6 +80,8 @@ the socket server and the modules to use during a client connection.
 	user="www-data";
 	log-file="/var/log/ouistiti.log";
 	pid-file="/var/run/ouistiti.pid";
+	config_d="etc/ouistiti/ouistiti.d";
+	init_d="/etc/ouistiti/init.d";
 	mimetypes = ({
 			ext = ".mp3";
 			mime = "audio/mp3";
