@@ -59,6 +59,7 @@
 
 #include "ouistiti.h"
 
+#define STR(x) #x
 #define PACKAGEVERSION PACKAGE_NAME "/" PACKAGE_VERSION
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
@@ -199,11 +200,11 @@ static int main_initat(int rootfd, const char *path)
 
 void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticonfig)
 {
-	fprintf(stdout, "sysconfdir=\"" SYSCONFDIR "\"\n");
-	fprintf(stdout, "prefix=\"" PREFIX "\"\n");
-	fprintf(stdout, "libdir=\"" LIBDIR "\"\n");
-	fprintf(stdout, "pkglibdir=\"" PKGLIBDIR "\"\n");
-	fprintf(stdout, "datadir=\"" DATADIR "\"\n");
+	fprintf(stdout, "sysconfdir=\""STR(SYSCONFDIR) "\"\n");
+	fprintf(stdout, "prefix=\"" STR(PREFIX) "\"\n");
+	fprintf(stdout, "libdir=\"" STR(LIBDIR) "\"\n");
+	fprintf(stdout, "pkglibdir=\"" STR(PKGLIBDIR) "\"\n");
+	fprintf(stdout, "datadir=\"" STR(DATADIR) "\"\n");
 	char *path;
 	path = realpath(configfile, NULL);
 	if (path != NULL)
