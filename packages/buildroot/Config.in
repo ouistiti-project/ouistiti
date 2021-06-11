@@ -1,3 +1,5 @@
 source "$BR2_EXTERNAL_OUISTITI_PATH/package/libouistiti/Config.in"
 source "$BR2_EXTERNAL_OUISTITI_PATH/package/ouistiti/Config.in"
+source "$BR2_EXTERNAL_OUISTITI_PATH/package/ouilogin/Config.in"
+source "$BR2_EXTERNAL_OUISTITI_PATH/package/ouicloud/Config.in"
 
