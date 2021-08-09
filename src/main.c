@@ -259,7 +259,7 @@ int ouistiti_issecure(server_t *server)
 	return !!strcmp(secure, "true");
 }
 
-int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
+static int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
 {
 	int i = 0;
 	mod_t *mod = &server->modules[i];
@@ -281,13 +281,13 @@ int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t co
 	if (module->configure != NULL)
 		config = module->configure(parser, server);
 	else if (configure != NULL)
-		config = configure(parser, module->name, server);
+		config = configure(parser, module, server);
 	mod->obj = module->create(server->server, config);
 	mod->ops = module;
 	return (mod->obj != NULL)?ESUCCESS:EREJECT;
 }
 
-int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
+static int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
 {
 	const module_list_t *iterator = g_modules;
 	while (iterator != NULL)
@@ -344,7 +344,10 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 
 	server->server = httpserver;
 	server->config = config;
-	server->id = id;
+	if (id == -1)
+		server->id = first->id + 1;
+	else
+		server->id = id;
 	ouistiti_setmodules(server, NULL, config->modulesconfig);
 
 	return server;
