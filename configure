@@ -29,6 +29,7 @@ function help {
 	printf "\t--libdir=DIR\t\tobject code libraries [PREFIX/lib]\n"
 	printf "\t--includedir=DIR\tC header files [PREFIX/include]\n"
 	printf "\t--datadir=DIR\t\tread-only architecture-independent data [PREFIX/share]\n"
+	printf "\t--localstatedir=DIR\t\trunning data directory [PREFIX/var]\n"
 	printf "\nSystem types:\n"
 	printf "\t--build=BUILD\t\tconfigure for building on BUILD [guessed]\n"
 	printf "\t--host=HOST\t\tcross-compile to build programs to run on HOST [BUILD]\n"
@@ -59,11 +60,6 @@ function help {
 	done
 	exit
 }
-
-if [ ! -e ${builddir}${CONFIG} -a -e ${srcdir}${DEFCONFIG} ]; then
-	grep -v "^#" ${srcdir}${DEFCONFIG} | awk -F= 't$$1 != t {print $$1"="$$2}' >  ${builddir}${CONFIG}
-	#cp ${srcdir}${DEFCONFIG} ${builddir}${CONFIG}
-fi
 
 if [ -e ${srcdir}${DEFCONFIG} ]; then
   OPTIONS=$(cat ${srcdir}${DEFCONFIG} | ${SED} 's/\#.*//g')
@@ -102,6 +98,9 @@ while [ "${1}" != "" ]; do
 			;;
 		--sysconfdir*)
 			sysconfdir=$(argument ${1})
+			;;
+		--localstatedir*)
+			localstatedir=$(argument ${1})
 			;;
 		--host*)
 			CROSS_COMPILE=$(argument ${1})
@@ -252,8 +251,8 @@ if [ -n "$LD_FOR_BUILD" ]; then
 	echo "HOSTLD=$LD_FOR_BUILD" >> ${builddir}$out
 fi
 
+echo "#Makemore 1.0" > ${builddir}${CONFIG}
 printf "\nConfiguration:\n"
-rm ${builddir}${CONFIG}
 if [ -n "$OPTIONS" ]; then
 	for option in $OPTIONS
 	do

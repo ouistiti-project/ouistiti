@@ -73,6 +73,9 @@
 #ifndef RESULT_401
 #error mod_auth require RESULT_401
 #endif
+#ifndef RESULT_403
+#error mod_auth require RESULT_403
+#endif
 
 #ifdef DEBUG
 #warning "debug mode in unsafe"
@@ -1075,29 +1078,34 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	return ret;
 }
 
-static int auth_redirect_uri(const char *location, http_message_t *request, http_message_t *response)
+static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response)
 {
 	int ret = ESUCCESS;
+	const _mod_auth_t *mod = ctx->mod;
+	const mod_auth_t *config = mod->config;
+
+	httpmessage_addheader(response, str_location, config->redirect);
 
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	http_server_t *server = httpclient_server(httpmessage_client(request));
-	const char *scheme = httpserver_INFO(server, "scheme");
-	const char *host = httpserver_INFO(server, "host");
-	if (host == NULL)
-	{
-		host = httpmessage_SERVER(request, "addr");
-	}
-	const char *port = httpserver_INFO(server, "port");
-	const char *portseparator = "";
-	if (port[0] != '\0')
-		portseparator = ":";
 	const char *query = httpmessage_REQUEST(request, "query");
-	const char *queryseparator = "";
-	if (query[0] != '\0')
-		queryseparator = "?";
-	httpmessage_addheader(response, str_location, location);
-	if (utils_searchexp(query, "noredirect", NULL) != ESUCCESS)
+	if (utils_searchexp(query, "noredirect", NULL) != ESUCCESS &&
+			utils_searchexp(uri, config->protect, NULL) != ESUCCESS)
 	{
+		http_server_t *server = httpclient_server(httpmessage_client(request));
+		const char *scheme = httpserver_INFO(server, "scheme");
+		const char *host = httpserver_INFO(server, "host");
+		if (host == NULL)
+		{
+			host = httpmessage_SERVER(request, "addr");
+		}
+		const char *port = httpserver_INFO(server, "port");
+		const char *portseparator = "";
+		if (port[0] != '\0')
+			portseparator = ":";
+		const char *query = httpmessage_REQUEST(request, "query");
+		const char *queryseparator = "";
+		if (query[0] != '\0')
+			queryseparator = "?";
 		httpmessage_appendheader(response, str_location, "?redirect_uri=",
 			scheme, "://", host, portseparator, port, uri, queryseparator, query, NULL);
 	}
@@ -1160,7 +1168,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			}
 			else if (config->authn.type & AUTHN_REDIRECT_E)
 			{
-				ret = auth_redirect_uri(config->redirect, request, response);
+				ret = auth_redirect_uri(ctx, request, response);
 			}
 			else
 			{
@@ -1263,6 +1271,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret != EREJECT)
 	{
+		if (ctx->info != NULL)
+		{
+			free(ctx->info);
+			ctx->info = NULL;
+		}
 		httpmessage_SESSION(request, str_auth, "", 0);
 		ret = _authn_challenge(ctx, request, response);
 	}

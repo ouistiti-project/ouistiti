@@ -1,4 +1,4 @@
-DESC="test a request on the root directory"
+DESC="Document: test a request on the root directory"
 CONFIG=test1.conf
 TESTCODE=200
 TESTHEADERLEN=108

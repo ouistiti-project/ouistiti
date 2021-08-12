@@ -212,7 +212,7 @@ test () {
 		resheaderlen=$TESTHEADERLEN
 		rescontentlen=$TESTCONTENTLEN
 	else
-		if [ -e ${TMPRESPONSE} ]; then
+		if [ -e ${TMPRESPONSE} -a ${TESTRESPONSE} != "none" ]; then
 			diff -a ${TMPRESPONSE} ${TESTDIR}${TESTRESPONSE} | grep -a '^>.*$'
 			if [ ! $? -eq 1 ]; then
 				ERR=4
@@ -225,6 +225,9 @@ test () {
 		#rescontentlen=$(echo $result | ${AWK} -F= 't$0 != t {print $0}' | wc -c)
 	fi
 	if [ -n "$TESTCODE"  ]; then
+		if [ "x$rescode" = "x" ]; then
+			rescode="none"
+		fi
 		echo $rescode | grep $TESTCODE > /dev/null
 		if [ $? -eq 1 ]; then
 			echo "result code error $rescode instead $TESTCODE"

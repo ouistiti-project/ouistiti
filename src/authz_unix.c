@@ -52,6 +52,18 @@
 //#define FILE_MMAP
 #define MAXLENGTH 255
 
+#ifdef USE_REENTRANT
+# ifdef CRYPT_DATA_RESERVED_SIZE
+#  define USE_CRYPT_R
+# endif
+# ifdef NSS_BUFLEN_GROUP
+#  define USE_GROUP_R
+# endif
+# ifdef NSS_BUFLEN_PASSWD
+#  define USE_PASSWD_R
+# endif
+#endif
+
 #ifdef HAVE_PWD
 
 typedef struct authz_unix_s authz_unix_t;
@@ -98,11 +110,11 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 	const char *status = str_status_activated;
 	struct passwd *pw = NULL;
 
-#ifdef USE_REENTRANT
+#ifdef USE_PASSWD_R
 	struct spwd spwdstore;
-	char shadow[512];
+	char shadow[NSS_BUFLEN_PASSWD];
 	struct passwd pwstore;
-	char buffer[512];
+	char buffer[NSS_BUFLEN_PASSWD];
 
 	getpwnam_r(user, &pwstore, buffer, sizeof(buffer), &pw);
 #else
@@ -123,7 +135,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			if (seteuid(0) < 0)
 				warn("not enought rights to change user to root");
 			struct spwd *spasswd;
-#ifdef USE_REENTRANT
+#ifdef USE_PASSWD_R
 			getspnam_r(pw->pw_name, &spwdstore, shadow, sizeof(shadow), &spasswd);
 #else
 			spasswd = getspnam(pw->pw_name);
@@ -162,7 +174,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		}
 
 		const char *testpasswd = NULL;
-#ifdef USE_REENTRANT
+#ifdef USER_CRYPT_R
 		struct crypt_data crdata = {0};
 		testpasswd = crypt_r(passwd, cryptpasswd, &crdata);
 #else
@@ -177,7 +189,12 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 
 			struct group *grp;
 			struct group grpstorage;
+#ifdef USE_GROUP_R
 			if (getgrgid_r(pw->pw_gid, &grpstorage, buffer, sizeof(buffer), &grp))
+#else
+			grp = getgrgid(pw->pw_gid);
+			if (grp != NULL)
+#endif
 			{
 				strncpy(ctx->auth.group, grp->gr_name, FIELD_MAX);
 			}

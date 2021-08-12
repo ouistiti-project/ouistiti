@@ -47,7 +47,7 @@ $(TARGET)_LIBS-$(DOCUMENT)+=mod_document
 $(TARGET)_LIBS-$(CGI)+=mod_cgi
 $(TARGET)_LIBS-$(AUTH)+=mod_auth
 $(TARGET)_LIBS-$(AUTHZ_MANAGER)+=mod_authmngt
-$(TARGET)_LIBS-$(VHOSTS_DEPRECATED)+=mod_vhosts
+$(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts
 $(TARGET)_LIBS-$(METHODLOCK_DEPRECATED)+=mod_methodlock
 $(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
 $(TARGET)_LIBS-$(SERVERHEADER)+=mod_server
@@ -58,7 +58,7 @@ $(TARGET)_LIBS-$(REDIRECT)+=mod_redirect
 $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
 $(TARGET)_LIBS-$(COOKIE)+=mod_cookie
 $(TARGET)_LIBS-$(CORS)+=mod_cors
-$(TARGET)_LIBS-$(TINYSVCMDNS)+=mod_tinysvcmdns
+$(TARGET)_LIBS-$(TINYSVCMDNS_DEPRECATED)+=mod_tinysvcmdns
 $(TARGET)_LIBS-$(UPGRADE)+=mod_upgrade
 
 $(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
@@ -70,7 +70,7 @@ $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=crypt
 $(TARGET)_LIBRARY-$(AUTHZ_JWT)+=jansson
 $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
 
-$(TARGET)_LIBRARY-$(TINYSVCMDNS)+=tinysvcmdns
+$(TARGET)_LIBRARY-$(TINYSVCMDNS_DEPRECATED)+=tinysvcmdns
 
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouibsocket

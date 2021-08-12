@@ -73,6 +73,7 @@ type="Digest";
 
 ### "realm", "algorithm", "opaque" :
 The *algorithm* and *opaque* are used with *Digest* authentication. The  RFC requires the support of sha256, but the default value is "MD5".
+
 The *realm* is the "domain" where the authorization is allowed. The *realm* is shared between
 the *User-Agent* and the *Client* server. As the *Authorization* is encrypted with the hash,
 the password stored inside the server must be computed with the *realm* before checking.
@@ -85,18 +86,23 @@ the password stored inside the server must be computed with the *realm* before c
 Example:
 ```config
 algorithm="SHA-256";
+realm="welcome on my website";
 ```
 
 ### "protect", "unprotect" :
 Two strings, each one contains a list of pathes to request a login page.
-By default *protect* is widlcard ("\*") and all data from server needs authentication.
+
+By default all data from server needs authentication.
+
 The *unprotect* string removes the authentication on some URL to allow to send data for
 login page.
 
+The *protect* string refuses any authentication on the URL matching the regular expressions.
+
 Example:
 ```config
-protect="^private/\*,^js/tools/\*";
-unprotect="^public/\*,^js/\*";
+protect="^/logout$";
+unprotect="^public/*,^js/*";
 ```
 
 ### "file" :
@@ -200,6 +206,7 @@ signin="trust/login.html";
 
 ### "secret", "expire":
 The *secret* string containing the key to encode the tokens.
+
 The *expire* integer for the time in seconds, during the *token* is accepted before a new regenaration requirement.
 
 Example:

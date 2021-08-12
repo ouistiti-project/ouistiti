@@ -16,6 +16,9 @@ OUISTITI_DEPENDENCIES += libconfig
 OUISTITI_MAKE=$(MAKE1)
 
 OUISTITI_USERS += www-data
+define OUISTITI_USERS
+        www-data -1 www-data -1 * - - - http server
+endef
 
 ifndef OUISTITI_DEFCONFIG
 OUISTITI_DEFCONFIG=fullforked_defconfig
@@ -25,7 +28,6 @@ OUISTITI_MAKE_OPTS = \
 	LIBHTTPSERVER_NAME=ouistiti \
 	package=ouistiti \
 	prefix=/usr \
-	libdir=/usr/lib/ouistiti \
 	sysconfdir=/etc/ouistiti \
 	ARCH=$(KERNEL_ARCH) \
 	SYSROOT=$(STAGING_DIR)
