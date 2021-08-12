@@ -37,6 +37,8 @@ typedef struct server_s server_t;
 
 typedef struct module_s module_t;
 typedef struct modulesconfig_s modulesconfig_t;
+typedef struct serverconfig_s serverconfig_t;
+typedef struct module_list_s module_list_t;
 
 #define WEBSOCKET_REALTIME 0x01
 
@@ -53,18 +55,25 @@ struct module_s
 	unsigned short version;
 };
 
-typedef struct serverconfig_s
+struct module_list_s
+{
+	const module_t *module;
+	struct module_list_s *next;
+};
+
+struct serverconfig_s
 {
 	void *configfile;
 	http_server_config_t *server;
 	void *modulesconfig;
-} serverconfig_t;
+};
 
 typedef struct ouistiticonfig_s
 {
 	void *configfile;
 	char *user;
-	char *pidfile;
+	const char *pidfile;
+	const char *init_d;
 	serverconfig_t *config[MAX_SERVERS];
 } ouistiticonfig_t;
 
@@ -72,8 +81,10 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
 int ouistiti_initmodules(const char *pkglib);
-typedef void *(*configure_t)(void *data, const char *name, server_t *server);
+typedef void *(*configure_t)(void *data, const module_t *module, server_t *server);
 void ouistiti_registermodule(const module_t *module);
+const module_list_t *ouistiti_modules(server_t *server);
 int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);
+
 #endif

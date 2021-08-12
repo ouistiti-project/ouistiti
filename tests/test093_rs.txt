@@ -1,5 +1,5 @@
 HTTP/1.1 200 OK
 Content-Type: application/x-www-form-urlencoded
-Content-Length: 59
+Content-Length: 61
 
-user=alibaba&group=root&status=activated&home=/home/alibaba
+user=alibaba&group=root&status=reapproving&home=/home/alibaba

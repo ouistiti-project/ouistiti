@@ -1,0 +1,8 @@
+config BR2_PACKAGE_OUICLOUD
+	bool "ouicloud"
+	depends on BR2_PACKAGE_OUISTITI
+	help
+	  file sharing website for ouistiti
+
+	  https://github.com/ouistiti-project
+

@@ -274,7 +274,7 @@ static void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 	{
 		mod->pers = str_mbedtls;
 	}
-
+	warn("tls: enables on %s %s", httpserver_INFO(server, "hostname"), httpserver_INFO(server, "port"));
 
 	return mod;
 }

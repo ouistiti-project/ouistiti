@@ -25,6 +25,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,9 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <libgen.h>
+#include <sched.h>
+#include <dirent.h>
 
 #ifndef WIN32
 # include <sys/socket.h>
@@ -55,10 +59,13 @@
 
 #include "ouistiti.h"
 
+#define STR(x) #x
 #define PACKAGEVERSION PACKAGE_NAME "/" PACKAGE_VERSION
 #define DEFAULT_CONFIGPATH SYSCONFDIR"/ouistiti.conf"
 
 #include "mod_auth.h"
+
+extern const char str_hostname[];
 
 const char *auth_info(http_message_t *request, const char *key)
 {
@@ -107,13 +114,6 @@ int auth_setowner(const char *user)
 	return ret;
 }
 
-struct module_list_s
-{
-	const module_t *module;
-	struct module_list_s *next;
-};
-typedef struct module_list_s module_list_t;
-
 static module_list_t *g_modules = NULL;
 
 typedef struct mod_s
@@ -133,6 +133,87 @@ struct server_s
 	unsigned int id;
 };
 
+static int main_exec(int rootfd,  const char *scriptpath)
+{
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+
+                char * const argv[2] = { (char *)scriptpath, NULL };
+                setlinebuf(stdout);
+                sched_yield();
+
+                char * const env[1] = { NULL };
+#ifdef USE_EXECVEAT
+                execveat(rootfd, scriptpath, argv, env);
+#elif defined(USE_EXECVE)
+				fchdir(rootfd);
+                execve(scriptpath, argv, env);
+#else
+                int scriptfd = openat(rootfd, scriptpath, O_PATH);
+                close(rootfd);
+                fexecve(scriptfd, argv, env);
+#endif
+                err("cgi error: %s", strerror(errno));
+                exit(0);
+	}
+	return pid;
+}
+
+static int main_initat(int rootfd, const char *path)
+{
+	struct stat filestat = {0};
+	if (fstatat(rootfd, path, &filestat, 0) != 0)
+		return EREJECT;
+	if (S_ISDIR(filestat.st_mode))
+	{
+		struct dirent **namelist;
+		int n;
+		n = scandirat(rootfd, path, &namelist, NULL, alphasort);
+		if (n == -1)
+			return EREJECT;
+		int newrootfd = openat(rootfd, path, O_DIRECTORY);
+		while (n--)
+		{
+			if (namelist[n]->d_name[0] != '.')
+				main_initat(newrootfd, namelist[n]->d_name);
+			free(namelist[n]);
+		}
+		close(newrootfd);
+
+	}
+	else if (faccessat(rootfd, path, X_OK, 0) == 0)
+	{
+		main_exec(rootfd, path);
+	}
+	int n = faccessat(rootfd, path, X_OK, 0);
+
+	return ESUCCESS;
+}
+
+void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticonfig)
+{
+	fprintf(stdout, "sysconfdir=\""STR(SYSCONFDIR) "\"\n");
+	fprintf(stdout, "prefix=\"" STR(PREFIX) "\"\n");
+	fprintf(stdout, "libdir=\"" STR(LIBDIR) "\"\n");
+	fprintf(stdout, "pkglibdir=\"" STR(PKGLIBDIR) "\"\n");
+	fprintf(stdout, "datadir=\"" STR(DATADIR) "\"\n");
+	char *path;
+	path = realpath(configfile, NULL);
+	if (path != NULL)
+	{
+		fprintf(stdout, "configfile=\"%s\"\n", path);
+		free(path);
+	}
+	path = realpath(ouistiticonfig->pidfile, NULL);
+	if (path != NULL)
+	{
+		fprintf(stdout, "pidfile=\"%s\"\n", path);
+		free(path);
+	}
+	fprintf(stdout, "hostname=\"%s\"\n", str_hostname);
+};
+
 void display_help(char * const *argv)
 {
 	fprintf(stderr, PACKAGE_NAME" "PACKAGE_VERSION" build: "__DATE__" "__TIME__"\n");
@@ -144,6 +225,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-M <modules_path>\tset the path to modules\n");
 	fprintf(stderr, "\t-p <pidfile>\tset the file path to save the pid\n");
 	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
+	fprintf(stderr, "\t-K \t\tto kill other instances of the server\n");
 	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
 }
 
@@ -170,7 +252,7 @@ int ouistiti_issecure(server_t *server)
 	return !!strcmp(secure, "true");
 }
 
-int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
+static int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
 {
 	int i = 0;
 	mod_t *mod = &server->modules[i];
@@ -192,13 +274,13 @@ int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t co
 	if (module->configure != NULL)
 		config = module->configure(parser, server);
 	else if (configure != NULL)
-		config = configure(parser, module->name, server);
+		config = configure(parser, module, server);
 	mod->obj = module->create(server->server, config);
 	mod->ops = module;
 	return (mod->obj != NULL)?ESUCCESS:EREJECT;
 }
 
-int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
+static int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
 {
 	const module_list_t *iterator = g_modules;
 	while (iterator != NULL)
@@ -228,6 +310,11 @@ void ouistiti_registermodule(const module_t *module)
 	dbg("module %s regitered", module->name);
 }
 
+const module_list_t *ouistiti_modules(server_t *server)
+{
+	return g_modules;
+}
+
 static void __ouistiti_freemodule()
 {
 	module_list_t *iterator = g_modules;
@@ -255,7 +342,10 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 
 	server->server = httpserver;
 	server->config = config;
-	server->id = id;
+	if (id == -1)
+		server->id = first->id + 1;
+	else
+		server->id = id;
 	ouistiti_setmodules(server, NULL, config->modulesconfig);
 
 	return server;
@@ -266,6 +356,7 @@ static ouistiticonfig_t g_ouistiti_config =
 {
 	.user = "www-data",
 	.pidfile = "/var/run/ouistiti.pid",
+	.init_d = SYSCONFDIR"/init.d",
 	.servers = {
 		&(serverconfig_t){
 			.server = &(http_server_config_t){
@@ -375,11 +466,13 @@ static int ouistiti_kill(const char *configfile, const char *pidfile)
 
 #define DAEMONIZE 0x01
 #define KILLDAEMON 0x02
+#define CONFIGURATION 0x04
 static char servername[] = PACKAGEVERSION;
 int main(int argc, char * const *argv)
 {
 	const char *configfile = DEFAULT_CONFIGPATH;
 	const char *pidfile = NULL;
+	const char *workingdir = NULL;
 	int mode = 0;
 	int serverid = -1;
 	const char *pkglib = PKGLIBDIR;
@@ -395,7 +488,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:P:hDKVM:W:");
+		opt = getopt(argc, argv, "s:f:p:P:hDKCVM:W:");
 		switch (opt)
 		{
 			case 's':
@@ -418,15 +511,18 @@ int main(int argc, char * const *argv)
 			return -1;
 			case 'V':
 				printf("%s\n",PACKAGEVERSION);
-			return -1;
+			return 1;
 			case 'D':
 				mode |= DAEMONIZE;
 			break;
 			case 'K':
 				mode |= KILLDAEMON;
 			break;
+			case 'C':
+				mode |= CONFIGURATION;
+			break;
 			case 'W':
-				chdir(optarg);
+				 workingdir = optarg;
 			break;
 			default:
 			break;
@@ -438,6 +534,8 @@ int main(int argc, char * const *argv)
 	{
 		return ouistiti_kill(configfile, pidfile);
 	}
+
+	chdir(workingdir);
 
 	ouistiti_initmodules(pkglib);
 #ifdef MODULES
@@ -451,6 +549,18 @@ int main(int argc, char * const *argv)
 
 	if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
 		pidfile = ouistiticonfig->pidfile;
+
+	if (mode & CONFIGURATION)
+	{
+		display_configuration(configfile, ouistiticonfig);
+		return 0;
+	}
+
+	if (ouistiticonfig->init_d != NULL)
+	{
+		int rootfd = AT_FDCWD;
+		main_initat(rootfd, ouistiticonfig->init_d);
+	}
 
 	if (mode & DAEMONIZE && daemonize(pidfile) == -1)
 	{
