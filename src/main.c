@@ -114,13 +114,6 @@ int auth_setowner(const char *user)
 	return ret;
 }
 
-struct module_list_s
-{
-	const module_t *module;
-	struct module_list_s *next;
-};
-typedef struct module_list_s module_list_t;
-
 static module_list_t *g_modules = NULL;
 
 typedef struct mod_s
@@ -315,6 +308,11 @@ void ouistiti_registermodule(const module_t *module)
 	new->next = g_modules;
 	g_modules = new;
 	dbg("module %s regitered", module->name);
+}
+
+const module_list_t *ouistiti_modules(server_t *server)
+{
+	return g_modules;
 }
 
 static void __ouistiti_freemodule()
