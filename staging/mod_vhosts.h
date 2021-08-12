@@ -36,12 +36,6 @@ extern "C"
 {
 #endif
 
-struct mod_vhost_s
-{
-	/** @param name of the server */
-	char *hostname;
-};
-
 extern const module_t mod_vhosts;
 
 #ifdef __cplusplus
