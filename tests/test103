@@ -1,0 +1,4 @@
+DESC="test PUT request with too long Content-Length"
+CONFIG=test12.conf
+TESTCODE=none
+TESTRESPONSE=none

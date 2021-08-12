@@ -4,8 +4,10 @@ servers= ({
 		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
+		vhost = {
+		hostname = "myvhost";
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "%PWD%/tests/htdocs/vhost";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.cgi,*.php";
 			options = "dirlisting,range,rest";
@@ -15,8 +17,12 @@ servers= ({
 				options = "error";
 				destination = "error_404.html";
 				origin = 404;
+			},{
+				options = "generate_204";
+				origin = "empty";
 			});
 
+		};
 		};
 	});
 

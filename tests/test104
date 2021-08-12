@@ -1,0 +1,3 @@
+DESC="Document: test a request on a vhost"
+CONFIG=test18.conf
+TESTCODE=200
