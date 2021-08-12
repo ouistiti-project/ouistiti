@@ -42,18 +42,13 @@
 #ifdef MODULES
 #include <dlfcn.h>
 #endif
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
 
 #include "ouistiti/httpserver.h"
-#include "mod_websocket.h"
-#include "mod_document.h"
-#include "mod_cgi.h"
-#include "mod_auth.h"
-#include "mod_clientfilter.h"
+#include "ouistiti/ouistiti.h"
 #include "mod_vhosts.h"
-#include "mod_methodlock.h"
-#include "mod_server.h"
-
-#warning VHOSTS is deprecated
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -64,6 +59,14 @@
 #endif
 
 static const char str_vhosts[] = "vhosts";
+
+struct mod_vhost_s
+{
+	/** @param name of the server */
+	const char *hostname;
+	server_t *server;
+	void *modulesconfig;
+};
 
 typedef struct _mod_vhost_s _mod_vhost_t;
 
@@ -80,12 +83,6 @@ struct _mod_vhost_s
 	_module_t *modules;
 };
 
-
-#warning libhttpserver must be modified to remove the static declaration of the following functions
-#warning As ouistiti should run on embedded device, the virtual hosting is not a required feature.
-
-extern int _httpserver_setmod(http_server_t *server, http_client_t *client);
-extern int _httpclient_checkconnector(http_client_t *client, http_message_t *request, http_message_t *response);
 static int _vhost_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
@@ -94,24 +91,10 @@ static int _vhost_connector(void *arg, http_message_t *request, http_message_t *
 	if (vhost == NULL || strcmp(vhost, mod->config->hostname))
 		return EREJECT;
 
-	http_client_t *clt = httpmessage_client(request);
-	_httpserver_setmod(mod->vserver, clt);
-	int ret = _httpclient_checkconnector(httpmessage_client(request), request, response);
-	return ret;
-}
-
-static void *_mod_vhost_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
-{
-	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
-
-	httpclient_addconnector(ctl, _vhost_connector, arg, CONNECTOR_FILTER, str_vhosts);
-
-	return mod;
+	return httpserver_reloadclient(mod->vserver, httpmessage_client(request));
 }
 
 #ifdef FILE_CONFIG
-#include <libconfig.h>
-
 static void *vhost_config(config_setting_t *iterator, server_t *server)
 {
 	mod_vhost_t *vhost = NULL;
@@ -123,12 +106,17 @@ static void *vhost_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (config)
 	{
+		const char *hostname;
+		config_setting_lookup_string(config, "hostname", (const char **)&hostname);
+		if (hostname == NULL || hostname[0] == '\0')
+		{
+			err("vhost configuration without hostname");
+			return vhost;
+		}
 		vhost = calloc(1, sizeof(*vhost));
-		config_setting_lookup_string(config, "hostname", (const char **)&vhost->hostname);
-		if (vhost->hostname != NULL && vhost->hostname[0] = '\0')
-			ouistiti_setmodules(server, NULL, config);
-		else
-			warn("vhost configuration without hostname");
+		vhost->hostname = hostname;
+		vhost->server = server;
+		vhost->modulesconfig = config;
 	}
 
 	return vhost;
@@ -147,8 +135,19 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 
-	httpserver_addmod(server, _mod_vhost_getctx, NULL, mod, str_vhosts);
 	mod->vserver = httpserver_dup(server);
+	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_FILTER, str_vhosts);
+	const module_list_t *iterator = ouistiti_modules(config->server);
+	while (iterator != NULL)
+	{
+		void *config = NULL;
+		if (iterator->module->configure != NULL)
+			config = iterator->module->configure(
+				(config_setting_t *)mod->config->modulesconfig,
+				mod->config->server);
+		iterator->module->create(mod->vserver, config);
+		iterator = iterator->next;
+	}
 
 	dbg("create vhost for %s", config->hostname);
 

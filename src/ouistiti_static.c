@@ -55,7 +55,7 @@ static const module_t *default_modules[] =
 #if defined TLS
 	&mod_tls,
 #endif
-#if defined VHOSTS_DEPRECATED
+#if defined VHOSTS
 	&mod_vhosts,
 #endif
 #if defined CLIENTFILTER
