@@ -1,5 +1,5 @@
 GET /index.html HTTP/1.1
 HOST: myvhost
-Authorization: Basic Zm9vOmJhcg==
+Authorization: Basic error
 Upgrade-Insecure-Requests: 1
 
