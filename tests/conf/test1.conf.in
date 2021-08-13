@@ -13,8 +13,8 @@ servers= ({
 		redirect = {
 			links = ({
 				options = "error";
-				destination = "error_404.html";
-				origin = 404;
+				destination = "error_414.html";
+				origin = 414;
 			});
 
 		};
