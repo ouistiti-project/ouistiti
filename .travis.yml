@@ -36,7 +36,7 @@ jobs:
         sonar-scanner -D sonar.projectKey=${SONARCLOUD_ORGANIZATION}_ouistiti
     - stage: release
       script:
-        git clone ${GITHUB_LIBHTTPSERVER} libhttpserver &&
+        git clone ${GITHUB_LIBHTTPSERVER} -b ${TRAVIS_BRANCH} libhttpserver &&
         make clean &&
         make fullforked_defconfig &&
         make TINYSVCMDNS=n oldconfig &&
