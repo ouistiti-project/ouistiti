@@ -25,16 +25,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-
-/**
-    auth module needs the type of authentication ("Basic" or "Digest").
-    After the rule to check the password is an authn_<type>_<name>
-    sublibrary (just a C file).
-
-    With this solution each server may has its own authentication type.
-    After the checking of the password is done by a library linked to the
-    mod_vhosts library.
- */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -48,7 +38,7 @@
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/ouistiti.h"
-#include "mod_vhosts.h"
+#include "mod_vhost.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -58,7 +48,7 @@
 #define dbg(...)
 #endif
 
-static const char str_vhosts[] = "vhosts";
+static const char str_vhost[] = "vhost";
 
 struct mod_vhost_s
 {
@@ -136,7 +126,7 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod->config = config;
 
 	mod->vserver = httpserver_dup(server);
-	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_FILTER, str_vhosts);
+	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_FILTER, str_vhost);
 	const module_list_t *iterator = ouistiti_modules(config->server);
 	while (iterator != NULL)
 	{
@@ -161,13 +151,13 @@ void mod_vhost_destroy(void *arg)
 	free(mod);
 }
 
-const module_t mod_vhosts =
+const module_t mod_vhost =
 {
-	.name = str_vhosts,
+	.name = str_vhost,
 	.configure = (module_configure_t)&vhost_config,
 	.create = (module_create_t)&mod_vhost_create,
 	.destroy = &mod_vhost_destroy
 };
 #ifdef MODULES
-extern module_t mod_info __attribute__ ((weak, alias ("mod_vhosts")));
+extern module_t mod_info __attribute__ ((weak, alias ("mod_vhost")));
 #endif
