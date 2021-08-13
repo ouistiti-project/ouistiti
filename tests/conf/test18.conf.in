@@ -6,6 +6,11 @@ servers= ({
 		version="HTTP11";
 		vhost = {
 		hostname = "myvhost";
+		auth = {
+			type="Basic";
+			user="foo";
+			passwd="bar";
+		};
 		document = {
 			docroot = "%PWD%/tests/htdocs/vhost";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
