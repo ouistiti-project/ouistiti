@@ -340,7 +340,7 @@ static void *mod_websocket_create(http_server_t *server, mod_websocket_t *config
 		fdroot = open(config->docroot, O_DIRECTORY);
 		if (fdroot == -1)
 		{
-			err("websocket: docroot %s not found", config->docroot);
+			err("websocket: docroot %s not found from %s", config->docroot, getenv("PWD"));
 			return NULL;
 		}
 	}

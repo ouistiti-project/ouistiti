@@ -151,7 +151,7 @@ static int _document_docroot(_mod_document_mod_t *mod,
 		}
 		if (fdroot == -1)
 		{
-			err("document: user %s home directory not found", user);
+			err("document: user %s home directory not found from %s", user, getenv("PWD"));
 			fdroot = EREJECT;
 		}
 	}
