@@ -62,7 +62,7 @@ WS_CHAT=n
 WS_JSONRPC=n
 WS_SYSLOGD=n
 #support of Virtual Hosting
-VHOSTS=n
+VHOST=n
 #support of request method check
 METHODLOCK=n
 #add Server Software name into the headers

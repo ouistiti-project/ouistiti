@@ -46,7 +46,7 @@
 #include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
-#include "mod_vhosts.h"
+#include "mod_vhost.h"
 #include "mod_cors.h"
 #include "mod_upgrade.h"
 #include "mod_userfilter.h"

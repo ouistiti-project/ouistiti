@@ -245,7 +245,7 @@ The fields
  * CGI : build the CGI/1.1 support.
  * DOCUMENT : build the [document](docs/mod_document.md) module.
  * AUTH : build the [authentication](docs/mod_auth.md) module.
- * VHOSTS : build virtual hosting's extension **DEPRECATED**.
+ * VHOST : build virtual hosting's extension
  * WEBSOCKET : build the [websocket](docs/mod_websocket.md) module.
  * CLIENTFILTER : build the connection filtering module.
  * USERFILTER : build the [userfilter](docs/mod_userfilter.md) module.
