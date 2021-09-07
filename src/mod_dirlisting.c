@@ -45,6 +45,10 @@
 # define S_IFMT 0xF000
 #endif
 
+#ifndef DEBUG
+# undef USE_REENTRANT
+#endif
+
 #define document_dbg(...)
 
 typedef struct _document_connector_s document_connector_t;
