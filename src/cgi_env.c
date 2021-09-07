@@ -405,7 +405,6 @@ static const httpenv_t cgi_env[] =
 		.cb = &env_authuser,
 	},
 	{
-		.id = -1,
 		.id = HTTPS,
 		.target = "HTTPS=",
 		.length = 1,
