@@ -214,25 +214,25 @@ static int authmngt_jsonifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *re
 	httpmessage_appendcontent(response, "{\"user\":\"", -1);
 	httpmessage_appendcontent(response, info->user, -1);
 	httpmessage_appendcontent(response, "\"", -1);
-	if (info->group != NULL)
+	if (info->group[0] != '\0')
 	{
 		httpmessage_appendcontent(response, ",\"group\":\"", -1);
 		httpmessage_appendcontent(response, info->group, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
-	if (info->status != NULL)
+	if (info->status[0] != '\0')
 	{
 		httpmessage_appendcontent(response, ",\"status\":\"", -1);
 		httpmessage_appendcontent(response, info->status, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
-	if (info->home != NULL)
+	if (info->home[0] != '\0')
 	{
 		httpmessage_appendcontent(response, ",\"home\":\"", -1);
 		httpmessage_appendcontent(response, info->home, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
-	if (info->token != NULL)
+	if (info->token[0] != '\0')
 	{
 		httpmessage_appendcontent(response, ",\"token\":\"", -1);
 		httpmessage_appendcontent(response, info->token, -1);
