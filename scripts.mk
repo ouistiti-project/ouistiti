@@ -162,7 +162,9 @@ TARGETGCOV:=$(TARGETPREFIX)$(GCOV)
 
 ARCH?=$(shell LANG=C $(TARGETCC) -dumpmachine | awk -F- '{print $$1}')
 libsuffix?=/$(shell $(TARGETCC) -dumpmachine)
+ifeq ($(CC),gcc)
 SYSROOT=$(shell $(TARGETCC) -print-sysroot)
+endif
 
 ifneq ($(SYSROOT),)
 sysroot:=$(patsubst "%",%,$(SYSROOT:%/=%)/)
@@ -810,7 +812,7 @@ $(pkgconfig-target): $(builddir)%.pc:$(builddir).%.pc.in
 	@$(call cmd,generate_pkgconfig)
 
 
-.PHONY: menuconfig gconfig xconfig config oldconfig saveconfig defconfig FORCE
+.PHONY: menuconfig gconfig xconfig config oldconfig _oldconfig saveconfig defconfig FORCE
 menuconfig gconfig xconfig config:
 	$(EDITOR) $(CONFIG)
 
