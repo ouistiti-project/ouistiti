@@ -70,8 +70,6 @@ $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=crypt
 $(TARGET)_LIBRARY-$(AUTHZ_JWT)+=jansson
 $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
 
-$(TARGET)_LIBRARY-$(TINYSVCMDNS_DEPRECATED)+=tinysvcmdns
-
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouibsocket
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouihash
