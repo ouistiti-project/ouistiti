@@ -79,8 +79,6 @@ REDIRECT=y
 COOKIE=y
 #support Cross-Origin Resource Sharing (CORS)
 CORS=y
-#support of mDNS
-TINYSVCMDNS=n
 #support of upgrade and reverse-http
 UPGRADE=y
 UPGRADE_INET=n
