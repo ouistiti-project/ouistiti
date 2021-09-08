@@ -47,7 +47,7 @@ AUTHN_NONE=y
 AUTHN_BASIC=y
 AUTHN_DIGEST=y
 AUTHN_BEARER=y
-AUTHN_OAUTH2=y
+AUTHN_OAUTH2=n
 AUTHZ_SIMPLE=y
 AUTHZ_FILE=y
 AUTHZ_UNIX=y
@@ -79,8 +79,6 @@ REDIRECT=y
 COOKIE=y
 #support Cross-Origin Resource Sharing (CORS)
 CORS=y
-#support of mDNS
-TINYSVCMDNS=y
 #support of upgrade and reverse-http
 UPGRADE=y
 UPGRADE_INET=n
