@@ -44,7 +44,7 @@
 #include "mod_cgi.h"
 #include "mod_websocket.h"
 #include "mod_webstream.h"
-#include "mod_vhosts.h"
+#include "mod_vhost.h"
 #include "mod_redirect404.h"
 #include "mod_redirect.h"
 #include "mod_tinysvcmdns.h"
