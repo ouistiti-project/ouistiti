@@ -330,6 +330,9 @@ static void __ouistiti_freemodule()
 
 static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 {
+	if (first == NULL && id == -1)
+		id = 0;
+
 	if (first != NULL && first->id == MAX_SERVERS)
 		return NULL;
 
