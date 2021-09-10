@@ -191,7 +191,7 @@ static int main_initat(int rootfd, const char *path)
 	return ESUCCESS;
 }
 
-void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticonfig)
+void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticonfig, const char *pidfile)
 {
 	fprintf(stdout, "sysconfdir=\""STR(SYSCONFDIR) "\"\n");
 	fprintf(stdout, "prefix=\"" STR(PREFIX) "\"\n");
@@ -205,7 +205,9 @@ void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticon
 		fprintf(stdout, "configfile=\"%s\"\n", path);
 		free(path);
 	}
-	path = realpath(ouistiticonfig->pidfile, NULL);
+	path = NULL;
+	if (pidfile != NULL)
+		path = realpath(pidfile, NULL);
 	if (path != NULL)
 	{
 		fprintf(stdout, "pidfile=\"%s\"\n", path);
@@ -535,7 +537,8 @@ int main(int argc, char * const *argv)
 		return ouistiti_kill(configfile, pidfile);
 	}
 
-	chdir(workingdir);
+	if (workingdir != NULL)
+		chdir(workingdir);
 
 	ouistiti_initmodules(pkglib);
 #ifdef MODULES
@@ -546,13 +549,18 @@ int main(int argc, char * const *argv)
 
 	ouistiticonfig_t *ouistiticonfig = NULL;
 	ouistiticonfig = ouistiticonfig_create(configfile);
+	if (ouistiticonfig == NULL)
+	{
+		err("Ouistiti configuration not found !!!");
+		return 1;
+	}
 
-	if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
+	if (pidfile == NULL && ouistiticonfig->pidfile)
 		pidfile = ouistiticonfig->pidfile;
 
 	if (mode & CONFIGURATION)
 	{
-		display_configuration(configfile, ouistiticonfig);
+		display_configuration(configfile, ouistiticonfig, pidfile);
 		return 0;
 	}
 
@@ -562,7 +570,7 @@ int main(int argc, char * const *argv)
 		main_initat(rootfd, ouistiticonfig->init_d);
 	}
 
-	if (mode & DAEMONIZE && daemonize(pidfile) == -1)
+	if ((mode & DAEMONIZE) && daemonize(pidfile) == -1)
 	{
 		/**
 		 * if main is destroyed, it close the server socket here
