@@ -108,7 +108,7 @@ static serverconfig_t *config_server(config_setting_t *iterator, config_t *confi
 	config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
 	config_setting_lookup_string(iterator, "service", &config->server->service);
 	config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
-	config->server->chunksize = DEFAULT_CHUNKSIZE;
+	config->server->chunksize = HTTPMESSAGE_CHUNKSIZE;
 	config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
 	config->server->maxclients = DEFAULT_MAXCLIENTS;
 	config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
