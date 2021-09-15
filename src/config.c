@@ -214,7 +214,9 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 	char *configd = NULL;
 	config_lookup_string(configfile, "config_d", (const char **)&configd);
 	DIR *configdir = NULL;
-	if (configd != NULL && (configdir = opendir(configd)) != NULL)
+	if (configd != NULL)
+		configdir = opendir(configd);
+	if (configdir != NULL)
 	{
 		struct dirent *entry = readdir(configdir);
 		while (entry != NULL)
