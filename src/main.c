@@ -191,7 +191,7 @@ static int main_initat(int rootfd, const char *path)
 	return ESUCCESS;
 }
 
-void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticonfig, const char *pidfile)
+void display_configuration(const char *configfile, const char *pidfile)
 {
 	fprintf(stdout, "sysconfdir=\""STR(SYSCONFDIR) "\"\n");
 	fprintf(stdout, "prefix=\"" STR(PREFIX) "\"\n");
@@ -563,7 +563,7 @@ int main(int argc, char * const *argv)
 
 	if (mode & CONFIGURATION)
 	{
-		display_configuration(configfile, ouistiticonfig, pidfile);
+		display_configuration(configfile, pidfile);
 		return 0;
 	}
 
