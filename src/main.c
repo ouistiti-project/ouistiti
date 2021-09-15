@@ -540,8 +540,11 @@ int main(int argc, char * const *argv)
 		return ouistiti_kill(configfile, pidfile);
 	}
 
-	if (workingdir != NULL)
-		chdir(workingdir);
+	if (workingdir != NULL && chdir(workingdir) != 0)
+	{
+		err("%s directory is not accessible", workingdir);
+		return 1;
+	}
 
 	ouistiti_initmodules(pkglib);
 #ifdef MODULES
