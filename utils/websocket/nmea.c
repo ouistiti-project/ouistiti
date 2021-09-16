@@ -333,7 +333,7 @@ int main(int argc, char **argv)
 		{
 			startgernerator(&origin);
 			
-			int newsock = 0;
+			int newsock = -1;
 			do
 			{
 				fd_set rfds;
