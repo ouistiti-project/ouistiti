@@ -159,7 +159,6 @@ test () {
 		TESTCONTENTLEN=$(cat ${TESTDIR}htdocs/${FILE} | ${WC} -c)
 	fi
 
-	TARGET="ouistiti"
 	config $CONFIG
 
 	if [ -n "$PREPARE_ASYNC" ]; then
@@ -268,15 +267,17 @@ test () {
 	fi
 }
 
-stop ouistiti
+TARGET="ouistiti"
+stop ${TARGET}
 for TEST in ${TESTS}
 do
 	test $TEST
 done
 
 if [ ${ALL} -eq 1 ]; then
-	./src/ouistiti -h
-	./src/ouistiti -V
+	${SRCDIR}${TARGET} -h
+	${SRCDIR}${TARGET} -V
+	${SRCDIR}${TARGET} -C -f ${TESTDIR}conf/test1.conf
 fi
 if [ ${GCOV} -eq 1 ]; then
 	make DEBUG=y gcov
