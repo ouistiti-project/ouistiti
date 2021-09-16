@@ -1,2 +1,3 @@
 user="%USER%";
 config_d="%PWD%/tests/conf/config.d";
+init_d="%PWD%/tests/init.d";

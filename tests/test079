@@ -1,4 +1,4 @@
 DESC="open webstream socket"
-PREPARE_ASYNC="./utils/streamer -R /tmp -n dummy -u $USER -s 10 -t"
+#PREPARE_ASYNC="./utils/streamer -R /tmp -n dummy -u $USER -s 10 -t"
 CONFIG=test5.conf
 TESTCODE=200
