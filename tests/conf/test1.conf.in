@@ -1,4 +1,21 @@
 user="%USER%";
+log-file="/tmp/ouistiti.log";
+mimetypes = ({
+		ext = ".mp3";
+		mime = "audio/mp3";
+	},
+	{
+		ext = ".ogg";
+		mime = "audio/ogg";
+	},
+	{
+		ext = ".mp4,.m4v";
+		mime = "video/mp4";
+	},
+	{
+		ext = ".avi";
+		mime = "video/avi";
+	});
 servers= ({
 		hostname = "www.ouistiti.net";
 		port = 8080;
