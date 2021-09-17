@@ -1,5 +1,4 @@
 HTTP/1.1 201 Created
 Content-Type: text/json
-Content-Length: 76
 
-{"user":"alibaba","group":"users","status":"approving","home":"","token":""}
+{"user":"alibaba","group":"users","status":"approving"}

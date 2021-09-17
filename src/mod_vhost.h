@@ -25,8 +25,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_VHOSTS_H__
-#define __MOD_VHOSTS_H__
+#ifndef __MOD_VHOST_H__
+#define __MOD_VHOST_H__
 
 typedef struct mod_vhost_s mod_vhost_t;
 #include "ouistiti.h"
@@ -36,7 +36,7 @@ extern "C"
 {
 #endif
 
-extern const module_t mod_vhosts;
+extern const module_t mod_vhost;
 
 #ifdef __cplusplus
 }

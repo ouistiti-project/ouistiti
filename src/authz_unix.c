@@ -174,7 +174,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		}
 
 		const char *testpasswd = NULL;
-#ifdef USER_CRYPT_R
+#ifdef USE_CRYPT_R
 		struct crypt_data crdata = {0};
 		testpasswd = crypt_r(passwd, cryptpasswd, &crdata);
 #else

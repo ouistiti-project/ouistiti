@@ -1,0 +1,4 @@
+DESC="Document: test a request on a vhost with bad authentication"
+CONFIG=test18.conf
+TESTCODE=401
+TESTRESPONSE=error401Basic_rs.txt

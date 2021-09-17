@@ -112,9 +112,8 @@ static void *cgi_config(config_setting_t *iterator, server_t *server)
 		config_setting_lookup_string(configcgi, "allow", (const char **)&cgi->allow);
 		config_setting_lookup_string(configcgi, "deny", (const char **)&cgi->deny);
 		cgi->nbenvs = 0;
-		cgi->chunksize = 64;
 		cgi->options |= CGI_OPTION_TLS;
-		cgi->chunksize = DEFAULT_CHUNKSIZE;
+		cgi->chunksize = HTTPMESSAGE_CHUNKSIZE;
 		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);
 #if LIBCONFIG_VER_MINOR < 5
 		config_setting_t *cgienv = config_setting_get_member(configcgi, "env");

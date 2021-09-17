@@ -1,3 +1,13 @@
+# LIBHTTPSERVER configuration:
+LIBHTTPSERVER_DIR=libhttpserver/
+
+#define message chunk values
+MAXCHUNKS_HEADER=12
+MAXCHUNKS_CONTENT=3
+MAXCHUNKS_SESSION=2
+MAXCHUNKS_URI=2
+HTTPMESSAGE_CHUNKSIZE=128
+
 #select FILE_CONFIG to use a configuration file
 #or modify src/config.h
 FILE_CONFIG=y
@@ -9,8 +19,6 @@ MODULES=n
 #select the maximum of host to manage (host/port and virtual)
 MAX_SERVERS=4
 
-#LIBHTTPSERVER configuration
-LIBHTTPSERVER_DIR=libhttpserver/
 #multi threads server may run with "fork" or "pthread"
 #if mono thread only one server may run
 VTHREAD=n
@@ -22,14 +30,22 @@ USE_EXECVEAT=n
 USE_POLL=y
 USE_PTHREAD=n
 
-#modules selection:
+# libraries  configuration:
+LIBWEBSOCKET=y
+LIBURI=n
+LIBUTILS=y
+LIBHASH=y
 
-#LIBHTTPSERVER modules configuration
+# libouihash configuration:
+LIBB64=y
+# libouisocket configuration:
+MAXWEBSOCKETS=10
+
+# MODULES configuration:
 #support HTTPS connection and hash functions
 MBEDTLS=y
 WOLFSSL=n
 OPENSSL=n
-LIBB64=y
 #support of static documents
 SECURITY_UNCHECKORIGIN=y
 DOCUMENT=y
@@ -62,7 +78,7 @@ WS_CHAT=n
 WS_JSONRPC=n
 WS_SYSLOGD=n
 #support of Virtual Hosting
-VHOSTS=n
+VHOST=n
 #support of request method check
 METHODLOCK=n
 #add Server Software name into the headers
@@ -79,8 +95,6 @@ REDIRECT=y
 COOKIE=y
 #support Cross-Origin Resource Sharing (CORS)
 CORS=y
-#support of mDNS
-TINYSVCMDNS=n
 #support of upgrade and reverse-http
 UPGRADE=y
 UPGRADE_INET=n
@@ -90,14 +104,3 @@ USERFILTER=n
 CERTIFICATE=n
 
 HOST_UTILS=n
-
-prefix=/usr
-#bindir=
-#sbindir=
-#includedir=
-libdir=/usr/lib/ouistiti
-pkglibdir=/usr/lib/ouistiti
-sysconfdir=/etc/ouistiti
-
-#sysroot=
-#CROSS_COMPILER=

@@ -133,13 +133,17 @@ struct server_s
 	unsigned int id;
 };
 
-static int main_exec(int rootfd,  const char *scriptpath)
+const char *actions[] = {
+	"start",
+	"stop"
+};
+static int main_exec(int rootfd,  const char *scriptpath, int stop)
 {
         pid_t pid = fork();
         if (pid == 0)
         {
 
-                char * const argv[2] = { (char *)scriptpath, NULL };
+                char * const argv[3] = { (char *)scriptpath, (char *)actions[stop], NULL };
                 setlinebuf(stdout);
                 sched_yield();
 
@@ -160,7 +164,7 @@ static int main_exec(int rootfd,  const char *scriptpath)
 	return pid;
 }
 
-static int main_initat(int rootfd, const char *path)
+static int main_initat(int rootfd, const char *path, int action)
 {
 	struct stat filestat = {0};
 	if (fstatat(rootfd, path, &filestat, 0) != 0)
@@ -176,7 +180,9 @@ static int main_initat(int rootfd, const char *path)
 		while (n--)
 		{
 			if (namelist[n]->d_name[0] != '.')
-				main_initat(newrootfd, namelist[n]->d_name);
+			{
+				main_initat(newrootfd, namelist[n]->d_name, action);
+			}
 			free(namelist[n]);
 		}
 		close(newrootfd);
@@ -184,14 +190,14 @@ static int main_initat(int rootfd, const char *path)
 	}
 	else if (faccessat(rootfd, path, X_OK, 0) == 0)
 	{
-		main_exec(rootfd, path);
+		warn("%s %s script", actions[action], path);
+		main_exec(rootfd, path, action);
 	}
-	int n = faccessat(rootfd, path, X_OK, 0);
 
 	return ESUCCESS;
 }
 
-void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticonfig)
+void display_configuration(const char *configfile, const char *pidfile)
 {
 	fprintf(stdout, "sysconfdir=\""STR(SYSCONFDIR) "\"\n");
 	fprintf(stdout, "prefix=\"" STR(PREFIX) "\"\n");
@@ -205,7 +211,9 @@ void display_configuration(const char *configfile, ouistiticonfig_t *ouistiticon
 		fprintf(stdout, "configfile=\"%s\"\n", path);
 		free(path);
 	}
-	path = realpath(ouistiticonfig->pidfile, NULL);
+	path = NULL;
+	if (pidfile != NULL)
+		path = realpath(pidfile, NULL);
 	if (path != NULL)
 	{
 		fprintf(stdout, "pidfile=\"%s\"\n", path);
@@ -328,6 +336,9 @@ static void __ouistiti_freemodule()
 
 static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 {
+	if (first == NULL && id == -1)
+		id = 0;
+
 	if (first != NULL && first->id == MAX_SERVERS)
 		return NULL;
 
@@ -535,7 +546,11 @@ int main(int argc, char * const *argv)
 		return ouistiti_kill(configfile, pidfile);
 	}
 
-	chdir(workingdir);
+	if (workingdir != NULL && chdir(workingdir) != 0)
+	{
+		err("%s directory is not accessible", workingdir);
+		return 1;
+	}
 
 	ouistiti_initmodules(pkglib);
 #ifdef MODULES
@@ -546,23 +561,28 @@ int main(int argc, char * const *argv)
 
 	ouistiticonfig_t *ouistiticonfig = NULL;
 	ouistiticonfig = ouistiticonfig_create(configfile);
+	if (ouistiticonfig == NULL)
+	{
+		err("Ouistiti configuration not found !!!");
+		return 1;
+	}
 
-	if (pidfile == NULL && ouistiticonfig && ouistiticonfig->pidfile)
+	if (pidfile == NULL && ouistiticonfig->pidfile)
 		pidfile = ouistiticonfig->pidfile;
 
 	if (mode & CONFIGURATION)
 	{
-		display_configuration(configfile, ouistiticonfig);
+		display_configuration(configfile, pidfile);
 		return 0;
 	}
 
 	if (ouistiticonfig->init_d != NULL)
 	{
 		int rootfd = AT_FDCWD;
-		main_initat(rootfd, ouistiticonfig->init_d);
+		main_initat(rootfd, ouistiticonfig->init_d, 0);
 	}
 
-	if (mode & DAEMONIZE && daemonize(pidfile) == -1)
+	if ((mode & DAEMONIZE) && daemonize(pidfile) == -1)
 	{
 		/**
 		 * if main is destroyed, it close the server socket here
@@ -604,6 +624,11 @@ int main(int argc, char * const *argv)
 
 	killdaemon(pidfile);
 	main_destroy(first);
+	if (ouistiticonfig->init_d != NULL)
+	{
+		int rootfd = AT_FDCWD;
+		main_initat(rootfd, ouistiticonfig->init_d, 1);
+	}
 	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
 	return 0;
