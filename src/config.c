@@ -46,7 +46,7 @@
 #include "mod_document.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
-#include "mod_vhosts.h"
+#include "mod_vhost.h"
 #include "mod_cors.h"
 #include "mod_upgrade.h"
 #include "mod_userfilter.h"
@@ -108,7 +108,7 @@ static serverconfig_t *config_server(config_setting_t *iterator, config_t *confi
 	config_setting_lookup_string(iterator, "addr", (const char **)&config->server->addr);
 	config_setting_lookup_string(iterator, "service", &config->server->service);
 	config_setting_lookup_int(iterator, "keepalivetimeout", &config->server->keepalive);
-	config->server->chunksize = DEFAULT_CHUNKSIZE;
+	config->server->chunksize = HTTPMESSAGE_CHUNKSIZE;
 	config_setting_lookup_int(iterator, "chunksize", &config->server->chunksize);
 	config->server->maxclients = DEFAULT_MAXCLIENTS;
 	config_setting_lookup_int(iterator, "maxclients", &config->server->maxclients);
@@ -214,7 +214,9 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 	char *configd = NULL;
 	config_lookup_string(configfile, "config_d", (const char **)&configd);
 	DIR *configdir = NULL;
-	if (configd != NULL && (configdir = opendir(configd)) != NULL)
+	if (configd != NULL)
+		configdir = opendir(configd);
+	if (configdir != NULL)
 	{
 		struct dirent *entry = readdir(configdir);
 		while (entry != NULL)

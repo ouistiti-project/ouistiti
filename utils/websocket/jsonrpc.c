@@ -294,7 +294,7 @@ int main(int argc, char **argv)
 		}
 		if (ret == 0)
 		{
-			int newsock = 0;
+			int newsock = -1;
 			do
 			{
 				struct sockaddr_un addr;

@@ -7,8 +7,6 @@ CFLAGS+=-I$(srcdir)/include/ouistiti
 export CFLAGS
 #libhttpserver has to be static in all configuration
 export SLIB_HTTPSERVER=y
-export MAXCHUNKS_HEADER=20
-export MAXCHUNKS_URI=4
 
 ifeq ($(VTHREAD_TYPE),pthread)
  USE_PTHREAD=y

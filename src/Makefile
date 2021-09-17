@@ -47,7 +47,7 @@ $(TARGET)_LIBS-$(DOCUMENT)+=mod_document
 $(TARGET)_LIBS-$(CGI)+=mod_cgi
 $(TARGET)_LIBS-$(AUTH)+=mod_auth
 $(TARGET)_LIBS-$(AUTHZ_MANAGER)+=mod_authmngt
-$(TARGET)_LIBS-$(VHOSTS)+=mod_vhosts
+$(TARGET)_LIBS-$(VHOST)+=mod_vhost
 $(TARGET)_LIBS-$(METHODLOCK_DEPRECATED)+=mod_methodlock
 $(TARGET)_LIBS-$(WEBSOCKET)+=mod_websocket
 $(TARGET)_LIBS-$(SERVERHEADER)+=mod_server
@@ -69,8 +69,6 @@ $(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3 pthread dl m
 $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=crypt
 $(TARGET)_LIBRARY-$(AUTHZ_JWT)+=jansson
 $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
-
-$(TARGET)_LIBRARY-$(TINYSVCMDNS_DEPRECATED)+=tinysvcmdns
 
 endif
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouibsocket
@@ -97,3 +95,4 @@ subdir-$(REDIRECT)+=mod_redirect.mk
 subdir-$(CORS)+=mod_cors.mk
 subdir-$(WEBSOCKET)+=mod_websocket.mk
 subdir-$(USERFILTER)+=mod_userfilter.mk
+subdir-$(VHOST)+=mod_vhost.mk

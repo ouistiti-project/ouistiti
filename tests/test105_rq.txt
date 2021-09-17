@@ -1,4 +1,5 @@
 GET /empty.html HTTP/1.1
 HOST: myvhost
+Authorization: Basic Zm9vOmJhcg==
 Upgrade-Insecure-Requests: 1
 

@@ -115,21 +115,12 @@ static int _server_connector(void *arg, http_message_t *request, http_message_t 
 	return ret;
 }
 
-static void *_mod_server_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
-{
-	_mod_server_t *mod = (_mod_server_t *)arg;
-
-	httpclient_addconnector(ctl, _server_connector, arg, CONNECTOR_FILTER, str_server);
-
-	return mod;
-}
-
 static void *mod_server_create(http_server_t *server, void *config)
 {
 	_mod_server_t *mod = calloc(1, sizeof(*mod));
 
 	mod->config = config;
-	httpserver_addmod(server, _mod_server_getctx, NULL, mod, str_server);
+	httpserver_addconnector(server, _server_connector, mod, CONNECTOR_SERVER, str_server);
 
 	return mod;
 }

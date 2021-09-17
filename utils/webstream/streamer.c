@@ -174,7 +174,6 @@ void *rungenerator(void *arg)
 	}
 	free(buffer->data);
 	warn("generator end");
-	return NULL;
 }
 
 void startgernerator(buffer_t *origin, pthread_t *thread)
