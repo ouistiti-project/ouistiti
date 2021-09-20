@@ -1,20 +1,20 @@
+SPECFILE:=./rpmbuild/ouistiti.spec
 package=ouistiti
 version=$(shell grep '^version[?,:, ]*=' ../Makefile | awk 'BEGIN{FS="="}{print $$2}')
-SPECFILE:=./rpmbuild/ouistiti.spec
 
-RPMDIR=$(HOME)
+RPMDIR?=$(HOME)
 UID=$(shell id -u)
 
 .PHONY: FORCE
 
 debian: FORCE
-	@debuild --no-sign
+	@dpkg-buildpackage --no-sign
 
 $(RPMDIR)/rpmbuild/SOURCES:
 	@mkdir -p $@
 
 $(RPMDIR)/rpmbuild/SOURCES/$(package)-$(version).tar.gz: $(RPMDIR)/rpmbuild/SOURCES
-	@make -C .. clean
+	@make -C .. distclean
 	@tar -cz --exclude=.git --exclude=.config* --exclude=package --exclude=rpmbuild .. > $@
 
 rpm: $(RPMDIR)/rpmbuild/SOURCES/$(package)-$(version).tar.gz FORCE
