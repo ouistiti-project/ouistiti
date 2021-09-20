@@ -64,13 +64,15 @@ CONFIGFILE?=$(builddir)config.h
 DEFCONFIG?=$(srcdir)defconfig
 CONFIG:=$(builddir).config
 
--include $(CONFIG)
 ifneq ($(wildcard $(CONFIG)),)
+  include $(CONFIG)
 # define all unset variable as variable defined as n
-$(foreach config,$(shell cat $(CONFIG) | awk '/^. .* is not set/{print $$2}'),$(eval $(config)=n))
+  $(foreach config,$(shell cat $(CONFIG) | awk '/^. .* is not set/{print $$2}'),$(eval $(config)=n))
 endif
 PATHCACHE=$(builddir).pathcache
-include $(PATHCACHE)
+ifneq ($(wildcard $(PATHCACHE)),)
+  include $(PATHCACHE)
+endif
 
 ifneq ($(file),)
   include $(file)
@@ -859,7 +861,6 @@ defconfig: _info cleanconfig FORCE
 quiet_cmd__saveconfig=DEFCONFIG $(notdir $(DEFCONFIG))
 cmd__saveconfig=printf "$(strip $(foreach config,$(CONFIGS),$(config)=$($(config))\n))" > $(CONFIG)
 
-# FIXME: PATHCACHE has not to be FORCEd
 $(PATHCACHE):
 	@printf "$(strip $(foreach config,$(PATHES),$(config)=$($(config))\n))" > $@
 
