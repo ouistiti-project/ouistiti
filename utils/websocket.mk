@@ -66,15 +66,18 @@ modules-$(WS_JSONRPC)+=jsonsql
 jsonsql_SOURCES+=$(WS_SRC)jsonsql.c
 jsonsql_LIBRARY+=sqlite3
 jsonsql_CFLAGS-$(DEBUG)+=-g -DDEBUG
+jsonsql_LIBRARY+=jansson
 
 modules-$(WS_JSONRPC)+=authrpc
 authrpc_SOURCES+=$(WS_SRC)authrpc.c
 authrpc_LIBRARY+=sqlite3
 authrpc_LIBS+=ouihash
 authrpc_LIBS-$(MBEDTLS)+=mbedcrypto
+authrpc_LIBS-$(OPENSSL)+=crypto
 authrpc_CFLAGS-$(DEBUG)+=-g -DDEBUG
 authrpc_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 authrpc_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
+authrpc_LIBRARY+=jansson
 
 else
 bin-$(WS_JSONRPC)+=websocket_authrpc
