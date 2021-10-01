@@ -19,13 +19,14 @@ endif
 TARGET?=$(package)
 sbin-y+=$(TARGET)
 ifeq ($(VTHREAD_TYPE),pthread)
-$(TARGET)_LIBRARY-$(VTHREAD)+=pthread rt
+$(TARGET)_LIBS-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
 $(TARGET)_SOURCES-$(STATIC)+=ouistiti_static.c
 $(TARGET)_SOURCES-$(MODULES)+=ouistiti_modules.c
 $(TARGET)_SOURCES+=daemonize.c
 $(TARGET)_LIBS+=$(LIBHTTPSERVER_NAME)
+$(TARGET)_LIBS+=ouistiti
 $(TARGET)_LIBS+=ouiutils
 
 $(TARGET)_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
@@ -35,7 +36,7 @@ $(TARGET)_LDFLAGS+=-L$(srcdir)staging
 $(TARGET)_CFLAGS+=-I$(srcdir)staging
 
 $(TARGET)_SOURCES-$(FILE_CONFIG)+=config.c
-$(TARGET)_LIBRARY-$(FILE_CONFIG)+=config
+$(TARGET)_LIBRARY-$(FILE_CONFIG)+=libconfig
 
 $(TARGET)_LIBS-$(MODULES)+=dl
 
@@ -61,12 +62,12 @@ $(TARGET)_LIBS-$(CORS)+=mod_cors
 $(TARGET)_LIBS-$(TINYSVCMDNS_DEPRECATED)+=mod_tinysvcmdns
 $(TARGET)_LIBS-$(UPGRADE)+=mod_upgrade
 
-$(TARGET)_LIBRARY-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
+$(TARGET)_LIBS-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl
 $(TARGET)_LIBRARY-$(OPENSSL)+=ssl crypto
 
-$(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3 pthread dl m
-$(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=crypt
+$(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
+$(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=libcrypt
 $(TARGET)_LIBRARY-$(AUTHZ_JWT)+=jansson
 $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
 
@@ -80,7 +81,7 @@ $(TARGET)_CFLAGS-$(WOLFSSL)+=-DTLS
 $(TARGET)_CFLAGS-$(OPENSSL)+=-DTLS
 
 $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
-$(TARGET)_LIBRARY-$(DEBUG)+=rt
+$(TARGET)_LIBS-$(DEBUG)+=rt
 
 subdir-$(CGI)+=mod_cgi.mk
 subdir-$(COOKIE)+=mod_cookie.mk

@@ -3,7 +3,10 @@ slib-$(STATIC)+=mod_auth
 mod_auth_SOURCES+=mod_auth.c
 mod_auth_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 mod_auth_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
+mod_auth_LIBS+=$(LIBHTTPSERVER_NAME)
 mod_auth_LIBS+=ouihash
+mod_auth_LIBS+=ouiutils
+mod_auth_LIBRARY+=libconfig
 
 mod_auth_SOURCES-$(AUTHN_NONE)+=authn_none.c
 
@@ -23,7 +26,7 @@ mod_auth_SOURCES-$(AUTHZ_SIMPLE)+=authz_simple.c
 mod_auth_SOURCES-$(AUTHZ_FILE)+=authz_file.c
 
 mod_auth_SOURCES-$(AUTHZ_UNIX)+=authz_unix.c
-mod_auth_LIBRARY-$(AUTHZ_UNIX)+=crypt
+mod_auth_LIBRARY-$(AUTHZ_UNIX)+=libcrypt
 
 mod_auth_SOURCES-$(AUTHZ_SQLITE)+=authz_sqlite.c
 mod_auth_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
