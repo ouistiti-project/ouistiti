@@ -254,7 +254,7 @@ endif
 # objects recipes generation
 ##
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y), $(eval $(t)_SOURCES+=$(patsubst %.hpp,%.moc.cpp,$($(t)_QTHEADERS) $($(t)_QTHEADERS-y))))
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y), $(if $(findstring .cpp, $(notdir $($(t)_SOURCES))), $(eval $(t)_LIBRARY+=stdc++)))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y), $(if $(findstring .cpp, $(notdir $($(t)_SOURCES))), $(eval $(t)_LIBS+=stdc++)))
 
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y), $(eval $(t)-objs+=$(patsubst %.s,%.o,$(patsubst %.S,%.o,$(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$($(t)_SOURCES) $($(t)_SOURCES-y)))))))
 target-objs:=$(foreach t, $(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y), $(if $($(t)-objs), $(addprefix $(obj),$($(t)-objs)), $(obj)$(t).o))
@@ -292,17 +292,22 @@ gcov-target:=$(target-objs:%.o=%.gcov)
 
 $(foreach t,$(slib-y) $(lib-y),$(eval include-y+=$($(t)_HEADERS)))
 
+define cmd_pkgconfig
+	$(shell $(PKGCONFIG) --silence-errors $(2) $(1))
+endef
 # LIBRARY may contain libraries name to check
 # The name may terminate with {<version>} informations like LIBRARY+=usb{1.0}
-# Here the commands remove the informations and store the name into LIBS
+# The LIBRARY values use pkg-config to update CFLAGS, LDFLAGS and LIBS
 # After LIBS contains all libraries name to link
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach l, $($(t)_LIBRARY),$(eval $(t)_LIBS+=$(firstword $(subst {, ,$(subst },,$(l)))) ) ))
-$(foreach l, $(LIBRARY),$(eval LIBS+=$(firstword $(subst {, ,$(subst },,$(l)))) ) )
 
-$(foreach l, $(LIBS),$(eval CFLAGS+=$(shell $(PKGCONFIG) --cflags lib$(l) 2> /dev/null) ) )
-$(foreach l, $(LIBS),$(eval LDFLAGS+=$(shell $(PKGCONFIG) --libs-only-L lib$(l) 2> /dev/null) ) )
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach l, $($(t)_LIBS),$(eval $(t)_CFLAGS+=$(shell $(PKGCONFIG) --cflags lib$(l) 2> /dev/null))))
-$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach l, $($(t)_LIBS),$(eval $(t)_LDFLAGS+=$(shell $(PKGCONFIG) --libs-only-L lib$(l) 2> /dev/null) ) ))
+$(foreach l,$(LIBRARY),$(eval CFLAGS+=$(call cmd_pkgconfig,$(firstword $(subst {, ,$(subst },,$(l)))), --cflags) ) )
+$(foreach l,$(LIBRARY),$(eval LDFLAGS+=$(call cmd_pkgconfig,$(firstword $(subst {, ,$(subst },,$(l)))), --libs-only-L) ) )
+$(eval LIBS=$(sort $(LIBS)))
+$(foreach l,$(LIBRARY),$(eval LIBS+=$(subst -l,,$(call cmd_pkgconfig,$(firstword $(subst {, ,$(subst },,$(l)))), --libs-only-l)) ) )
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach l, $($(t)_LIBRARY),$(eval $(t)_CFLAGS+=$(call cmd_pkgconfig,$(firstword $(subst {, ,$(subst },,$(l)))), --cflags))))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach l, $($(t)_LIBRARY),$(eval $(t)_LDFLAGS+=$(call cmd_pkgconfig,$(firstword $(subst {, ,$(subst },,$(l)))), --libs-only-L) ) ))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach l, $($(t)_LIBRARY),$(eval $(t)_LIBS+=$(subst -l,,$(call cmd_pkgconfig,$(firstword $(subst {, ,$(subst },,$(l)))), --libs-only-l)) ) ))
+$(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(eval $(t)_LIBS=$(sort $($(t)_LIBS))))
 
 # set the CFLAGS of each source file
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(foreach s, $($(t)_SOURCES) $($(t)_SOURCES-y),$(eval $(s:%.c=%)_CFLAGS+=$($(t)_CFLAGS)) ))
@@ -320,7 +325,7 @@ $(foreach t,$(bin-y) $(sbin-y),$(if $(findstring dl, $($(t)_LIBS) $(LIBS)),$(eva
 # targets recipes generation
 ##
 
-lib-check-target:=$(LIBRARY) $(sort $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY)))
+lib-check-target:=$(sort $(LIBRARY:%=check_%) $(sort $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY:%=check_%))))
 
 ifeq (STATIC,y)
 lib-static-target:=$(addprefix $(obj),$(addsuffix $(slib-ext:%=.%),$(addprefix $(library_prefix),$(slib-y) $(lib-y))))
@@ -505,25 +510,25 @@ RPATH=$(wildcard $(addsuffix /.,$(wildcard $(CURDIR:%/=%)/* $(obj)*)))
 quiet_cmd_yacc_y=YACC $*
  cmd_yacc_y=$(YACC) -o $@ $<
 quiet_cmd_as_o_s=AS $*
- cmd_as_o_s=$(TARGETAS) $(ASFLAGS) $($*_CFLAGS) $(SYSROOT_CFLAGS) -c -o $@ $<
+ cmd_as_o_s=$(TARGETAS) $(ASFLAGS) $($*_CFLAGS) $(if $(SYSROOT),$(SYSROOT_CFLAGS)) -c -o $@ $<
 quiet_cmd_cc_o_c=CC $*
  cmd_cc_o_c=$(TARGETCC) $(CFLAGS) $($*_CFLAGS) $(SYSROOT_CFLAGS) -c -o $@ $<
 quiet_cc_gcov_c=GCOV $*
  cmd_cc_gcov_c=$(TARGETGCOV) -p $<
 quiet_cmd_cc_o_cpp=CXX $*
- cmd_cc_o_cpp=$(TARGETCXX) $(CXXFLAGS) $(CFLAGS) $($*_CXXFLAGS) $($*_CFLAGS) $(SYSROOT_CFLAGS) -c -o $@ $<
+ cmd_cc_o_cpp=$(TARGETCXX) $(CXXFLAGS) $(CFLAGS) $($*_CXXFLAGS) $($*_CFLAGS) $(if $(SYSROOT),$(SYSROOT_CFLAGS)) -c -o $@ $<
 quiet_cmd_moc_hpp=QTMOC $*
  cmd_moc_hpp=$(MOC) $(INCLUDES) $($*_MOCFLAGS) $($*_MOCFLAGS-y) -o $@ $<
 quiet_cmd_uic_hpp=QTUIC $*
  cmd_uic_hpp=$(UIC) $< > $@
 quiet_cmd_ld_bin=LD $*
- cmd_ld_bin=$(TARGETCC) -L. $($*_LDFLAGS) $(LDFLAGS) $(SYSROOT_LDFLAGS) $(RPATHFLAGS) -o $@ $^ -Wl,--start-group $(LIBS:%=-l%) $($*_LIBS:%=-l%) -Wl,--end-group -lc
+ cmd_ld_bin=$(TARGETCC) -L. $($*_LDFLAGS) $(LDFLAGS) $(if $(SYSROOT),$(SYSROOT_LDFLAGS)) $(RPATHFLAGS) -o $@ $^ -Wl,--start-group $(LIBS:%=-l%) $($*_LIBS:%=-l%) -Wl,--end-group -lc
 quiet_cmd_ld_slib=LD $*
  cmd_ld_slib=$(RM) $@ && \
 	$(TARGETAR) -cvq $@ $^ > /dev/null && \
 	$(TARGETRANLIB) $@
 quiet_cmd_ld_dlib=LD $*
- cmd_ld_dlib=$(TARGETCC) $($*_LDFLAGS) $(LDFLAGS) $(SYSROOT_LDFLAGS) $(RPATHFLAGS) -Bdynamic -shared -o $@ $^ $(addprefix -L,$(RPATH)) $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
+ cmd_ld_dlib=$(TARGETCC) $($*_LDFLAGS) $(LDFLAGS) $(if $(SYSROOT),$(SYSROOT_LDFLAGS)) $(RPATHFLAGS) -Bdynamic -shared -o $@ $^ $(LIBS:%=-l%) $($*_LIBS:%=-l%) -lc
 
 quiet_cmd_hostcc_o_c=HOSTCC $*
  cmd_hostcc_o_c=$(HOSTCC) $(HOSTCFLAGS) $($*_CFLAGS) -c -o $@ $<
@@ -621,21 +626,22 @@ quiet_cmd_check_lib=CHECK $*
 define cmd_check_lib
 	$(RM) $(TMPDIR)/$(TESTFILE:%=%.c) $(TMPDIR)/$(TESTFILE)
 	echo "int main(){}" > $(TMPDIR)/$(TESTFILE:%=%.c)
-	$(TARGETCC) -c -o $(TMPDIR)/$(TESTFILE:%=%.o) $(TMPDIR)/$(TESTFILE:%=%.c) $(INTERN_CFLAGS) $(CFLAGS) > /dev/null 2>&1
-	$(TARGETLD) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.o) $(INTERN_LDFLAGS) $(LDFLAGS) $(addprefix -l, $2) > /dev/null 2>&1
+	$(eval CHECKLIB=$(firstword $(subst {, ,$(subst },,$2))))
+	$(eval CHECKVERSION=$(if $(findstring {, $(2)),$(subst -, - ,$(lastword $(subst {, ,$(subst },,$2))))))
+	$(eval CHECKOPTIONS=$(if $(CHECKVERSION),$(if $(findstring -,$(firstword $(CHECKVERSION))),--atleast-version=$(word 2,$(CHECKVERSION)))))
+	$(eval CHECKOPTIONS+=$(if $(CHECKVERSION),$(if $(findstring -,$(lastword $(CHECKVERSION))),--max-version=$(word 1,$(CHECKVERSION)))))
+	$(eval CHECKOPTIONS+=$(if $(CHECKVERSION),$(if $(findstring -,$(CHECKVERSION)),,--exact-version=$(CHECKVERSION))))
+	$(PKGCONFIG) --exists --print-errors $(CHECKOPTIONS) $(CHECKLIB)
+	$(eval CHECKCFLAGS:=$(call cmd_pkgconfig,$(CHECKLIB),--cflags))
+	$(eval CHECKLDFLAGS:=$(call cmd_pkgconfig,$(CHECKLIB),--libs))
+	$(TARGETCC) -c -o $(TMPDIR)/$(TESTFILE:%=%.o) $(TMPDIR)/$(TESTFILE:%=%.c) $(INTERN_CFLAGS) $(CHECKCFLAGS) > /dev/null 2>&1
+	$(TARGETLD) -o $(TMPDIR)/$(TESTFILE) $(TMPDIR)/$(TESTFILE:%=%.o) $(INTERN_LDFLAGS) $(CHECKLDFLAGS) > /dev/null 2>&1
 endef
 
-checkoption:=--exact-version
-prepare_check=$(if $(filter %-, $2),$(eval checkoption:=--atleast-version),$(if $(filter -%, $2),$(eval checkoption:=--max-version)))
-cmd_check2_lib=$(if $(findstring $(3:%-=%), $3),$(if $(findstring $(3:-%=%), $3),,$(eval checkoption:=--atleast-version),$(eval checkoption:=--max-version))) \
-	$(PKGCONFIG) --print-errors $(checkoption) $(subst -,,$3) lib$2
-
-$(lib-check-target): %:
-	@$(RM) $(TMPDIR)/$(TESTFILE:%=%.c) $(TMPDIR)/$(TESTFILE)
-	@echo "int main(){}" > $(TMPDIR)/$(TESTFILE:%=%.c)
-	@$(call cmd,check_lib,$(firstword $(subst {, ,$(subst },,$@))))
-	@$(call prepare_check,$(lastword $(subst {, ,$(subst },,$@))))
-	@$(if $(findstring $(words $(subst {, ,$(subst },,$@))),2),$(call cmd,check2_lib,$(firstword $(subst {, ,$(subst },,$@))),$(lastword $(subst {, ,$(subst },,$@)))))
+$(lib-check-target): check_%:
+	$(Q)$(RM) $(TMPDIR)/$(TESTFILE:%=%.c) $(TMPDIR)/$(TESTFILE)
+	$(Q)echo "int main(){}" > $(TMPDIR)/$(TESTFILE:%=%.c)
+	$(Q)$(call cmd,check_lib,$*)
 
 ###############################################################################
 # Commands for install
@@ -777,6 +783,7 @@ quiet_cmd_generate_pkgconfig=PKGCONFIG $*
 define cmd_generate_pkgconfig
 	printf '# generated by makemore\n' > $@
 	printf 'prefix=$(prefix)\n' >> $@
+	printf 'exec_prefix=$${prefix}\n' >> $@
 	printf 'sysconfdir=$(sysconfdir:$(prefix)/%=$${prefix}/%)\n' >> $@
 	printf 'libdir=$(libdir:$(prefix)/%=$${exec_prefix}/%)\n' >> $@
 	printf 'pkglibdir=$(pkglibdir:$(prefix)/%=$${exec_prefix}/%)\n' >> $@

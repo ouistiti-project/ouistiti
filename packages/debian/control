@@ -1,27 +1,32 @@
 Source: ouistiti
-Section: net
+Section: universe/web
 Priority: extra
-Build-Depends: debhelper (>=9), libmbedtls-dev, libconfig-dev, libjansson-dev, libsqlite3-dev
+Build-Depends: debhelper (>=9), libouistiti-dev, libmbedtls-dev, libconfig-dev, libjansson-dev, libsqlite3-dev
 Standards-Version: 3.9.8
 Description: lightweight and fast HTTP server
 Maintainer: Marc Chalain <marc.chalain@gmail.com>
+Homepage: https://github.com/ouistiti-project/ouistiti
 
 Package: ouistiti
 Architecture: any
 Multi-Arch: same
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libouistiti
 Description: HTTP server for embedded devices
  Ouistiti is a small and fast HTTP server for embedded device.
  The goal of ouistiti is to host easily a server for configuration of the device.
  It offers services like authentication, websocket proxy or REST API on files.
-Homepage: https://github.com/ouistiti-project/ouistiti
-Original-Maintainer: Marc Chalain <marc.chalain@gmail.com>
+
+Package:ouistiti-dev
+Architecture: any
+Multi-Arch: same
+Section: devel
+Depends: ${shlibs:Depends}, ${misc:Depends}, ouistiti, libouistiti-dev
+Description: header files for ouistiti HTTP server
 
 Package:ouistiti-utils
 Architecture: any
+Section: net
 Multi-Arch: same
-Depends: ${shlibs:Depends}, ${misc:Depends} ouistiti
+Depends: ${shlibs:Depends}, ${misc:Depends}, ouistiti
 Description: utils for ouistiti HTTP server
  Ouistiti-utils is a collection of sample applications for websocket server, password manager...
-Homepage: https://github.com/ouistiti-project/ouistiti
-Original-Maintainer: Marc Chalain <marc.chalain@gmail.com>
