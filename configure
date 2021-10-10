@@ -23,6 +23,7 @@ function help {
 	printf "\t--help\t\t\tdisplay this help and exit\n"
 	printf "\nInstallation directories:\n"
 	printf "\t--prefix=PREFIX\t\tinstall architecture-independent files in PREFIX [/usr/local]\n"
+	printf "\t--exec-prefix=PREFIX\t\tinstall architecture-dependent files in PREFIX [/usr/local]\n"
 	printf "\t--bindir=DIR\t\tuser executables [PREFIX/bin]\n"
 	printf "\t--sbindir=DIR\t\tsystem admin executables [PREFIX/sbin]\n"
 	printf "\t--sysconfdir=DIR\tread-only single-machine data [PREFIX/etc]\n"
@@ -71,6 +72,9 @@ while [ "${1}" != "" ]; do
 	case ${1} in
 		--prefix*)
 			prefix=$(argument ${1})
+			;;
+		--exec-prefix*)
+			exec_prefix=$(argument ${1})
 			;;
 		--program-prefix*)
 			program_prefix=$(argument ${1})
@@ -163,6 +167,10 @@ printf "\nInstallation:\n"
 if [ -n "$prefix" ]; then
 	echo "prefix="$prefix"" >> ${builddir}$out
 	printf " prefix:\t$prefix\n"
+fi
+if [ -n "${exec_prefix}" ]; then
+	echo "exec-prefix="${exec_prefix}"" >> ${builddir}$out
+	printf " exec-prefix:\t${exec_prefix}\n"
 fi
 if [ -n "$bindir" ]; then
 	echo "bindir="$bindir"" >> ${builddir}$out
