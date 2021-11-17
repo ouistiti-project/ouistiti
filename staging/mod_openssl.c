@@ -90,23 +90,23 @@ void *mod_openssl_create(http_server_t *server, mod_tls_t *modconfig)
 
 	method = SSLv23_server_method();
 
-    ctx = SSL_CTX_new(method);
-    SSL_CTX_set_ecdh_auto(ctx, 1);
+	ctx = SSL_CTX_new(method);
+	SSL_CTX_set_ecdh_auto(ctx, 1);
 	if (modconfig->crtfile)
 	{
 		if (SSL_CTX_use_certificate_file(ctx, (const char *) modconfig->crtfile, SSL_FILETYPE_PEM) <= 0)
 		{
-			err("tls: certificat not found");
+			err("tls: certificate not found");
 			SSL_CTX_free(ctx);
 			return NULL;
 		}
 	}
 
-	if (modconfig->pemfile)
+	if (modconfig->keyfile)
 	{
-		if (SSL_CTX_use_PrivateKey_file(ctx, (const char *) modconfig->pemfile, SSL_FILETYPE_PEM) <= 0 )
+		if (SSL_CTX_use_PrivateKey_file(ctx, (const char *) modconfig->keyfile, SSL_FILETYPE_PEM) <= 0 )
 		{
-			err("tls: certificat not found");
+			err("tls: key not found");
 			SSL_CTX_free(ctx);
 			return NULL;
 		}
@@ -137,7 +137,7 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 	_mod_openssl_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_openssl_t *mod = (_mod_openssl_t *)arg;
 	void *protocolconfig;
-dbg("tls create");
+	dbg("tls create");
 	ctx->clt = clt;
 	ctx->mod = mod;
 	ctx->protocolops = mod->protocolops;
