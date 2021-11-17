@@ -77,7 +77,6 @@
 #define HANDSHAKE 0x01
 #define RECV_COMPLETE 0x02
 
-static const char str_mbedtls[] = "tls";
 static const char str_https[] = "https";
 
 typedef struct _mod_mbedtls_config_s _mod_mbedtls_config_t;
@@ -109,44 +108,6 @@ struct _mod_mbedtls_config_s
 
 static const httpclient_ops_t *_tlsclient_ops;
 static const httpclient_ops_t *_tlsserver_ops;
-
-#ifdef FILE_CONFIG
-static void *tls_config(config_setting_t *iterator, server_t *server)
-{
-	mod_tls_t *tls = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configtls = config_setting_get_member(iterator, str_mbedtls);
-#else
-	config_setting_t *configtls = config_setting_lookup(iterator, str_mbedtls);
-#endif
-	if (configtls)
-	{
-		tls = mbedtls_calloc(1, sizeof(*tls));
-		config_setting_lookup_string(configtls, "crtfile", (const char **)&tls->crtfile);
-		config_setting_lookup_string(configtls, "keyfile", (const char **)&tls->keyfile);
-		config_setting_lookup_string(configtls, "cachain", (const char **)&tls->cachain);
-		config_setting_lookup_string(configtls, "dhmfile", (const char **)&tls->dhmfile);
-	}
-	return tls;
-}
-#else
-static const mod_tls_t g_tls_config = {
-	.crtfile = SYSCONFDIR"/ouistiti_srv.crt",
-	.keyfile = SYSCONFDIR"/ouistiti_srv.key",
-	.cachain = SYSCONFDIR"/ouistiti_ca.crt",
-	.dhmfile = SYSCONFDIR"/ouistiti_dhparam.crt",
-};
-
-static void *tls_config(void *iterator, server_t *server)
-{
-	http_server_t *httpserver = ouistiti_httpserver(server);
-	const char *port = httpserver_INFO(httpserver, "port");
-
-	if (strstr(port, "443") != NULL)
-		return (void *) &g_tls_config;
-	return NULL;
-}
-#endif
 
 static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modconfig)
 {
@@ -270,7 +231,7 @@ static void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 	mod->pers = httpserver_INFO(server, "name");
 	if (! mod->pers)
 	{
-		mod->pers = str_mbedtls;
+		mod->pers = str_tls;
 	}
 	if (_mod_mbedtls_setup(mod) == ESUCCESS)
 		warn("tls: enables on %s %s", httpserver_INFO(server, "hostname"), httpserver_INFO(server, "port"));
@@ -288,7 +249,7 @@ static void mod_mbedtls_destroy(void *arg)
 	_mod_mbedtls_config_t *mod = (_mod_mbedtls_config_t *)arg;
 #ifdef FILE_CONFIG
 	if (mod->config)
-		mbedtls_free(mod->config);
+		free(mod->config);
 #endif
 
 	mbedtls_dhm_free(&mod->dhm);
@@ -607,7 +568,7 @@ static const httpclient_ops_t *_tlsclient_ops = &(httpclient_ops_t)
 
 const module_t mod_tls =
 {
-	.name = str_mbedtls,
+	.name = str_tls,
 	.configure = (module_configure_t)&tls_config,
 	.create = (module_create_t)&mod_mbedtls_create,
 	.destroy = &mod_mbedtls_destroy,
