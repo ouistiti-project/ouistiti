@@ -1,6 +1,7 @@
 modules-$(MODULES)+=mod_wolfssl
 slib-$(STATIC)+=mod_wolfssl
 mod_wolfssl_SOURCES+=mod_wolfssl.c
+mod_wolfssl_SOURCES+=../src/mod_tls.c
 mod_wolfssl_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 mod_wolfssl_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 mod_wolfssl_LIBS+=$(LIBHTTPSERVER_NAME)
