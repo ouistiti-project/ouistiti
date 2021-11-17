@@ -85,17 +85,17 @@ void *mod_wolftls_create(http_server_t *server, char *unused, mod_tls_t *modconf
 		ret = wolfSSL_CTX_use_certificate_file(mod->ctx, modconfig->crtfile, SSL_FILETYPE_PEM);
 		if (ret != WOLFSSL_SUCCESS)
 		{
-			err("wolftls: CTX_use_certificate_file %d %d\n", ret, WOLFSSL_SUCCESS);
+			err("wolftls: certificate %d\n", ret);
 			goto wolfftls_out_certfile;
 		}
 	}
 
-	if (modconfig->pemfile)
+	if (modconfig->keyfile)
 	{
-		ret =  wolfSSL_CTX_use_PrivateKey_file(mod->ctx, modconfig->pemfile, SSL_FILETYPE_PEM);
+		ret =  wolfSSL_CTX_use_PrivateKey_file(mod->ctx, modconfig->keyfile, SSL_FILETYPE_PEM);
 		if (ret != WOLFSSL_SUCCESS)
 		{
-			err("wolftls: CTX_use_PrivateKey_file pem %d\n", ret);
+			err("wolftls: key error %d\n", ret);
 			goto wolfftls_out_certfile;
 		}
 	}
@@ -104,7 +104,7 @@ void *mod_wolftls_create(http_server_t *server, char *unused, mod_tls_t *modconf
 		ret = wolfSSL_CTX_use_certificate_chain_file(mod->ctx, modconfig->cachain);
 		if (ret != WOLFSSL_SUCCESS)
 		{
-			err("wolftls: CTX_use_certificate_chain_file cachain %d\n", ret);
+			err("wolftls: cachain error %d\n", ret);
 			goto wolfftls_out_certfile;
 		}
 	}

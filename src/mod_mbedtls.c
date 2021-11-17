@@ -123,7 +123,7 @@ static void *tls_config(config_setting_t *iterator, server_t *server)
 	{
 		tls = mbedtls_calloc(1, sizeof(*tls));
 		config_setting_lookup_string(configtls, "crtfile", (const char **)&tls->crtfile);
-		config_setting_lookup_string(configtls, "pemfile",(const char **) &tls->pemfile);
+		config_setting_lookup_string(configtls, "keyfile", (const char **)&tls->keyfile);
 		config_setting_lookup_string(configtls, "cachain", (const char **)&tls->cachain);
 		config_setting_lookup_string(configtls, "dhmfile", (const char **)&tls->dhmfile);
 	}
@@ -132,7 +132,7 @@ static void *tls_config(config_setting_t *iterator, server_t *server)
 #else
 static const mod_tls_t g_tls_config = {
 	.crtfile = SYSCONFDIR"/ouistiti_srv.crt",
-	.pemfile = SYSCONFDIR"/ouistiti_srv.key",
+	.keyfile = SYSCONFDIR"/ouistiti_srv.key",
 	.cachain = SYSCONFDIR"/ouistiti_ca.crt",
 	.dhmfile = SYSCONFDIR"/ouistiti_dhparam.crt",
 };
@@ -155,15 +155,15 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 
 	ret = mbedtls_x509_crt_parse_file(&config->srvcert, (const char *) modconfig->crtfile);
 	if (ret)
-		err("mbedtls_x509_crt_parse_file %d\n", ret);
+		err("tls: x509 certificate error %d\n", ret);
 	else
 		is_set_pemkey++;
 	mbedtls_pk_init(&config->pkey);
-	if (modconfig->pemfile)
+	if (modconfig->keyfile)
 	{
-		ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->pemfile, NULL);
+		ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->keyfile, NULL);
 		if (ret)
-			err("mbedtls_pk_parse_keyfile pem %d\n", ret);
+			err("tls: key error  %d\n", ret);
 		else
 			is_set_pemkey++;
 	}
@@ -171,7 +171,7 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 	{
 		ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->crtfile, NULL);
 		if (ret)
-			err("mbedtls_pk_parse_keyfile crt %d\n", ret);
+			err("tls: key from cert error %d\n", ret);
 		else
 			is_set_pemkey++;
 	}
@@ -179,7 +179,7 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 	{
 		ret = mbedtls_ssl_conf_own_cert(&config->conf, &config->srvcert, &config->pkey);
 		if (ret)
-			err("mbedtls_ssl_conf_own_cert %d\n", ret);
+			err("tls: conf error  %d\n", ret);
 		else
 			ret = EREJECT;
 	}
@@ -223,7 +223,7 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 		ret = mbedtls_x509_crt_parse_file(&mod->cachain, (const char *) config->cachain);
 		if (ret)
 		{
-			err("mbedtls_x509_crt_parse_file cachain %d\n", ret);
+			err("tls: cachain error %d\n", ret);
 			return EREJECT;
 		}
 		else
@@ -236,7 +236,7 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 			(const unsigned char *) mod->pers, strlen(mod->pers));
 		if (ret)
 		{
-			err("mbedtls_ctr_drbg_seed %d\n", ret);
+			err("tls: entropy error %d\n", ret);
 			return EREJECT;
 		}
 		else
@@ -329,7 +329,7 @@ static int _tls_handshake(_mod_mbedtls_t *ctx)
 	if (!(ctx->state & HANDSHAKE))
 	{
 		ctx->state &= ~RECV_COMPLETE;
-		tls_dbg("TLS Handshake");
+		tls_dbg("tls: handshake");
 		while((ret = mbedtls_ssl_handshake(&ctx->ssl)) != 0 )
 		{
 			if(ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
@@ -343,7 +343,7 @@ static int _tls_handshake(_mod_mbedtls_t *ctx)
 		{
 			char error[256];
 			mbedtls_strerror(ret, error, 256);
-			err("TLS Handshake error %X %s", -ret, error);
+			err("tls: handshake error %X %s", -ret, error);
 			mbedtls_ssl_free(&ctx->ssl);
 			ret = EREJECT;
 		}
@@ -465,6 +465,7 @@ static int _tls_connect(void *vctx, const char *addr, int port)
 
 	ctx->protocolops->connect(ctx->protocol, addr, port);
 	ret = _tls_handshake(ctx);
+	tls_dbg("tls: connect %d", ret);
 	return ret;
 }
 
@@ -474,6 +475,7 @@ static void _tls_disconnect(void *vctx)
 	int ret;
 	while ((ret = mbedtls_ssl_close_notify(&ctx->ssl)) == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE);
 	ctx->protocolops->disconnect(ctx->protocol);
+	tls_dbg("tls: disconnect");
 }
 
 static void _tls_destroy(void *vctx)
