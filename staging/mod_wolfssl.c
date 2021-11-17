@@ -229,8 +229,9 @@ static int _mod_wolftls_send(void *vctx, char *data, int size)
 const module_t mod_tls =
 {
 	.name = str_wolftls,
-	.create = (module_create_t)mod_tls_create,
-	.destroy = mod_tls_destroy,
+	.configure = (module_configure_t)&tls_config,
+	.create = (module_create_t)&mod_tls_create,
+	.destroy = &mod_tls_destroy,
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_tls")));

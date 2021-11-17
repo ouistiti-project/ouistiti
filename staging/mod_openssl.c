@@ -45,7 +45,6 @@
 #define HANDSHAKE 0x01
 #define RECV_COMPLETE 0x02
 
-static const char str_openssl[] = "tls";
 static const char str_https[] = "https";
 
 typedef struct _mod_openssl_s _mod_openssl_t;
@@ -260,9 +259,10 @@ static const httpclient_ops_t *tlsserver_ops = &(httpclient_ops_t)
 
 const module_t mod_tls =
 {
-	.name = str_openssl,
-	.create = (module_create_t)mod_tls_create,
-	.destroy = mod_tls_destroy,
+	.name = str_tls,
+	.configure = (module_configure_t)&tls_config,
+	.create = (module_create_t)&mod_tls_create,
+	.destroy = &mod_tls_destroy,
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_tls")));

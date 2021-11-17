@@ -1,6 +1,7 @@
 modules-$(MODULES)+=mod_mbedtls
 slib-$(STATIC)+=mod_mbedtls
 mod_mbedtls_SOURCES+=mod_mbedtls.c
+mod_mbedtls_SOURCES+=mod_tls.c
 mod_mbedtls_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 mod_mbedtls_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 mod_mbedtls_LIBS+=$(LIBHTTPSERVER_NAME)

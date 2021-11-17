@@ -36,6 +36,8 @@ extern "C"
 {
 #endif
 
+extern const char str_tls[];
+
 typedef struct mod_tls_s mod_tls_t;
 struct mod_tls_s
 {
@@ -48,6 +50,8 @@ struct mod_tls_s
 extern const module_t mod_tls;
 
 extern const httpclient_ops_t *tlsclient_ops;
+
+void *tls_config(void *arg, server_t *server);
 
 #ifdef __cplusplus
 }
