@@ -64,7 +64,7 @@ $(TARGET)_LIBS-$(UPGRADE)+=mod_upgrade
 
 $(TARGET)_LIBS-$(MBEDTLS)+=mbedtls mbedx509 mbedcrypto
 $(TARGET)_LIBRARY-$(WOLFSSL)+=wolfssl
-$(TARGET)_LIBRARY-$(OPENSSL)+=ssl crypto
+$(TARGET)_LIBRARY-$(OPENSSL)+=libssl libcrypto
 
 $(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
 $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=libcrypt
