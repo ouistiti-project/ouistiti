@@ -155,7 +155,7 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 
 	ret = mbedtls_x509_crt_parse_file(&config->srvcert, (const char *) modconfig->crtfile);
 	if (ret)
-		err("tls: x509 certificate error %d\n", ret);
+		err("tls: x509 certificate error 0x%X\n", -ret);
 	else
 		is_set_pemkey++;
 	mbedtls_pk_init(&config->pkey);
@@ -163,7 +163,7 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 	{
 		ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->keyfile, NULL);
 		if (ret)
-			err("tls: key error  %d\n", ret);
+			err("tls: key error  0x%X\n", -ret);
 		else
 			is_set_pemkey++;
 	}
@@ -171,7 +171,7 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 	{
 		ret =  mbedtls_pk_parse_keyfile(&config->pkey, (const char *) modconfig->crtfile, NULL);
 		if (ret)
-			err("tls: key from cert error %d\n", ret);
+			err("tls: key from cert error 0x%X\n", -ret);
 		else
 			is_set_pemkey++;
 	}
@@ -179,7 +179,7 @@ static int _mod_mbedtls_crtfile(_mod_mbedtls_config_t *config, mod_tls_t *modcon
 	{
 		ret = mbedtls_ssl_conf_own_cert(&config->conf, &config->srvcert, &config->pkey);
 		if (ret)
-			err("tls: conf error  %d\n", ret);
+			err("tls: conf error 0x%X\n", -ret);
 		else
 			ret = EREJECT;
 	}
@@ -210,7 +210,7 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 		MBEDTLS_SSL_PRESET_DEFAULT);
 	if (ret)
 	{
-		err("mbedtls_ssl_config_defaults %d\n", ret);
+		err("mbedtls_ssl_config_defaults 0x%X\n", -ret);
 		return EREJECT;
 	}
 
@@ -223,7 +223,7 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 		ret = mbedtls_x509_crt_parse_file(&mod->cachain, (const char *) config->cachain);
 		if (ret)
 		{
-			err("tls: cachain error %d\n", ret);
+			err("tls: cachain error 0x%X\n", -ret);
 			return EREJECT;
 		}
 		else
@@ -236,7 +236,7 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 			(const unsigned char *) mod->pers, strlen(mod->pers));
 		if (ret)
 		{
-			err("tls: entropy error %d\n", ret);
+			err("tls: entropy error 0x%X\n", -ret);
 			return EREJECT;
 		}
 		else
@@ -250,12 +250,10 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 		ret = mbedtls_dhm_parse_dhmfile(&mod->dhm, config->dhmfile);
 		if (ret)
 		{
-			err("mbedtls_dhm_parse_dhmfile %d\n", ret);
+			err("tls: dhmparam error 0x%X\n", -ret);
 			return EREJECT;
 		}
 	}
-	mbedtls_free(config);
-	mod->config = NULL;
 	return ESUCCESS;
 }
 
@@ -274,7 +272,13 @@ static void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 	{
 		mod->pers = str_mbedtls;
 	}
-	warn("tls: enables on %s %s", httpserver_INFO(server, "hostname"), httpserver_INFO(server, "port"));
+	if (_mod_mbedtls_setup(mod) == ESUCCESS)
+		warn("tls: enables on %s %s", httpserver_INFO(server, "hostname"), httpserver_INFO(server, "port"));
+	else
+	{
+		mbedtls_free(mod);
+		mod = NULL;
+	}
 
 	return mod;
 }
@@ -436,7 +440,6 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 	_mod_mbedtls_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_mbedtls_config_t *config = (_mod_mbedtls_config_t *)arg;
 
-	_mod_mbedtls_setup(config);
 	ctx->clt = clt;
 	ctx->config = config;
 	ctx->protocolops = config->protocolops;
