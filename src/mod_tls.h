@@ -40,7 +40,7 @@ typedef struct mod_tls_s mod_tls_t;
 struct mod_tls_s
 {
 	char *crtfile;
-	char *pemfile;
+	char *keyfile;
 	char *cachain;
 	char *dhmfile;
 };
