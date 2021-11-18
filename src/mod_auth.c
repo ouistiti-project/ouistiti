@@ -914,12 +914,12 @@ static const char *_authn_getauthorization(const _mod_auth_ctx_t *ctx, http_mess
 	if (authorization == NULL || authorization[0] == '\0')
 	{
 		authorization = cookie_get(request, str_authorization);
-		err("cookie get %s %p",str_authorization, authorization);
+		warn("auth: cookie get %s %p",str_authorization, authorization);
 	}
 
 	if (authorization != NULL && strncmp(authorization, mod->type, mod->typelength))
 	{
-		err("authorization type: %.*s, %.*s", (int)mod->typelength, authorization, (int)mod->typelength, mod->type);
+		err("auth: type mismatch %.*s, %.*s", (int)mod->typelength, authorization, (int)mod->typelength, mod->type);
 		authorization = NULL;
 	}
 	return authorization;
