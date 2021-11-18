@@ -235,6 +235,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
 	fprintf(stderr, "\t-K \t\tto kill other instances of the server\n");
 	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
+	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
 }
 
 static server_t *first = NULL;
@@ -265,7 +266,11 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 	int i = 0;
 	mod_t *mod = &server->modules[i];
 	while (i < MAX_MODULES && mod->obj != NULL)
+	{
+		if (! strcmp(mod->ops->name, module->name))
+			warn("module already set %s", module->name);
 		mod = &server->modules[++i];
+	}
 	if (i == MAX_MODULES)
 		return EREJECT;
 
@@ -283,6 +288,7 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 		config = module->configure(parser, server);
 	else if (configure != NULL)
 		config = configure(parser, module, server);
+	if (config != NULL) warn("%s configurated", module->name);
 	mod->obj = module->create(server->server, config);
 	mod->ops = module;
 	return (mod->obj != NULL)?ESUCCESS:EREJECT;
@@ -293,7 +299,8 @@ static int ouistiti_setmodules(server_t *server, configure_t configure, void *pa
 	const module_list_t *iterator = g_modules;
 	while (iterator != NULL)
 	{
-		ouistiti_loadmodule(server, iterator->module, configure, parser);
+		if (ouistiti_loadmodule(server, iterator->module, configure, parser) == ESUCCESS)
+			warn("%s created", iterator->module->name);
 		iterator = iterator->next;
 	}
 	return 0;
