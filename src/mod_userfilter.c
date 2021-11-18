@@ -369,8 +369,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	if (user == NULL)
 		user = str_anonymous;
 
-	if ((utils_searchexp(uri, config->allow, NULL) == ESUCCESS) &&
-		(strcmp(uri, config->configuri) != 0))
+	if (utils_searchexp(uri, config->allow, NULL) == ESUCCESS)
 	{
 		/**
 		 * this path is always allowed
@@ -551,12 +550,10 @@ static void *userfilter_config(config_setting_t *iterator, server_t *UNUSED(serv
 #endif
 	if (config)
 	{
-		const char *configuri;
+		const char *configuri = NULL;
 		config_setting_lookup_string(config, "configuri", &configuri);
-		if (configuri == NULL || configuri[0] == '\0')
-			return NULL;
 
-		const char *dbname;
+		const char *dbname = NULL;
 		config_setting_lookup_string(config, "dbname", &dbname);
 		if (dbname == NULL || dbname[0] == '\0')
 			return NULL;
@@ -588,14 +585,18 @@ static void *userfilter_config(void *iterator, server_t *server)
 void *mod_userfilter_create(http_server_t *server, void *arg)
 {
 	mod_userfilter_t *config = (mod_userfilter_t *)arg;
-	if (config == NULL)
+	if (config == NULL || config->dbname == NULL)
 		return NULL;
 
-	sqlite3 *db;
+	sqlite3 *db = NULL;
+	char *configuriexp = NULL;
 
-	char *configuriexp = calloc(1, strlen(config->configuri) + 2 + 1);
-	sprintf(configuriexp, "^%s*", config->configuri);
-	if (access(config->dbname, R_OK))
+	if (config->configuri != NULL && config->configuri[0] != '\0')
+	{
+		configuriexp = calloc(1, strlen(config->configuri) + 2 + 1);
+		sprintf(configuriexp, "^%s*", config->configuri);
+	}
+	if (access(config->dbname, R_OK) && configuriexp != NULL)
 	{
 		if (sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
 		{
@@ -675,7 +676,8 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	}
 	if (sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
 	{
-		free(configuriexp);
+		if (configuriexp != NULL)
+			free(configuriexp);
 		err("userfilter: database not found %s", config->dbname);
 		return NULL;
 	}
@@ -685,9 +687,12 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	mod->config = config;
 	mod->cmp = &_exp_cmp;
 	mod->db = db;
+	httpserver_addconnector(server, userfilter_connector, mod, \
+			CONNECTOR_DOCFILTER, str_userfilter);
 	mod->configuriexp = configuriexp;
-	httpserver_addconnector(server, userfilter_connector, mod, CONNECTOR_DOCFILTER, str_userfilter);
-	httpserver_addconnector(server, rootgenerator_connector, mod, CONNECTOR_DOCUMENT, str_userfilter);
+	if (configuriexp != NULL)
+		httpserver_addconnector(server, rootgenerator_connector, mod, \
+				CONNECTOR_DOCUMENT, str_userfilter);
 
 	return mod;
 }
