@@ -193,6 +193,7 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 
 	if (mod->pers)
 	{
+		warn("tls: wait for random generator...");
 		ret = mbedtls_ctr_drbg_seed(&mod->ctr_drbg, mbedtls_entropy_func, &mod->entropy,
 			(const unsigned char *) mod->pers, strlen(mod->pers));
 		if (ret)
@@ -202,6 +203,7 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 		}
 		else
 			mbedtls_ssl_conf_rng(&mod->conf, mbedtls_ctr_drbg_random, &mod->ctr_drbg );
+		warn("tls: crng init done");
 	}
 
 
