@@ -271,12 +271,12 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 
 	if (module->version & MODULE_VERSION_DEPRECATED)
 	{
-		warn("module %s deprecated", module->name);
+		warn("main: module %s deprecated", module->name);
 		return EREJECT;
 	}
 	if (module->version < MODULE_VERSION_CURRENT)
 	{
-		warn("module %s old. Please check", module->name);
+		warn("main: module %s old. Please check", module->name);
 	}
 	void *config = NULL;
 	if (module->configure != NULL)
