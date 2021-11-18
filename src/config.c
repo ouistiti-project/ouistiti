@@ -132,22 +132,58 @@ static serverconfig_t *config_server(config_setting_t *iterator, config_t *confi
 	return config;
 }
 
+static int ouistiticonfig_mergeserver(serverconfig_t *main, serverconfig_t *new)
+{
+	return EREJECT;
+}
+
+static int ouistiticonfig_appendserver(serverconfig_t *new, ouistiticonfig_t *ouistiticonfig)
+{
+	int ret = EREJECT;
+	int nservers = ouistiticonfig->nservers;
+
+	if (nservers < MAX_SERVERS)
+	{
+		ouistiticonfig->config[nservers] = new;
+		ouistiticonfig->nservers++;
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+static int ouistiticonfig_checkserver(serverconfig_t *new, ouistiticonfig_t *ouistiticonfig)
+{
+	int nservers = ouistiticonfig->nservers;
+
+	for (int i = 0; i < nservers; i++)
+	{
+		serverconfig_t *it = ouistiticonfig->config[i];
+		if (new->server->port == it->server->port)
+		{
+			return ouistiticonfig_mergeserver(it, new);
+		}
+	}
+	return ouistiticonfig_appendserver(new, ouistiticonfig);
+}
+
 static void ouistiticonfig_servers(config_t *configfile, ouistiticonfig_t *ouistiticonfig)
 {
-	int nservers = 0;
-	while (ouistiticonfig->config[nservers] != NULL) nservers++;
-
 	const config_setting_t *configservers = config_lookup(configfile, "servers");
 	if (configservers)
 	{
 		int count = config_setting_length(configservers);
 
-		for (int i = 0; i < count && (i + nservers) < MAX_SERVERS; i++)
+		for (int i = 0; i < count; i++)
 		{
+			int ret;
+
 			config_setting_t *iterator = config_setting_get_elem(configservers, i);
-			if (iterator)
+			serverconfig_t *config = config_server(iterator, configfile);
+			ret = ouistiticonfig_checkserver(config, ouistiticonfig);
+			if (ret == EREJECT)
 			{
-				ouistiticonfig->config[i + nservers] = config_server(iterator, configfile);
+				free(config->server);
+				free(config);
 			}
 		}
 	}

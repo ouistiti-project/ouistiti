@@ -268,7 +268,7 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 	while (i < MAX_MODULES && mod->obj != NULL)
 	{
 		if (! strcmp(mod->ops->name, module->name))
-			warn("module already set %s", module->name);
+			warn("main: module already set %s", module->name);
 		mod = &server->modules[++i];
 	}
 	if (i == MAX_MODULES)
@@ -276,19 +276,19 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 
 	if (module->version & MODULE_VERSION_DEPRECATED)
 	{
-		warn("module %s deprecated", module->name);
+		warn("main: module %s deprecated", module->name);
 		return EREJECT;
 	}
 	if (module->version < MODULE_VERSION_CURRENT)
 	{
-		warn("module %s old. Please check", module->name);
+		warn("main: module %s old. Please check", module->name);
 	}
 	void *config = NULL;
 	if (module->configure != NULL)
 		config = module->configure(parser, server);
 	else if (configure != NULL)
 		config = configure(parser, module, server);
-	if (config != NULL) warn("%s configurated", module->name);
+	if (config != NULL) warn("main: %s configurated", module->name);
 	mod->obj = module->create(server->server, config);
 	mod->ops = module;
 	return (mod->obj != NULL)?ESUCCESS:EREJECT;
@@ -300,7 +300,7 @@ static int ouistiti_setmodules(server_t *server, configure_t configure, void *pa
 	while (iterator != NULL)
 	{
 		if (ouistiti_loadmodule(server, iterator->module, configure, parser) == ESUCCESS)
-			warn("%s created", iterator->module->name);
+			warn("main: %s created", iterator->module->name);
 		iterator = iterator->next;
 	}
 	return 0;
