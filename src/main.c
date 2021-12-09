@@ -36,6 +36,7 @@
 #include <libgen.h>
 #include <sched.h>
 #include <dirent.h>
+#include <execinfo.h> // for backtrace
 
 #ifndef WIN32
 # include <sys/socket.h>
@@ -247,6 +248,23 @@ static void handler(int sig, siginfo_t *UNUSED(si), void *UNUSED(arg))
 static void handler(int sig)
 #endif
 {
+	if (sig == SIGSEGV)
+	{
+		void *array[10];
+		size_t size;
+
+		// get void*'s for all entries on the stack
+		size = backtrace(array, 10);
+
+		// print out all the frames to stderr
+		err("main: signal %d", sig);
+		backtrace_symbols_fd(array, size, STDERR_FILENO);
+#ifdef DEBUG
+		raise(SIGCONT);
+#else
+		exit(1);
+#endif
+	}
 	run = 'q';
 }
 
@@ -613,6 +631,7 @@ int main(int argc, char * const *argv)
 	action.sa_sigaction = handler;
 	sigaction(SIGTERM, &action, NULL);
 	sigaction(SIGINT, &action, NULL);
+	sigaction(SIGSEGV, &action, NULL);
 
 	struct sigaction unaction;
 	unaction.sa_handler = SIG_IGN;
@@ -620,6 +639,7 @@ int main(int argc, char * const *argv)
 #else
 	signal(SIGTERM, handler);
 	signal(SIGINT, handler);
+	signal(SIGSEGV, handler);
 
 	signal(SIGPIPE, SIG_IGN);
 #endif
