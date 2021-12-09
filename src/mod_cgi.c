@@ -267,8 +267,9 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return pid;
 }
 
-static int _cgi_checkname(const char *uri, const mod_cgi_config_t *config, const char **path_info)
+static int _cgi_checkname(_mod_cgi_t *mod, const char *uri, const char **path_info)
 {
+	const mod_cgi_config_t *config = mod->config;
 	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
 	{
 		return  EREJECT;
@@ -276,6 +277,11 @@ static int _cgi_checkname(const char *uri, const mod_cgi_config_t *config, const
 	if (utils_searchexp(uri, config->allow, path_info) != ESUCCESS)
 	{
 		return  EREJECT;
+	}
+	if (*path_info == uri)
+	{
+		// path_info must not be the first caracter of uri
+		*path_info = strchr(*path_info + 1, '/');
 	}
 	return ESUCCESS;
 }
@@ -288,23 +294,28 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 	if (uri && config->docroot)
 	{
 		const char *path_info = NULL;
-		if (_cgi_checkname(uri, config, &path_info) != ESUCCESS)
+		if (_cgi_checkname(mod, uri, &path_info) != ESUCCESS)
 		{
 			dbg("cgi: %s forbidden extension", uri);
 			return EREJECT;
 		}
 
-		while (*uri == '/' && *uri != '\0') uri++;
 		/**
 		 * split the URI between the CGI script path and the
 		 * path_info for the CGI.
 		 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
 		 */
-		char cgipath[256];
 		int length = 255;
 		if (path_info != NULL && (path_info - uri) < length)
 		{
 			length = path_info - uri;
+		}
+
+		char cgipath[256];
+		while (*uri == '/' && *uri != '\0')
+		{
+			uri++;
+			length--;
 		}
 		strncpy(cgipath, uri, length);
 		cgipath[length] = '\0';
@@ -322,11 +333,11 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 
 		struct stat filestat = {0};
 		fstat(scriptfd, &filestat);
-		close(scriptfd);
 
 		if (S_ISDIR(filestat.st_mode))
 		{
 			dbg("cgi: %s is directory", uri);
+			close(scriptfd);
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
@@ -335,19 +346,21 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 			httpmessage_result(response, RESULT_403);
 			warn("cgi: %s access denied", cgipath);
 			warn("cgi: %s", strerror(errno));
+			close(scriptfd);
 			return ESUCCESS;
 		}
 
 		mod_cgi_ctx_t *ctx;
 		dbg("cgi: run %s", uri);
 		ctx = calloc(1, sizeof(*ctx));
-		strncpy(ctx->cgipath, cgipath, length);
+		strncpy(ctx->cgipath, cgipath, sizeof(ctx->cgipath) - 1);
 		ctx->mod = mod;
 		ctx->path_info = path_info;
 		ctx->pid = _mod_cgi_fork(ctx, request);
 		ctx->state = STATE_START;
 		ctx->chunk = malloc(config->chunksize + 1);
 		httpmessage_private(request, ctx);
+		close(scriptfd);
 		ret = EINCOMPLETE;
 	}
 	return ret;
@@ -427,12 +440,12 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 		size = read(ctx->fromcgi[0], ctx->chunk, size);
 		if (size < 0)
 		{
-			err("cgi read %s", strerror(errno));
+			err("cgi: read %s", strerror(errno));
 			ctx->state = STATE_CONTENTCOMPLETE;
 		}
 		else if (size < 1)
 		{
-			warn("cgi died");
+			dbg("cgii: died");
 			ctx->state = STATE_CONTENTCOMPLETE;
 		}
 		else
@@ -457,7 +470,7 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 	{
 		ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
 		kill(ctx->pid, SIGTERM);
-		dbg("cgi complete");
+		dbg("cgi: complete");
 		ret = ECONTINUE;
 	}
 	return ret;
