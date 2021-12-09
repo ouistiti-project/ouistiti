@@ -58,3 +58,5 @@ ouistiti_srv.crt: ouistiti_srv.csr ouistiti_ca.conf
 
 ouistiti_dhparam.key:
 	$(Q)openssl dhparam 4096 > $@
+
+certificate: ouistiti_srv.crt ouistiti_dhparam.key
