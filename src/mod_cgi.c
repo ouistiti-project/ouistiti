@@ -312,7 +312,11 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		}
 
 		char cgipath[256];
-		while (*uri == '/' && *uri != '\0') uri++;
+		while (*uri == '/' && *uri != '\0')
+		{
+			uri++;
+			length--;
+		}
 		strncpy(cgipath, uri, length);
 		cgipath[length] = '\0';
 
