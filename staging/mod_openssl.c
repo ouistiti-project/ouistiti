@@ -229,6 +229,18 @@ static int _tls_send(void *vctx, const char *data, int size)
 	return ret;
 }
 
+static int tls_wait(void *vctx, int options)
+{
+	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
+        int ret = ESUCCESS;
+        if (SSL_want_read(&ctx->ssl))
+        {
+                ret = ctx->protocolops->wait(ctx->protocol, options);
+        }
+        return ret;
+}
+
+
 static int _tls_status(void *vctx)
 {
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
@@ -251,6 +263,7 @@ static const httpclient_ops_t *tlsserver_ops = &(httpclient_ops_t)
 	.create = _tlsserver_create,
 	.recvreq = _tls_recv,
 	.sendresp = _tls_send,
+	.wait = tls_wait,
 	.status = _tls_status,
 	.flush = _tls_flush,
 	.disconnect = _tls_disconnect,
