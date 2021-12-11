@@ -4,11 +4,8 @@
 #
 ################################################################################
 
-#LIBOUISTITI_VERSION = v2.4
-#LIBOUISTITI_SITE = $(call github,ouistiti-project,libhttpserver,$(LIBOUISTITI_VERSION))
-LIBOUISTITI_VERSION = HEAD
-LIBOUISTITI_SITE = https://github.com/ouistiti-project/libhttpserver.git
-LIBOUISTITI_SITE_METHOD = git
+LIBOUISTITI_VERSION = 3.2.0
+LIBOUISTITI_SITE = $(call github,ouistiti-project,libhttpserver,libouistiti-$(LIBOUISTITI_VERSION))
 LIBOUISTITI_LICENSE = MIT
 LIBOUISTITI_LICENSE_FILES = LICENSE
 LIBOUISTITI_INSTALL_STAGING = YES
