@@ -233,7 +233,7 @@ static int tls_wait(void *vctx, int options)
 {
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
         int ret = ESUCCESS;
-        if (SSL_want_read(&ctx->ssl))
+        if (SSL_want_read(ctx->ssl))
         {
                 ret = ctx->protocolops->wait(ctx->protocol, options);
         }
