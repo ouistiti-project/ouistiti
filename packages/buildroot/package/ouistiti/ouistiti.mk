@@ -4,11 +4,8 @@
 #
 ################################################################################
 
-#OUISTITI_VERSION = v2.4
-#OUISTITI_SITE = $(call github,ouistiti-project,ouistiti,$(OUISTITI_VERSION))
-OUISTITI_VERSION = HEAD
-OUISTITI_SITE = https://github.com/ouistiti-project/ouistiti.git
-OUISTITI_SITE_METHOD = git
+OUISTITI_VERSION = 3.2.0
+OUISTITI_SITE = $(call github,ouistiti-project,ouistiti,ouistiti-$(OUISTITI_VERSION))
 OUISTITI_LICENSE = MIT
 OUISTITI_LICENSE_FILES = LICENSE
 OUISTITI_DEPENDENCIES += libouistiti

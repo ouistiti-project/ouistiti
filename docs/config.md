@@ -206,7 +206,7 @@ Each module may have is own configuration.
 	  version="HTTP11";
 	  tls = {
 	    crtfile = "/etc/ouistiti/ouistiti_srv.crt";
-	    pemfile = "/etc/ouistiti/ouistiti_srv.key";
+	    keyfile = "/etc/ouistiti/ouistiti_srv.key";
 	    dhmfile = "/etc/ouistiti/ouistiti_dhparam.key";
 	  };
 	});

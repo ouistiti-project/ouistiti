@@ -40,8 +40,8 @@ init() {
 
 start() {
 	printf "Starting ouistiti: "
-	start-stop-daemon -S -q --exec ${SBINDIR}/ouistiti -- -D -f ${SYSCONFDIR}/ouistiti.conf -p ${RUNDIR}/ouistiti.pid
-#	${SBINDIR}/ouistiti -D -p ${RUNDIR}/ouistiti.pid -f ${SYSCONFDIR}/ouistiti.conf
+	start-stop-daemon -S -q --exec ${SBINDIR}/ouistiti -- -D -f ${SYSCONFDIR}/ouistiti.conf -p ${RUNDIR}/ouistiti.pid -W /
+#	${SBINDIR}/ouistiti -D -p ${RUNDIR}/ouistiti.pid -f ${SYSCONFDIR}/ouistiti.conf -W /
 	echo "OK"
 	if [ ! -d ${RUNDIR}/websocket ]; then
 		mkdir ${RUNDIR}/websocket

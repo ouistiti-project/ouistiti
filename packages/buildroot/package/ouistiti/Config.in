@@ -1,11 +1,7 @@
-if !BR2_PACKAGE_LIBCONFIG
-comment "Ouistiti needs libconfig library to manage config file"
-endif
-
 menuconfig BR2_PACKAGE_OUISTITI
 	bool "ouistiti: Embedded webserver and websocket gateway"
 	depends on BR2_USE_MMU
-	depends on BR2_PACKAGE_LIBCONFIG
+	select BR2_PACKAGE_LIBCONFIG
 	select BR2_PACKAGE_LIBOUISTITI
 	help
 	  ouistiti small, fast and secure webserver.
