@@ -1,5 +1,5 @@
 package=ouistiti
-version=3.2
+version=3.3
 
 include scripts.mk
 
