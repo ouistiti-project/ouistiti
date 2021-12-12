@@ -24,6 +24,7 @@ Q=@
 endif
 echo-cmd = $(if $($(quiet)cmd_$(1)), echo '  $($(quiet)cmd_$(1))';)
 cmd = $(echo-cmd) $(cmd_$(1))
+qcmd = $(cmd_$(1))
 
 ##
 # file extention definition
@@ -65,17 +66,17 @@ endif
 DEVINSTALL?=y
 # CONFIG could define LD CC or/and CFLAGS
 # CONFIG must be included before "Commands for build and link"
-VERSIONFILE?=$(builddir)version.h
-CONFIGFILE?=$(builddir)config.h
 DEFCONFIG?=$(srcdir)defconfig
+VERSIONFILE:=$(builddir)version.h
+CONFIGFILE:=$(builddir)config.h
 CONFIG:=$(builddir).config
+PATHCACHE:=$(builddir).pathcache
 
 ifneq ($(wildcard $(CONFIG)),)
   include $(CONFIG)
 # define all unset variable as variable defined as n
   $(foreach config,$(shell cat $(CONFIG) | awk '/^. .* is not set/{print $$2}'),$(eval $(config)=n))
 endif
-PATHCACHE=$(builddir).pathcache
 ifneq ($(wildcard $(PATHCACHE)),)
   include $(PATHCACHE)
 endif
@@ -550,7 +551,7 @@ quiet_cmd_clean_dir=$(if $(2),CLEAN $(notdir $(2)))
  cmd_clean_dir=$(if $(2),$(RM) -d $(2))
 
 ###############################################################################
-# Commands for build and link
+# Commands for build
 ##
 RPATH=$(wildcard $(addsuffix /.,$(wildcard $(CURDIR:%/=%)/* $(obj)*)))
 quiet_cmd_lex_l=LEX $*
@@ -583,47 +584,66 @@ quiet_cmd_hostld_slib=HOSTLD $*
 	$(HOSTAR) -cvq $@ $(filter %.o,$(filter-out $(file),$^)) > /dev/null && \
 	$(HOSTRANLIB) $@
 
+###############################################################################
+# Commands for directories and links
+##
+quiet_cmd_mkdir=DIR $*
+ cmd_mkdir=$(MKDIR) $2
+quiet_cmd_link=LINK $*
+ cmd_link=$(LN) $2 $3
 ##
 # build rules
 ##
 .SECONDEXPANSION:
-$(sort $(hostobj) $(obj) $(builddir)): $(file)
-	$(Q)$(MKDIR) $@
+$(sort $(hostobj) $(obj) $(builddir)): $(builddir)%: $(file)
+	@$(call cmd,mkdir,$@)
 
 $(obj)%.lexer.c $(hostobj)%.lexer.c:%.l $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,lex_l)
 
 $(obj)%.tab.c $(hostobj)%.tab.c:%.y $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,yacc_y)
 
 $(obj)%.o:$(obj)%.s $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,as_o_s)
 
 $(obj)%.o:%.s $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,as_o_s)
 
 $(obj)%.o:$(obj)%.c $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,cc_o_c)
 
 $(obj)%.o:%.c $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,cc_o_c)
 
 $(obj)%.o:$(obj)%.cpp $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,cc_o_cpp)
 
 $(obj)%.o:%.cpp $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,cc_o_cpp)
 
 $(hostobj)%.o:$(hostobj)%.c $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,hostcc_o_c)
 
 $(hostobj)%.o:%.c $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,hostcc_o_c)
 
 $(hostobj)%.o:$(hostobj)%.cpp $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,hostcc_o_cpp)
 
 $(hostobj)%.o:%.cpp $(file)
+	@$(call qcmd,mkdir,$(dir $@))
 	@$(call cmd,hostcc_o_cpp)
 
 $(lib-static-target): $(obj)lib%$(slib-ext:%=.%): $$(addprefix $(obj),$$(%-objs)) $(file)
