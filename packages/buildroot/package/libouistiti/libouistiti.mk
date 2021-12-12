@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-LIBOUISTITI_VERSION = 3.2.0
+LIBOUISTITI_VERSION = 3.2.1
 LIBOUISTITI_SITE = $(call github,ouistiti-project,libhttpserver,libouistiti-$(LIBOUISTITI_VERSION))
 LIBOUISTITI_LICENSE = MIT
 LIBOUISTITI_LICENSE_FILES = LICENSE
