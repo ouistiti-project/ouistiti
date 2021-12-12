@@ -22,7 +22,7 @@ servers= ({
 		};
 		tls = {
 			crtfile = "%PWD%/tests/conf/ouistiti_srv.crt";
-			pemfile = "%PWD%/tests/conf/ouistiti_srv.key";
+			keyfile = "%PWD%/tests/conf/ouistiti_srv.key";
 			cachain = "%PWD%/tests/conf/ouistiti_ca.crt";
 			dhmfile = "%PWD%/tests/conf/ouistiti_dhparam.key";
 		};

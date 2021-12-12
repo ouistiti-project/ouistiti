@@ -45,7 +45,6 @@
 #define HANDSHAKE 0x01
 #define RECV_COMPLETE 0x02
 
-static const char str_openssl[] = "tls";
 static const char str_https[] = "https";
 
 typedef struct _mod_openssl_s _mod_openssl_t;
@@ -90,23 +89,23 @@ void *mod_openssl_create(http_server_t *server, mod_tls_t *modconfig)
 
 	method = SSLv23_server_method();
 
-    ctx = SSL_CTX_new(method);
-    SSL_CTX_set_ecdh_auto(ctx, 1);
+	ctx = SSL_CTX_new(method);
+	SSL_CTX_set_ecdh_auto(ctx, 1);
 	if (modconfig->crtfile)
 	{
 		if (SSL_CTX_use_certificate_file(ctx, (const char *) modconfig->crtfile, SSL_FILETYPE_PEM) <= 0)
 		{
-			err("tls: certificat not found");
+			err("tls: certificate not found");
 			SSL_CTX_free(ctx);
 			return NULL;
 		}
 	}
 
-	if (modconfig->pemfile)
+	if (modconfig->keyfile)
 	{
-		if (SSL_CTX_use_PrivateKey_file(ctx, (const char *) modconfig->pemfile, SSL_FILETYPE_PEM) <= 0 )
+		if (SSL_CTX_use_PrivateKey_file(ctx, (const char *) modconfig->keyfile, SSL_FILETYPE_PEM) <= 0 )
 		{
-			err("tls: certificat not found");
+			err("tls: key not found");
 			SSL_CTX_free(ctx);
 			return NULL;
 		}
@@ -137,7 +136,7 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 	_mod_openssl_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_openssl_t *mod = (_mod_openssl_t *)arg;
 	void *protocolconfig;
-dbg("tls create");
+	dbg("tls create");
 	ctx->clt = clt;
 	ctx->mod = mod;
 	ctx->protocolops = mod->protocolops;
@@ -230,6 +229,18 @@ static int _tls_send(void *vctx, const char *data, int size)
 	return ret;
 }
 
+static int tls_wait(void *vctx, int options)
+{
+	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
+        int ret = ESUCCESS;
+        if (SSL_want_read(&ctx->ssl))
+        {
+                ret = ctx->protocolops->wait(ctx->protocol, options);
+        }
+        return ret;
+}
+
+
 static int _tls_status(void *vctx)
 {
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
@@ -252,6 +263,7 @@ static const httpclient_ops_t *tlsserver_ops = &(httpclient_ops_t)
 	.create = _tlsserver_create,
 	.recvreq = _tls_recv,
 	.sendresp = _tls_send,
+	.wait = tls_wait,
 	.status = _tls_status,
 	.flush = _tls_flush,
 	.disconnect = _tls_disconnect,
@@ -260,9 +272,10 @@ static const httpclient_ops_t *tlsserver_ops = &(httpclient_ops_t)
 
 const module_t mod_tls =
 {
-	.name = str_openssl,
-	.create = (module_create_t)mod_tls_create,
-	.destroy = mod_tls_destroy,
+	.name = str_tls,
+	.configure = (module_configure_t)&tls_config,
+	.create = (module_create_t)&mod_tls_create,
+	.destroy = &mod_tls_destroy,
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_tls")));

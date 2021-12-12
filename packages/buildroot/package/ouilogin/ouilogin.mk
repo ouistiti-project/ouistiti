@@ -13,6 +13,13 @@ OUILOGIN_LICENSE = MIT
 OUILOGIN_LICENSE_FILES = LICENSE
 
 OUILOGIN_DEPENDENCIES += ouistiti
-OUILOGIN_CONFIG_OPTS += datadir=/srv/www-ouilogin
 
-$(eval $(autotools-package))
+define OUILOGIN_CONFIGURE_CMDS
+	$(MAKE) -C $(@D) sysconfdir=/etc/ouistiti datadir=/srv/www-ouilogin defconfig
+endef
+
+define OUILOGIN_INSTALL_TARGET_CMDS
+	$(MAKE) -C $(@D)  DESTDIR=$(TARGET_DIR) install
+endef
+
+$(eval $(generic-package))

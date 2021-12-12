@@ -36,6 +36,7 @@
 #include <libgen.h>
 #include <sched.h>
 #include <dirent.h>
+#include <execinfo.h> // for backtrace
 
 #ifndef WIN32
 # include <sys/socket.h>
@@ -235,6 +236,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
 	fprintf(stderr, "\t-K \t\tto kill other instances of the server\n");
 	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
+	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
 }
 
 static server_t *first = NULL;
@@ -246,6 +248,23 @@ static void handler(int sig, siginfo_t *UNUSED(si), void *UNUSED(arg))
 static void handler(int sig)
 #endif
 {
+	if (sig == SIGSEGV)
+	{
+		void *array[10];
+		size_t size;
+
+		// get void*'s for all entries on the stack
+		size = backtrace(array, 10);
+
+		// print out all the frames to stderr
+		err("main: signal %d", sig);
+		backtrace_symbols_fd(array, size, STDERR_FILENO);
+#ifdef DEBUG
+		raise(SIGCONT);
+#else
+		exit(1);
+#endif
+	}
 	run = 'q';
 }
 
@@ -265,24 +284,29 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 	int i = 0;
 	mod_t *mod = &server->modules[i];
 	while (i < MAX_MODULES && mod->obj != NULL)
+	{
+		if (! strcmp(mod->ops->name, module->name))
+			warn("main: module already set %s", module->name);
 		mod = &server->modules[++i];
+	}
 	if (i == MAX_MODULES)
 		return EREJECT;
 
 	if (module->version & MODULE_VERSION_DEPRECATED)
 	{
-		warn("module %s deprecated", module->name);
+		warn("main: module %s deprecated", module->name);
 		return EREJECT;
 	}
 	if (module->version < MODULE_VERSION_CURRENT)
 	{
-		warn("module %s old. Please check", module->name);
+		warn("main: module %s old. Please check", module->name);
 	}
 	void *config = NULL;
 	if (module->configure != NULL)
 		config = module->configure(parser, server);
 	else if (configure != NULL)
 		config = configure(parser, module, server);
+	if (config != NULL) warn("main: %s configurated", module->name);
 	mod->obj = module->create(server->server, config);
 	mod->ops = module;
 	return (mod->obj != NULL)?ESUCCESS:EREJECT;
@@ -293,7 +317,8 @@ static int ouistiti_setmodules(server_t *server, configure_t configure, void *pa
 	const module_list_t *iterator = g_modules;
 	while (iterator != NULL)
 	{
-		ouistiti_loadmodule(server, iterator->module, configure, parser);
+		if (ouistiti_loadmodule(server, iterator->module, configure, parser) == ESUCCESS)
+			warn("main: %s created", iterator->module->name);
 		iterator = iterator->next;
 	}
 	return 0;
@@ -606,6 +631,7 @@ int main(int argc, char * const *argv)
 	action.sa_sigaction = handler;
 	sigaction(SIGTERM, &action, NULL);
 	sigaction(SIGINT, &action, NULL);
+	sigaction(SIGSEGV, &action, NULL);
 
 	struct sigaction unaction;
 	unaction.sa_handler = SIG_IGN;
@@ -613,6 +639,7 @@ int main(int argc, char * const *argv)
 #else
 	signal(SIGTERM, handler);
 	signal(SIGINT, handler);
+	signal(SIGSEGV, handler);
 
 	signal(SIGPIPE, SIG_IGN);
 #endif
