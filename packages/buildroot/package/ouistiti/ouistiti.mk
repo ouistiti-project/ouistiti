@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-OUISTITI_VERSION = 3.2.0
+OUISTITI_VERSION = 3.2.1
 OUISTITI_SITE = $(call github,ouistiti-project,ouistiti,ouistiti-$(OUISTITI_VERSION))
 OUISTITI_LICENSE = MIT
 OUISTITI_LICENSE_FILES = LICENSE
@@ -48,6 +48,13 @@ ifeq ($(BR2_PACKAGE_OUISTITI_TINYSVCMDNS),y)
   OUISTITI_TINYSVCMDNS_OPTS+=$(call KCONFIG_ENABLE_OPT,TINYSVCMDNS,$(@D)/.config)
 else
   OUISTITI_TINYSVCMDNS_OPTS+=$(call KCONFIG_DISABLE_OPT,TINYSVCMDNS,$(@D)/.config)
+endif
+
+ifeq ($(BR2_PACKAGE_OUISTITI_OPENSSL),y)
+  OUISTITI_DEPENDENCIES += openssl
+  OUISTITI_TLS_OPTS+=$(call KCONFIG_ENABLE_OPT,OPENSSL,$(@D)/.config)
+else
+  OUISTITI_TLS_OPTS+=$(call KCONFIG_DISABLE_OPT,OPENSSL,$(@D)/.config)
 endif
 
 ifeq ($(BR2_PACKAGE_OUISTITI_MBEDTLS),y)
