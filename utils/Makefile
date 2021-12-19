@@ -33,7 +33,8 @@ sysconf-${CERTIFICATE}+=ouistiti_srv.crt
 sysconf-${CERTIFICATE}+=ouistiti_srv.key
 sysconf-${CERTIFICATE}+=ouistiti_dhparam.key
 
-SERVER?=ouistiti.net
+SERVER?=www.ouistiti.net
+CRTLEN=2048
 
 ouistiti_ca.crt:
 	$(Q)openssl req -newkey rsa:2048 -days 3650 -x509 -nodes -out $@ -keyout $(@:%.crt=%.key) -subj '/CN=Certificate authority/'
@@ -51,7 +52,7 @@ ouistiti_ca.conf: ca.conf index serial ouistiti_ca.crt
 			| sed 's/%SERIAL%/.\/serial/' > $@
 
 ouistiti_srv.csr ouistiti_srv.key:
-	$(Q)openssl req -newkey rsa:1024 -nodes -out $(@:%.key=%.csr) -keyout $(@:%.csr=%.key) -subj "/CN=$(SERVER)/"
+	$(Q)openssl req -newkey rsa:$(CRTLEN) -nodes -out $(@:%.key=%.csr) -keyout $(@:%.csr=%.key) -subj "/CN=$(SERVER)/"
 
 ouistiti_srv.crt: ouistiti_srv.csr ouistiti_ca.conf
 	$(Q)openssl ca -batch -config ouistiti_ca.conf -notext -in $< -out $@
