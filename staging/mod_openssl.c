@@ -93,9 +93,13 @@ void *mod_openssl_create(http_server_t *server, mod_tls_t *modconfig)
 	SSL_CTX_set_ecdh_auto(ctx, 1);
 	if (modconfig->crtfile)
 	{
-		if (SSL_CTX_use_certificate_file(ctx, (const char *) modconfig->crtfile, SSL_FILETYPE_PEM) <= 0)
+		int ret = SSL_CTX_use_certificate_file(ctx, (const char *) modconfig->crtfile, SSL_FILETYPE_PEM);
+		if (ret <= 0)
 		{
-			err("tls: certificate not found");
+			long error = ERR_get_error();
+			err("tls: certificate not found %s", ERR_reason_error_string(error));
+			if (ERR_GET_REASON(error) == SSL_R_EE_KEY_TOO_SMALL)
+				err("tls: modify your certificate to be at least 2048 bits long");
 			SSL_CTX_free(ctx);
 			return NULL;
 		}
@@ -103,9 +107,12 @@ void *mod_openssl_create(http_server_t *server, mod_tls_t *modconfig)
 
 	if (modconfig->keyfile)
 	{
-		if (SSL_CTX_use_PrivateKey_file(ctx, (const char *) modconfig->keyfile, SSL_FILETYPE_PEM) <= 0 )
+		int ret = SSL_CTX_use_PrivateKey_file(ctx, (const char *) modconfig->keyfile, SSL_FILETYPE_PEM);
+		if (ret <= 0)
 		{
-			err("tls: key not found");
+			long error = ERR_get_error();
+			err("tls: key not found %s", ERR_reason_error_string(error));
+			ERR_print_errors_fp(stderr);
 			SSL_CTX_free(ctx);
 			return NULL;
 		}
@@ -154,7 +161,7 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 	if (ret <= 0)
 	{
 		int error = SSL_get_error(ctx->ssl, ret);
-		err("tls: create error %d %s", error, ERR_error_string(error, NULL));
+		err("tls: create error %d %s", error, ERR_reason_error_string(error));
 		SSL_free(ctx->ssl);
 		free(ctx);
 		return NULL;
@@ -202,7 +209,7 @@ static int _tls_recv(void *vctx, char *data, int size)
 		}
 		else
 		{
-			err("tls: recv error %d %s", error, ERR_error_string(error, NULL));
+			err("tls: recv error %d %s", error, ERR_reason_error_string(error));
 			ret = EREJECT;
 			ctx->state |= RECV_COMPLETE;
 		}
@@ -223,7 +230,7 @@ static int _tls_send(void *vctx, const char *data, int size)
 	if (ret < 0)
 	{
 		int error = SSL_get_error(ctx->ssl, ret);
-		err("tls: send error %s", ERR_error_string(error, NULL));
+		err("tls: send error %s", ERR_reason_error_string(error));
 		ret = EREJECT;
 	}
 	return ret;
@@ -260,6 +267,7 @@ static const httpclient_ops_t *tlsserver_ops = &(httpclient_ops_t)
 {
 	.scheme = str_https,
 	.default_port = 443,
+	.type = HTTPCLIENT_TYPE_SECURE,
 	.create = _tlsserver_create,
 	.recvreq = _tls_recv,
 	.sendresp = _tls_send,

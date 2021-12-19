@@ -6,7 +6,7 @@ SRCDIR := ..
 
 MAKE_OPTIONS := package=ouistiti
 CONFIG_FILE := fullforked_defconfig
-CONFIG_OPTIONS := prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n STATIC=n AUTHN_OAUTH2=n
+CONFIG_OPTIONS := prefix=/usr sysconfdir=/etc/ouistiti OPENSSL=y MBEDTLS=n TINYSVCMDNS=n STATIC=n AUTHN_OAUTH2=n
 MAKE_OPTIONS := LIBHTTPSERVER_NAME=ouistiti
 %:
 	dh $@
