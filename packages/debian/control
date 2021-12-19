@@ -1,7 +1,7 @@
 Source: ouistiti
 Section: universe/web
 Priority: extra
-Build-Depends: debhelper (>=9), libouistiti-dev, libmbedtls-dev, libconfig-dev, libjansson-dev, libsqlite3-dev
+Build-Depends: debhelper (>=9), libouistiti-dev, libssl-dev, libconfig-dev, libjansson-dev, libsqlite3-dev
 Standards-Version: 3.9.8
 Description: lightweight and fast HTTP server
 Maintainer: Marc Chalain <marc.chalain@gmail.com>

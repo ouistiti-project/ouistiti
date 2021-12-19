@@ -1,3 +1,13 @@
+ouistiti (3.2.1-1) stable; urgency=low
+
+  * new libouistiti
+  * module configuration
+  * new vhost support
+  * path_info of cgi
+  * development sdk for external modules
+  * new entries in configuration: init_d, include
+
+ -- Marc Chalain <marc.chalain@gmail.com>  Sun, 12 Dec 2021 23:09:57 +0100
 ouistiti (3.1.0-1) unstable; urgency=low
 
   * libhttpserver renamed libouistiti
