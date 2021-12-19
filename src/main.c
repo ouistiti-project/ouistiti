@@ -257,7 +257,7 @@ http_server_t *ouistiti_httpserver(server_t *server)
 int ouistiti_issecure(server_t *server)
 {
 	const char *secure = httpserver_INFO(server->server, "secure");
-	return !!strcmp(secure, "true");
+	return !strcmp(secure, "true");
 }
 
 static int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
