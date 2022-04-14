@@ -40,6 +40,7 @@
 #endif
 
 #include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 #include "mod_server.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -71,7 +72,7 @@ static void *mod_server_config(config_setting_t *iterator, server_t *server)
 	if (config)
 	{
 		security = calloc(1,sizeof(*security));
-		char *options = config_setting_get_string(config);
+		const char *options = config_setting_get_string(config);
 		if (options && utils_searchexp("frame", options, NULL) == ESUCCESS)
 			security->options |= SECURITY_FRAME;
 		if (options && utils_searchexp("cache", options, NULL) == ESUCCESS)
