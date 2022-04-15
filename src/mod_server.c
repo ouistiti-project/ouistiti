@@ -35,7 +35,12 @@
 #include <errno.h>
 #include <dirent.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 #include "mod_server.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -54,6 +59,37 @@ struct _mod_server_s
 {
 	mod_security_t *config;
 };
+
+#ifdef FILE_CONFIG
+static void *mod_server_config(config_setting_t *iterator, server_t *server)
+{
+	mod_security_t *security = NULL;
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *config = config_setting_get_member(iterator, "security");
+#else
+	config_setting_t *config = config_setting_lookup(iterator, "security");
+#endif
+	if (config)
+	{
+		security = calloc(1,sizeof(*security));
+		const char *options = config_setting_get_string(config);
+		if (options && utils_searchexp("frame", options, NULL) == ESUCCESS)
+			security->options |= SECURITY_FRAME;
+		if (options && utils_searchexp("cache", options, NULL) == ESUCCESS)
+			security->options |= SECURITY_CACHE;
+		if (options && utils_searchexp("sniff", options, NULL) == ESUCCESS)
+			security->options |= SECURITY_CONTENTTYPE;
+		if (options && utils_searchexp("otherorigin", options, NULL) == ESUCCESS)
+			security->options |= SECURITY_OTHERORIGIN;
+	}
+	return security;
+}
+#else
+static void *mod_server_config(void *iterator, server_t *server)
+{
+	return NULL;
+}
+#endif
 
 static int _server_connector(void *arg, http_message_t *request, http_message_t *response)
 {
@@ -133,6 +169,7 @@ static void mod_server_destroy(void *data)
 const module_t mod_server =
 {
 	.name = str_server,
+	.configure = (module_configure_t)&mod_server_config,
 	.create = (module_create_t)&mod_server_create,
 	.destroy = &mod_server_destroy
 };
