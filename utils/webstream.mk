@@ -15,3 +15,8 @@ udpgw_INSTALL:=libexec
 udpgw_SOURCES+=$(WS_DIR)udpgw.c utils.c
 udpgw_LIBS+=pthread
 udpgw_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
+bin-$(MJPEG)+=mjpeg
+mjpeg_INSTALL:=libexec
+mjpeg_SOURCES+=$(WS_DIR)mjpeg.c utils.c
+mjpeg_CFLAGS-$(DEBUG)+=-g -DDEBUG

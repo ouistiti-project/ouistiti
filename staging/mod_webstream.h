@@ -36,18 +36,6 @@ extern "C"
 {
 #endif
 
-#define WEBSTREAM_REALTIME 0x01
-#define WEBSTREAM_TLS      0x02
-
-typedef struct mod_webstream_s mod_webstream_t;
-struct mod_webstream_s
-{
-	char *docroot;
-	char *allow;
-	char *deny;
-	int options;
-};
-
 extern const module_t mod_webstream;
 
 #ifdef __cplusplus

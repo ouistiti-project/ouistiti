@@ -87,6 +87,7 @@ SERVERHEADER=y
 WEBSTREAM=y
 UDPGW=y
 DUMMYSTREAM=y
+MJPEG=n
 #support of client address filter
 CLIENTFILTER=y
 #support the redirection

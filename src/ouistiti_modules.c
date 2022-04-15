@@ -86,6 +86,8 @@ int ouistiti_initmodules(const char *pkglib)
 				module_t *module = dlsym(dh, "mod_info");
 				if (module)
 					ouistiti_registermodule(module);
+				else
+					err("%s not a module", path);
 			}
 			else
 			{

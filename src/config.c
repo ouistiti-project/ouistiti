@@ -34,24 +34,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <dirent.h>
 
 #include <libconfig.h>
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
-
-#include "mod_tls.h"
-#include "mod_websocket.h"
-#include "mod_webstream.h"
-#include "mod_document.h"
-#include "mod_cgi.h"
-#include "mod_auth.h"
-#include "mod_vhost.h"
-#include "mod_cors.h"
-#include "mod_upgrade.h"
-#include "mod_userfilter.h"
-#include "mod_clientfilter.h"
-#include "mod_redirect.h"
 
 #include "ouistiti/log.h"
 #include "ouistiti.h"
