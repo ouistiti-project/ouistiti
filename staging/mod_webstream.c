@@ -60,6 +60,18 @@ extern int ouistiti_websocket_socket(void *arg, int sock, const char *filepath, 
 #define dbg(...)
 #endif
 
+#define WEBSTREAM_REALTIME	0x01
+#define WEBSTREAM_TLS		0x02
+
+typedef struct mod_webstream_s mod_webstream_t;
+struct mod_webstream_s
+{
+	char *docroot;
+	char *allow;
+	char *deny;
+	int options;
+};
+
 typedef struct _mod_webstream_s _mod_webstream_t;
 typedef struct _mod_webstream_ctx_s _mod_webstream_ctx_t;
 
@@ -195,7 +207,6 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 static void *_mod_webstream_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	_mod_webstream_t *mod = (_mod_webstream_t *)arg;
-
 	_mod_webstream_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	ctx->mod = mod;
 	ctx->clt = clt;
@@ -251,7 +262,7 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
 		if (utils_searchexp("direct", mode, NULL) == ESUCCESS && ouistiti_issecure(server))
-			conf->options |= WEBSOCKET_REALTIME;
+			conf->options |= WEBSTREAM_REALTIME;
 	}
 	return conf;
 }
