@@ -1,5 +1,5 @@
-HTTP/1.1 405 Method Not Allowed
+HTTP/1.1 400 Bad Request
 Content-Type: text/json
-Content-Length: 52
+Content-Length: 74
 
-{"method":"PUT","result":"KO","name":"/test41.txt"}
+{"method":"PUT","result":"KO","error":"File exists","name":"/test41.txt"}

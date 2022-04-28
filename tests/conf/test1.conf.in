@@ -21,6 +21,7 @@ servers= ({
 		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
+		security = "frame";
 		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
