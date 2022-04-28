@@ -103,10 +103,20 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 int dirlisting_connector(void *arg, http_message_t *request, http_message_t *response);
 #endif
 int getfile_connector(void *arg, http_message_t *request, http_message_t *response);
+
 #ifdef DOCUMENTREST
-int putfile_connector(void *arg, http_message_t *request, http_message_t *response);
-int postfile_connector(void *arg, http_message_t *request, http_message_t *response);
-int deletefile_connector(void *arg, http_message_t *request, http_message_t *response);
+int _document_getconnnectorput(_mod_document_mod_t *mod,
+		int fdroot, const char *url,
+		http_message_t *request, http_message_t *response,
+		http_connector_t *connector);
+int _document_getconnnectorpost(_mod_document_mod_t *mod,
+		int fdroot, const char *url,
+		http_message_t *request, http_message_t *response,
+		http_connector_t *connector);
+int _document_getconnnectordelete(_mod_document_mod_t *mod,
+		int fdroot, const char *url,
+		http_message_t *request, http_message_t *response,
+		http_connector_t *connector);
 #endif
 
 void document_close(document_connector_t *private, http_message_t *request);
