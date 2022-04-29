@@ -165,7 +165,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 }
 
 int _document_getconnnectorput(_mod_document_mod_t *mod,
-		int fdroot, const char *url,
+		int fdroot, const char *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
@@ -218,7 +218,7 @@ static int changename(int fdroot, http_message_t *UNUSED(request), const char *o
 }
 
 int _document_getconnnectorpost(_mod_document_mod_t *mod,
-		int fdroot, const char *url,
+		int fdroot, const char *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
@@ -268,7 +268,7 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 }
 
 int _document_getconnnectordelete(_mod_document_mod_t *mod,
-		int fdroot, const char *url,
+		int fdroot, const char *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {

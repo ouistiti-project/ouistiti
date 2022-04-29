@@ -42,6 +42,7 @@ struct mod_redirect_link_s
 	char *origin;
 	const char *destination;
 	int options;
+	const char *defaultpage;
 	mod_redirect_link_t *next;
 };
 #define REDIRECT_HSTS			0x0001
