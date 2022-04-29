@@ -30,11 +30,14 @@ servers= ({
 		};
 		redirect = {
 			links = ({
-				options = "error";
+				options = "error,permanently";
 				destination = "error_414.html";
 				origin = 414;
+			},{
+				options = "permanently";
+				defaultpage = "index.html";
+				origin = "*/";
 			});
-
 		};
 	});
 

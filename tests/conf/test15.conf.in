@@ -33,7 +33,7 @@ servers= ({
 				origin = "empty";
 				options = "generate_204";
 			},{
-				options = "error";
+				options = "error,permanently";
 				destination = "error_404.html";
 				origin = 404;
 			});
