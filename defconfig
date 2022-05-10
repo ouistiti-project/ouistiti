@@ -101,6 +101,8 @@ UPGRADE=y
 UPGRADE_INET=n
 #support for filter uri select by user
 USERFILTER=y
+#support of simple python scripts (staging)
+PYTHON=n
 
 CERTIFICATE=n
 
