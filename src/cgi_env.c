@@ -208,6 +208,18 @@ enum cgi_env_e
 static const httpenv_t cgi_env[] =
 {
 	{
+		.id = -1,
+		.target = "CONTENT_LENGTH=",
+		.length = 16,
+		.cb = &env_requestcontentlength,
+	},
+	{
+		.id = -1,
+		.target = "GATEWAY_INTERFACE=",
+		.length = 26,
+		.cb = &env_gatewayinterface,
+	},
+	{
 		.id = PATH_INFO,
 		.target = "PATH_INFO=",
 		.length = 512,
@@ -245,12 +257,6 @@ static const httpenv_t cgi_env[] =
 		.target = "SERVER_NAME=",
 		.length = 26,
 		.cb = &env_servername,
-	},
-	{
-		.id = -1,
-		.target = "GATEWAY_INTERFACE=",
-		.length = 26,
-		.cb = &env_gatewayinterface,
 	},
 	{
 		.id = -1,
@@ -293,12 +299,6 @@ static const httpenv_t cgi_env[] =
 		.target = "REQUEST_URI=",
 		.length = 512,
 		.cb = &env_requesturi,
-	},
-	{
-		.id = -1,
-		.target = "CONTENT_LENGTH=",
-		.length = 16,
-		.cb = &env_requestcontentlength,
 	},
 	{
 		.id = -1,
