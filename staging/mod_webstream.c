@@ -67,6 +67,8 @@ extern int ouistiti_websocket_socket(void *arg, int sock, const char *filepath, 
 #define WEBSTREAM_MULTIPART       0x04
 #define WEBSTREAM_MULTIPART_DATE  0x08
 
+#define WEBSTREAM_DEFAULT_WAITTIME 34000
+
 typedef struct mod_webstream_s mod_webstream_t;
 struct mod_webstream_s
 {
@@ -74,6 +76,7 @@ struct mod_webstream_s
 	char *allow;
 	char *deny;
 	int options;
+	int fps;
 };
 
 typedef struct _mod_webstream_s _mod_webstream_t;
@@ -286,6 +289,7 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
 		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
 		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		config_setting_lookup_int(configws, "fps", (int *)&conf->fps);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
 		if (utils_searchexp("direct", mode, NULL) == ESUCCESS && ouistiti_issecure(server))
 			conf->options |= WEBSTREAM_REALTIME;
@@ -354,6 +358,9 @@ static void *_webstream_main(void *arg)
 	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 	int client = info->modctx->client;
 	int end = 0;
+	unsigned int waittime = WEBSTREAM_DEFAULT_WAITTIME;
+	if (mod->config->fps > 0)
+		waittime = 1000000 / mod->config->fps;
 
 	while (!end)
 	{
@@ -368,7 +375,7 @@ static void *_webstream_main(void *arg)
 			ret = ioctl(client, FIONREAD, &length);
 			if (length == 0)
 				end = 1;
-			else if (info->modctx->boundary != NULL)
+			else if (config->options & WEBSTREAM_MULTIPART)
 			{
 				char buffer[256];
 				buffer[255] = 0;
@@ -415,6 +422,8 @@ static void *_webstream_main(void *arg)
 				}
 				free(buffer);
 			}
+			if (config->options & WEBSTREAM_MULTIPART)
+				usleep(waittime);
 		}
 		else if (errno != EAGAIN)
 		{
