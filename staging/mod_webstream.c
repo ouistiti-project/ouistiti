@@ -341,19 +341,18 @@ static void mod_webstream_destroy(void *data)
 typedef struct _webstream_main_s _webstream_main_t;
 struct _webstream_main_s
 {
-	int client;
-	int socket;
+	_mod_webstream_ctx_t *modctx;
 	http_recv_t recvreq;
 	http_send_t sendresp;
 	void *ctx;
-	const char *mime;
-	const char *boundary;
 };
 
 static void *_webstream_main(void *arg)
 {
 	_webstream_main_t *info = (_webstream_main_t *)arg;
-	int client = info->client;
+	_mod_webstream_t *mod = info->modctx->mod;
+	mod_webstream_t *config = (mod_webstream_t *)mod->config;
+	int client = info->modctx->client;
 	int end = 0;
 
 	while (!end)
@@ -369,13 +368,13 @@ static void *_webstream_main(void *arg)
 			ret = ioctl(client, FIONREAD, &length);
 			if (length == 0)
 				end = 1;
-			else if (info->boundary != NULL)
+			else if (info->modctx->boundary != NULL)
 			{
 				char buffer[256];
 				buffer[255] = 0;
-				ret = snprintf(buffer, 255, "\r\n--%s\r\n", info->boundary);
+				ret = snprintf(buffer, 255, "\r\n--%s\r\n", info->modctx->boundary);
 				info->sendresp(info->ctx, buffer, ret);
-				ret = snprintf(buffer, 255, "%s: %s\r\n", str_contenttype, info->mime);
+				ret = snprintf(buffer, 255, "%s: %s\r\n", str_contenttype, info->modctx->mime);
 				info->sendresp(info->ctx, buffer, ret);
 				ret = snprintf(buffer, 255, "%s: %d\r\n", str_contentlength, length);
 				info->sendresp(info->ctx, buffer, ret);
@@ -432,15 +431,10 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 	_mod_webstream_t *mod = ctx->mod;
 	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 
-	_webstream_main_t info = {.socket = ctx->socket, .client = ctx->client, .boundary = NULL};
+	_webstream_main_t info = {.modctx = ctx};
 	info.ctx = httpclient_context(ctx->clt);
 	info.recvreq = httpclient_addreceiver(ctx->clt, NULL, NULL);
 	info.sendresp = httpclient_addsender(ctx->clt, NULL, NULL);
-	if (config->options & WEBSTREAM_MULTIPART)
-	{
-		info.mime = ctx->mime;
-		info.boundary = ctx->boundary;
-	}
 
 	if ((pid = fork()) == 0)
 	{
