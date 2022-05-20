@@ -100,7 +100,7 @@ struct _mod_webstream_ctx_s
 	pid_t pid;
 	http_client_t *clt;
 	const char *mime;
-	const char *boundary;
+	char *boundary;
 };
 
 static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
@@ -155,6 +155,30 @@ static int _webstream_socket(void *arg, int sock, const char *filepath)
 	return sock;
 }
 
+char *mkrndstr(size_t length)
+{
+	static const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,.-#'?!";
+	char *randomString = NULL;
+
+	if (length)
+	{
+		randomString = malloc(length +1);
+
+		if (randomString)
+		{
+			int l = (int) (sizeof(charset) -1);
+			int key;
+			for (int n = 0;n < length;n++)
+			{
+				key = rand() % l;
+				randomString[n] = charset[key];
+			}
+			randomString[length] = '\0';
+		}
+	}
+
+	return randomString;
+}
 static int _webstream_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -186,7 +210,7 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 			ctx->mime = utils_getmime(uri);
 			if (config->options & WEBSTREAM_MULTIPART)
 			{
-				ctx->boundary = str_boundary;
+				ctx->boundary = mkrndstr(16);
 				char mime[256];
 				mime[255] = 0;
 				snprintf(mime, 255, "%s; boundary=%s", str_multipart_replace, ctx->boundary);
@@ -267,7 +291,8 @@ static void _mod_webstream_freectx(void *arg)
 		shutdown(ctx->client, SHUT_RD);
 		close(ctx->client);
 		httpclient_shutdown(ctx->clt);
-
+		if (ctx->boundary)
+			free(ctx->boundary);
 	}
 	free(ctx);
 }
