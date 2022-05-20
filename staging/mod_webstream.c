@@ -40,6 +40,8 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <wait.h>
+#include <sched.h>
+#include <time.h>
 
 #ifdef FILE_CONFIG
 #include <libconfig.h>
@@ -60,9 +62,10 @@ extern int ouistiti_websocket_socket(void *arg, int sock, const char *filepath, 
 #define dbg(...)
 #endif
 
-#define WEBSTREAM_REALTIME	0x01
-#define WEBSTREAM_TLS		0x02
-#define WEBSTREAM_MULTIPART	0x04
+#define WEBSTREAM_REALTIME        0x01
+#define WEBSTREAM_TLS             0x02
+#define WEBSTREAM_MULTIPART       0x04
+#define WEBSTREAM_MULTIPART_DATE  0x08
 
 typedef struct mod_webstream_s mod_webstream_t;
 struct mod_webstream_s
@@ -107,6 +110,7 @@ extern const char str_contentlength[];
 
 const char str_contenttype[] = "Content-Type";
 const char str_contentlength[] = "Content-Length";
+const char str_date[] = "Date";
 
 static const char str_webstream[] = "webstream";
 static const char str_multipart_replace[] = "multipart/x-mixed-replace";
@@ -287,13 +291,15 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 			conf->options |= WEBSTREAM_REALTIME;
 		if (utils_searchexp("multipart", mode, NULL) == ESUCCESS)
 			conf->options |= WEBSTREAM_MULTIPART;
+		if (utils_searchexp("date", mode, NULL) == ESUCCESS)
+			conf->options |= WEBSTREAM_MULTIPART_DATE;
 	}
 	return conf;
 }
 #else
 static const mod_webstream_t g_webstream_config =
 {
-	.docroot = "/srv/www""/webstream",
+	.docroot = DATADIR"/webstream",
 };
 
 static void *webstream_config(void *iterator, server_t *server)
@@ -368,11 +374,21 @@ static void *_webstream_main(void *arg)
 				char buffer[256];
 				buffer[255] = 0;
 				ret = snprintf(buffer, 255, "\r\n--%s\r\n", info->boundary);
-				info->sendresp(info->ctx, buffer, ret - 1);
+				info->sendresp(info->ctx, buffer, ret);
 				ret = snprintf(buffer, 255, "%s: %s\r\n", str_contenttype, info->mime);
-				info->sendresp(info->ctx, buffer, ret - 1);
+				info->sendresp(info->ctx, buffer, ret);
 				ret = snprintf(buffer, 255, "%s: %d\r\n", str_contentlength, length);
-				info->sendresp(info->ctx, buffer, ret - 1);
+				info->sendresp(info->ctx, buffer, ret);
+				if (config->options & WEBSTREAM_MULTIPART_DATE)
+				{
+					time_t t;
+					struct tm *tmp;
+
+					t = time(NULL);
+					tmp = gmtime(&t);
+					ret = snprintf(buffer, 255, "%s: %s\r\n", str_date, asctime(tmp));
+					info->sendresp(info->ctx, buffer, ret);
+				}
 				info->sendresp(info->ctx, "\r\n", 2);
 			}
 			while (length > 0)
