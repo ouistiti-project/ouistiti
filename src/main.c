@@ -386,7 +386,16 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 		server->id = first->id + 1;
 	else
 		server->id = id;
+	char *cwd = NULL;
+	if (config->root != NULL && config->root[0] != '\0' && !chdir(config->root))
+		cwd = get_current_dir_name();
 	ouistiti_setmodules(server, NULL, config->modulesconfig);
+	if (cwd != NULL)
+	{
+		if (chdir(cwd))
+			err("main: change directory error !");
+		free(cwd);
+	}
 
 	return server;
 }
