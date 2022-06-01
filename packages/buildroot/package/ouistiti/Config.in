@@ -159,11 +159,14 @@ config BR2_PACKAGE_OUISTITI_WS_JSONRPC
 	select BR2_PACKAGE_JANSSON
 	help
 	  Add a jsonrpc server for websocket.
+	  A system of plugin allows to manipulate:
+	    - sql database
+	    - authentication database from the module
 
 config BR2_PACKAGE_OUISTITI_WS_CHAT
 	bool "websocket: chat server"
 	help
-	  Add a jsonrpc server for websocket.
+	  Add a simple chat server for websocket.
 
 endif
 
@@ -172,5 +175,15 @@ config BR2_PACKAGE_OUISTITI_WEBSTREAM
 	default n
 	help
 	  create a proxy for UNIX socket to send data
+
+if BR2_PACKAGE_OUISTITI_WEBSTREAM
+
+config BR2_PACKAGE_OUISTITI_WS_MJPEG
+	bool "webstream: mjpeg server"
+	help
+	  Add a mjpeg streamer from a webcam.
+	  The server use V4L2 to manage the camera.
+
+endif
 
 endif

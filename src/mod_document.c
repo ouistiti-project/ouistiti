@@ -46,6 +46,13 @@
 #include "mod_document.h"
 #include "mod_auth.h"
 
+#ifndef AT_NO_AUTOMOUNT
+#define AT_NO_AUTOMOUNT         0x800   /* Suppress terminal automount traversal */
+#endif
+#ifndef AT_EMPTY_PATH
+#define AT_EMPTY_PATH           0x1000  /* Allow empty relative pathname */
+#endif
+
 #define document_dbg(...)
 
 /**
@@ -167,121 +174,6 @@ static int _document_docroot(_mod_document_mod_t *mod,
 	return fdroot;
 }
 
-#ifdef DOCUMENTREST
-static int _document_getconnnectorput(_mod_document_mod_t *mod,
-		int fdroot, int fdfile, const char *url,
-		http_message_t *request, http_message_t *response,
-		http_connector_t *connector, struct stat *filestat)
-{
-	const mod_document_t *config = mod->config;
-
-	if ((config->options & DOCUMENT_REST) == 0)
-	{
-		err("document: file %s rest not allowed", url);
-		close(fdfile);
-		return -1;
-	}
-
-	int length = strlen(url);
-	const char *contenttype = httpmessage_REQUEST(request,"Content-Type");
-	if (fdfile > 0 || length < 1)
-	{
-		close(fdfile);
-		const char *uri = httpmessage_REQUEST(request,"uri");
-
-		err("document: file %s already exists", url);
-		httpmessage_addcontent(response, "text/json", "{\"method\":\"PUT\",\"result\":\"KO\",\"name\":\"", -1);
-		httpmessage_appendcontent(response, uri, -1);
-		httpmessage_appendcontent(response, "\"}\n", -1);
-#if defined RESULT_405
-		httpmessage_result(response, RESULT_405);
-#else
-		httpmessage_result(response, RESULT_400);
-#endif
-		return 0;
-	}
-	else if (url[length - 1] == '/' || (contenttype && !strcmp(contenttype, "text/directory")))
-	{
-		err("document: %s found dir", url);
-		fdfile = dup(fdroot);
-	}
-	else
-		fdfile = openat(fdroot, url, O_WRONLY | O_CREAT | O_EXCL, 0644);
-	if (fstat(fdfile, filestat) == -1)
-	{
-		err("document: spurious error on fstat %s", strerror(errno));
-		close(fdfile);
-		return -1;
-	}
-	char range[20];
-	snprintf(range, 20, "bytes %.9ld/*", (long)filestat->st_size);
-	httpmessage_addheader(response, "Content-Range", range);
-	*connector = putfile_connector;
-	return fdfile;
-}
-#endif
-
-#ifdef DOCUMENTREST
-static int _document_getconnnectorpost(_mod_document_mod_t *mod,
-		int fdroot, int fdfile, const char *url,
-		http_message_t *UNUSED(request), http_message_t *response,
-		http_connector_t *connector, struct stat *filestat)
-{
-	const mod_document_t *config = mod->config;
-
-	if ((config->options & DOCUMENT_REST) == 0)
-	{
-		err("document: file %s rest not allowed", url);
-		close(fdfile);
-		return -1;
-	}
-	if (fstat(fdfile, filestat) == -1)
-	{
-		err("document: spurious error on fstat %s", strerror(errno));
-		close(fdfile);
-		return -1;
-	}
-	*connector = postfile_connector;
-	char range[20];
-	snprintf(range, 20, "bytes %.9ld/*", (long)filestat->st_size);
-	httpmessage_addheader(response, "Content-Range", range);
-	close(fdfile);
-	return openat(fdroot, url, O_RDWR | O_TRUNC);
-}
-#endif
-
-#ifdef DOCUMENTREST
-static int _document_getconnnectordelete(_mod_document_mod_t *mod,
-		int fdroot, int fdfile, const char *url,
-		http_message_t *UNUSED(request), http_message_t *response,
-		http_connector_t *connector, struct stat *filestat)
-{
-	const mod_document_t *config = mod->config;
-
-	if ((config->options & DOCUMENT_REST) == 0)
-	{
-		err("document: file %s rest not allowed", url);
-		close(fdfile);
-		return -1;
-	}
-	if (fstat(fdfile, filestat) == -1)
-	{
-		err("document: spurious error on fstat %s", strerror(errno));
-		close(fdfile);
-		return -1;
-	}
-	*connector = deletefile_connector;
-	char range[20];
-	snprintf(range, 20, "bytes %.9ld/*", (long)filestat->st_size);
-	httpmessage_addheader(response, "Content-Range", range);
-	close(fdfile);
-	/**
-	 * delete use only the url fdfile is useless
-	 */
-	return dup(fdroot);
-}
-#endif
-
 static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const char *url, http_message_t *response)
 {
 	const mod_document_t *config = mod->config;
@@ -303,117 +195,88 @@ static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const 
 }
 
 static int _document_getconnnectorget(_mod_document_mod_t *mod,
-		int fdroot, int fdfile, const char *url,
+		int fdroot, const char *url, const char **mime,
 		http_message_t *request, http_message_t *response,
-		http_connector_t *connector, struct stat *filestat)
+		http_connector_t *connector)
 {
 	const mod_document_t *config = mod->config;
-
-	if (fstat(fdfile, filestat) == -1)
+	struct stat filestat;
+	int fdfile = -1;
+	if (faccessat(fdroot, url, F_OK, 0) == -1)
 	{
-		err("document: spurious error on fstat %s", strerror(errno));
-		close(fdfile);
-		return -1;
+		int length = strlen(url);
+		if (url[0] != '\0' && url[length - 1] != '/')
+			return fdfile;
 	}
-	if (S_ISDIR(filestat->st_mode))
+	if (fstatat(fdroot, url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
 	{
+		return 0;
+	}
+	if (S_ISDIR(filestat.st_mode))
+	{
+		document_dbg("document: %s is directory", url);
+		if (url[0] != '\0')
+			fdfile = openat(fdroot, url, O_DIRECTORY);
+		else
+			fdfile = openat(fdroot, ".",  O_DIRECTORY);
 #ifdef DIRLISTING
 		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 		if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) &&
 			(config->options & DOCUMENT_DIRLISTING))
 		{
-			close(fdfile);
-			if (url[0] != '\0')
-				fdfile = openat(fdroot, url, O_DIRECTORY);
-			else
-				fdfile = openat(fdroot, ".",  O_DIRECTORY);
 			*connector = dirlisting_connector;
 		}
 		else
 #endif
+		if (config->defaultpage != NULL)
 		{
-			close(fdroot);
 			fdroot = fdfile;
-			fdfile = _document_getdefaultpage(mod, fdroot, url, response);
-			if (fdfile > 0)
-			{
-#if defined(RESULT_301)
-				httpmessage_result(response, RESULT_301);
-				close(fdfile);
-				return 0;
-#endif
-			}
-			else
-			{
-				document_dbg("document: %s is directory", url);
-				close(fdfile);
-				return -1;
-			}
+			*connector = getfile_connector;
+			fdfile = openat(fdroot, config->defaultpage, O_RDONLY);
+			close(fdroot);
+			*mime = utils_getmime(config->defaultpage);
+		}
+		else
+		{
+			close(fdfile);
+			return -1;
 		}
 	}
-	else if (filestat->st_size == 0)
+	else if (filestat.st_size == 0)
 	{
 		document_dbg("document: empty file");
 #if defined(RESULT_204)
 		httpmessage_result(response, RESULT_204);
-#else
-		const char *mime = NULL;
-		mime = utils_getmime(private->url);
-		httpmessage_addcontent(response, (char *)mime, NULL, 0);
 #endif
-		close(fdfile);
-		return 0;
+		fdfile = 0;
+		errno = 0;
 	}
 	else
 	{
-		mod->transfer = mod_send_read;
-#ifdef SENDFILE
-		if (config->options & DOCUMENT_SENDFILE)
-		{
-			mod->transfer = mod_send_sendfile;
-		}
-#endif
+		*connector = getfile_connector;
+		fdfile = openat(fdroot, url, O_RDONLY);
+		*mime = utils_getmime(url);
 	}
 	return fdfile;
 }
 
 static int _document_getconnnectorheader(_mod_document_mod_t *mod,
-		int fdroot, int fdfile, const char *url,
+		int fdroot, const char *url, const char **mime,
 		http_message_t *request, http_message_t *response,
-		http_connector_t *connector, struct stat *filestat)
+		http_connector_t *connector)
 {
-	fdfile = _document_getconnnectorget(mod, fdroot, fdfile, url,
-				request, response, connector, filestat);
-
-	if (fdfile > 0)
-	{
-		document_connector_t *private = NULL;
-		const mod_document_t *config = mod->config;
-
-		private = calloc(1, sizeof(*private));
-		httpmessage_private(request, private);
-
-		private->mod = mod;
-		private->fdfile = fdfile;
-		private->url = url;
-		private->size = filestat->st_size;
-		private->offset = 0;
-		_mime_connector(mod, request, response);
-#ifdef RANGEREQUEST
-		if (config->options & DOCUMENT_RANGE)
-			range_connector(mod, request, response);
-#endif
-		close(fdfile);
-		free(private);
-	}
-	return 0;
+	int fdfile = _document_getconnnectorget(mod, fdroot, url,
+				mime, request, response, connector);
+	*connector = NULL;
+	return fdfile;
 }
 
 static int _document_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
-	http_connector_t connector = getfile_connector;
+	http_connector_t connector = NULL;
+	const mod_document_t *config = mod->config;
 
 	if (private != NULL)
 	{
@@ -440,73 +303,101 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	}
 	fdroot = dup(fdroot);
 
-	int length = strlen(uri);
-
-	int fdfile = 0;
-	if (length > 0)
-	{
-		document_dbg("document: open %s", uri);
-		fdfile = openat(fdroot, uri, O_RDONLY );
-	}
-	else
-	{
-		document_dbg("document: try / as URI");
-		fdfile = dup(fdroot);
-	}
-
-	struct stat filestat;
+	int fdfile = -1;
+	const char *mime = NULL;
 
 	int type = 0;
 	const char *method = httpmessage_REQUEST(request, "method");
 #ifdef DOCUMENTREST
-	if (!strcmp(method, str_put))
+	if ((config->options & DOCUMENT_REST) && !strcmp(method, str_put))
 	{
-		fdfile = _document_getconnnectorput(mod, fdroot, fdfile, uri,
-					request, response, &connector, &filestat);
+		fdfile = _document_getconnnectorput(mod, fdroot, uri,
+					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
-	else if (fdfile > 0 && !strcmp(method, "POST"))
+	else if ((config->options & DOCUMENT_REST) && !strcmp(method, "POST"))
 	{
-		fdfile = _document_getconnnectorpost(mod, fdroot, fdfile, uri,
-					request, response, &connector, &filestat);
+		fdfile = _document_getconnnectorpost(mod, fdroot, uri,
+					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
-	else if (fdfile > 0 && !strcmp(method, str_delete))
+	else if ((config->options & DOCUMENT_REST) && !strcmp(method, str_delete))
 	{
-		fdfile = _document_getconnnectordelete(mod, fdroot, fdfile, uri,
-					request, response, &connector, &filestat);
+		fdfile = _document_getconnnectordelete(mod, fdroot, uri,
+					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
 	else
 #endif
-	if (fdfile > 0 && !strcmp(method, str_get))
+	if (!strcmp(method, str_get))
 	{
-		fdfile = _document_getconnnectorget(mod, fdroot, fdfile, uri,
-					request, response, &connector, &filestat);
+		fdfile = _document_getconnnectorget(mod, fdroot, uri,
+					&mime, request, response, &connector);
 	}
-	else if (fdfile > 0 && !strcmp(method, str_head))
+	else if (!strcmp(method, str_head))
 	{
-		fdfile = _document_getconnnectorheader(mod, fdroot, fdfile, uri,
-					request, response, &connector, &filestat);
+		fdfile = _document_getconnnectorheader(mod, fdroot, uri,
+					&mime, request, response, &connector);
 	}
 	else
 	{
-		if (fdfile > 0)
-			close(fdfile);
 		close(fdroot);
 		return EREJECT;
 	}
 	if (fdfile == 0)
 	{
+		if (errno > 0)
+		{
+			switch (errno)
+			{
+#if defined RESULT_403
+			case EACCES:
+				httpmessage_result(response, RESULT_403);
+			break;
+#endif
+#if defined RESULT_409
+			case EBUSY:
+			case EEXIST:
+				httpmessage_result(response, RESULT_409);
+			break;
+#endif
+#if defined RESULT_404
+			case ENOENT:
+				httpmessage_result(response, RESULT_404);
+			break;
+#endif
+			default:
+				httpmessage_result(response, RESULT_400);
+			}
+		}
 		close(fdroot);
 		return  ESUCCESS;
 	}
-	else if (fdfile == -1)
+	if (fdfile < 0)
 	{
 		document_dbg("document: %s not exist %s", uri, strerror(errno));
 		close(fdroot);
 		return  EREJECT;
 	}
+	struct stat filestat;
+	if (fstat(fdfile, &filestat) == -1)
+	{
+		err("document: spurious error on fstat %s", strerror(errno));
+		close(fdroot);
+		close(fdfile);
+		return -1;
+	}
+	document_dbg("document: open %s", uri);
+
+#ifdef RANGEREQUEST
+	if (config->options & DOCUMENT_RANGE)
+	{
+		char range[20];
+		snprintf(range, 20, "bytes %.9ld/*", (long)filestat.st_size);
+		httpmessage_addheader(response, "Content-Range", range);
+	}
+#endif
+
 	if (S_ISDIR(filestat.st_mode))
 	{
 		type |= DOCUMENT_DIRLISTING;
@@ -515,11 +406,19 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	private = calloc(1, sizeof(*private));
 	httpmessage_private(request, private);
 
+	mod->transfer = mod_send_read;
+#ifdef SENDFILE
+	if (config->options & DOCUMENT_SENDFILE)
+	{
+		mod->transfer = mod_send_sendfile;
+	}
+#endif
 	private->mod = mod;
 	private->ctl = httpmessage_client(request);
 	private->fdfile = fdfile;
 	private->fdroot = fdroot;
 	private->url = uri;
+	private->mime = mime;
 	private->func = connector;
 	private->size = filestat.st_size;
 	private->offset = 0;
@@ -528,7 +427,6 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	clock_gettime(CLOCK_REALTIME, &private->start);
 	private->datasize = private->size;
 #endif
-
 	return EREJECT;
 }
 
@@ -602,11 +500,14 @@ static int mod_send_read(document_connector_t *private, http_message_t *response
 
 static int _transfer_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	const document_connector_t *private = httpmessage_private(request, NULL);
+	document_connector_t *private = httpmessage_private(request, NULL);
 
-	if (private && private->func)
+	if (private)
 	{
-		return private->func(arg, request, response);
+		if ( private->func)
+			return private->func(arg, request, response);
+		document_close(private, request);
+		return ESUCCESS;
 	}
 	return EREJECT;
 }
@@ -615,23 +516,15 @@ static int _mime_connector(void *arg, http_message_t *request, http_message_t *r
 {
 	const document_connector_t *private = httpmessage_private(request, NULL);
 
-	if (private == NULL ||
-		(private->type & DOCUMENT_DIRLISTING) ||
-		(private->type & DOCUMENT_REST) ||
-		!(private->fdfile > 0))
-	{
-		return EREJECT;
-	}
-
-	const char *mime = NULL;
-	mime = utils_getmime(private->url);
-	httpmessage_addcontent(response, mime, NULL, private->size);
+	if (private != NULL &&
+		   (private->fdfile > 0) &&
+		   private->mime)
+		httpmessage_addcontent(response, private->mime, NULL, private->size);
 
 	return EREJECT;
 }
 
 #ifdef FILE_CONFIG
-static const char *str_index = "index.html";
 static void *document_config(config_setting_t *iterator, server_t *server)
 {
 	const char *entries[] = {
@@ -664,8 +557,6 @@ static void *document_config(config_setting_t *iterator, server_t *server)
 		config_setting_lookup_string(configstaticfile, "allow", (const char **)&static_file->allow);
 		config_setting_lookup_string(configstaticfile, "deny", (const char **)&static_file->deny);
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
-		if (static_file->defaultpage == NULL)
-			static_file->defaultpage = str_index;
 
 		char *options = NULL;
 		config_setting_lookup_string(configstaticfile, "options", (const char **)&options);
@@ -766,8 +657,8 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 #ifdef DOCUMENTREST
 	if (config->options & DOCUMENT_REST)
 	{
-		httpserver_addmethod(server, str_put, 1);
-		httpserver_addmethod(server, str_delete, 1);
+		httpserver_addmethod(server, str_put, MESSAGE_PROTECTED | MESSAGE_ALLOW_CONTENT);
+		httpserver_addmethod(server, str_delete, MESSAGE_PROTECTED);
 	}
 #endif
 	return mod;

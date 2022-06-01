@@ -283,10 +283,11 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 {
 	int i = 0;
 	mod_t *mod = &server->modules[i];
+	warn("module %s regitering...", module->name);
 	while (i < MAX_MODULES && mod->obj != NULL)
 	{
 		if (! strcmp(mod->ops->name, module->name))
-			warn("main: module already set %s", module->name);
+			warn(" already set");
 		mod = &server->modules[++i];
 	}
 	if (i == MAX_MODULES)
@@ -294,19 +295,21 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 
 	if (module->version & MODULE_VERSION_DEPRECATED)
 	{
-		warn("main: module %s deprecated", module->name);
+		warn(" deprecated");
 		return EREJECT;
 	}
 	if (module->version < MODULE_VERSION_CURRENT)
 	{
-		warn("main: module %s old. Please check", module->name);
+		warn(" old. Please check");
 	}
 	void *config = NULL;
 	if (module->configure != NULL)
 		config = module->configure(parser, server);
 	else if (configure != NULL)
 		config = configure(parser, module, server);
-	if (config != NULL) warn("main: %s configurated", module->name);
+#ifdef DEBUG
+	if (config != NULL) {dbg("main: %s configurated", module->name);}
+#endif
 	mod->obj = module->create(server->server, config);
 	mod->ops = module;
 	return (mod->obj != NULL)?ESUCCESS:EREJECT;
@@ -318,7 +321,9 @@ static int ouistiti_setmodules(server_t *server, configure_t configure, void *pa
 	while (iterator != NULL)
 	{
 		if (ouistiti_loadmodule(server, iterator->module, configure, parser) == ESUCCESS)
-			warn("main: %s created", iterator->module->name);
+		{
+			warn(" done");
+		}
 		iterator = iterator->next;
 	}
 	return 0;
@@ -340,7 +345,6 @@ void ouistiti_registermodule(const module_t *module)
 	new->module = module;
 	new->next = g_modules;
 	g_modules = new;
-	dbg("module %s regitered", module->name);
 }
 
 const module_list_t *ouistiti_modules(server_t *server)
@@ -382,7 +386,16 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 		server->id = first->id + 1;
 	else
 		server->id = id;
+	char *cwd = NULL;
+	if (config->root != NULL && config->root[0] != '\0' && !chdir(config->root))
+		cwd = get_current_dir_name();
 	ouistiti_setmodules(server, NULL, config->modulesconfig);
+	if (cwd != NULL)
+	{
+		if (chdir(cwd))
+			err("main: change directory error !");
+		free(cwd);
+	}
 
 	return server;
 }
@@ -645,7 +658,9 @@ int main(int argc, char * const *argv)
 #endif
 
 	if (auth_setowner(ouistiticonfig->user) == EREJECT)
-		err("Error: user %s not found\n", ouistiticonfig->user);
+		err("Error: user %s not found", ouistiticonfig->user);
+	else
+		warn("%s run as %s", argv[0], ouistiticonfig->user);
 
 	main_run(first);
 

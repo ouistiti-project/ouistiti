@@ -1,0 +1,5 @@
+DESC="test simple GET /"
+CONFIG=test7.conf
+TESTCODE=200
+TESTREQUEST=test107_rq.txt
+TESTRESPONSE=index_rs.txt

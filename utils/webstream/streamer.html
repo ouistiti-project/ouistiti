@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <script type="text/javascript" src="webstreammultipart.js"></script>
+      <script>
+        function read(reader) {
+          reader.read()
+          .then(function({done, value}) {
+            if (done)
+            {
+              throw Error("Connection closed");
+            }
+            if (value.headers.get("Content-Type") != "text/json")
+            {
+              throw Error("Message Not a JSON");
+            }
+            return value.json();
+          })
+          .then(function(json) {
+            let field = document.querySelector("#value");
+            field.setAttribute("value", json.data);
+            read(reader);
+          })
+        }
+        fetchmultipart("data.json")
+        .then(function(rs) {
+          let reader = rs.getReader();
+          read(reader);
+        })
+        .catch(function(error) {
+        console.log(error.message);
+        });
+
+    </script>
+  </head>
+  <body>
+    <header>
+    <h4>webstream sample</h4>
+    <p>Ouistiti needs specific configuration for streaming:</p>
+    <pre>
+    webstream = {
+        docroot = "srv/www/webstream";
+        options = "multipart";
+        fps = 30;
+    };
+    </pre>
+    <h4>simple streamer</h4>
+    <p>A simple streamer is available with the Ouistiti's utils. It sends simple json packets to a UNIX socket</p>
+    </header>
+    <main>
+    <div>
+      <p>
+        The Webstream's module supports <b>mutlipart/x-mixed-replace</b> content with the following configuration<br/>
+        <pre>
+        options = "multipart";
+        </pre>
+        <code>streamer -U -n data.json -R srv/www/webstream </code>
+      </p>
+      <p><i>webstreammultipart.js</i> offers the <i>fetchmultipart(url)</i> to receive and parse the stream</p>
+      <pre>
+        function read(reader) {
+          reader.read()
+          .then(function({done, value}) {
+            if (done)
+            {
+              throw Error("Connection closed");
+            }
+            if (value.headers.get("Content-Type") != "text/json")
+            {
+              throw Error("Message Not a JSON");
+            }
+            return value.json();
+          })
+          .then(function(json) {
+            let field = document.querySelector("#value");
+            field.setAttribute("value", json.data);
+            read(reader);
+          })
+        }
+        fetchmultipart("data.json")
+        .then(function(rs) {
+          let reader = rs.getReader();
+          read(reader);
+        })
+        .catch(function(error) {
+        console.log(error.message);
+        });
+      </pre>
+      <input id='value' type="number"/>
+    </div>
+    </main>
+  </body>
+</html>

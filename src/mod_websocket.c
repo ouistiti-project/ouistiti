@@ -522,13 +522,9 @@ static int _websocket_recieveclient(_websocket_main_t *info, char **buffer)
 static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int size)
 {
 	ssize_t length = size;
-	if (info->type == WS_TEXT)
+	if (info->type == WS_TEXT && strlen(buffer) < size)
 	{
-		length = strlen(buffer) + 1;
-		if (length < size)
-		{
-			warn("%s: two messages in ONE", str_websocket);
-		}
+		warn("%s: two messages in ONE", str_websocket);
 	}
 	int ret = EINCOMPLETE;
 	int outlength = 0;

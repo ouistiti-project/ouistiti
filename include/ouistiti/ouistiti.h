@@ -65,6 +65,7 @@ struct serverconfig_s
 {
 	void *configfile;
 	http_server_config_t *server;
+	const char *root;
 	void *modulesconfig;
 };
 

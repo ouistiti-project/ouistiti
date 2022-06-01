@@ -6,11 +6,14 @@
  <body>
   <header>
    <h4>webstream sample</h4>
-   <p>Set ouisiti with the following configuration part:</p>
-   <pre>        webstream = {
-                docroot = "srv/www/webstream";
-		options = "multipart";
-        };</pre>
+   <p>Ouistiti needs specific configuration for streaming:</p>
+   <pre>
+    webstream = {
+        docroot = "srv/www/webstream";
+        options = "multipart";
+        fps = 30;
+    };
+   </pre>
    <p>and add the mime-types for each video steam to support:</p>
    <pre>
    mimetypes = ({
@@ -22,52 +25,58 @@
 		mime = "audio/ogg";
 	},
 	{
+		ext = ".jpeg,jpg";
+		mime = "image/jpeg";
+	},
 		ext = ".mp4,.m4v";
 		mime = "video/mp4";
 	},
 	{
 		ext = ".avi";
 		mime = "video/avi";
-        },
-        {
-                ext = ".h264";
-                mime = "video/h264";
-        },
-        {
-                ext = ".mjpeg";
-                mime = "video/x-motion-jpeg";
-        });
-   </pre>
-   <p><b>mjpeg</b> is a very simple and buggy camera streamer.<br/>
-   It use <b>v4l2</b> to send the stream from webcam to the <b>mod_webstream</b> module.<br/>
-   Launch this application in the <b>docroot</b> directory.<br/></p>
-   <p>For a stream of jpeg images into <b>mutli-part</b> content, Ouistiti mus be set with the "multipart" option of the webstream's configuration.<br/>
-   <pre>
-		options = "multipart";
-   </pre>
-   <code>mjpeg -u -o camera.jpg</code></p>
-   <p>For pure video stream the webstream module must be configurated without any option.<br/>
-   <code>mjpeg -u -o camera.h264</code><br/>
-   <code>mjpeg -u -o camera.mjpeg</code></p>
-   </p>
-   <p>Prefer <b>ustreamer</b> or <b>mpeg-streamer</b> for real streamer.</p>
+	},
+	{
+		ext = ".h264";
+		mime = "video/h264";
+	},
+	{
+		ext = ".mjpeg,.mjpg";
+		mime = "video/x-motion-jpeg";
+	});
+  </pre>
+  <h4>Mjpeg consideration</h3>
+  <p>Two MJPEG types may be considerated:</p>
+  <ul>
+    <li><span>MJPEG ISO standard: a collection of JPEG images.</span></li>
+    <li><span>MJPEG over HTTP: a collection of JPEG images inside <b>multipart/x-mixed-replace</b> content.</span></li>
+  </ul>
+  <p>
+    <b>mjpeg</b> is a very simple and buggy camera streamer.<br/>
+    It use <b>v4l2</b> to send the stream from webcam to the <b>mod_webstream</b> module.<br/>
+    Launch this application in the <b>docroot</b> directory.<br/>
+  </p>
   </header>
   <main>
    <div>
-    <p>Motion-Jpeg with multi-part content</p>
-    <img src="camera.jpg" />
+    <p>
+      For a stream of JPEG images into <b>mutlipart/x-mixed-replace</b> content, Ouistiti must be set with the "multipart" option of the webstream's configuration.<br/>
+      <pre>
+      options = "multipart";
+      </pre>
+      <code>mjpeg -U -n camera.mjpg -R srv/www/webstream </code>
+    </p>
+    <p>Motion-Jpeg with <b>mutlipart/x-mixed-replace</b> content</p>
+    <img src="camera.mjpg" />
    </div>
    <div>
-    <p>The mjpeg format from camera is not supported by the web browser.<br/>
-    The streamer may be use with an external application like ffmpeg or vlc.<br/>
-    <code>vlc http://127.0.0.1/camera.mjpeg</code></p>
-    <img src="camera.mjpeg" disable>
-    <video autoplay="autoplay" controls disbale>
-     <source src="camera.mjpeg">
-    </video>
-   </div>
-   <div>
-    <p>Some webcam support h264 encoding and the stream may be embedded inside a <code>video</code> tags.</p>
+    <p>
+      For a stream of H264 stream, webstream needs an empty options configuration.<br/>
+      <pre>
+      options = "";
+      </pre>
+      <code>mjpeg -U -n camera.h264 -R srv/www/webstream </code>
+    </p>
+    <p>H264  inside a <code>video</code> tags.</p>
     <video autoplay="autoplay" controls >
      <source src="camera.h264">
     </video>

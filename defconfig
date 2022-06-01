@@ -15,7 +15,7 @@ FILE_CONFIG=y
 #STATIC build only one binary
 SHARED=y
 STATIC=y
-MODULES=n
+MODULES=y
 #select the maximum of host to manage (host/port and virtual)
 MAX_SERVERS=4
 
@@ -101,6 +101,8 @@ UPGRADE=y
 UPGRADE_INET=n
 #support for filter uri select by user
 USERFILTER=y
+#support of simple python scripts (staging)
+PYTHON=n
 
 CERTIFICATE=n
 

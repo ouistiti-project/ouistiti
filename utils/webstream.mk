@@ -19,4 +19,5 @@ udpgw_CFLAGS-$(DEBUG)+=-g -DDEBUG
 bin-$(MJPEG)+=mjpeg
 mjpeg_INSTALL:=libexec
 mjpeg_SOURCES+=$(WS_DIR)mjpeg.c utils.c
+mjpeg_LIBS+=pthread
 mjpeg_CFLAGS-$(DEBUG)+=-g -DDEBUG
