@@ -39,6 +39,7 @@
 #include <libconfig.h>
 #endif
 
+#include "ouistiti/log.h"
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
 #include "mod_server.h"
@@ -64,6 +65,8 @@ struct _mod_server_s
 static void *mod_server_config(config_setting_t *iterator, server_t *server)
 {
 	mod_security_t *security = NULL;
+
+	security = calloc(1,sizeof(*security));
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *config = config_setting_get_member(iterator, "security");
 #else
@@ -71,7 +74,6 @@ static void *mod_server_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (config)
 	{
-		security = calloc(1,sizeof(*security));
 		const char *options = config_setting_get_string(config);
 		if (options && utils_searchexp("frame", options, NULL) == ESUCCESS)
 			security->options |= SECURITY_FRAME;

@@ -44,20 +44,26 @@
 #include "mod_document.h"
 #include "mod_auth.h"
 
+#ifndef AT_NO_AUTOMOUNT
+#define AT_NO_AUTOMOUNT         0x800   /* Suppress terminal automount traversal */
+#endif
+#ifndef AT_EMPTY_PATH
+#define AT_EMPTY_PATH           0x1000  /* Allow empty relative pathname */
+#endif
+
 #define document_dbg(...)
 
 #define HAVE_SYMLINK
 
-static int restheader_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
+static int restheader_connector(http_message_t *request, http_message_t *response)
 {
 	const char *uri = httpmessage_REQUEST(request,"uri");
 	const char *method = httpmessage_REQUEST(request,"method");
 
-	httpmessage_addcontent(response, "text/json", NULL, 0);
-	httpmessage_appendcontent(response, "{\"method\":\"", -1);
+	httpmessage_addcontent(response, "text/json", "{\"method\":\"", -1);
 	httpmessage_appendcontent(response, method, -1);
 	httpmessage_appendcontent(response, "\",\"result\":\"", -1);
-	if (httpmessage_result(response, 0) != 200 && httpmessage_result(response, 0) != 201)
+	if (errno > 0)
 	{
 		httpmessage_appendcontent(response, "KO\",\"error\":\"", -1);
 		httpmessage_appendcontent(response, strerror(errno), -1);
@@ -67,54 +73,36 @@ static int restheader_connector(document_connector_t *private, http_message_t *r
 	httpmessage_appendcontent(response, "\",\"name\":\"", -1);
 	httpmessage_appendcontent(response, uri, -1);
 	httpmessage_appendcontent(response, "\"}\n", -1);
-#ifdef DEBUG
-	clock_gettime(CLOCK_REALTIME, &private->start);
-	dbg("document transfer start: %ld:%ld", private->start.tv_sec, private->start.tv_nsec);
-#endif
 
 	return ESUCCESS;
 }
 
-static int putdir_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
+static int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
+	document_connector_t *private = httpmessage_private(request, NULL);
 
-	if (mkdirat(private->fdroot, private->url, 0777) < 0)
-	{
-		err("document: directory creation not allowed %s: %s", private->url, strerror(errno));
-#if defined RESULT_405
-		httpmessage_result(response, RESULT_405);
-#else
-		httpmessage_result(response, RESULT_400);
-#endif
-	}
-	else
-	{
-		warn("document: directory creation %s", private->url);
-	}
-	ret = ESUCCESS;
-	document_close(private, request);
-	return ret;
-}
-
-static int putcontent_connector(document_connector_t *private, http_message_t *request, http_message_t *response)
-{
-	int ret =  EREJECT;
+	/**
+	 * we are into PRECONTENT, the data is no yet available
+	 * Then the first loop as to complete on the opening
+	 */
 
 	char *input;
-	int inputlen;
+	unsigned long long inputlen;
 	/**
 	 * rest = 1 to close the connection on end of file or
 	 * on connection error
 	 */
-	unsigned long long rest = 1;
+	long long rest = 1;
 	inputlen = httpmessage_content(request, &input, &rest);
+	document_dbg("document: put %lld bytes into file", inputlen);
 
 	/**
 	 * the function returns EINCOMPLETE to wait before to send
 	 * the response.
 	 */
 	ret = EINCOMPLETE;
+	errno = 0;
 	while (inputlen > 0)
 	{
 		int wret = write(private->fdfile, input, inputlen);
@@ -159,112 +147,104 @@ static int putcontent_connector(document_connector_t *private, http_message_t *r
 		warn("document: %s uploaded", private->url);
 		if (private->fdfile)
 		{
+			ret = close(private->fdfile);
 #ifdef PUTTMPFILE
 			char path[PATH_MAX];
 			snprintf(path, PATH_MAX, "/proc/self/fd/%d", private->fdfile);
-			if (linkat(mode->fdroot, path, AT_FDCWD, private->url, AT_SYMLINK_FOLLOW) == -1)
-#if defined RESULT_405
-				httpmessage_result(response, RESULT_405);
-#else
-				httpmessage_result(response, RESULT_400);
+			ret = linkat(mode->fdroot, path, AT_FDCWD, private->url, AT_SYMLINK_FOLLOW);
 #endif
-			else
-#endif
-#if defined RESULT_201
-				httpmessage_result(response, RESULT_201);
-#else
-				httpmessage_result(response, RESULT_200);
-#endif
-			close(private->fdfile);
 		}
 		private->fdfile = 0;
 		document_close(private, request);
-		ret = ESUCCESS;
+#ifdef RESULT_201
+		httpmessage_result(response, RESULT_201);
+#endif
+		restheader_connector(request, response);
 	}
 	return ret;
 }
 
-int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
+int _document_getconnnectorput(_mod_document_mod_t *mod,
+		int fdroot, const char *url, const char **mime,
+		http_message_t *request, http_message_t *response,
+		http_connector_t *connector)
 {
-	int ret =  EREJECT;
-	document_connector_t *private = httpmessage_private(request, NULL);
-
-	if (private->type & DOCUMENT_DIRLISTING)
+	int fdfile = -1;
+	int length = strlen(url);
+	const char *contenttype = httpmessage_REQUEST(request,"Content-Type");
+	errno = 0;
+	if (url[length - 1] == '/' || (contenttype && !strcmp(contenttype, "text/directory")))
 	{
-		ret = putdir_connector(private, request, response);
+		err("document: %s found dir", url);
+		fdfile = mkdirat(fdroot, url, 0777);
+		restheader_connector(request, response);
+		fdfile = 0; /// The request is complete by this connector
 	}
-	/**
-	 * we are into PRECONTENT, the data is no yet available
-	 * Then the first loop as to complete on the opening
-	 */
-	else if (private->fdfile > 0)
+	else
 	{
-		ret = putcontent_connector(private, request, response);
+		fdfile = openat(fdroot, url, O_WRONLY | O_CREAT | O_EXCL, 0644);
+		if (fdfile < 0)
+		{
+			restheader_connector(request, response);
+			fdfile = 0; /// The request is complete by this connector
+		}
+		else
+			*connector = putfile_connector;
 	}
-	if (ret == ESUCCESS)
-	{
-		ret = restheader_connector(private, request, response);
-	}
-	return ret;
+	return fdfile;
 }
 
-int _document_renameat(int fddir, const char *oldpath, const char *newpath)
+static int _document_renameat(int fddir, const char *oldpath, const char *newpath)
 {
 	return renameat(fddir, oldpath, fddir, newpath);
 }
 
-int _document_symlinkat(int fddir, const char *oldpath, const char *newpath)
+static int _document_symlinkat(int fddir, const char *oldpath, const char *newpath)
 {
 	return symlinkat(oldpath, fddir, newpath);
 }
 
 typedef int (*changefunc)(int fddir, const char *oldpath, const char *newpath);
-static int changename(document_connector_t *private, http_message_t *UNUSED(request), const char *oldpath, const char *newname, changefunc func)
+static int changename(int fdroot, http_message_t *UNUSED(request), const char *oldpath, const char *newname, changefunc func)
 {
 	int ret = -1;
 	if (newname && newname[0] != '\0')
 	{
 		warn("change %s to %s", oldpath, newname);
-		if (!func(private->fdroot, oldpath, newname))
+		if (!func(fdroot, oldpath, newname))
 			ret = 0;
 	}
 	return ret;
 }
 
-int postfile_connector(void *arg, http_message_t *request, http_message_t *response)
+int _document_getconnnectorpost(_mod_document_mod_t *mod,
+		int fdroot, const char *url, const char **mime,
+		http_message_t *request, http_message_t *response,
+		http_connector_t *connector)
 {
-	document_connector_t *private = httpmessage_private(request, NULL);
+	int fdfile = -1;
+	if (faccessat(fdroot, url, F_OK, 0) == -1)
+		return fdfile;
 
 	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
 
-	if (cmd == NULL || cmd[0] == '\0')
-	{
-		return getfile_connector(arg, request, response);
-	}
-	else if (cmd && !strcmp("mv", cmd))
+	errno = 0;
+	if (cmd && !strcmp("mv", cmd))
 	{
 		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (postarg[0] == '/')
 			postarg++;
-		warn("move %s to %s", private->url, postarg);
-		if (changename(private, request, private->url, postarg, _document_renameat) == -1)
-#if defined RESULT_405
-			httpmessage_result(response, RESULT_405);
-#else
-			httpmessage_result(response, RESULT_400);
-#endif
+		warn("move %s to %s", url, postarg);
+		fdfile = changename(fdroot, request, url, postarg, _document_renameat);
+		fdfile = 0; /// The request is complete by this connector
 	}
 	else if (cmd && !strcmp("chmod", cmd))
 	{
-		warn("chmod %s", private->url);
+		warn("chmod %s", url);
 		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
 		int mod = strtol(postarg, NULL, 8);
-		if (fchmodat(private->fdroot, private->url, mod, 0) == -1)
-#if defined RESULT_405
-			httpmessage_result(response, RESULT_405);
-#else
-			httpmessage_result(response, RESULT_400);
-#endif
+		fdfile = fchmodat(fdroot, url, mod, 0);
+		fdfile = 0; /// The request is complete by this connector
 	}
 #ifdef HAVE_SYMLINK
 	else if (cmd && !strcmp("ln", cmd))
@@ -272,52 +252,45 @@ int postfile_connector(void *arg, http_message_t *request, http_message_t *respo
 		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (postarg[0] == '/')
 			postarg++;
-		warn("document: link %s to %s", private->url, postarg);
-		if (changename(private, request, private->url, postarg, _document_symlinkat) == -1)
-#if defined RESULT_405
-			httpmessage_result(response, RESULT_405);
-#else
-			httpmessage_result(response, RESULT_400);
-#endif
+		warn("document: link %s to %s", url, postarg);
+		fdfile = changename(fdroot, request, url, postarg, _document_symlinkat);
+		fdfile = 0; /// The request is complete by this connector
 	}
 #endif
 	else
 	{
 		err("document: %s unknown", cmd);
 		errno = 22;
-#if defined RESULT_405
-		httpmessage_result(response, RESULT_405);
-#else
-		httpmessage_result(response, RESULT_400);
-#endif
+		fdfile = 0; /// The request is complete by this connector
 	}
-	restheader_connector(private, request, response);
-	document_close(private, request);
-
-	return ESUCCESS;
+	restheader_connector(request, response);
+	return fdfile;
 }
 
-int deletefile_connector(void *arg, http_message_t *request, http_message_t *response)
+int _document_getconnnectordelete(_mod_document_mod_t *mod,
+		int fdroot, const char *url, const char **mime,
+		http_message_t *request, http_message_t *response,
+		http_connector_t *connector)
 {
-	document_connector_t *private = httpmessage_private(request, NULL);
-
+	int fdfile = -1;
+	errno = 0;
+	if (faccessat(fdroot, url, F_OK, 0) == -1)
+		return fdfile;
+	if (faccessat(fdroot, url, W_OK, AT_EACCESS | AT_SYMLINK_NOFOLLOW ))
+	{
+		fdfile = 0; /// The request is complete by this connector
+	}
+	struct stat filestat;
+	if (fdfile &&fstatat(fdroot, url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW) == -1)
+	{
+		fdfile = 0; /// The request is complete by this connector
+	}
 	int flags = 0;
-	if (private->type & DOCUMENT_DIRLISTING)
+	if (S_ISDIR(filestat.st_mode))
 		flags |= AT_REMOVEDIR;
-	if (unlinkat(private->fdroot, private->url, flags) < 0)
-	{
-		err("file removing not allowed %s", private->url);
-#if defined RESULT_405
-		httpmessage_result(response, RESULT_405);
-#else
-		httpmessage_result(response, RESULT_400);
-#endif
-	}
-	else
-	{
-		warn("remove file : %s", private->url);
-	}
-	restheader_connector(private, request, response);
-	document_close(private, request);
-	return ESUCCESS;
+	if (fdfile)
+		fdfile = unlinkat(fdroot, url, flags);
+	restheader_connector(request, response);
+	fdfile = 0; /// The request is complete by this connector
+	return fdfile;
 }

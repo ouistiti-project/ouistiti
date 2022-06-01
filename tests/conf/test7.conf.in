@@ -9,6 +9,7 @@ servers= ({
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 			options = "dirlisting,sendfile,range";
+			defaultpage = "index.html";
 		};
 	});
 

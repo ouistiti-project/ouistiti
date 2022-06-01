@@ -22,7 +22,9 @@ ifeq ($(VTHREAD_TYPE),pthread)
 $(TARGET)_LIBS-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
+ifneq ($(MODULES),y)
 $(TARGET)_SOURCES-$(STATIC)+=ouistiti_static.c
+endif
 $(TARGET)_SOURCES-$(MODULES)+=ouistiti_modules.c
 $(TARGET)_SOURCES+=daemonize.c
 $(TARGET)_LIBS+=$(LIBHTTPSERVER_NAME)

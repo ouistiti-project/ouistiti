@@ -49,13 +49,21 @@ It is useless to manage the authentication by your-self.
 
    A module build a **Websocket bridge** between HTTP socket client and UNIX socket.
    It is able to manage the handshake and the transfer of data to your application.
-   You develop a STREAM server on a UNIX socket, *Ouistiti* protects it on a HTTPS
-   connection.
+   You develop a cammands' server on a UNIX socket, *Ouistiti* protects it with a HTTPS
+   connection and its authentication gate. You can find example of servers:
 
-## HTTP streaming:
+   * **chat** server
+   * **jsonrpc** server
+   * **sqlite DB** server
+
+## [Webstream](docs/mod_webstream.md):
 
    Like the *Websocket*, *Ouistiti* is able to protect your __stream's server__. Your
-   application should only send data on a STREAM socket, *Ouistiti* does the rest.
+   application should only send data on an UNIX socket, *Ouistiti* does the rest.
+
+   * **mp3 music** broadcast with [pump up the volume](https://github.com/ouistiti-project/putv).
+   * **motion-jpeg** streamer.
+   * **json data** streamer.
 
 ## [Static documents](docs/mod_document.md):
 
@@ -65,7 +73,7 @@ It is useless to manage the authentication by your-self.
    * **Rest API**: it allows to manage the document files with a **Rest API** to
      upload, delete, rename the files directly on the server.
    * **Home directory**: each user can manage his own directory with his __private rights__.
-   * **Range request**: file may be broken into many chunks for the download.
+   * **Range request**: file may be split into many chunks for the download.
 
 ## CGI/1.1:
 
@@ -76,26 +84,33 @@ It is useless to manage the authentication by your-self.
    Some URI must be redirected on another URI. This module does that with only
    configuration file.
 
+   * **file** to another file.
+   * **error** to a file.
+   * **generate-204** to emulate a wifi gateway.
+
 ## Connection filtering:
 
    The server may start with a __blacklist__ and a __whitelist__ of IP address.
 
 ## [Users filtering](docs/mod_userfilter.md):
 
-   The server stores a database with rules about the user's "role", the request method and
-   an expression on the URI. Each request is checked after authentication and before
-   accessing to the ressource.
+   The server stores into a database the rules on URI access.A rule is a combination
+   of user's "roles", type of request and an expression on the URI. Each request is
+   checked after authentication and before accessing to the ressource.
+
+   The module contains its own **RESTAPI** to set the database, and uses the
+   authentication module for the rights checking.
 
 ## Upgrade:
 
-   *Ouistiti* is able to upgrade a connection and transfer data between
+   This module is able to upgrade a connection and transfer data between
    the opened socket and a UNIX socket server.
 
    The UNIX server may send and receive any kind of data on the socket.
    It allows to reuse an unsecure server and uses the HTTP features like
    authentication and TLS connection.
 
-   This module is close to the websocket module, but it may usefull to use some
+   It is closed to the websocket module, but it may be usefull for some
    protocol over HTTP.
 
 ## Mono threading or multi threading:

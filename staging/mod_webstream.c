@@ -40,6 +40,8 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <wait.h>
+#include <sched.h>
+#include <time.h>
 
 #ifdef FILE_CONFIG
 #include <libconfig.h>
@@ -60,9 +62,12 @@ extern int ouistiti_websocket_socket(void *arg, int sock, const char *filepath, 
 #define dbg(...)
 #endif
 
-#define WEBSTREAM_REALTIME	0x01
-#define WEBSTREAM_TLS		0x02
-#define WEBSTREAM_MULTIPART	0x04
+#define WEBSTREAM_REALTIME        0x01
+#define WEBSTREAM_TLS             0x02
+#define WEBSTREAM_MULTIPART       0x04
+#define WEBSTREAM_MULTIPART_DATE  0x08
+
+#define WEBSTREAM_DEFAULT_WAITTIME 34000
 
 typedef struct mod_webstream_s mod_webstream_t;
 struct mod_webstream_s
@@ -71,6 +76,7 @@ struct mod_webstream_s
 	char *allow;
 	char *deny;
 	int options;
+	int fps;
 };
 
 typedef struct _mod_webstream_s _mod_webstream_t;
@@ -94,7 +100,7 @@ struct _mod_webstream_ctx_s
 	pid_t pid;
 	http_client_t *clt;
 	const char *mime;
-	const char *boundary;
+	char *boundary;
 };
 
 static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
@@ -107,6 +113,7 @@ extern const char str_contentlength[];
 
 const char str_contenttype[] = "Content-Type";
 const char str_contentlength[] = "Content-Length";
+const char str_date[] = "Date";
 
 static const char str_webstream[] = "webstream";
 static const char str_multipart_replace[] = "multipart/x-mixed-replace";
@@ -148,6 +155,30 @@ static int _webstream_socket(void *arg, int sock, const char *filepath)
 	return sock;
 }
 
+char *mkrndstr(size_t length)
+{
+	static const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,.-#'?!";
+	char *randomString = NULL;
+
+	if (length)
+	{
+		randomString = malloc(length +1);
+
+		if (randomString)
+		{
+			int l = (int) (sizeof(charset) -1);
+			int key;
+			for (int n = 0;n < length;n++)
+			{
+				key = rand() % l;
+				randomString[n] = charset[key];
+			}
+			randomString[length] = '\0';
+		}
+	}
+
+	return randomString;
+}
 static int _webstream_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -179,7 +210,7 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 			ctx->mime = utils_getmime(uri);
 			if (config->options & WEBSTREAM_MULTIPART)
 			{
-				ctx->boundary = str_boundary;
+				ctx->boundary = mkrndstr(16);
 				char mime[256];
 				mime[255] = 0;
 				snprintf(mime, 255, "%s; boundary=%s", str_multipart_replace, ctx->boundary);
@@ -260,7 +291,8 @@ static void _mod_webstream_freectx(void *arg)
 		shutdown(ctx->client, SHUT_RD);
 		close(ctx->client);
 		httpclient_shutdown(ctx->clt);
-
+		if (ctx->boundary)
+			free(ctx->boundary);
 	}
 	free(ctx);
 }
@@ -282,18 +314,21 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
 		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
 		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		config_setting_lookup_int(configws, "fps", (int *)&conf->fps);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
 		if (utils_searchexp("direct", mode, NULL) == ESUCCESS && ouistiti_issecure(server))
 			conf->options |= WEBSTREAM_REALTIME;
 		if (utils_searchexp("multipart", mode, NULL) == ESUCCESS)
 			conf->options |= WEBSTREAM_MULTIPART;
+		if (utils_searchexp("date", mode, NULL) == ESUCCESS)
+			conf->options |= WEBSTREAM_MULTIPART_DATE;
 	}
 	return conf;
 }
 #else
 static const mod_webstream_t g_webstream_config =
 {
-	.docroot = "/srv/www""/webstream",
+	.docroot = DATADIR"/webstream",
 };
 
 static void *webstream_config(void *iterator, server_t *server)
@@ -335,20 +370,22 @@ static void mod_webstream_destroy(void *data)
 typedef struct _webstream_main_s _webstream_main_t;
 struct _webstream_main_s
 {
-	int client;
-	int socket;
+	_mod_webstream_ctx_t *modctx;
 	http_recv_t recvreq;
 	http_send_t sendresp;
 	void *ctx;
-	const char *mime;
-	const char *boundary;
 };
 
 static void *_webstream_main(void *arg)
 {
 	_webstream_main_t *info = (_webstream_main_t *)arg;
-	int client = info->client;
+	_mod_webstream_t *mod = info->modctx->mod;
+	mod_webstream_t *config = (mod_webstream_t *)mod->config;
+	int client = info->modctx->client;
 	int end = 0;
+	unsigned int waittime = WEBSTREAM_DEFAULT_WAITTIME;
+	if (mod->config->fps > 0)
+		waittime = 1000000 / mod->config->fps;
 
 	while (!end)
 	{
@@ -363,16 +400,26 @@ static void *_webstream_main(void *arg)
 			ret = ioctl(client, FIONREAD, &length);
 			if (length == 0)
 				end = 1;
-			else if (info->boundary != NULL)
+			else if (config->options & WEBSTREAM_MULTIPART)
 			{
 				char buffer[256];
 				buffer[255] = 0;
-				ret = snprintf(buffer, 255, "\r\n--%s\r\n", info->boundary);
-				info->sendresp(info->ctx, buffer, ret - 1);
-				ret = snprintf(buffer, 255, "%s: %s\r\n", str_contenttype, info->mime);
-				info->sendresp(info->ctx, buffer, ret - 1);
+				ret = snprintf(buffer, 255, "\r\n--%s\r\n", info->modctx->boundary);
+				info->sendresp(info->ctx, buffer, ret);
+				ret = snprintf(buffer, 255, "%s: %s\r\n", str_contenttype, info->modctx->mime);
+				info->sendresp(info->ctx, buffer, ret);
 				ret = snprintf(buffer, 255, "%s: %d\r\n", str_contentlength, length);
-				info->sendresp(info->ctx, buffer, ret - 1);
+				info->sendresp(info->ctx, buffer, ret);
+				if (config->options & WEBSTREAM_MULTIPART_DATE)
+				{
+					time_t t;
+					struct tm *tmp;
+
+					t = time(NULL);
+					tmp = gmtime(&t);
+					ret = snprintf(buffer, 255, "%s: %s\r\n", str_date, asctime(tmp));
+					info->sendresp(info->ctx, buffer, ret);
+				}
 				info->sendresp(info->ctx, "\r\n", 2);
 			}
 			while (length > 0)
@@ -400,6 +447,8 @@ static void *_webstream_main(void *arg)
 				}
 				free(buffer);
 			}
+			if (config->options & WEBSTREAM_MULTIPART)
+				usleep(waittime);
 		}
 		else if (errno != EAGAIN)
 		{
@@ -416,15 +465,10 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 	_mod_webstream_t *mod = ctx->mod;
 	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 
-	_webstream_main_t info = {.socket = ctx->socket, .client = ctx->client, .boundary = NULL};
+	_webstream_main_t info = {.modctx = ctx};
 	info.ctx = httpclient_context(ctx->clt);
 	info.recvreq = httpclient_addreceiver(ctx->clt, NULL, NULL);
 	info.sendresp = httpclient_addsender(ctx->clt, NULL, NULL);
-	if (config->options & WEBSTREAM_MULTIPART)
-	{
-		info.mime = ctx->mime;
-		info.boundary = ctx->boundary;
-	}
 
 	if ((pid = fork()) == 0)
 	{

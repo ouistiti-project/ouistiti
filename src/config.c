@@ -115,6 +115,7 @@ static serverconfig_t *config_server(config_setting_t *iterator, config_t *confi
 		}
 	}
 	config->server->versionstr = httpversion[config->server->version];
+	config_setting_lookup_string(iterator, "root", &config->root);
 	config->modulesconfig = iterator;
 	config->configfile = configfile;
 	return config;

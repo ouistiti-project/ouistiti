@@ -64,6 +64,8 @@ typedef struct buffer_s buffer_t;
 
 extern int ouistiti_recvaddr(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 
+static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%d\"}";
+
 struct stream_s
 {
 	int sock;
@@ -76,6 +78,7 @@ struct buffer_s
 	int ready;
 	char *data;
 	int size;
+	int length;
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
 	int options;
@@ -97,7 +100,7 @@ void *runstream(void *arg)
 			ret = pthread_cond_wait(&buffer->cond, &buffer->mutex);
 		} while (!buffer->ready && ret < 0);
 		pthread_mutex_unlock(&buffer->mutex);
-		ret = send(stream->sock, buffer->data, buffer->size, MSG_NOSIGNAL);
+		ret = send(stream->sock, buffer->data, buffer->length, MSG_NOSIGNAL);
 		if (ret < 0 && errno != EAGAIN)
 		{
 			err("send error %d %s", ret, strerror(errno));
@@ -154,17 +157,22 @@ void *rungenerator(void *arg)
 
 	while (run)
 	{
-		memset(buffer->data, elem + 0x30, buffer->size);
+		if (!(buffer->options & OPTION_TEST))
+		{
+			elem++;
+			elem %= 10;
+			buffer->length = snprintf(buffer->data, buffer->size, str_hello, elem);
+		}
+		else
+		{
+			memset(buffer->data, elem + 0x30, buffer->size);
+			buffer->length = buffer->size;
+		}
 		pthread_mutex_lock(&buffer->mutex);
 		buffer->ready = 1;
 		pthread_mutex_unlock(&buffer->mutex);
 		pthread_cond_broadcast(&buffer->cond);
 		nanosleep(&timeout, NULL);
-		if (!(buffer->options & OPTION_TEST))
-		{
-			elem++;
-			elem %= 10;
-		}
 		pthread_mutex_lock(&buffer->mutex);
 		if (buffer->ready == 2)
 			run = 0;
@@ -202,8 +210,6 @@ void help(char **argv)
 	fprintf(stderr, "\t-w \tstart streamer with specific ouistiti features\n");
 	fprintf(stderr, "\t-t \ttest mode\n");
 }
-
-static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%2hd\"}";
 
 int main(int argc, char **argv)
 {

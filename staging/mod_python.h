@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_redirect.h: Redirect the request on 404 error
+ * mod_cgi.h: Simple HTTP module
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -26,8 +26,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __MOD_REDIRECT_H__
-#define __MOD_REDIRECT_H__
+#ifndef __MOD_PYTHON_H__
+#define __MOD_PYTHON_H__
 
 #include "ouistiti.h"
 
@@ -36,29 +36,8 @@ extern "C"
 {
 #endif
 
-typedef struct mod_redirect_link_s mod_redirect_link_t;
-struct mod_redirect_link_s
-{
-	char *origin;
-	const char *destination;
-	int options;
-	const char *defaultpage;
-	mod_redirect_link_t *next;
-};
-#define REDIRECT_HSTS			0x0001
-#define REDIRECT_LINK			0x0002
-#define REDIRECT_GENERATE204	0x0004
-#define REDIRECT_PERMANENTLY	0x0008
-#define REDIRECT_TEMPORARY		0x0010
-#define REDIRECT_ERROR			0x0020
-typedef struct mod_redirect_s
-{
-	int options;
-	mod_redirect_link_t *links;
-} mod_redirect_t;
-
-
-extern const module_t mod_redirect;
+#include "mod_cgi.h"
+extern const module_t mod_python;
 
 #ifdef __cplusplus
 }

@@ -7,7 +7,12 @@ servers= ({
 		cgi = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".cgi*";
-			deny = ".htaccess,.php";
+			deny = ".htaccess,.php,*.py";
+		};
+		python = {
+			docroot = "%PWD%/tests/htdocs";
+			allow = ".py*";
+			deny = ".htaccess,.php,*.cgi";
 		};
 		cors = {
 			origin = "localhost";

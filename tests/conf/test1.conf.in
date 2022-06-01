@@ -21,6 +21,7 @@ servers= ({
 		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
+		security = "frame";
 		document = {
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
@@ -29,11 +30,14 @@ servers= ({
 		};
 		redirect = {
 			links = ({
-				options = "error";
+				options = "error,permanently";
 				destination = "error_414.html";
 				origin = 414;
+			},{
+				options = "permanently";
+				defaultpage = "index.html";
+				origin = "*/";
 			});
-
 		};
 	});
 

@@ -189,10 +189,13 @@ void help(char **argv)
 {
 	fprintf(stderr, "%s [-R <socket directory>][-m <nb max clients>][-u <user>][-w][-h][-D]\n", basename(argv[0]));
 	fprintf(stderr, "\t-R <dir>\tset the socket directory for the connection\n");
-	fprintf(stderr, "\t-m <num>\tset the maximum number of clients\n");
-	fprintf(stderr, "\t-u <name>\tset the user to run\n");
-	fprintf(stderr, "\t-w \tstart chat with specific ouistiti features\n");
 	fprintf(stderr, "\t-n <name> \tthe name of the stream\n");
+	fprintf(stderr, "\t-u <name>\tset the user to run\n");
+	fprintf(stderr, "\t-m <num>\tset the maximum number of clients\n");
+	fprintf(stderr, "\t-D \t\tstart as daemon\n");
+	fprintf(stderr, "\t-w \t\tstart chat with specific ouistiti features\n");
+	fprintf(stderr, "\t-a <address>	\tset the address of the UDP server (or Multicast address)\n");
+	fprintf(stderr, "\t-p <port> \tset the port of the UDP stream\n");
 }
 
 static const char *str_hello = "{\"type\":\"hello\",\"data\":\"%2hd\"}";
