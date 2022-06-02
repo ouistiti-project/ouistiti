@@ -55,6 +55,7 @@ It is useless to manage the authentication by your-self.
    * **chat** server
    * **jsonrpc** server
    * **sqlite DB** server
+   * **[thrift](https://thrift.apache.org/)** server
 
 ## [Webstream](docs/mod_webstream.md):
 
