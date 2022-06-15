@@ -111,7 +111,7 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_mes
 
 		char out[40];
 		base64->encode(accept, hash_sha1->size, out, 40);
-		websocket_dbg("%s: handshake %s", str_websocket, out);
+		websocket_dbg("websocket: handshake %s", out);
 
 		httpmessage_addheader(response, str_accept, out);
 	}
@@ -221,7 +221,6 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	/** disable Content-Type and Content-Length inside the headers **/
 	httpmessage_addcontent(response, "none", NULL, -1);
 	httpmessage_result(response, RESULT_101);
-	websocket_dbg("%s: result 101", str_websocket);
 	ctx->socket = httpmessage_lock(response);
 	return ECONTINUE;
 }
@@ -269,9 +268,9 @@ static void _mod_websocket_freectx(void *arg)
 	if (ctx->pid > 0)
 	{
 #ifdef VTHREAD
-		websocket_dbg("%s: waitpid", str_websocket);
+		websocket_dbg("websocket: waitpid");
 		waitpid(ctx->pid, NULL, 0);
-		websocket_dbg("%s: freectx", str_websocket);
+		websocket_dbg("websocket: freectx");
 #else
 		/**
 		 * ignore SIGCHLD allows the child to die without to create a z$
@@ -310,7 +309,7 @@ static void *websocket_config(config_setting_t *iterator, server_t *server)
 			if (!ouistiti_issecure(server))
 				conf->options |= WEBSOCKET_REALTIME;
 			else
-				warn("realtime configuration is not allowed with tls");
+				warn("websocket: realtime configuration is not allowed with tls");
 		}
 #else
 #endif
@@ -397,7 +396,7 @@ static int _websocket_unix(const char *filepath)
 	}
 	if (sock == -1)
 	{
-		err("%s: open error (%s)", str_websocket, strerror(errno));
+		err("websocket: open error (%s)", strerror(errno));
 	}
 	return sock;
 }
@@ -434,7 +433,7 @@ static int _websocket_tcp(const char *host, const char *port)
 	}
 	if (sock == -1)
 	{
-		err("%s: open error (%s)", str_websocket, strerror(errno));
+		err("websocket: open error (%s)", strerror(errno));
 	}
 	else
 		warn("websocket: open %s", host);
@@ -508,7 +507,7 @@ static int _websocket_recieveclient(_websocket_main_t *info, char **buffer)
 		ret = info->recvreq(info->ctx, *buffer, length);
 		if (ret > 0)
 		{
-			websocket_dbg("%s: ws => u: recv %d bytes", str_websocket, ret);
+			websocket_dbg("websocket: ws => u: recv %d bytes", ret);
 		}
 		else
 		{
@@ -524,7 +523,7 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	ssize_t length = size;
 	if (info->type == WS_TEXT && strlen(buffer) < size)
 	{
-		warn("%s: two messages in ONE", str_websocket);
+		warn("websocket: two messages in ONE");
 	}
 	int ret = EINCOMPLETE;
 	int outlength = 0;
@@ -533,14 +532,14 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	while (outlength > 0 && ret == EINCOMPLETE)
 	{
 		ret = info->sendresp(info->ctx, out, outlength);
-		websocket_dbg("%s: u => ws: send %d/%d bytes\n\t%.*s", str_websocket, ret, outlength, (int)length, buffer);
+		websocket_dbg("websocket: u => ws: send %d/%d bytes\n\t%.*s", ret, outlength, (int)length, buffer);
 		if (ret > 0)
 			outlength -= ret;
 	}
 	free(out);
 	if (ret == EREJECT)
 	{
-		warn("%s: connection closed by client", str_websocket);
+		warn("websocket: connection closed by client");
 		return EREJECT;
 	}
 	if (size > length && buffer[length - 1] == '\0')
@@ -566,7 +565,7 @@ static int _websocket_recieveserver(_websocket_main_t *info, char **buffer)
 		ret = recv(server, *buffer, length, MSG_NOSIGNAL);
 		if (ret > 0)
 		{
-			websocket_dbg("%s: u => ws: recv %d bytes", str_websocket, ret);
+			websocket_dbg("websocket: u => ws: recv %d bytes", ret);
 		}
 		else
 		{
@@ -595,14 +594,14 @@ static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int
 			ret = send(server, out, outlength, MSG_NOSIGNAL);
 		if (ret == -1 && errno == EAGAIN)
 			ret = 0;
-		websocket_dbg("%s: ws => u: send %d bytes\n\t%s", str_websocket, ret, out);
+		websocket_dbg("websocket: ws => u: send %d bytes\n\t%s", ret, out);
 		outlength -= ret;
 	}
 	fsync(server);
 	free(out);
 	if (ret == -1)
 	{
-		err("%s: data transfer error %d %s", str_websocket, ret, strerror(errno));
+		err("websocket: data transfer error %d %s", ret, strerror(errno));
 		ret = EREJECT;
 	}
 	return ret;
@@ -637,13 +636,13 @@ static void *_websocket_main(void *arg)
 				free(buffer);
 				if (ret == EREJECT)
 				{
-					warn("%s: client died", str_websocket);
+					warn("websocket: client died");
 					info->end = 1;
 				}
 			}
 			else
 			{
-				warn("%s: server died", str_websocket);
+				warn("websocket: server died");
 				info->end = 1;
 			}
 		}
@@ -657,19 +656,19 @@ static void *_websocket_main(void *arg)
 				free(buffer);
 				if (ret == EREJECT)
 				{
-					warn("%s: server died", str_websocket);
+					warn("websocket: server died");
 					info->end = 1;
 				}
 			}
 			else
 			{
-				warn("%s: client died", str_websocket);
+				warn("websocket: client died");
 				info->end = 1;
 			}
 		}
 		else if (errno != EAGAIN)
 		{
-			err("%s: error %s", str_websocket, strerror(errno));
+			err("websocket: error %s", strerror(errno));
 			info->end = 1;
 		}
 	}
@@ -703,7 +702,7 @@ int default_websocket_run(void *arg, int sock, char *filepath, http_message_t *r
 		if ((pid = fork()) == 0)
 		{
 			_websocket_main(&info);
-			warn("%s: process died", str_websocket);
+			warn("websocket: process died");
 			exit(0);
 		}
 		close(wssock);
