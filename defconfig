@@ -107,3 +107,9 @@ PYTHON=n
 CERTIFICATE=n
 
 HOST_UTILS=y
+
+#few web client utils to develop simple site
+WEBCOMMON=n
+JQUERY=y
+BOOTSTRAP=y
+GLYPHICONS=y
