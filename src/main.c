@@ -260,7 +260,7 @@ static void handler(int sig)
 		err("main: signal %d", sig);
 		backtrace_symbols_fd(array, size, STDERR_FILENO);
 #ifdef DEBUG
-		raise(SIGCONT);
+		while(1);
 #else
 		exit(1);
 #endif
