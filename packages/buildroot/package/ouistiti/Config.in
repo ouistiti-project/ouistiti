@@ -9,69 +9,69 @@ menuconfig BR2_PACKAGE_OUISTITI
 
 	  https://github.com/ouistiti-project
 
-if BR2_PACKAGE_OUISTITI
-config BR2_PACKAGE_OUISTITI_TINYSVCMDNS
-	bool
-	default BR2_PACKAGE_TINYSVCMDNS
-	depends on BR2_PACKAGE_TINYSVCMDNS
-
 choice
 	prompt "SSL/TLS library support"
+	depends on BR2_PACKAGE_OUISTITI
 	default BR2_PACKAGE_OUISTITI_MBEDTLS
 	help
 	  module to manage HTTPS request.
 
 config BR2_PACKAGE_OUISTITI_MBEDTLS
 	bool "mbedtls"
+	depends on BR2_PACKAGE_OUISTITI
 	depends on BR2_PACKAGE_MBEDTLS
 	select BR2_PACKAGE_LIBOUISTITI_MBEDTLS
 
-if !BR2_PACKAGE_MBEDTLS
 comment "mbedtls"
-endif
+	depends on BR2_PACKAGE_OUISTITI
+	depends on !BR2_PACKAGE_MBEDTLS
 
 config BR2_PACKAGE_OUISTITI_OPENSSL
 	bool "openssl (experimental)"
+	depends on BR2_PACKAGE_OUISTITI
 	depends on BR2_PACKAGE_OPENSSL
 	select BR2_PACKAGE_LIBOUISTITI_OPENSSL
 
-if !BR2_PACKAGE_OPENSSL
 comment "openssl (experimental)"
-endif
+	depends on BR2_PACKAGE_OUISTITI
+	depends on !BR2_PACKAGE_OPENSSL
 
 config BR2_PACKAGE_OUISTITI_WOLFSSL
 	bool "wolfssl (experimental)"
+	depends on BR2_PACKAGE_OUISTITI
 	depends on BR2_PACKAGE_WOLFSSL
 	select BR2_PACKAGE_LIBOUISTITI_WOLFSSL
 
-if !BR2_PACKAGE_WOLFSSL
 comment "wolfssl (experimental)"
-endif
+	depends on BR2_PACKAGE_OUISTITI
+	depends on !BR2_PACKAGE_WOLFSSL
 
 endchoice
 
 menuconfig BR2_PACKAGE_OUISTITI_AUTH
 	bool "authentication support"
+	depends on BR2_PACKAGE_OUISTITI
 	default y
 	help
 	  Enable Basic/Digest/Bearer... support for ouistiti.
 
-if BR2_PACKAGE_OUISTITI_AUTH
-
 config BR2_PACKAGE_OUISTITI_AUTH_SQLITE
 	bool "sqlite db storage"
 	select BR2_PACKAGE_SQLITE
+	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
 	  Enable password storage into sqlite DB.
 
 config BR2_PACKAGE_OUISTITI_AUTH_UNIX
 	bool "unix shadow file"
 	select BR2_PACKAGE_OUISTITI_AUTH_BASIC
+	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
 	  Enable password storage from UNIX password system.
 
 config BR2_PACKAGE_OUISTITI_AUTH_TOKEN
 	bool "Token exchange"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
 	  generate token after authentication and
 	  use this token for the following request
@@ -80,25 +80,29 @@ config BR2_PACKAGE_OUISTITI_AUTH_JWT
 	bool "auth: Json Web Token"
 	depends on BR2_PACKAGE_JANSSON
 	depends on BR2_PACKAGE_OUISTITI_AUTH_TOKEN
+	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
 	  Generate and parse JsonWebToken for authenticate.
 
-if !BR2_PACKAGE_JANSSON
 comment "JWT support: enable Jansson library"
-endif
+	depends on BR2_PACKAGE_OUISTITI_AUTH
+	depends on !BR2_PACKAGE_JANSSON
 
 config BR2_PACKAGE_OUISTITI_AUTH_BASIC
 	bool "auth: Basic authentication"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
 	  Basic Authentication RFC
 
 config BR2_PACKAGE_OUISTITI_AUTH_DIGEST
 	bool "auth: Digest authentication"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
 	  Digest Authentication RFC
 
 config BR2_PACKAGE_OUISTITI_AUTH_BEARER
 	bool "auth: Bearer authentication"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
 	  Bearer Authentication RFC
 
@@ -106,41 +110,42 @@ config BR2_PACKAGE_OUISTITI_AUTH_OAUTH2
 	bool "auth: oAuth2 authentication"
 	depends on BR2_PACKAGE_OUISTITI_AUTH_JWT
 	depends on BR2_PACKAGE_LIBOUISTITI_CLIENT
+	depends on BR2_PACKAGE_OUISTITI_AUTH
 	help
 	  oAuth2 Authentication RFC
 
-if !BR2_PACKAGE_OUISTITI_AUTH_JWT
 comment "oAuth2 authentication: enable Auth JWT"
-endif
-
-endif
+	depends on BR2_PACKAGE_OUISTITI_AUTH
+	depends on !BR2_PACKAGE_OUISTITI_AUTH_JWT
 
 menuconfig BR2_PACKAGE_OUISTITI_DOCUMENT
 	bool "Document server"
+	depends on BR2_PACKAGE_OUISTITI
 	default y
 
-if BR2_PACKAGE_OUISTITI_DOCUMENT
 config BR2_PACKAGE_OUISTITI_DOCUMENT_REST
 	bool "Enable REST API"
+	depends on BR2_PACKAGE_OUISTITI_DOCUMENT
 	help
 	  upload/modify/delete files on host
 
 config BR2_PACKAGE_OUISTITI_DOCUMENT_RANGE
 	bool "Enable partial download"
+	depends on BR2_PACKAGE_OUISTITI_DOCUMENT
 	help
 	  manage Range Header for partial document download
 
 config BR2_PACKAGE_OUISTITI_DOCUMENT_HOME
 	bool "Home directory"
 	depends on BR2_PACKAGE_OUISTITI_AUTH
+	depends on BR2_PACKAGE_OUISTITI_DOCUMENT
 	help
 	  Allows to manage files in HOME directory, following the
 	  authentication
 
-endif
-
 config BR2_PACKAGE_OUISTITI_CGI
 	bool "CGI server"
+	depends on BR2_PACKAGE_OUISTITI
 	default n
 	help
 	  execute scripts over Common Gateway Interface
@@ -148,15 +153,15 @@ config BR2_PACKAGE_OUISTITI_CGI
 menuconfig BR2_PACKAGE_OUISTITI_WEBSOCKET
 	bool "websocket support"
 	default y
+	depends on BR2_PACKAGE_OUISTITI
 	select BR2_PACKAGE_LIBOUISTITI_WEBSOCKET
 	help
 	  create a proxy for UNIX socket to communicate on Websocket
 
-if BR2_PACKAGE_OUISTITI_WEBSOCKET
-
 config BR2_PACKAGE_OUISTITI_WS_JSONRPC
 	bool "websocket: jsonrpc server"
 	select BR2_PACKAGE_JANSSON
+	depends on BR2_PACKAGE_OUISTITI_WEBSOCKET
 	help
 	  Add a jsonrpc server for websocket.
 	  A system of plugin allows to manipulate:
@@ -165,25 +170,26 @@ config BR2_PACKAGE_OUISTITI_WS_JSONRPC
 
 config BR2_PACKAGE_OUISTITI_WS_CHAT
 	bool "websocket: chat server"
+	depends on BR2_PACKAGE_OUISTITI_WEBSOCKET
 	help
 	  Add a simple chat server for websocket.
 
-endif
-
 config BR2_PACKAGE_OUISTITI_WEBSTREAM
 	bool "webstream support (experimental)"
+	depends on BR2_PACKAGE_OUISTITI
 	default n
 	help
 	  create a proxy for UNIX socket to send data
 
-if BR2_PACKAGE_OUISTITI_WEBSTREAM
-
 config BR2_PACKAGE_OUISTITI_WS_MJPEG
 	bool "webstream: mjpeg server"
+	depends on BR2_PACKAGE_OUISTITI_WEBSTREAM
 	help
 	  Add a mjpeg streamer from a webcam.
 	  The server use V4L2 to manage the camera.
 
-endif
-
-endif
+config BR2_PACKAGE_OUISTITI_WEBCOMMON
+	bool "website framework"
+	depends on BR2_PACKAGE_OUISTITI
+	help
+	  install js scripts css and index.html
