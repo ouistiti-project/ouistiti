@@ -138,12 +138,16 @@ void mod_openssl_destroy(void *arg)
 }
 void mod_tls_destroy(void *arg) __attribute__ ((weak, alias ("mod_openssl_destroy")));
 
+static void *_tlsserver_create(void *arg, http_client_t *clt);
+static int _tls_connect(void *vctx, const char *addr, int port);
+static void _tls_disconnect(void *vctx);
+static void _tls_destroy(void *vctx);
+
 static void *_tlsserver_create(void *arg, http_client_t *clt)
 {
 	_mod_openssl_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_openssl_t *mod = (_mod_openssl_t *)arg;
 	void *protocolconfig;
-	dbg("tls create");
 	ctx->clt = clt;
 	ctx->mod = mod;
 	ctx->protocolops = mod->protocolops;
@@ -153,6 +157,7 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 		free(ctx);
 		return NULL;
 	}
+	dbg("tls create");
 	ctx->ssl = SSL_new(mod->openssl_ctx);
 	int sock = httpclient_socket(clt);
 
@@ -162,10 +167,11 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 	{
 		int error = SSL_get_error(ctx->ssl, ret);
 		err("tls: create error %d %s", error, ERR_reason_error_string(error));
-		SSL_free(ctx->ssl);
-		free(ctx);
+		_tls_disconnect(ctx);
+		_tls_destroy(ctx);
 		return NULL;
 	}
+	dbg("tls: connection accepted");
 	return ctx;
 }
 
@@ -182,6 +188,7 @@ static void _tls_disconnect(void *vctx)
 {
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
 	dbg("tls: disconnect");
+	SSL_shutdown(ctx->ssl);
 	SSL_free(ctx->ssl);
 	ctx->protocolops->disconnect(ctx->protocol);
 }
@@ -198,59 +205,89 @@ static int _tls_recv(void *vctx, char *data, int size)
 {
 	int ret;
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
-	ret = SSL_read(ctx->ssl, (unsigned char *)data, size);
-	tls_dbg("tls recv %d %.*s", ret, ret, data);
-	if (ret < 0)
-	{
-		int error = SSL_get_error(ctx->ssl, ret);
-		if (error == ERR_LIB_SYS && errno == EAGAIN)
+
+//	do {
+		ret = SSL_read(ctx->ssl, (unsigned char *)data, size);
+		tls_dbg("tls: recv %d %.*s", ret, ret, data);
+		if (ret < 0)
 		{
-			ret = EINCOMPLETE;
+			int error = SSL_get_error(ctx->ssl, ret);
+			if (error == SSL_ERROR_WANT_READ ||
+				error == SSL_ERROR_WANT_WRITE ||
+				error == SSL_ERROR_WANT_X509_LOOKUP)
+			{
+				ret = EINCOMPLETE;
+				sched_yield();
+			}
+			else
+			{
+				err("tls: recv error(%d)", error);
+				ret = EREJECT;
+				ctx->state |= RECV_COMPLETE;
+			}
 		}
-		else
+		else if (ret == 0)
 		{
-			err("tls: recv error %d %s", error, ERR_reason_error_string(error));
 			ret = EREJECT;
 			ctx->state |= RECV_COMPLETE;
 		}
-	}
-	else
-	{
-		ctx->state &= ~RECV_COMPLETE;
-	}
+		else
+		{
+			ctx->state &= ~RECV_COMPLETE;
+		}
+//	} while (ret == EINCOMPLETE);
 	return ret;
 }
 
 static int _tls_send(void *vctx, const char *data, int size)
 {
-	int ret;
+	int ret = 0;
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
-	ret = SSL_write(ctx->ssl, (unsigned char *)data, size);
-	tls_dbg("tls send %d %.*s", ret, size, data);
-	if (ret < 0)
-	{
-		int error = SSL_get_error(ctx->ssl, ret);
-		err("tls: send error %s", ERR_reason_error_string(error));
-		ret = EREJECT;
-	}
+
+	do {
+		ret = SSL_write(ctx->ssl, (unsigned char *)data, size);
+		tls_dbg("tls: send %d %.*s", ret, size, data);
+		if (ret < 0)
+		{
+			warn("tls: send %d %.*s", ret, size, data);
+			int error = SSL_get_error(ctx->ssl, ret);
+			if (error == SSL_ERROR_WANT_WRITE ||
+				error == SSL_ERROR_WANT_READ ||
+				error == SSL_ERROR_WANT_X509_LOOKUP)
+			{
+				err("tls: send error(%d) WANT_DATA", error);
+				ret = EINCOMPLETE;
+				sched_yield();
+			}
+			else
+			{
+				err("tls: send error(%d)", error);
+				ret = EREJECT;
+			}
+		}
+	} while (ret == EINCOMPLETE);
 	return ret;
 }
 
 static int tls_wait(void *vctx, int options)
 {
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
-        int ret = ESUCCESS;
-        if (SSL_want_read(ctx->ssl))
-        {
-                ret = ctx->protocolops->wait(ctx->protocol, options);
-        }
-        return ret;
+	int ret = ESUCCESS;
+	tls_dbg("tls: wait %x", options);
+	tls_dbg("tls: wait %x", ctx->state);
+	if (!(options & WAIT_SEND) && SSL_want_read(ctx->ssl))
+	{
+		tls_dbg("tls: wait continue");
+		ret = ctx->protocolops->wait(ctx->protocol, options);
+	}
+	return ret;
 }
 
 
 static int _tls_status(void *vctx)
 {
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
+	tls_dbg("tls: status %x", ctx->state);
 
 	if ((ctx->state & RECV_COMPLETE) == RECV_COMPLETE)
 		return ctx->protocolops->status(ctx->protocol);
