@@ -17,7 +17,7 @@ PIDFILE="${RUNDIR}/$DAEMON.pid"
 
 DAEMON_ARGS="${DAEMON_ARGS} -f ${SYSCONFDIR}/${DAEMON}.conf"
 DAEMON_ARGS="${DAEMON_ARGS} -W /"
-DAEMON_ARGS="${DAEMON_ARGS} -D"
+#DAEMON_ARGS="${DAEMON_ARGS} -D"
 
 [ -r "/etc/default/$DAEMON" ] && . "/etc/default/$DAEMON"
 
@@ -49,8 +49,8 @@ init() {
 
 start() {
 	printf "Starting %s: " "$DAEMON"
-	start-stop-daemon -S -q -p "${PIDFILE}" -x ${DAEMON} -- ${DAEMON_ARGS}
-#	${DAEMON} -p ${PIDFILE} ${DAEMON_ARGS}
+	start-stop-daemon -S -q -b -m -p "${PIDFILE}" -x ${DAEMON} -- ${DAEMON_ARGS}
+#	${DAEMON} -p ${PIDFILE} ${DAEMON_ARGS} -D
 	status=$?
 	if [ "$status" -eq 0 ]; then
 		echo "OK"
@@ -63,7 +63,7 @@ stop() {
 	printf "Stopping %s: " "$DAEMON"
 	status=1
 	if [ -e "${PIDFILE}" ]; then
-		start-stop-daemon -K -q -p "${PDIFILE}"
+		start-stop-daemon -K -q -p "${PIDFILE}"
 		status=$?
 	fi
 	if [ "$status" -eq 0 ]; then
