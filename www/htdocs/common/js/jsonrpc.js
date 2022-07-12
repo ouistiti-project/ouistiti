@@ -113,13 +113,14 @@ class JsonRPC{
 	{
 		//console.log("receive : "+evt.data);
 		let doubleresponse = evt.data.search("}{");
+		let data = evt.data;
 		if (doubleresponse != -1)
 		{
 			let first = evt.data.substr(0, doubleresponse + 1);
 			this.runRPC(first);
-			evt.data = evt.data.substr(doubleresponse + 1);
+			data = evt.data.substr(doubleresponse + 1);
 		}
-		this.runRPC(evt.data);
+		this.runRPC(data);
 	}
 
 	close()
