@@ -622,6 +622,7 @@ static void *_websocket_main(void *arg)
 	/** socket to the webclient **/
 	int client = info->client;
 	info->end = 0;
+	struct timeval timeout = {5,0};
 	while (!info->end)
 	{
 		int ret;
@@ -632,7 +633,7 @@ static void *_websocket_main(void *arg)
 		FD_SET(client, &rdfs);
 		maxfd = (maxfd > client)?maxfd:client;
 
-		ret = select(maxfd + 1, &rdfs, NULL, NULL, NULL);
+		ret = select(maxfd + 1, &rdfs, NULL, NULL, &timeout);
 		if (ret > 0 && FD_ISSET(server, &rdfs))
 		{
 			char *buffer = NULL;
@@ -672,6 +673,25 @@ static void *_websocket_main(void *arg)
 				warn("websocket: client died");
 				info->end = 1;
 			}
+			// reinitialize the timeout each time that the ws receive
+			// data from client.
+			timeout.tv_sec = 5;
+			timeout.tv_usec = 0;
+		}
+		else if (ret == 0)
+		{
+			// ping the client when ws doesn't receive data
+			// from client for 5s
+			// this feature may be available only with Linux
+			// as other systems don't modify timeout on select.
+#ifdef WEBSOCKET_PING
+			if (websocket_ping(info, NULL) < 0)
+			{
+				warn("websocket: client died");
+				info->end = 1;
+			}
+#endif
+			timeout.tv_sec = 5;
 		}
 		else if (errno != EAGAIN)
 		{
