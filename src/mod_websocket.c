@@ -130,7 +130,7 @@ static int _checkname(const mod_websocket_t *config, const char *pathname)
 static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *protocol)
 {
 	int fdfile = openat(ctx->mod->fdroot, uri, O_PATH);
-	if (fdfile == -1 && protocol != NULL && protocol[0] != '\0')
+	if (fdfile == -1 && protocol != NULL)
 	{
 		uri = protocol;
 		fdfile = openat(ctx->mod->fdroot, uri, O_PATH);
@@ -184,6 +184,8 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 		return EREJECT;
 	}
 	const char *protocol = httpmessage_REQUEST(request, str_protocol);
+	if (protocol[0] == '\0')
+		protocol = NULL;
 
 	while (*uri == '/' && *uri != '\0') uri++;
 	if (mod->fdroot > 0)
@@ -213,7 +215,10 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	}
 
 	if (protocol != NULL)
+	{
 		httpmessage_addheader(response, str_protocol, protocol);
+		warn("websocket: protocol returns %s", protocol);
+	}
 
 	_mod_websocket_handshake(ctx, request, response);
 	httpmessage_addheader(response, str_connection, str_upgrade);
@@ -507,7 +512,7 @@ static int _websocket_recieveclient(_websocket_main_t *info, char **buffer)
 		ret = info->recvreq(info->ctx, *buffer, length);
 		if (ret > 0)
 		{
-			websocket_dbg("websocket: ws => u: recv %d bytes", ret);
+			websocket_dbg("websocket: c => ws: recv %d bytes", ret);
 		}
 		else
 		{
@@ -532,11 +537,12 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	while (outlength > 0 && ret == EINCOMPLETE)
 	{
 		ret = info->sendresp(info->ctx, out, outlength);
-		websocket_dbg("websocket: u => ws: send %d/%d bytes\n\t%.*s", ret, outlength, (int)length, buffer);
+		websocket_dbg("websocket: ws => c: send %d/%d bytes\n\t%.*s", ret, outlength, (int)length, buffer);
 		if (ret > 0)
 			outlength -= ret;
 	}
 	free(out);
+	sched_yield();
 	if (ret == EREJECT)
 	{
 		warn("websocket: connection closed by client");
@@ -591,13 +597,14 @@ static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int
 			ret = -1;
 		}
 		else
-			ret = send(server, out, outlength, MSG_NOSIGNAL);
+			ret = send(server, out, outlength, MSG_NOSIGNAL | MSG_DONTWAIT);
 		if (ret == -1 && errno == EAGAIN)
 			ret = 0;
 		websocket_dbg("websocket: ws => u: send %d bytes\n\t%s", ret, out);
 		outlength -= ret;
 	}
 	fsync(server);
+	sched_yield();
 	free(out);
 	if (ret == -1)
 	{
