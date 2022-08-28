@@ -57,11 +57,13 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/websocket.h"
 
-typedef int (*mod_websocket_run_t)(void *arg, int socket, char *filepath, http_message_t *request);
-int default_websocket_run(void *arg, int socket, char *filepath, http_message_t *request);
+typedef int (*mod_websocket_run_t)(void *arg, int socket, int wssock, http_message_t *request);
+int default_websocket_run(void *arg, int socket, int wssock, http_message_t *request);
 #ifdef WEBSOCKET_RT
-extern int ouistiti_websocket_run(void *arg, int socket, const char *protocol, http_message_t *request);
+extern int ouistiti_websocket_run(void *arg, int socket, int wssock, http_message_t *request);
 #endif
+
+static int _mod_websocket_socket(const char *filepath);
 
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
@@ -247,10 +249,14 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 	{
 		char *uri = ctx->uri;
 		while (*uri == '/' && *uri != '\0') uri++;
-		ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, uri, request);
-		free(ctx->uri);
-		ctx->uri = NULL;
-		ret = ESUCCESS;
+		int wssock = _mod_websocket_socket(uri);
+		if (wssock > 0)
+		{
+			ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, wssock, request);
+			free(ctx->uri);
+			ctx->uri = NULL;
+			ret = ESUCCESS;
+		}
 	}
 	return ret;
 }
@@ -446,7 +452,7 @@ static int _websocket_tcp(const char *host, const char *port)
 	return sock;
 }
 
-static int _websocket_socket(const char *filepath)
+static int _mod_websocket_socket(const char *filepath)
 {
 	int sock = -1;
 	char *port;
@@ -711,29 +717,24 @@ static websocket_t _wsdefaul_config =
 	.onping = websocket_pong,
 	.type = WS_TEXT,
 };
-int default_websocket_run(void *arg, int sock, char *filepath, http_message_t *request)
+int default_websocket_run(void *arg, int sock, int wssock, http_message_t *request)
 {
 	pid_t pid = -1;
-	int wssock = _websocket_socket(filepath);
+	_websocket_main_t info = {.client = sock, .server = wssock, .type = _wsdefaul_config.type};
+	http_client_t *clt = httpmessage_client(request);
+	info.ctx = httpclient_context(clt);
+	info.recvreq = httpclient_addreceiver(clt, NULL, NULL);
+	info.sendresp = httpclient_addsender(clt, NULL, NULL);
 
-	if (wssock > 0)
+	websocket_init(&_wsdefaul_config);
+
+	if ((pid = fork()) == 0)
 	{
-		_websocket_main_t info = {.client = sock, .server = wssock, .type = _wsdefaul_config.type};
-		http_client_t *clt = httpmessage_client(request);
-		info.ctx = httpclient_context(clt);
-		info.recvreq = httpclient_addreceiver(clt, NULL, NULL);
-		info.sendresp = httpclient_addsender(clt, NULL, NULL);
-
-		websocket_init(&_wsdefaul_config);
-
-		if ((pid = fork()) == 0)
-		{
-			_websocket_main(&info);
-			warn("websocket: process died");
-			exit(0);
-		}
-		close(wssock);
+		_websocket_main(&info);
+		warn("websocket: process died");
+		exit(0);
 	}
+	close(wssock);
 	return pid;
 }
 

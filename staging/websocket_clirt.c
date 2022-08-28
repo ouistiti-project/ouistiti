@@ -48,30 +48,6 @@
 #define dbg(...)
 #endif
 
-int ouistiti_websocket_socket(void *arg, int sock, const char *filepath, http_message_t *request)
-{
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
-
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock > 0)
-	{
-		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
-		if (ret < 0)
-		{
-			close(sock);
-			sock = -1;
-		}
-	}
-	if (sock == -1)
-	{
-		warn("websocket %s error: %s", filepath, strerror(errno));
-	}
-	return sock;
-}
-
 static int _websocket_connect(int client, int socket)
 {
 	struct msghdr msg = {0};
@@ -104,11 +80,13 @@ static int _websocket_connect(int client, int socket)
 	return sendmsg(client, &msg, MSG_DONTWAIT);
 }
 
-int ouistiti_websocket_run(void *arg, int sock, const char *filepath, http_message_t *request)
+int ouistiti_websocket_run(void *arg, int sock, int wssock, http_message_t *request)
 {
-	int client = ouistiti_websocket_socket(arg, sock, filepath, request);
-	if (client)
-		_websocket_connect(client, sock);
-	dbg("websocket releases the socket for direct access");
-	return 0;
+	int ret = EREJECT;
+	if (_websocket_connect(wssock, sock) > 0)
+	{
+		ret = 0;
+		dbg("websocket releases the socket for direct access");
+	}
+	return ret;
 }
