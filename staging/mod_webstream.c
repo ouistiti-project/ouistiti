@@ -131,14 +131,19 @@ static int _checkname(_mod_webstream_ctx_t *ctx, const char *pathname)
 	return ESUCCESS;
 }
 
-static int _webstream_socket(void *arg, int sock, const char *filepath)
+static int _webstream_socket(_mod_webstream_ctx_t *ctx, int sock, const char *filepath)
 {
+	_mod_webstream_t *mod = ctx->mod;
+	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 	struct sockaddr_un addr;
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
 	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
 
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (config->options & WEBSTREAM_MULTIPART)
+		sock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+	else
+		sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock > 0)
 	{
 		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
