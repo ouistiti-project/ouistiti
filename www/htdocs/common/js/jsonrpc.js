@@ -92,15 +92,18 @@ class JsonRPC{
 				this.respond.call(this, data.result);
 			this.respond = undefined;
 			var func = loadSymbol(data.method, this);
-			if (data.result && typeof(func) == "function")
+			if (typeof(func) == "function")
 			{
-				//console.log("response "+data.method);
-				func.call(this,data.result);
-			}
-			else if (data.params && typeof(func) == "function")
-			{
-				//console.log("notification "+data.method);
-				func.call(this,data.params);
+				if (data.result)
+				{
+					//console.log("response "+data.method);
+					func.call(this,data.result);
+				}
+				else if (data.params)
+				{
+					//console.log("notification "+data.method);
+					func.call(this,data.params);
+				}
 			}
 			else
 				console.log("method "+data.method + " not connected to "+typeof(func));
