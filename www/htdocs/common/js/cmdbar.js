@@ -276,7 +276,7 @@ class CmdBarServer {
 	#updatecmdbar(object, id) {
 		var $cmdbar = $("#"+id);
 		if ($cmdbar.length == 0) {
-			$cmdbar = $("<div class='btn-toolbar' role='toolbar'></div>");
+			$cmdbar = $("<div class='btn-toolbar cmdbar' role='toolbar'></div>");
 			$cmdbar.addClass('justify-content-between');
 			$cmdbar.attr('id',id);
 		}
@@ -401,7 +401,7 @@ class CmdBarServer {
 			if ($button == undefined)
 				continue;
 			if (button.glyphicon) {
-				$button.find('.glyphicon').removeClass().addClass("glyphicon "+button.glyphicon);
+				$button.find('.glyphicon').removeClass().addClass("glyphicon glyphicon-"+button.glyphicon);
 			}
 			if (button.classes) {
 				this.#addclasses($button, button.classes);
