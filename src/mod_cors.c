@@ -101,6 +101,10 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 		httpmessage_result(response, 405);
 		ret = ESUCCESS;
 	}
+	else
+	{
+		httpmessage_addheader(response, "Vary", "Origin");
+	}
 	return ret;
 }
 
