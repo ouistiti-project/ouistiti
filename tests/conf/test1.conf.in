@@ -39,6 +39,13 @@ servers= ({
 				origin = "*/";
 			});
 		};
+		forward = {
+			links = ({
+				origin = "forward*";
+				destination = "http://par21s20-in-f14.1e100.net/generate_204";
+				#destination = "http://clients1.google.com/generate_204";
+			});
+		};
 	});
 
 
