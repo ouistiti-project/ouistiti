@@ -180,7 +180,7 @@ static json_t *_oauth2_authresp_send(authn_oauth2_t *mod, http_message_t *reques
 	char location[256];
 	snprintf(location, 256, "%s", config->token_ep);
 
-	client = httpmessage_request(request2, "POST", location);
+	client = httpmessage_request(request2, "POST", location, NULL);
 
 	if (client != NULL)
 	{

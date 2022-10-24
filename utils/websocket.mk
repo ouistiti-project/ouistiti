@@ -106,3 +106,5 @@ websocket_syslogd_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
 websocket_syslogd_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket c pthread
 
 websocket_syslogd_CFLAGS-$(DEBUG)+=-g -DDEBUG
+
+subdir-$(TBRIFT)+=$(WS_SRC)thrift.mk

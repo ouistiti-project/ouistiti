@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<title class="brand">Ouistiti</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<!--<link type="text/css" rel="stylesheet" href="/trust/css/bootstrap.min.css">
+		<script type="text/javascript" src="/trust/js/bootstrap.min.js"></script>!-->
+		<link type="text/css" rel="stylesheet" href="/trust/css/glyphicons.css">
+		<link type="text/css" rel="stylesheet" href="/trust/bootstrap-5/css/bootstrap.min.css">
+		<script type="text/javascript" src="/trust/bootstrap-5/js/bootstrap.min.js"></script>
+		<script type="text/javascript" src="/trust/js/jquery.min.js"></script>
+		<script type="text/javascript" src="/common/js/cmdbar.js"></script>
+		<script type="text/javascript" src="/common/js/auth.js"></script>
+		<script type="text/javascript">
+
+class MainView {
+	$cmdbar = undefined;
+	#cmdbarinit = "initialize";
+	#url = undefined;
+	#secure = false;
+	#auth = undefined;
+	constructor(url) {
+		this.controle_viewport();
+		this.$cmdbar = new CmdBarServer('cmdbar', 'mainmenu');
+		this.$cmdbar.attachFrame('appsframe');
+		this.checkapps(url);
+		this.#url = url;
+	}
+	controle_viewport() {
+		var navbar_height = 70;
+		const lg_height = 768;
+		const md_height = 428;
+		const xs_height = 250;
+		const height = $(document).height();
+		//const height = document.body.clientHeight
+		const width = $(document).width();
+		if (width < 768)
+			navbar_height = 145;
+		const padding = 3;
+		//if (window.navigator.userAgent.match('/mozilla/i'))
+		//	padding = 145;
+		var frame_height = height - navbar_height - padding;
+		$('#appsframe').css('height', frame_height);
+	}
+
+	checkapps(url) {
+		$.ajax({
+			url: url
+		}).done(this.load.bind(this))
+		.fail(function(data) {
+			var object = JSON.parse(data.responseText);
+			console.log( "error "+data.responseText);
+		});
+	}
+	load(data, textStatus, request) {
+		var menuconnect = undefined;
+		if (data.authentication) {
+			this.#auth = new Auth("/token");
+			this.#auth.onPermission = function (user, group) {
+				console.log("user "+ user);
+			};
+			menuconnect = {
+				name:"connect",
+				id: "sign",
+				click: false,
+				href: "#",
+				classes: "ms-lg-auto order-last",
+				buttons: [{
+					name: "signin",
+					id: "signin",
+					click: "mainview.signin()",
+					classes: ""
+				},{
+					name: "signup",
+					id: "signin",
+					click: "mainview.signup()",
+					classes: ""
+				},{
+					name: "signout",
+					id: "signin",
+					click: "mainview.signout()",
+					classes: "d-none"
+				}],
+			};
+		}
+		else {
+			this.#secure = true;
+		}
+		if (data.title) {
+			$('.brand').text(data.title);
+		}
+		var menuapps = undefined;
+		if (data.apps) {
+			if (data.apps.length > 1) {
+				menuapps = {
+					name:"apps",
+					href:"#",
+					buttons:[],
+					classes: "ms-lg-auto order-last",
+				};
+				for (let app of data.apps) {
+					if (app.default)
+						menuapps.href = app.src;
+					var button = {
+						name:app.name,
+						href:app.src,
+						click:"mainview.clean();",
+						};
+					if ((app.secure != undefined && app.secure == false) || this.#secure)
+						menuapps.buttons.push(button);
+				}
+			}
+
+			for (let app of data.apps) {
+				if (app.default) {
+					$('#appsframe').attr('src', app.src);
+				}
+			}
+		}
+		var cmdbarctl = new CmdBarControl(false, this.#cmdbarinit);
+		if (data.cmdbar) {
+			this.#cmdbarinit = false;
+			cmdbarctl.addgroup(data.cmdbar);
+		}
+		if (menuapps) {
+			this.#cmdbarinit = false;
+			cmdbarctl.addmenu(menuapps);
+		}
+		if (menuconnect) {
+			this.#cmdbarinit = false;
+			cmdbarctl.addmenu(menuconnect);
+		}
+		if (data.theme) {
+			cmdbarctl.theme = data.theme;
+		}
+		this.$cmdbar.load(cmdbarctl);
+	}
+	clean() {
+		this.$cmdbar.cleanFrame();
+	}
+	signup() {
+		$('#appsframe').attr('src', "/apps/signup.html");
+	}
+	signin() {
+		this.#auth.check();
+	}
+};
+var mainview = undefined;
+$(document).ready(function()
+{
+	mainview = new MainView("/apps/apps.json");
+});
+
+window.addEventListener('unload', function(event) {
+});
+window.addEventListener('resize', function(event) {
+	if (mainview)
+		mainview.controle_viewport();
+});
+		</script>
+		<style>
+			@media only screen and (orientation: portrait) {
+				#appsframe {height: 150%;}
+			}
+			@media only screen and (orientation: landscape) {
+				#appsframe {height: 54%;}
+			}
+			@include media-breakpoint-up(sm) {
+				.visibile-xs {display:none;}
+			}
+			.navbar-nav > li {padding-inline: 10px;}
+			.navbar-nav > li > a {
+				display: inline-block;
+				padding-inline: 2px;
+			}
+		</style>
+	</head>
+	<body class="">
+		<nav class="navbar sticky-top navbar-expand-lg navbar-light">
+			<div class="container-fluid">
+				<a href="/apps/signin.html?redirect_uri=index.html" class="navbar-brand brand" data-bs-toggle="collapse" data-bs-target="#mainmenu" aria-controls="mainmenu" aria-expanded="false" aria-label="Toggle navigation">Ouistiti</a>
+				<div id='cmdbar' class="navbar-nav navbar-form me-auto">
+				</div>
+				<div id='mainmenu' class="navbar-collapse collapse ms-1 text-light" aria-expanded="true">
+				</div>
+			</div>
+		</nav>
+		<div id='mainframe' class="container-fluid">
+			<div class="row">
+		  		<iframe class="gy-3 w-100" id='appsframe' allowfullscreen></iframe>
+			</div>
+		</div>
+ 	</body>
+</html>

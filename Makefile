@@ -38,3 +38,4 @@ subdir-y+=include
 subdir-y+=staging
 subdir-y+=src
 subdir-y+=utils
+subdir-$(WEBCOMMON)+=www
