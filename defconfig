@@ -7,6 +7,7 @@ MAXCHUNKS_CONTENT=3
 MAXCHUNKS_SESSION=2
 MAXCHUNKS_URI=2
 HTTPMESSAGE_CHUNKSIZE=128
+HTTPCLIENT_FEATURES=n
 
 #select FILE_CONFIG to use a configuration file
 #or modify src/config.h
@@ -73,6 +74,7 @@ AUTHZ_MANAGER=y
 #support of the websocket
 WEBSOCKET=y
 WEBSOCKET_RT=n
+WEBSOCKET_PING=n
 WS_ECHO=y
 WS_CHAT=y
 WS_JSONRPC=y
@@ -103,7 +105,15 @@ UPGRADE_INET=n
 USERFILTER=y
 #support of simple python scripts (staging)
 PYTHON=n
+#support of request forwarding
+FORWARD=y
 
 CERTIFICATE=n
 
 HOST_UTILS=y
+
+#few web client utils to develop simple site
+WEBCOMMON=n
+JQUERY=y
+BOOTSTRAP=y
+GLYPHICONS=y

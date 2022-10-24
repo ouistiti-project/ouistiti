@@ -57,11 +57,13 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/websocket.h"
 
-typedef int (*mod_websocket_run_t)(void *arg, int socket, char *filepath, http_message_t *request);
-int default_websocket_run(void *arg, int socket, char *filepath, http_message_t *request);
+typedef int (*mod_websocket_run_t)(void *arg, int socket, int wssock, http_message_t *request);
+int default_websocket_run(void *arg, int socket, int wssock, http_message_t *request);
 #ifdef WEBSOCKET_RT
-extern int ouistiti_websocket_run(void *arg, int socket, const char *protocol, http_message_t *request);
+extern int ouistiti_websocket_run(void *arg, int socket, int wssock, http_message_t *request);
 #endif
+
+static int _mod_websocket_socket(const char *filepath);
 
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
@@ -111,7 +113,7 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_mes
 
 		char out[40];
 		base64->encode(accept, hash_sha1->size, out, 40);
-		websocket_dbg("%s: handshake %s", str_websocket, out);
+		websocket_dbg("websocket: handshake %s", out);
 
 		httpmessage_addheader(response, str_accept, out);
 	}
@@ -130,7 +132,7 @@ static int _checkname(const mod_websocket_t *config, const char *pathname)
 static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *protocol)
 {
 	int fdfile = openat(ctx->mod->fdroot, uri, O_PATH);
-	if (fdfile == -1 && protocol != NULL && protocol[0] != '\0')
+	if (fdfile == -1 && protocol != NULL)
 	{
 		uri = protocol;
 		fdfile = openat(ctx->mod->fdroot, uri, O_PATH);
@@ -184,6 +186,8 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 		return EREJECT;
 	}
 	const char *protocol = httpmessage_REQUEST(request, str_protocol);
+	if (protocol[0] == '\0')
+		protocol = NULL;
 
 	while (*uri == '/' && *uri != '\0') uri++;
 	if (mod->fdroot > 0)
@@ -213,7 +217,10 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	}
 
 	if (protocol != NULL)
+	{
 		httpmessage_addheader(response, str_protocol, protocol);
+		warn("websocket: protocol returns %s", protocol);
+	}
 
 	_mod_websocket_handshake(ctx, request, response);
 	httpmessage_addheader(response, str_connection, str_upgrade);
@@ -221,7 +228,6 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	/** disable Content-Type and Content-Length inside the headers **/
 	httpmessage_addcontent(response, "none", NULL, -1);
 	httpmessage_result(response, RESULT_101);
-	websocket_dbg("%s: result 101", str_websocket);
 	ctx->socket = httpmessage_lock(response);
 	return ECONTINUE;
 }
@@ -243,10 +249,14 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 	{
 		char *uri = ctx->uri;
 		while (*uri == '/' && *uri != '\0') uri++;
-		ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, uri, request);
-		free(ctx->uri);
-		ctx->uri = NULL;
-		ret = ESUCCESS;
+		int wssock = _mod_websocket_socket(uri);
+		if (wssock > 0)
+		{
+			ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, wssock, request);
+			free(ctx->uri);
+			ctx->uri = NULL;
+			ret = ESUCCESS;
+		}
 	}
 	return ret;
 }
@@ -269,9 +279,9 @@ static void _mod_websocket_freectx(void *arg)
 	if (ctx->pid > 0)
 	{
 #ifdef VTHREAD
-		websocket_dbg("%s: waitpid", str_websocket);
+		websocket_dbg("websocket: waitpid");
 		waitpid(ctx->pid, NULL, 0);
-		websocket_dbg("%s: freectx", str_websocket);
+		websocket_dbg("websocket: freectx");
 #else
 		/**
 		 * ignore SIGCHLD allows the child to die without to create a z$
@@ -310,7 +320,7 @@ static void *websocket_config(config_setting_t *iterator, server_t *server)
 			if (!ouistiti_issecure(server))
 				conf->options |= WEBSOCKET_REALTIME;
 			else
-				warn("realtime configuration is not allowed with tls");
+				warn("websocket: realtime configuration is not allowed with tls");
 		}
 #else
 #endif
@@ -397,7 +407,7 @@ static int _websocket_unix(const char *filepath)
 	}
 	if (sock == -1)
 	{
-		err("%s: open error (%s)", str_websocket, strerror(errno));
+		err("websocket: open error (%s)", strerror(errno));
 	}
 	return sock;
 }
@@ -434,7 +444,7 @@ static int _websocket_tcp(const char *host, const char *port)
 	}
 	if (sock == -1)
 	{
-		err("%s: open error (%s)", str_websocket, strerror(errno));
+		err("websocket: open error (%s)", strerror(errno));
 	}
 	else
 		warn("websocket: open %s", host);
@@ -442,7 +452,7 @@ static int _websocket_tcp(const char *host, const char *port)
 	return sock;
 }
 
-static int _websocket_socket(const char *filepath)
+static int _mod_websocket_socket(const char *filepath)
 {
 	int sock = -1;
 	char *port;
@@ -508,7 +518,7 @@ static int _websocket_recieveclient(_websocket_main_t *info, char **buffer)
 		ret = info->recvreq(info->ctx, *buffer, length);
 		if (ret > 0)
 		{
-			websocket_dbg("%s: ws => u: recv %d bytes", str_websocket, ret);
+			websocket_dbg("websocket: c => ws: recv %d bytes", ret);
 		}
 		else
 		{
@@ -524,7 +534,7 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	ssize_t length = size;
 	if (info->type == WS_TEXT && strlen(buffer) < size)
 	{
-		warn("%s: two messages in ONE", str_websocket);
+		warn("websocket: two messages in ONE");
 	}
 	int ret = EINCOMPLETE;
 	int outlength = 0;
@@ -533,14 +543,15 @@ static int _websocket_forwardtoclient(_websocket_main_t *info, char *buffer, int
 	while (outlength > 0 && ret == EINCOMPLETE)
 	{
 		ret = info->sendresp(info->ctx, out, outlength);
-		websocket_dbg("%s: u => ws: send %d/%d bytes\n\t%.*s", str_websocket, ret, outlength, (int)length, buffer);
+		websocket_dbg("websocket: ws => c: send %d/%d bytes\n\t%.*s", ret, outlength, (int)length, buffer);
 		if (ret > 0)
 			outlength -= ret;
 	}
 	free(out);
+	sched_yield();
 	if (ret == EREJECT)
 	{
-		warn("%s: connection closed by client", str_websocket);
+		warn("websocket: connection closed by client");
 		return EREJECT;
 	}
 	if (size > length && buffer[length - 1] == '\0')
@@ -566,7 +577,7 @@ static int _websocket_recieveserver(_websocket_main_t *info, char **buffer)
 		ret = recv(server, *buffer, length, MSG_NOSIGNAL);
 		if (ret > 0)
 		{
-			websocket_dbg("%s: u => ws: recv %d bytes", str_websocket, ret);
+			websocket_dbg("websocket: u => ws: recv %d bytes", ret);
 		}
 		else
 		{
@@ -592,17 +603,18 @@ static int _websocket_forwardtoserver(_websocket_main_t *info, char *buffer, int
 			ret = -1;
 		}
 		else
-			ret = send(server, out, outlength, MSG_NOSIGNAL);
+			ret = send(server, out, outlength, MSG_NOSIGNAL | MSG_DONTWAIT);
 		if (ret == -1 && errno == EAGAIN)
 			ret = 0;
-		websocket_dbg("%s: ws => u: send %d bytes\n\t%s", str_websocket, ret, out);
+		websocket_dbg("websocket: ws => u: send %d bytes\n\t%s", ret, out);
 		outlength -= ret;
 	}
 	fsync(server);
+	sched_yield();
 	free(out);
 	if (ret == -1)
 	{
-		err("%s: data transfer error %d %s", str_websocket, ret, strerror(errno));
+		err("websocket: data transfer error %d %s", ret, strerror(errno));
 		ret = EREJECT;
 	}
 	return ret;
@@ -616,6 +628,7 @@ static void *_websocket_main(void *arg)
 	/** socket to the webclient **/
 	int client = info->client;
 	info->end = 0;
+	struct timeval timeout = {5,0};
 	while (!info->end)
 	{
 		int ret;
@@ -626,7 +639,7 @@ static void *_websocket_main(void *arg)
 		FD_SET(client, &rdfs);
 		maxfd = (maxfd > client)?maxfd:client;
 
-		ret = select(maxfd + 1, &rdfs, NULL, NULL, NULL);
+		ret = select(maxfd + 1, &rdfs, NULL, NULL, &timeout);
 		if (ret > 0 && FD_ISSET(server, &rdfs))
 		{
 			char *buffer = NULL;
@@ -637,13 +650,13 @@ static void *_websocket_main(void *arg)
 				free(buffer);
 				if (ret == EREJECT)
 				{
-					warn("%s: client died", str_websocket);
+					warn("websocket: client died");
 					info->end = 1;
 				}
 			}
 			else
 			{
-				warn("%s: server died", str_websocket);
+				warn("websocket: server died");
 				info->end = 1;
 			}
 		}
@@ -657,19 +670,38 @@ static void *_websocket_main(void *arg)
 				free(buffer);
 				if (ret == EREJECT)
 				{
-					warn("%s: server died", str_websocket);
+					warn("websocket: server died");
 					info->end = 1;
 				}
 			}
 			else
 			{
-				warn("%s: client died", str_websocket);
+				warn("websocket: client died");
 				info->end = 1;
 			}
+			// reinitialize the timeout each time that the ws receive
+			// data from client.
+			timeout.tv_sec = 5;
+			timeout.tv_usec = 0;
+		}
+		else if (ret == 0)
+		{
+			// ping the client when ws doesn't receive data
+			// from client for 5s
+			// this feature may be available only with Linux
+			// as other systems don't modify timeout on select.
+#ifdef WEBSOCKET_PING
+			if (websocket_ping(info, NULL) < 0)
+			{
+				warn("websocket: client died");
+				info->end = 1;
+			}
+#endif
+			timeout.tv_sec = 5;
 		}
 		else if (errno != EAGAIN)
 		{
-			err("%s: error %s", str_websocket, strerror(errno));
+			err("websocket: error %s", strerror(errno));
 			info->end = 1;
 		}
 	}
@@ -685,29 +717,24 @@ static websocket_t _wsdefaul_config =
 	.onping = websocket_pong,
 	.type = WS_TEXT,
 };
-int default_websocket_run(void *arg, int sock, char *filepath, http_message_t *request)
+int default_websocket_run(void *arg, int sock, int wssock, http_message_t *request)
 {
 	pid_t pid = -1;
-	int wssock = _websocket_socket(filepath);
+	_websocket_main_t info = {.client = sock, .server = wssock, .type = _wsdefaul_config.type};
+	http_client_t *clt = httpmessage_client(request);
+	info.ctx = httpclient_context(clt);
+	info.recvreq = httpclient_addreceiver(clt, NULL, NULL);
+	info.sendresp = httpclient_addsender(clt, NULL, NULL);
 
-	if (wssock > 0)
+	websocket_init(&_wsdefaul_config);
+
+	if ((pid = fork()) == 0)
 	{
-		_websocket_main_t info = {.client = sock, .server = wssock, .type = _wsdefaul_config.type};
-		http_client_t *clt = httpmessage_client(request);
-		info.ctx = httpclient_context(clt);
-		info.recvreq = httpclient_addreceiver(clt, NULL, NULL);
-		info.sendresp = httpclient_addsender(clt, NULL, NULL);
-
-		websocket_init(&_wsdefaul_config);
-
-		if ((pid = fork()) == 0)
-		{
-			_websocket_main(&info);
-			warn("%s: process died", str_websocket);
-			exit(0);
-		}
-		close(wssock);
+		_websocket_main(&info);
+		warn("websocket: process died");
+		exit(0);
 	}
+	close(wssock);
 	return pid;
 }
 

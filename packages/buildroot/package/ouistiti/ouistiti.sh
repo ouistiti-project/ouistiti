@@ -12,6 +12,15 @@ SERVER=ouistiti
 ORGANISATION=ouistiti
 COUNTRY=fr
 
+DAEMON=ouistiti
+PIDFILE="${RUNDIR}/$DAEMON.pid"
+
+DAEMON_ARGS="${DAEMON_ARGS} -f ${SYSCONFDIR}/${DAEMON}.conf"
+DAEMON_ARGS="${DAEMON_ARGS} -W /"
+#DAEMON_ARGS="${DAEMON_ARGS} -D"
+
+[ -r "/etc/default/$DAEMON" ] && . "/etc/default/$DAEMON"
+
 init() {
 	if [ ! -f ${SYSCONFDIR}/ouistiti_srv.key -a -x ${BINDIR}/gen_key ]; then
 		${BINDIR}/gen_key type=rsa rsa_keysize=4096 filename=${SYSCONFDIR}/ouistiti_srv.key
@@ -39,35 +48,31 @@ init() {
 }
 
 start() {
-	printf "Starting ouistiti: "
-	start-stop-daemon -S -q --exec ${SBINDIR}/ouistiti -- -D -f ${SYSCONFDIR}/ouistiti.conf -p ${RUNDIR}/ouistiti.pid -W /
-#	${SBINDIR}/ouistiti -D -p ${RUNDIR}/ouistiti.pid -f ${SYSCONFDIR}/ouistiti.conf -W /
-	echo "OK"
-	if [ ! -d ${RUNDIR}/websocket ]; then
-		mkdir ${RUNDIR}/websocket
-		chmod a+rw ${RUNDIR}/websocket
+	printf "Starting %s: " "$DAEMON"
+	start-stop-daemon -S -q -b -m -p "${PIDFILE}" -x ${DAEMON} -- ${DAEMON_ARGS}
+#	${DAEMON} -p ${PIDFILE} ${DAEMON_ARGS} -D
+	status=$?
+	if [ "$status" -eq 0 ]; then
+		echo "OK"
+	else
+		echo "FAILED"
 	fi
-	printf "Starting web chat: "
-	start-stop-daemon -S -b -q -m -p ${RUNDIR}/ws_chat.pid --exec ${BINDIR}/websocket_chat -- -R ${RUNDIR}/websocket -u www-data -w
-	echo "OK"
-	printf "Starting web sql: "
-	start-stop-daemon -S -b -q -m -p ${RUNDIR}/ws_sql.pid --exec ${BINDIR}/websocket_jsonrpc -- -R ${RUNDIR}/websocket -u www-data -L ${LIBDIR}/jsonsql.so -n sql
-	echo "OK"
-#	nohup /usr/bin/websocket_chat -R ${RUNDIR}/websocket -u www-data -w &
+	return $status
 }
 stop() {
-	printf "Stopping ouistiti: "
-	if [ -e ${RUNDIR}/ouistiti.pid ]; then
-		start-stop-daemon -K -q -p ${RUNDIR}/ouistiti.pid
+	printf "Stopping %s: " "$DAEMON"
+	status=1
+	if [ -e "${PIDFILE}" ]; then
+		start-stop-daemon -K -q -p "${PIDFILE}"
+		status=$?
 	fi
-	if [ -e ${RUNDIR}/ws_chat.pid ]; then
-		start-stop-daemon -K -q -p ${RUNDIR}/ws_chat.pid
+	if [ "$status" -eq 0 ]; then
+		rm -f ${PIDFILE}
+		echo "OK"
+	else
+		echo "FAILED"
 	fi
-	if [ -e ${RUNDIR}/ws_sql.pid ]; then
-		start-stop-daemon -K -q -p ${RUNDIR}/ws_sql.pid
-	fi
-#	kill $(cat ${RUNDIR}/ouistiti.pid)
-	echo "OK"
+	return $status
 }
 restart() {
 	stop

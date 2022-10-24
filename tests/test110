@@ -1,0 +1,5 @@
+DESC="Forward: test page forwarding from internet"
+CONFIG=test1.conf
+TESTCODE=204
+TESTCONTENTLEN=0
+TESTRESPONSE=result204_rs.txt

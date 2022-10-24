@@ -11,8 +11,9 @@ OUISTITI_LICENSE_FILES = LICENSE
 OUISTITI_DEPENDENCIES += libouistiti
 OUISTITI_DEPENDENCIES += libconfig
 OUISTITI_MAKE=$(MAKE1)
+OUISTITI_INSTALL_STAGING = YES
 
-OUISTITI_USERS += www-data
+#OUISTITI_USERS += www-data
 define OUISTITI_USERS
         www-data -1 www-data -1 * - - - http server
 endef
@@ -25,6 +26,7 @@ OUISTITI_CONFIGURE_OPTS = \
 	LIBHTTPSERVER_NAME=ouistiti \
 	package=ouistiti \
 	prefix=/usr \
+	datadir=/srv/www-common \
 	sysconfdir=/etc/ouistiti
 
 #OUISTITI_MAKE_OPTS+=V=1
@@ -90,10 +92,12 @@ OUISTITI_CONFIGURE_OPTS+=RANGEREQUEST=$(BR2_PACKAGE_OUISTITI_DOCUMENT_RANGE)
 OUISTITI_CONFIGURE_OPTS+=DOCUMENTHOME=$(BR2_PACKAGE_OUISTITI_DOCUMENT_HOME)
 OUISTITI_CONFIGURE_OPTS+=CGI=$(BR2_PACKAGE_OUISTITI_CGI)
 OUISTITI_CONFIGURE_OPTS+=WEBSOCKET=$(BR2_PACKAGE_OUISTITI_WEBSOCKET)
+OUISTITI_CONFIGURE_OPTS+=WEBSOCKET_PING=$(BR2_PACKAGE_OUISTITI_WEBSOCKET)
 OUISTITI_CONFIGURE_OPTS+=WS_JSONRPC=$(BR2_PACKAGE_OUISTITI_WS_JSONRPC)
 OUISTITI_CONFIGURE_OPTS+=WS_CHAT=$(BR2_PACKAGE_OUISTITI_WS_CHAT)
 OUISTITI_CONFIGURE_OPTS+=WEBSTREAM=$(BR2_PACKAGE_OUISTITI_WEBSTREAM)
 OUISTITI_CONFIGURE_OPTS+=MJPEG=$(BR2_PACKAGE_OUISTITI_WS_MJPEG)
+OUISTITI_CONFIGURE_OPTS+=WEBCOMMON=$(BR2_PACKAGE_OUISTITI_WEBCOMMON)
 
 define OUISTITI_CONFIGURE_CMDS
 	$(TARGET_CONFIGURE_OPTS) $(TARGET_MAKE_ENV) \
@@ -105,25 +109,31 @@ define OUISTITI_BUILD_CMDS
 		$(MAKE1) -C $(@D) $(OUISTITI_MAKE_OPTS)
 endef
 
+define OUISTITI_INSTALL_STAGING_CMDS
+	$(MAKE) -C $(@D) $(OUISTITI_MAKE_OPTS) \
+		DESTDIR="$(TARGET_DIR)" install
+endef
+
 define OUISTITI_INSTALL_TARGET_CMDS
 	$(MAKE) -C $(@D) $(OUISTITI_MAKE_OPTS) \
 		DESTDIR="$(TARGET_DIR)" DEVINSTALL=n install
+	$(INSTALL) -D -m 0644 $(OUISTITI_PKGDIR)/ouistiti.conf \
+		$(TARGET_DIR)/etc/ouistiti/ouistiti.conf
+	mkdir -p $(TARGET_DIR)/etc/ouistiti/ouistiti.d
+	$(INSTALL) -D -m 755 $(OUISTITI_PKGDIR)/ouistiti.sh \
+		$(TARGET_DIR)/etc/init.d/ouistiti.sh
 endef
 
 define OUISTITI_INSTALL_INIT_SYSTEMD
-	$(INSTALL) -D -m 0644 $(OUISTITI_PKGDIR)/ouistiti.conf \
-		$(TARGET_DIR)/etc/ouistiti/ouistiti.conf
 	$(INSTALL) -D -m 644 $(OUISTITI_PKGDIR)/ouistiti.service \
 		$(TARGET_DIR)/usr/lib/systemd/system/ouistiti.service
 	mkdir -p $(TARGET_DIR)/etc/systemd/system/multi-user.target.wants
 	ln -fs ../../../../usr/lib/systemd/system/ouistiti.service \
 		$(TARGET_DIR)/etc/systemd/system/multi-user.target.wants/ouistiti.service
 endef
+
 define OUISTITI_INSTALL_INIT_SYSV
-	$(INSTALL) -D -m 0644 $(OUISTITI_PKGDIR)/ouistiti.conf \
-		$(TARGET_DIR)/etc/ouistiti/ouistiti.conf
-	$(INSTALL) -D -m 755 $(OUISTITI_PKGDIR)/S50ouistiti \
-		$(TARGET_DIR)/etc/init.d/S50ouistiti
+	ln -sf ouistiti.sh $(TARGET_DIR)/etc/init.d/S50ouistiti
 endef
 
 $(eval $(generic-package))

@@ -463,11 +463,11 @@ static int _tls_recv(void *vctx, char *data, int size)
 #endif
 	{
 		ret = mbedtls_ssl_read(&ctx->ssl, (unsigned char *)data, size);
-		if (ret > 0)
-			tls_dbg("tls: recv %d %.*s", ret, ret, data);
-		else
-			tls_dbg("tls: recv %X %X", ret, MBEDTLS_ERR_SSL_WANT_READ);
 	}
+	if (ret > 0)
+		tls_dbg("tls: recv %d %.*s", ret, ret, data);
+	else
+		tls_dbg("tls: recv %X %X", ret, MBEDTLS_ERR_SSL_WANT_READ);
 	if (ret == MBEDTLS_ERR_SSL_WANT_READ)
 	{
 		ctx->state |= RECV_COMPLETE;
@@ -495,7 +495,14 @@ static int _tls_send(void *vctx, const char *data, int size)
 {
 	int ret;
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
-	ret = mbedtls_ssl_write(&ctx->ssl, (const unsigned char *)data, size);
+
+#ifdef SOCKET_BLOCKING
+	ret = MBEDTLS_ERR_SSL_WANT_WRITE;
+	while (ret == MBEDTLS_ERR_SSL_WANT_WRITE)
+#endif
+	{
+		ret = mbedtls_ssl_write(&ctx->ssl, (const unsigned char *)data, size);
+	}
 	tls_dbg("tls: send %d %.*s", ret, size, data);
 	if (ret == MBEDTLS_ERR_SSL_WANT_WRITE)
 		ret = EINCOMPLETE;
@@ -503,7 +510,7 @@ static int _tls_send(void *vctx, const char *data, int size)
 	{
 		char buffer[256];
 		mbedtls_strerror(ret, buffer, sizeof(buffer));
-		err("tls: send error %s", buffer);
+		err("tls: send error(%d) %s", ret, buffer);
 		ret = EREJECT;
 	}
 	return ret;

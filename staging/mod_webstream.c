@@ -51,9 +51,9 @@
 #include "ouistiti/utils.h"
 #include "mod_webstream.h"
 
-extern int ouistiti_websocket_run(void *arg, int sock, const char *protocol, http_message_t *request);
-extern int ouistiti_websocket_socket(void *arg, int sock, const char *filepath, http_message_t *request);
+extern int ouistiti_websocket_run(void *arg, int sock, int wssock, http_message_t *request);
 
+#define DEBUG
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
@@ -131,14 +131,19 @@ static int _checkname(_mod_webstream_ctx_t *ctx, const char *pathname)
 	return ESUCCESS;
 }
 
-static int _webstream_socket(void *arg, int sock, const char *filepath)
+static int _webstream_socket(_mod_webstream_ctx_t *ctx, int sock, const char *filepath)
 {
+	_mod_webstream_t *mod = ctx->mod;
+	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 	struct sockaddr_un addr;
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
 	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
 
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (config->options & WEBSTREAM_MULTIPART)
+		sock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+	else
+		sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock > 0)
 	{
 		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
@@ -150,7 +155,7 @@ static int _webstream_socket(void *arg, int sock, const char *filepath)
 	}
 	if (sock == -1)
 	{
-		warn("websocket %s error: %s", filepath, strerror(errno));
+		err("webstream: %s error: %s", filepath, strerror(errno));
 	}
 	return sock;
 }
@@ -222,14 +227,15 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 			if (fchdir(ctx->mod->fdroot) == -1)
 				warn("webstream: impossible to change directory");
 			int wssock;
+			wssock = _webstream_socket(ctx, ctx->socket, uri);
 #ifdef WEBSOCKET_RT
 			if (config->options & WEBSTREAM_REALTIME)
 			{
-				wssock = ouistiti_websocket_run(NULL, ctx->socket, uri, request);
+				if (ouistiti_websocket_run(ctx, ctx->socket, wssock, request) == ESUCCESS)
+					wssock = 0;
 			}
-			else
 #endif
-				wssock = _webstream_socket(NULL, ctx->socket, uri);
+				
 
 			if (wssock > 0)
 			{

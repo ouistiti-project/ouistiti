@@ -1,8 +1,8 @@
 /*****************************************************************************
- * main.c
- * this file is part of https://github.com/ouistiti-project/putv
+ * deamonize.c
+ * this file is part of https://github.com/mchalain
  *****************************************************************************
- * Copyright (C) 2016-2017
+ * Copyright (C) 2016-2024
  *
  * Authors: Marc Chalain <marc.chalain@gmail.com>
  *
@@ -50,7 +50,7 @@ static void _setpidfile(const char *pidfile)
 		if (_pidfd > 0)
 		{
 			char buffer[12];
-			int length;
+			ssize_t length;
 			pid_t pid = 1;
 
 			struct flock fl;
@@ -73,7 +73,7 @@ static void _setpidfile(const char *pidfile)
 			fsync(_pidfd);
 			/**
 			 * the file must be open while the process is running
-			close pidfd 
+			close pidfd
 			 */
 		}
 		else
@@ -125,11 +125,12 @@ void killdaemon(const char *pidfile)
 			fl.l_start = 0;
 			fl.l_len = 0;
 			fl.l_pid = 0;
-			if (fcntl(_pidfd, F_GETLK, &fl) == -1) {
+			if (fcntl(_pidfd, F_GETLK, &fl) == -1)
+				err("lock error %s", strerror(errno));
+			else if (fl.l_type == F_UNLCK)
 				err("server not running");
-				exit(1);
-			}
-			kill(fl.l_pid, SIGTERM);
+			else
+				kill(fl.l_pid, SIGTERM);
 			close(_pidfd);
 		}
 	}

@@ -9,3 +9,4 @@ subdir-$(METHODLOCK_DEPRECATED)+=mod_methodlock.mk
 subdir-$(TINYSVCMDNS_DEPRECATED)+=mod_tinysvcmdns.mk
 subdir-$(UPGRADE)+=mod_upgrade.mk
 subdir-$(PYTHON)+=mod_python.mk
+subdir-$(FORWARD)+=mod_forward.mk

@@ -50,9 +50,6 @@
 #include "ouistiti/log.h"
 #include "mod_cors.h"
 
-extern int ouistiti_websocket_run(void *arg, int sock, char *protocol, http_message_t *request);
-extern int ouistiti_websocket_socket(void *arg, int sock, char *filepath, http_message_t *request);
-
 typedef struct _mod_cors_s _mod_cors_t;
 typedef struct _mod_cors_ctx_s _mod_cors_ctx_t;
 
@@ -103,6 +100,10 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	{
 		httpmessage_result(response, 405);
 		ret = ESUCCESS;
+	}
+	else
+	{
+		httpmessage_addheader(response, "Vary", "Origin");
 	}
 	return ret;
 }

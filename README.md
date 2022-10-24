@@ -55,6 +55,7 @@ It is useless to manage the authentication by your-self.
    * **chat** server
    * **jsonrpc** server
    * **sqlite DB** server
+   * **[thrift](https://thrift.apache.org/)** server
 
 ## [Webstream](docs/mod_webstream.md):
 
@@ -62,7 +63,7 @@ It is useless to manage the authentication by your-self.
    application should only send data on an UNIX socket, *Ouistiti* does the rest.
 
    * **mp3 music** broadcast with [pump up the volume](https://github.com/ouistiti-project/putv).
-   * **motion-jpeg** streamer.
+   * **motion-jpeg** streamer to stream camera over HTTP.
    * **json data** streamer.
 
 ## [Static documents](docs/mod_document.md):
@@ -112,6 +113,11 @@ It is useless to manage the authentication by your-self.
 
    It is closed to the websocket module, but it may be usefull for some
    protocol over HTTP.
+
+## Python:
+
+   This module runs the python interpretor to call scripts. Currently, this
+   module is staging and want to run [django](https://www.djangoproject.com/) site.
 
 ## Mono threading or multi threading:
 

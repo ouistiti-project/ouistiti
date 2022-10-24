@@ -26,7 +26,7 @@ mod_auth_SOURCES-$(AUTHZ_SIMPLE)+=authz_simple.c
 mod_auth_SOURCES-$(AUTHZ_FILE)+=authz_file.c
 
 mod_auth_SOURCES-$(AUTHZ_UNIX)+=authz_unix.c
-mod_auth_LIBRARY-$(AUTHZ_UNIX)+=libcrypt
+mod_auth_LIBS-$(AUTHZ_UNIX)+=crypt
 
 mod_auth_SOURCES-$(AUTHZ_SQLITE)+=authz_sqlite.c
 mod_auth_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3

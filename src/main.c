@@ -260,7 +260,7 @@ static void handler(int sig)
 		err("main: signal %d", sig);
 		backtrace_symbols_fd(array, size, STDERR_FILENO);
 #ifdef DEBUG
-		raise(SIGCONT);
+		pause();
 #else
 		exit(1);
 #endif
@@ -387,8 +387,12 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 	else
 		server->id = id;
 	char *cwd = NULL;
-	if (config->root != NULL && config->root[0] != '\0' && !chdir(config->root))
+	if (config->root != NULL && config->root[0] != '\0' )
+	{
 		cwd = get_current_dir_name();
+		if (chdir(config->root))
+			err("main: change directory error !");
+	}
 	ouistiti_setmodules(server, NULL, config->modulesconfig);
 	if (cwd != NULL)
 	{
