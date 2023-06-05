@@ -1,9 +1,9 @@
 To build debian package:
- * copy the *package/debian* directory into the root directory of "ouistiti"
+ * copy the *package/debian* directory into the root directory of "ouistiti"  
 ```shell
 > cp -r package/debian .
 ```
- * create a link from the libouistiti into the root directory, named "libhttpserver"
+ * create a link from the libouistiti into the root directory, named "libhttpserver"  
 ```shell
 > ln -s ../libouistiti libhttpserver
 ```
