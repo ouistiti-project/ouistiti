@@ -118,6 +118,12 @@ comment "oAuth2 authentication: enable Auth JWT"
 	depends on BR2_PACKAGE_OUISTITI_AUTH
 	depends on !BR2_PACKAGE_OUISTITI_AUTH_JWT
 
+config BR2_PACKAGE_OUISTITI_USERFILTER
+	bool "Users filter"
+	depends on BR2_PACKAGE_OUISTITI
+	select BR2_PACKAGE_SQLITE
+	default n
+
 menuconfig BR2_PACKAGE_OUISTITI_DOCUMENT
 	bool "Document server"
 	depends on BR2_PACKAGE_OUISTITI
