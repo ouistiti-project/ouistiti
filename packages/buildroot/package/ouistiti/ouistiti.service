@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 EnvironmentFile=-/etc/ouistiti/ouistiti.conf
-ExecStart=/usr/sbin/ouistiti -D
+ExecStart=/usr/sbin/ouistiti
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
