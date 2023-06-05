@@ -28,6 +28,7 @@ ouipasswd_LIBS-$(WOLFSSL)+=wolfssl
 ouipasswd_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 sysconf-${FILE_CONFIG}+=ouistiti.conf
+sysconf-${FILE_CONFIG}+=ouistiti.d/default.conf
 sysconf-${CERTIFICATE}+=ouistiti_ca.crt
 sysconf-${CERTIFICATE}+=ouistiti_srv.crt
 sysconf-${CERTIFICATE}+=ouistiti_srv.key
