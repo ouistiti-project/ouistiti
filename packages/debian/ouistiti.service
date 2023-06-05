@@ -1,0 +1,11 @@
+[Unit]
+Description=Ouistiti Embedded Web server
+After=network.target
+
+[Service]
+EnvironmentFile=-/etc/ouistiti/ouistiti.conf
+ExecStart=/usr/sbin/ouistiti
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target
