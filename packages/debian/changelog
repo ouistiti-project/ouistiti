@@ -1,3 +1,10 @@
+ouistiti (3.3.0-1) unstable; urgency=low
+
+  * new modules: python, forward
+  * stabilized modules: openssl, webstream
+
+ -- Développeur <developper@Corto>  Fri, 02 Jun 2023 10:12:02 +0200
+
 ouistiti (3.2.1-1) stable; urgency=low
 
   * new libouistiti
