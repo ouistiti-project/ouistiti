@@ -36,7 +36,7 @@
 #include <libgen.h>
 #include <sched.h>
 #include <dirent.h>
-#ifdef CONFIG_BACKTRACE
+#ifdef BACKTRACE
 #include <execinfo.h> // for backtrace
 #endif
 
@@ -252,7 +252,7 @@ static void handler(int sig)
 {
 	if (sig == SIGSEGV)
 	{
-	#ifdef CONFIG_BACKTRACE
+	#ifdef BACKTRACE
 		void *array[10];
 		size_t size;
 
