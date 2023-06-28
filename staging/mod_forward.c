@@ -47,6 +47,7 @@
 #include <libconfig.h>
 #endif
 
+#define HTTPCLIENT_FEATURES
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
 #include "ouistiti/log.h"
