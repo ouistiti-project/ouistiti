@@ -72,8 +72,8 @@ $(TARGET)_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
 $(TARGET)_LIBRARY-$(AUTHZ_UNIX)+=libcrypt
 $(TARGET)_LIBRARY-$(AUTHZ_JWT)+=jansson
 $(TARGET)_LIBRARY-$(AUTHN_OAUTH2)+=jansson
-
 endif
+
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouibsocket
 $(TARGET)_LIBS-$(WEBSOCKET)+=ouihash
 $(TARGET)_LIBS-$(AUTH)+=ouihash
@@ -91,6 +91,7 @@ subdir-$(DOCUMENT)+=mod_document.mk
 subdir-$(AUTH)+=mod_auth.mk
 subdir-$(AUTHZ_MANAGER)+=mod_authmngt.mk
 subdir-$(MBEDTLS)+=mod_mbedtls.mk
+subdir-$(OPENSSL)+=mod_openssl.mk
 subdir-$(SERVERHEADER)+=mod_server.mk
 subdir-$(CLIENTFILTER)+=mod_clientfilter.mk
 subdir-$(REDIRECT)+=mod_redirect404.mk
