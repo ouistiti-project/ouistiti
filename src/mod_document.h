@@ -84,7 +84,8 @@ struct _document_connector_s
 	int fdfile;
 	int fdroot;
 	int type;
-	DIR *dir;
+	struct dirent **ents;
+	int nbents;
 	http_connector_t func;
 	unsigned long long size;
 	unsigned long long offset;

@@ -86,7 +86,6 @@ void document_close(document_connector_t *private, http_message_t *request)
 		close(private->fdroot);
 	private->fdroot = 0;
 	private->func = NULL;
-	private->dir = NULL;
 	httpmessage_private(request, NULL);
 	free(private);
 }
