@@ -36,7 +36,9 @@
 #include <libgen.h>
 #include <sched.h>
 #include <dirent.h>
+#ifdef BACKTRACE
 #include <execinfo.h> // for backtrace
+#endif
 
 #ifndef WIN32
 # include <sys/socket.h>
@@ -250,6 +252,7 @@ static void handler(int sig)
 {
 	if (sig == SIGSEGV)
 	{
+	#ifdef BACKTRACE
 		void *array[10];
 		size_t size;
 
@@ -259,6 +262,7 @@ static void handler(int sig)
 		// print out all the frames to stderr
 		err("main: signal %d", sig);
 		backtrace_symbols_fd(array, size, STDERR_FILENO);
+#endif
 #ifdef DEBUG
 		pause();
 #else

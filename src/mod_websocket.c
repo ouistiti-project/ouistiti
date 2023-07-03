@@ -45,6 +45,7 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <sched.h>
 
 #ifdef FILE_CONFIG
 #include <libconfig.h>
