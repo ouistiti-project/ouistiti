@@ -1,0 +1,39 @@
+name: Build
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "*.c"
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    env:
+      TLS: OPENSSL
+      DEPENDENCIES: libjansson-dev libconfig-dev libssl-dev
+    steps:
+      - name: install dependencies
+        run: |
+          sudo apt update
+          sudo apt install $DEPENDENCIES
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: configure
+        run: |
+          make MBEDTLS=n $TLS=y prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n AUTHN_OAUTH2=n defconfig
+      - name: build
+        run: |
+          make DEBUG=y
+      - name: build hosttools
+        run: |
+          make hosttools
+      - name: run tests
+        run: |
+          sudo chmod a+w /tmp
+          ./tests/run.sh -A || cat /tmp/ouistiti.test
