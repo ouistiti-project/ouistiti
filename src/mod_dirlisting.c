@@ -26,6 +26,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -83,12 +84,17 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *UNUSED(mod), http_me
 {
 	int ret = EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
-	const char *uri = httpmessage_REQUEST(request,"uri");
+	const char *url = private->url;
+	int fdroot = private->fdroot;
 
-	private->dir = fdopendir(private->fdfile);
-	if (private->dir)
+	if (url[0] == '\0')
+		url = ".";
+	dbg("dirlisting: open /%s", private->url);
+	ret = scandirat(fdroot, url, &private->ents, NULL, alphasort);
+	if (ret >= 0)
 	{
-		dbg("dirlisting: open /%s", private->url);
+		private->nbents = ret;
+
 		/**
 		 * The content-length of dirlisting is unknown.
 		 * Set the content-type first without content-length.
@@ -96,13 +102,17 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *UNUSED(mod), http_me
 		httpmessage_addcontent(response, utils_getmime(".json"), NULL, -1);
 		if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
 		{
-			closedir(private->dir);
-			private->dir = NULL;
+			for (int i = 0; i < ret; i++)
+				free(private->ents[i]);
+			free(private->ents);
+			private->ents = NULL;
+			private->nbents = 0;
 			document_close(private, request);
 			ret = ESUCCESS;
 		}
 		else
 		{
+			const char *uri = httpmessage_REQUEST(request,"uri");
 			int length = strlen(uri);
 			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
 			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, uri);
@@ -113,11 +123,13 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *UNUSED(mod), http_me
 	}
 	else
 	{
+		private->ents = NULL;
+		private->nbents = 0;
 		warn("dirlisting: directory not open %s %s", private->url, strerror(errno));
 		document_close(private, request);
 		httpmessage_result(response, RESULT_400);
-		ret = ESUCCESS;
 	}
+
 	return ret;
 }
 
@@ -130,18 +142,18 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_m
 	errno = 0;
 	while (ret == EREJECT)
 	{
-#ifdef USE_REENTRANT
+		document_dbg("dirlisting: entry %d", private->nbents);
 		/**
-		 * readdir_r is deprecated but SonarCloud requires readdir_r.
+		 * private->ents != NULL checked inside _dirlisting_connector
 		 */
-		struct dirent entstorage;
-		readdir_r(private->dir, &entstorage, &ent);
-#else
-		ent = readdir(private->dir);
-#endif
+		if (private->nbents > 0)
+			ent = private->ents[private->nbents - 1];
+		else
+			ent = NULL;
 		if (ent)
 		{
 			document_dbg("dirlisting: dirlisting contains %s", ent->d_name);
+			private->nbents--;
 			if (ent->d_name[0] != '.')
 			{
 				unsigned int length = strlen(ent->d_name);
@@ -179,6 +191,7 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_m
 				free(data);
 				ret = ECONTINUE;
 			}
+			free(ent);
 		}
 		else if (private->fdfile > 0)
 		{
@@ -199,8 +212,8 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_m
 			 */
 			document_dbg("dirlisting: socket shutdown");
 			httpclient_shutdown(httpmessage_client(request));
-			closedir(private->dir);
-			private->dir = NULL;
+			free(private->ents);
+			private->ents = NULL;
 			document_close(private, request);
 			ret = ESUCCESS;
 		}
@@ -217,7 +230,7 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	document_connector_t *private = httpmessage_private(request, NULL);
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 
-	if (private->dir == NULL)
+	if (private->ents == NULL)
 	{
 		ret = _dirlisting_connectorheader(mod, request, response);
 	}

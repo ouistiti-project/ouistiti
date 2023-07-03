@@ -15,7 +15,7 @@ FILE_CONFIG=y
 #select SHARED or STATIC
 #STATIC build only one binary
 SHARED=y
-STATIC=y
+STATIC=n
 MODULES=y
 #select the maximum of host to manage (host/port and virtual)
 MAX_SERVERS=4
@@ -24,6 +24,8 @@ MAX_SERVERS=4
 #if mono thread only one server may run
 VTHREAD=y
 VTHREAD_TYPE=fork
+
+BACKTRACE=y
 
 USE_STDARG=y
 USE_REENTRANT=y
