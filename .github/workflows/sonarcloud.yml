@@ -1,0 +1,54 @@
+name: SonarCloud
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "src/*.c"
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    env:
+      TLS: OPENSSL
+      DEPENDENCIES: libjansson-dev libconfig-dev libssl-dev
+      BUILD_WRAPPER_OUT_DIR: bw-output
+      SONARCLOUD_ORGANIZATION: ${{ vars.SONARCLOUD_ORGANIZATION }}
+      SONARCLOUD_PROJECTKEY: ${{ vars.SONARCLOUD_PROJECTKEY }}
+    steps:
+      - name: install dependencies
+        run: |
+          sudo apt update
+          sudo apt install $DEPENDENCIES
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: sonar-scanner and build-wrapper
+        id: sonarcloud
+        uses: SonarSource/sonarcloud-github-c-cpp@v1
+      - name: configure
+        run: |
+          make MBEDTLS=n $TLS=y prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n AUTHN_OAUTH2=n defconfig
+      - name: build
+        run: |
+          ${{ steps.sonarcloud.outputs.build-wrapper-binary }} --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} make DEBUG=y G=1
+      - name: build hosttools
+        run: |
+          make hosttools
+      - name: run tests
+        run: |
+          sudo chmod a+w /tmp
+          ./tests/run.sh -A || cat /tmp/ouistiti.test
+      - name: gcov
+        run: |
+          make gcov
+      - name: scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          ${{ steps.sonarcloud.outputs.sonar-scanner-binary }} --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" -D sonar.organization=${{ env.SONARCLOUD_ORGANIZATION }} -D sonar.projectKey=${{env.SONARCLOUD_PROJECTKEY }}
