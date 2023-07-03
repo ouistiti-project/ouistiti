@@ -26,6 +26,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
