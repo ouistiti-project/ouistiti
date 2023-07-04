@@ -393,7 +393,7 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 	char *cwd = NULL;
 	if (config->root != NULL && config->root[0] != '\0' )
 	{
-		cwd = get_current_dir_name();
+		cwd = getcwd(NULL, 0);
 		if (chdir(config->root))
 			err("main: change directory error !");
 	}

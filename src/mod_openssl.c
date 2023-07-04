@@ -73,7 +73,7 @@ void *mod_openssl_create(http_server_t *server, mod_tls_t *modconfig)
 {
 	int ret;
 	int is_set_pemkey = 0;
-	_mod_openssl_t *mod;
+	_mod_openssl_t *mod = NULL;
 
 	if (!modconfig)
 	{
