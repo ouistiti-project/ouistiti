@@ -163,8 +163,8 @@ static const char *authz_file_passwd(void *arg, const char *user)
 	line = strstr(ctx->map, user);
 	if (line)
 	{
-		int len = 0;
-		char *end = strchr(line, '\n');
+		size_t len = 0;
+		const char *end = strchr(line, '\n');
 		if (end)
 			len = end - line;
 		else
@@ -185,18 +185,17 @@ static const char *authz_file_passwd(void *arg, const char *user)
 	FILE *file = fopen(config->path, "r");
 	while(file && !feof(file))
 	{
+		size_t len = 0;
 		if (fgets(ctx->user, MAXLENGTH, file) == NULL)
 			break;
-		size_t len = strlen(ctx->user);
-		if (ctx->user[len - 1] == '\n')
-		{
-			ctx->user[len - 1] = '\0';
-			len--;
-		}
 		const char *end = strchr(ctx->user, ':');
+		if (end == NULL)
+			end = strchr(ctx->user, '\n');
 		if (end)
 			len = end - ctx->user;
-
+		else
+			len = strlen(ctx->user);
+		len = (len > MAXLENGTH)?MAXLENGTH:len;
 		if (!strncmp(user, ctx->user, len))
 		{
 			_authz_file_parsestring(ctx->user, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
