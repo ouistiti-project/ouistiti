@@ -1,10 +1,7 @@
 name: SonarCloud
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - "src/*.c"
+  release:
+    types: [published]
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -51,4 +48,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          ${{ steps.sonarcloud.outputs.sonar-scanner-binary }} --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" -D sonar.organization=${{ env.SONARCLOUD_ORGANIZATION }} -D sonar.projectKey=${{env.SONARCLOUD_PROJECTKEY }}
+          ${{ steps.sonarcloud.outputs.sonar-scanner-binary }} --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" -D sonar.organization=${{ env.SONARCLOUD_ORGANIZATION }} -D sonar.projectKey=${{ env.SONARCLOUD_PROJECTKEY }} -D sonar.projectVersion=${{ env.GITHUB_REF_NAME }}
