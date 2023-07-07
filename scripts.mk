@@ -294,21 +294,6 @@ endif
 
 CFLAGS+=-O$(O)
 
-###############################################################################
-# scripts extensions
-##
-ifneq ($(wildcard $(dir $(makemore))scripts/download.mk),)
-  include $(dir $(makemore))scripts/download.mk
-endif
-
-ifneq ($(wildcard $(dir $(makemore))scripts/gcov.mk),)
-  include $(dir $(makemore))scripts/gcov.mk
-endif
-
-ifneq ($(wildcard $(dir $(makemore))scripts/qt.mk),)
-  include $(dir $(makemore))scripts/qt.mk
-endif
-
 ##
 # objects recipes generation
 ##
@@ -438,12 +423,28 @@ targets+=$(data-target)
 
 hook-target:=$(hook-$(action:_%=%)) $(hook-$(action:_%=%)-y)
 
+###############################################################################
+# scripts extensions
+##
+ifneq ($(wildcard $(dir $(makemore))scripts/download.mk),)
+  include $(dir $(makemore))scripts/download.mk
+endif
+
+ifneq ($(wildcard $(dir $(makemore))scripts/gcov.mk),)
+  include $(dir $(makemore))scripts/gcov.mk
+endif
+
+ifneq ($(wildcard $(dir $(makemore))scripts/qt.mk),)
+  include $(dir $(makemore))scripts/qt.mk
+endif
+
 ##
 # install recipes generation
 ##
 ifneq ($(CROSS_COMPILE),)
   destdir?=$(sysroot)
 endif
+
 sysconf-install:=$(addprefix $(destdir)$(sysconfdir:%/=%)/,$(sysconf-y))
 data-install:=$(addprefix $(destdir)$(datadir:%/=%)/,$(data-target))
 doc-install:=$(addprefix $(destdir)$(docdir:%/=%)/,$(doc-y))

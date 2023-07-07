@@ -1,7 +1,7 @@
-TARGETGCOV:=$(TARGETPREFIX)$(GCOV)
 GCOV?=gcov
 LCOV?=lcov
 GENHTML?=genhtml
+TARGETGCOV:=$(TARGETPREFIX)$(GCOV)
 
 ifeq ($(G),1)
 INTERN_CFLAGS+=--coverage -fprofile-arcs -ftest-coverage
