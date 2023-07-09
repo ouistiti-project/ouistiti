@@ -252,7 +252,7 @@ static void handler(int sig)
 {
 	if (sig == SIGSEGV)
 	{
-	#ifdef BACKTRACE
+#ifdef BACKTRACE
 		void *array[10];
 		size_t size;
 
@@ -652,7 +652,9 @@ int main(int argc, char * const *argv)
 	action.sa_sigaction = handler;
 	sigaction(SIGTERM, &action, NULL);
 	sigaction(SIGINT, &action, NULL);
+#ifdef BACKTRACE
 	sigaction(SIGSEGV, &action, NULL);
+#endif
 
 	struct sigaction unaction;
 	unaction.sa_handler = SIG_IGN;
@@ -660,7 +662,9 @@ int main(int argc, char * const *argv)
 #else
 	signal(SIGTERM, handler);
 	signal(SIGINT, handler);
+#ifdef BACKTRACE
 	signal(SIGSEGV, handler);
+#endif
 
 	signal(SIGPIPE, SIG_IGN);
 #endif
