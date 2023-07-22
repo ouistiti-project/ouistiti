@@ -7,12 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PACKAGENAME: ouistiti
-      DEPENDENCIES: libjansson-dev libconfig-dev libssl-dev devscripts
     steps:
-      - name: install dependencies
-        run: |
-          sudo apt update
-          sudo apt install $DEPENDENCIES
       - name: checkout
         uses: actions/checkout@v3
         with:
@@ -30,7 +25,7 @@ jobs:
       - name: source archive
         run: |
           cp -r packages/debian .
-          tar -C .. -czf ../${{env.PACKAGENAME}}_${steps.version.outputs.VERSION}}.orig.tar.gz --exclude=packages --exclude=www --exclude=.git* --exclude=*sonarcloud* --exclude=.travis.yml ouistiti
+          tar -C .. -czf ../${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz --exclude=packages --exclude=www --exclude=.git* --exclude=*sonarcloud* --exclude=.travis.yml ouistiti
           mv ../${{env.PACKAGENAME}}.orig.tar.gz .
       - name: source artifact
         uses: actions/upload-artifact@v3
@@ -42,7 +37,7 @@ jobs:
     needs: sources
     runs-on: ubuntu-latest
     env:
-      PACKAGENAME: ouistiti_${{vars.VERSION}}
+      PACKAGENAME: ouistiti
       DEPENDENCIES: libjansson-dev libconfig-dev libssl-dev devscripts
     steps:
       - name: install dependencies
@@ -59,11 +54,12 @@ jobs:
           path: /tmp/version.txt
           key: version
       - name: version
+        id: version
         run: |
           cat /tmp/version.txt >> "$GITHUB_OUTPUT"
       - name: unpack sources
         run: |
-          tar -xzf ${{env.PACKAGENAME}}_${steps.version.outputs.VERSION}}.orig.tar.gz
+          tar -xzf ${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz
           cd ouistiti
       - name: debuild
         run: |
