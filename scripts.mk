@@ -419,7 +419,6 @@ targets+=$(lib-static-target)
 targets+=$(bin-target)
 targets+=$(lib-pkgconfig-target)
 targets+=$(pkgconfig-target)
-targets+=$(data-target)
 
 hook-target:=$(hook-$(action:_%=%)) $(hook-$(action:_%=%)-y)
 

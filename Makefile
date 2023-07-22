@@ -1,5 +1,6 @@
 package=ouistiti
 version=3.3
+includedir=$(prefix)/include/$(package)
 
 include scripts.mk
 
@@ -34,7 +35,9 @@ ifneq ($(HTTPCLIENT_FEATURES),y)
 override AUTHN_OAUTH2:=n
 endif
 
-subdir-y+=include
+include-y+=config.h
+include-y+=version.h
+subdir-y+=include/ouistiti
 subdir-y+=staging
 subdir-y+=src
 subdir-y+=utils

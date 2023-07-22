@@ -22,9 +22,16 @@ jobs:
         run: |
           echo "VERSION=$(make version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
           echo "VERSION=$(make version | awk '{print $2}')" >> "/tmp/version.txt"
+      - name: cache debian
+        uses: actions/cache@v3
+        with:
+          path: /tmp/debian
+          key: debian
       - name: source archive
         run: |
-          cp -r packages/debian .
+          cp -r packages/debian /tmp/debian
+      - name: source archive
+        run: |
           tar -C .. -czf ../${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz --exclude=packages --exclude=www --exclude=.git* --exclude=*sonarcloud* --exclude=.travis.yml ouistiti
           mv ../${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz .
       - name: source artifact
@@ -60,12 +67,21 @@ jobs:
       - name: unpack sources
         run: |
           tar -xzf ${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz
+      - name: cache debian
+        uses: actions/cache@v3
+        with:
+          path: /tmp/debian
+          key: debian
+      - name: source archive
+        run: |
+          cp -r /tmp/debian .
       - name: debuild
         run: |
           cd ouistiti
           debuild -i -uc -us
+          mv ../${{env.PACKAGENAME}}*.deb .
       - name: binaries artifact
         uses: actions/upload-artifact@v3
         with:
           name: packages
-          path: ../ouistiti*${{vars.VERSION}}*.deb
+          path: ${{env.PACKAGENAME}}*.deb
