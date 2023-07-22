@@ -60,9 +60,9 @@ jobs:
       - name: unpack sources
         run: |
           tar -xzf ${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz
-          cd ouistiti
       - name: debuild
         run: |
+          cd ouistiti
           debuild -i -uc -us
       - name: binaries artifact
         uses: actions/upload-artifact@v3
