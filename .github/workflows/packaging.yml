@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
 jobs:
   sources:
-    name: ubuntu deb
+    name: sources archive
     runs-on: ubuntu-latest
     env:
       PACKAGENAME: ouistiti
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PACKAGENAME: ouistiti
-      DEPENDENCIES: libjansson-dev libconfig-dev libssl-dev devscripts
+      DEPENDENCIES: libjansson-dev libconfig-dev libssl-dev debhelper devscripts
     steps:
       - name: install dependencies
         run: |
