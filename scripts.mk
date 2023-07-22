@@ -561,6 +561,17 @@ default_action: _info
 
 all: _configbuild _versionbuild default_action ;
 
+version?=0.1
+subversion?=$(word 3,$(subst ., ,$(version)))
+ifeq ($(subversion),)
+subversion=0
+else
+version:=$(patsubst %.$(subversion),%, $(version))
+endif
+
+version:
+	@echo $(package) $(version).$(subversion)
+
 ###############################################################################
 # Commands for clean
 ##
