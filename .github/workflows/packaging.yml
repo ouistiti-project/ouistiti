@@ -20,8 +20,8 @@ jobs:
       - name: version
         id: version
         run: |
-          echo "VERSION=$(make version)" >> "$GITHUB_OUTPUT"
-          echo "VERSION=$(make version)" >> "/tmp/version.txt"
+          echo "VERSION=$(make version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$(make version | awk '{print $2}')" >> "/tmp/version.txt"
       - name: source archive
         run: |
           cp -r packages/debian .
