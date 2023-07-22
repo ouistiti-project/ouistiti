@@ -1,4 +1,3 @@
 #!/bin/sh
 
-[ "$1" != "configure" ] && exit
-[ -z "$2" ] && /usr/share/ouistiti/certificate.sh
+[ ! -e /etc/ouistiti/ouistiti_ca.crt ] && /bin/sh /usr/share/ouistiti/certificate.sh || true
