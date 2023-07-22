@@ -37,7 +37,7 @@ endif
 
 include-y+=config.h
 include-y+=version.h
-subdir-y+=include
+subdir-y+=include/ouistiti
 subdir-y+=staging
 subdir-y+=src
 subdir-y+=utils
