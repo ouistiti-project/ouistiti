@@ -1,0 +1,4 @@
+#!/bin/sh
+
+[ "$1" != "configure" ] && exit
+[ -z "$2" ] && /usr/share/ouistiti/certificate.sh
