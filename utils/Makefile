@@ -33,3 +33,4 @@ subdir-$(CERTIFICATE)+=certificate.mk
 
 data-y+=certificate.mk
 data-y+=certificate.sh
+data-y+=ca.conf
