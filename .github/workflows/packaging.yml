@@ -26,12 +26,12 @@ jobs:
         run: |
           cp -r packages/debian .
           tar -C .. -czf ../${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz --exclude=packages --exclude=www --exclude=.git* --exclude=*sonarcloud* --exclude=.travis.yml ouistiti
-          mv ../${{env.PACKAGENAME}}.orig.tar.gz .
+          mv ../${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz .
       - name: source artifact
         uses: actions/upload-artifact@v3
         with:
           name: sources
-          path: ${{env.PACKAGENAME}}.orig.tar.gz
+          path: ${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz
   binaries:
     name: ubuntu deb
     needs: sources
