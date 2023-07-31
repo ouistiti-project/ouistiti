@@ -108,7 +108,8 @@ USERFILTER=y
 #support of simple python scripts (staging)
 PYTHON=n
 #support of request forwarding
-FORWARD=y
+#   depends on HTTPCLIENT_FEATURES
+FORWARD=n
 
 CERTIFICATE=n
 

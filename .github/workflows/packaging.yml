@@ -74,12 +74,11 @@ jobs:
           key: debian
       - name: source archive
         run: |
-          cp -r /tmp/debian .
+          cp -r /tmp/debian ouistiti
       - name: debuild
         run: |
           cd ouistiti
           debuild -i -uc -us
-          mv ../${{env.PACKAGENAME}}*.deb .
       - name: binaries artifact
         uses: actions/upload-artifact@v3
         with:
