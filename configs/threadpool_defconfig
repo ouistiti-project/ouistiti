@@ -7,7 +7,7 @@ MAXCHUNKS_CONTENT=3
 MAXCHUNKS_SESSION=2
 MAXCHUNKS_URI=2
 HTTPMESSAGE_CHUNKSIZE=128
-HTTPCLIENT_FEATURES=n
+HTTPCLIENT_FEATURES=y
 
 #select FILE_CONFIG to use a configuration file
 #or modify src/config.h
@@ -106,7 +106,7 @@ UPGRADE_INET=n
 #support for filter uri select by user
 USERFILTER=y
 #support of simple python scripts (staging)
-PYTHON=n
+PYTHON=y
 #support of request forwarding
 FORWARD=y
 
