@@ -13,8 +13,14 @@ jobs:
       TLS: OPENSSL
       DEPENDENCIES: libjansson-dev libconfig-dev libssl-dev
       BUILD_WRAPPER_OUT_DIR: bw-output
-      SONARCLOUD_ORGANIZATION: ${{ vars.SONARCLOUD_ORGANIZATION }}
-      SONARCLOUD_PROJECTKEY: ${{ vars.SONARCLOUD_PROJECTKEY }}
+      SONARCLOUD_OPTIONS: >
+        -D sonar.host.url=https://sonarcloud.io
+        -D sonar.organization=${{ vars.SONARCLOUD_ORGANIZATION }}
+        -D sonar.projectKey=${{ vars.SONARCLOUD_PROJECTKEY }}
+        -D sonar.sources=${{ vars.SONARCLOUD_SOURCES }}
+        -D sonar.cfamily.gcov.reportsPath=${{ vars.SONARCLOUD_SOURCES }}
+        -D sonar.cfamily.cache.enabled=false
+        -D sonar.sourceEncoding=UTF-8
     steps:
       - name: install dependencies
         run: |
@@ -30,6 +36,10 @@ jobs:
       - name: configure
         run: |
           make MBEDTLS=n $TLS=y prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n AUTHN_OAUTH2=n defconfig
+      - name: version
+        id: version
+        run: |
+          echo "VERSION=$(make version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       - name: build
         run: |
           ${{ steps.sonarcloud.outputs.build-wrapper-binary }} --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} make DEBUG=y G=1
@@ -43,9 +53,13 @@ jobs:
       - name: gcov
         run: |
           make gcov
+      - name: options
+        id: options
+        run: >
+          echo "OPTIONS=${{ env.SONARCLOUD_OPTIONS }} -D sonar.projectVersion=${{ env.GITHUB_REF_NAME }}" >> "$GITHUB_OUTPUT"
       - name: scanner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          ${{ steps.sonarcloud.outputs.sonar-scanner-binary }} --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" -D sonar.organization=${{ env.SONARCLOUD_ORGANIZATION }} -D sonar.projectKey=${{ env.SONARCLOUD_PROJECTKEY }} -D sonar.projectVersion=${{ env.GITHUB_REF_NAME }}
+          ${{ steps.sonarcloud.outputs.sonar-scanner-binary }} -D sonar.cfamily.build-wrapper-output=${{ env.BUILD_WRAPPER_OUT_DIR }} ${{ steps.options.outputs.OPTIONS }}
