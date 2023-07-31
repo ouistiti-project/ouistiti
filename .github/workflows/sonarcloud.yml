@@ -21,6 +21,7 @@ jobs:
         -D sonar.cfamily.gcov.reportsPath=${{ vars.SONARCLOUD_SOURCES }}
         -D sonar.cfamily.cache.enabled=false
         -D sonar.sourceEncoding=UTF-8
+        -D sonar.scm.exclusions.disabled=true
     steps:
       - name: install dependencies
         run: |
