@@ -1,3 +1,7 @@
+if [ "$FORWARD" != "y" ]; then
+	echo "Forward module disabled"
+	DISABLED=1
+fi
 DESC="Forward: test page forwarding from internet"
 CONFIG=test1.conf
 TESTCODE=204

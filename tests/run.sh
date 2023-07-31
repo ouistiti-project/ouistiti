@@ -4,6 +4,7 @@ TESTDIR=$(dirname $0)/
 SRCDIR=src/
 PWD=$(pwd)
 DEFAULTPORT=8080
+. ./.config
 
 CONTINUE=0
 GCOV=0
@@ -146,6 +147,7 @@ test () {
 	if [ -e ${TESTDIR}$(basename ${TEST})_rq.txt ]; then
 		TESTREQUEST=$(basename ${TEST})_rq.txt
 	fi
+	DISABLED=0
 	. $TEST
 	TESTOPTION="${TESTOPTION} -p ${TESTDEFAULTPORT}"
 
@@ -153,6 +155,9 @@ test () {
 	echo "******************************"
 	echo $TEST
 	echo $DESC
+	if [ $DISABLED -eq 1 ]; then
+		return
+	fi
 
 	if [ -n "$FILEDATA" ]; then
 		cp ${TESTDIR}htdocs/${FILE}.in ${TESTDIR}htdocs/${FILE}
