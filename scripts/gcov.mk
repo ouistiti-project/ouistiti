@@ -12,6 +12,7 @@ endif
 
 gcov-target:=$(patsubst %.o,%.c.gcov,$(sort $(foreach t, $(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_GENERATED) $(addprefix $(obj),$($(t)-objs)))))
 
+_gcov: GCOV_OPTIONS=$(if $(objdir),"-o $(objdir)") -s $(srcdir)
 _gcov: action:=_gcov
 _gcov: build:=$(action) -f $(makemore) file
 _gcov: _info $(subdir-target) $(gcov-target)
@@ -24,7 +25,7 @@ gcov: default_action ;
 gcovhtml: $(builddir)gcov_report
 
 quiet_cmd_cc_gcov_c=GCOV $*
- cmd_cc_gcov_c=$(TARGETGCOV) -o $(obj) -s $(src) -p $< -t > $@;
+ cmd_cc_gcov_c=$(TARGETGCOV) $(GCOV_OPTIONS) -p $< -t > $@;
 quiet_cmd_lcov=LCOV
  cmd_lcov=$(LCOV) --directory $(builddir) --capture --output-file $@
 quiet_cmd_genhtml=GENHTML $@
