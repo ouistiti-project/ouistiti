@@ -5,6 +5,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
+    inputs:
+      LIBHTTPSERVER_VERSION:
+        type: string
+        required: no
+        default: default
+        description: Libhttpserver git version
 jobs:
   tests:
     name: Tests
@@ -31,6 +37,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: change libhttpserver version
+        if: inputs.LIBHTTPSERVER_VERSION != 'default'
+        run: |
+          cd libhttpserver
+          git checkout ${{ inputs.LIBHTTPSERVER_VERSION }}
       - name: sonar-scanner and build-wrapper
         id: sonarcloud
         uses: SonarSource/sonarcloud-github-c-cpp@v1
