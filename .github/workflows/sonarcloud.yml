@@ -41,7 +41,7 @@ jobs:
         if: inputs.LIBHTTPSERVER_VERSION != 'default'
         run: |
           cd libhttpserver
-          git checkout ${{ inputs.LIBHTTPSERVER_VERSION }}
+          git pull origin ${{ inputs.LIBHTTPSERVER_VERSION }}
       - name: sonar-scanner and build-wrapper
         id: sonarcloud
         uses: SonarSource/sonarcloud-github-c-cpp@v1
