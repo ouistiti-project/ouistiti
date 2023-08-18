@@ -1,5 +1,5 @@
 user="%USER%";
-log-file="/tmp/ouistiti.log";
+log-file="%LOGFILE%";
 mimetypes = ({
 		ext = ".mp3";
 		mime = "audio/mp3";
