@@ -181,20 +181,27 @@ test () {
 		start "$TARGET" $CONFIG
 	fi
 
-	echo "******************************"
+	echo "----"
 	if [ -n "$CURLPARAM" ]; then
+		if [ -n "$INFO" ]; then
+			echo "get $CURLPARAM"
+			echo "----"
+		fi
 		$CURL $CURLOUT -f -s -S $CURLPARAM > $TMPRESPONSE
 	fi
 	if [ -n "$WGETURL" ]; then
-		$WGET --no-check-certificate --user $USER --password foobar -S -q -O - $WGETURL 2> $TMPRESPONSE.tmp
-		#$WGET --no-check-certificate --user $USER --password foobar -S -O - $WGETURL
+		if [ -n "$INFO" ]; then
+			echo "get $WGETURL"
+			echo "----"
+		fi
+		$WGET --no-check-certificate -S -q -O - $WGETURL 2> $TMPRESPONSE.tmp
+		#$WGET --no-check-certificate -S -O - $WGETURL
 		cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
 	fi
 	if [ -n "$TESTREQUEST" ]; then
 		if [ -n "$INFO" ]; then
 			cat ${TESTDIR}$TESTREQUEST
-			echo "******************************"
-			echo
+			echo "----"
 		fi
 		echo cat ${TESTDIR}$TESTREQUEST' |' $TESTCLIENT $TESTOPTION
 		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
@@ -202,15 +209,13 @@ test () {
 	if [ -n "$CMDREQUEST" ]; then
 		if [ -n "$INFO" ]; then
 			$CMDREQUEST
-			echo "******************************"
-			echo
+			echo "----"
 		fi
 		$CMDREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
 	ERR=0
 	if [ -n "$INFO" ]; then
 		cat $TMPRESPONSE
-		echo "******************************"
 		echo $TEST
 		echo $DESC
 		rescode=$TESTCODE
@@ -218,7 +223,7 @@ test () {
 		rescontentlen=$TESTCONTENTLEN
 	else
 		if [ -e ${TMPRESPONSE} -a ${TESTRESPONSE} != "none" ]; then
-			diff -a ${TMPRESPONSE} ${TESTDIR}${TESTRESPONSE} | grep -a '^>.*$'
+			diff -aZ ${TMPRESPONSE} ${TESTDIR}${TESTRESPONSE} | grep -a '^>.*$'
 			if [ ! $? -eq 1 ]; then
 				ERR=4
 			fi
