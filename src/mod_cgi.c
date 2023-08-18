@@ -445,7 +445,7 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 		}
 		else if (size < 1)
 		{
-			dbg("cgii: died");
+			dbg("cgi: died");
 			ctx->state = STATE_CONTENTCOMPLETE;
 		}
 		else
