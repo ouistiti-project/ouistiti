@@ -1,3 +1,4 @@
 user="%USER%";
+log-file="%LOGFILE%";
 config_d="%PWD%/tests/conf/config.d";
 init_d="%PWD%/tests/init.d";

@@ -4,6 +4,7 @@ TESTDIR=$(dirname $0)/
 SRCDIR=src/
 PWD=$(pwd)
 DEFAULTPORT=8080
+LOGFILE=/tmp/ouistiti.log
 . ./.config
 
 CONTINUE=0
@@ -84,8 +85,9 @@ config () {
 	CONFIG=$1
 
 	cp ${TESTDIR}conf/${CONFIG}.in ${TESTDIR}conf/${CONFIG}
-	${SED} -i "s/\%PWD\%/$(echo $PWD | ${SED} 's/\//\\\//g')/g" ${TESTDIR}conf/${CONFIG}
-	${SED} -i "s/\%USER\%/$USER/g" ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s,\%PWD\%,$PWD,g" ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s,\%USER\%,$USER,g" ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s,\%LOGFILE\%,$LOGFILE,g" ${TESTDIR}conf/${CONFIG}
 
 }
 
@@ -250,6 +252,7 @@ test () {
 	if [ ! $ERR -eq 0 ]; then
 		echo "$TEST quits on error"
 		stop $TARGET
+		cat $LOGFILE
 		if [ $NOERROR -eq 1 ]; then
 			TESTERROR="${TESTERROR} $TEST"
 		else

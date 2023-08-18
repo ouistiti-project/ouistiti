@@ -1,4 +1,5 @@
 user="%USER%";
+log-file="%LOGFILE%";
 servers= ({
 		hostname = "www.ouistiti.net";
 		addr="127.0.0.1";
