@@ -8,10 +8,10 @@ servers= ({
 		unlock_groups = "users";
 		auth = {
 			realm = "www.ouistiti.net";
-			file = "shadow";
 			type = "Basic";
+			file="%PWD%/tests/conf/passwd";
 			secret = "I am a great pretender";
-			unprotect="^trust/*";
+			unprotect="^/trust/*";
 			options = "cookie";
 			algorithm = "SHA-256";
 		};
