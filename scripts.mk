@@ -413,6 +413,8 @@ data-target:=$(sort $(data-y))
 pkgconfig-target:=$(foreach pkgconfig,$(sort $(pkgconfig-y)),$(addprefix $(builddir),$(addsuffix .pc,$(pkgconfig))))
 lib-pkgconfig-target:=$(sort $(foreach lib,$(sort $(lib-y) $(slib-y)),$(addprefix $(builddir).,$(addsuffix .pc.in,$($(lib)_PKGCONFIG)))))
 
+clean-target:=
+
 targets+=$(lib-dynamic-target)
 targets+=$(modules-target)
 targets+=$(lib-static-target)
@@ -508,7 +510,7 @@ _clean: _info $(subdir-target) _clean_objs _clean_targets _clean_objdirs _hook
 	@:
 
 _clean_targets:
-	@$(call cmd,clean,$(wildcard $(gcov-target)))
+	@$(call cmd,clean,$(wildcard $(clean-target)))
 	@$(call cmd,clean,$(wildcard $(targets)))
 	@$(call cmd,clean,$(wildcard $(hostslib-target)))
 	@$(call cmd,clean,$(wildcard $(hostbin-target)))
