@@ -11,8 +11,11 @@ O:=0
 endif
 
 gcov-target:=$(patsubst %.o,%.c.gcov,$(sort $(foreach t, $(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_GENERATED) $(addprefix $(obj),$($(t)-objs)))))
+gcda-target:=$(patsubst %.o,%.gcda,$(sort $(foreach t, $(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_GENERATED) $(addprefix $(obj),$($(t)-objs)))))
+gcno-target:=$(patsubst %.o,%.gcno,$(sort $(foreach t, $(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_GENERATED) $(addprefix $(obj),$($(t)-objs)))))
+clean-target+=$(gcov-target) $(gcda-target) $(gcno-target)
 
-_gcov: GCOV_OPTIONS=$(if $(objdir),"-o $(objdir)") -s $(srcdir)
+_gcov: GCOV_OPTIONS=-o $(builddir)$(cwdir) -s $(srcdir)$(cwdir)
 _gcov: action:=_gcov
 _gcov: build:=$(action) -f $(makemore) file
 _gcov: _info $(subdir-target) $(gcov-target)
