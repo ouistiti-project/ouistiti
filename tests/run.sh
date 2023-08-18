@@ -69,9 +69,8 @@ WGET=wget
 USER=$(ps -p $$ -o user --no-headers)
 TESTCLIENT="./host/utils/testclient"
 LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/:$TESTDIR../utils/
-LD_PRELOAD=libouistiti.so:libouibsocket.so:libouihash.so:libouiutils.so
 
-export LD_LIBRARY_PATH LD_PRELOAD
+export LD_LIBRARY_PATH
 
 if [ -z "$INFO" ]; then
 CURLOUT="-o /dev/null"
