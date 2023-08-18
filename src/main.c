@@ -241,6 +241,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
 }
 
+#undef BACKTRACE
 static server_t *first = NULL;
 static char run = 0;
 static int g_default_port = 80;
@@ -250,6 +251,7 @@ static void handler(int sig, siginfo_t *UNUSED(si), void *UNUSED(arg))
 static void handler(int sig)
 #endif
 {
+	err("main: signal %d", sig);
 	if (sig == SIGSEGV)
 	{
 #ifdef BACKTRACE
@@ -260,10 +262,10 @@ static void handler(int sig)
 		size = backtrace(array, 10);
 
 		// print out all the frames to stderr
-		err("main: signal %d", sig);
 		backtrace_symbols_fd(array, size, STDERR_FILENO);
 #endif
 #ifdef DEBUG
+		err("main: pausing");
 		pause();
 #else
 		exit(1);
