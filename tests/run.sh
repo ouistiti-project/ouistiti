@@ -294,9 +294,9 @@ if [ ${ALL} -eq 1 ]; then
 fi
 if [ ${GCOV} -eq 1 ]; then
 	make DEBUG=y gcov
-	lcov --directory . -c -o rapport.info
-	genhtml -o ./rapport -t "couverture de code des tests" rapport.info
-	firefox ./rapport/index.html
+	lcov --directory . -c -o gcov.info
+	genhtml -o ./gcov_report -t "couverture de code des tests" gcov.info
+	firefox ./gcov_report/index.html
 fi
 if [ -n "$TESTERROR" ]; then
 	echo $TESTERROR
