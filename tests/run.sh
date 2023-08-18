@@ -94,11 +94,10 @@ start () {
 	TARGET=$1
 	CONFIG=$2
 
-	export OUISTITI_MODULES_PATH=./src:./staging
 	ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
-	ARGUMENTS=$ARGUMENTS" -M \"\""
+	ARGUMENTS=$ARGUMENTS" -M ./src:./staging"
 	ARGUMENTS=$ARGUMENTS" -p ${TESTDIR}run.pid"
 	if [ -n "$INFO" ]; then
 		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
@@ -283,9 +282,10 @@ do
 done
 
 if [ ${ALL} -eq 1 ]; then
-	${SRCDIR}${TARGET} -h
-	${SRCDIR}${TARGET} -V
-	${SRCDIR}${TARGET} -C -f ${TESTDIR}conf/test1.conf
+	ARGUMENTS=" -M ./src:./staging"
+	${SRCDIR}${TARGET} ${ARGUMENTS} -h
+	${SRCDIR}${TARGET} ${ARGUMENTS} -V
+	${SRCDIR}${TARGET} ${ARGUMENTS} -C -f ${TESTDIR}conf/test1.conf
 fi
 if [ ${GCOV} -eq 1 ]; then
 	make DEBUG=y gcov
