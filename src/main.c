@@ -323,29 +323,25 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 
 static int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
 {
-	const module_list_t *iterator = g_modules;
-	while (iterator != NULL)
+	for (const module_list_t *iterator = g_modules; iterator != NULL; iterator = iterator->next)
 	{
 		if (ouistiti_loadmodule(server, iterator->module, configure, parser) == ESUCCESS)
 		{
 			warn(" done");
 		}
-		iterator = iterator->next;
 	}
 	return 0;
 }
 
 void ouistiti_registermodule(const module_t *module)
 {
-	module_list_t *iterator = g_modules;
-	while (iterator != NULL)
+	for (const module_list_t *iterator = g_modules; iterator != NULL; iterator = iterator->next)
 	{
 		if (!strcmp(iterator->module->name, module->name))
 		{
 			warn("module %s loaded twice", module->name);
 			return;
 		}
-		iterator = iterator->next;
 	}
 	module_list_t *new = calloc(1, sizeof(*new));
 	new->module = module;
@@ -360,12 +356,11 @@ const module_list_t *ouistiti_modules(server_t *server)
 
 static void __ouistiti_freemodule()
 {
-	module_list_t *iterator = g_modules;
-	while (iterator != NULL)
+	module_list_t *next;
+	for (module_list_t *iterator = g_modules; iterator != NULL; iterator = next)
 	{
-		module_list_t *next = iterator->next;
+		next = iterator->next;
 		free(iterator);
-		iterator = next;
 	}
 }
 
@@ -442,14 +437,12 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 
 static int main_run(server_t *first)
 {
-	server_t *server = first;
 	/**
 	 * connection must be after the owner change
 	 */
-	while (server != NULL)
+	for (const server_t *server = first; server != NULL; server = server->next)
 	{
 		httpserver_connect(server->server);
-		server = server->next;
 	}
 
 	while(run != 'q')
@@ -457,29 +450,25 @@ static int main_run(server_t *first)
 		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
 			break;
 	}
-
 	return 0;
 }
 
 void main_destroy(server_t *first)
 {
-	server_t *server = first;
-	server = first;
+	server_t *next = NULL;
 
-	while (server != NULL)
+	for (server_t *server = first; server != NULL; server = next)
 	{
-		server_t *next = server->next;
-		int j = 0;
-		while (server->modules[j].obj)
+		next = server->next;
+		for (int j = 0; server->modules[j].obj; j++)
 		{
+			dbg("main: destroy %s", server->modules[j].ops->name);
 			if (server->modules[j].ops->destroy)
 				server->modules[j].ops->destroy(server->modules[j].obj);
-			j++;
 		}
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
 		free(server);
-		server = next;
 	}
 	__ouistiti_freemodule();
 }
