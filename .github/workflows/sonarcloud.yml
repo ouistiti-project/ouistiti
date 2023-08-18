@@ -24,7 +24,7 @@ jobs:
         -D sonar.organization=${{ vars.SONARCLOUD_ORGANIZATION }}
         -D sonar.projectKey=${{ vars.SONARCLOUD_PROJECTKEY }}
         -D sonar.sources=${{ vars.SONARCLOUD_SOURCES }}
-        -D sonar.cfamily.gcov.reportsPath=${{ vars.SONARCLOUD_SOURCES }}
+        -D sonar.cfamily.gcov.reportsPath=.
         -D sonar.cfamily.cache.enabled=false
         -D sonar.sourceEncoding=UTF-8
         -D sonar.scm.exclusions.disabled=true
@@ -52,19 +52,19 @@ jobs:
         id: version
         run: |
           echo "VERSION=$(make version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
-      - name: build
-        run: |
-          ${{ steps.sonarcloud.outputs.build-wrapper-binary }} --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} make DEBUG=y G=1
       - name: build hosttools
         run: |
           make hosttools
+      - name: build
+        run: |
+          ${{ steps.sonarcloud.outputs.build-wrapper-binary }} --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} make DEBUG=y G=1
       - name: run tests
         run: |
           sudo chmod a+w /tmp
           ./tests/run.sh -A || cat /tmp/ouistiti.test
       - name: gcov
         run: |
-          make gcov
+          make DEBUG=y gcov
       - name: options
         id: options
         run: >
