@@ -995,7 +995,7 @@ $(TMPCONFIG): $(DEFCONFIG)
 # recipes) create the .config file with the variables from DEFCONFIG
 _defconfig: action:=_defconfig
 _defconfig: build:=$(action) TMPCONFIG= -f $(makemore) file
-_defconfig: $(CONFIG) $(PATHCACHE) $(subdir-target) _hook;
+_defconfig: $(CONFIG) $(PATHCACHE) $(subdir-target) _hook _configbuild _versionbuild ;
 	@:
 
 .PHONY:_defconfig

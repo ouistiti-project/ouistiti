@@ -23,7 +23,8 @@ export LIBHTTPSERVER_DIR
 
 ifneq ($(wildcard $(LIBHTTPSERVER_DIR)/Makefile),)
 subdir-y+=$(LIBHTTPSERVER_DIR)
-LIBHTTPSERVER_LDFLAGS=-L$(builddir)$(LIBHTTPSERVER_DIR)/src/ -L$(builddir)$(LIBHTTPSERVER_DIR)/src/httpserver
+LIBHTTPSERVER_LDFLAGS+=-L$(builddir)$(LIBHTTPSERVER_DIR)/src/ -L$(builddir)$(LIBHTTPSERVER_DIR)/src/httpserver
+LIBHTTPSERVER_LDFLAGS+=-L${hostobjdir}$(LIBHTTPSERVER_DIR)/src/ -L${hostobjdir}$(LIBHTTPSERVER_DIR)/src/httpserver
 LIBHTTPSERVER_CFLAGS=-I$(srcdir)$(LIBHTTPSERVER_DIR)/include
 endif
 LIBHTTPSERVER_NAME:=$(package)
