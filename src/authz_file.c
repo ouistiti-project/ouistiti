@@ -248,7 +248,7 @@ static int authz_file_setsession(void *arg, const char *user, authsession_t *inf
 		home = ctx->home;
 	strncpy(info->home, home, PATH_MAX);
 	strncpy(info->status, str_status_activated, FIELD_MAX);
-	
+
 	return ESUCCESS;
 }
 
