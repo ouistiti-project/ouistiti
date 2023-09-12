@@ -84,7 +84,7 @@
 typedef struct _mod_auth_s _mod_auth_t;
 typedef struct _mod_auth_ctx_s _mod_auth_ctx_t;
 
-static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
+static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize);
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
@@ -103,7 +103,7 @@ const char str_status_repudiated[] = "repudiated";
 struct _mod_auth_ctx_s
 {
 	_mod_auth_t *mod;
-	http_client_t *ctl;
+	http_client_t *clt;
 	char *authenticate;
 	authsession_t *info;
 	char *authorization;
@@ -594,22 +594,22 @@ static void mod_auth_destroy(void *arg)
 	free(mod);
 }
 
-static void *_mod_auth_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	_mod_auth_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
 
 	ctx->mod = mod;
-	ctx->ctl = ctl;
+	ctx->clt = clt;
 
 	if (mod->authz->type & AUTHZ_HOME_E)
-		httpclient_addconnector(ctl, _home_connector, ctx, CONNECTOR_AUTH, str_auth);
-	httpclient_addconnector(ctl, _authn_connector, ctx, CONNECTOR_AUTH, str_auth);
+		httpclient_addconnector(clt, _home_connector, ctx, CONNECTOR_AUTH, str_auth);
+	httpclient_addconnector(clt, _authn_connector, ctx, CONNECTOR_AUTH, str_auth);
 	/**
 	 * authn may require prioritary connector and it has to be added after this one
 	 */
 	if(mod->authn->rules->setup)
-		mod->authn->rules->setup(mod->authn->ctx, ctl, addr, addrsize);
+		mod->authn->rules->setup(mod->authn->ctx, clt, addr, addrsize);
 
 	return ctx;
 }
@@ -1062,7 +1062,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 
 		if (!strcmp(ctx->info->status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
 		{
-			warn("auth: user \"%s\" accepted from %p to change password", ctx->info->user, ctx->ctl);
+			warn("auth: user \"%s\" accepted from %p to change password", ctx->info->user, ctx->clt);
 			ret = EREJECT;
 		}
 		else if (strcmp(ctx->info->status, str_status_activated) != 0)
@@ -1071,7 +1071,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 		}
 		else
 		{
-			warn("auth: user \"%s\" accepted from %p", ctx->info->user, ctx->ctl);
+			warn("auth: user \"%s\" accepted from %p", ctx->info->user, ctx->clt);
 			ret = EREJECT;
 		}
 	}
@@ -1112,7 +1112,6 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 
 	httpmessage_addheader(response, str_cachecontrol, "no-cache");
 
-	httpmessage_result(response, RESULT_302);
 	ret = ESUCCESS;
 
 	return ret;
@@ -1161,7 +1160,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 				 * the request URI is the URL of the redirection
 				 * the authentication has to accept (this module
 				 * reject to manage the request and another module
-				 * should send response to the request0.
+				 * should send response to the request.
 				 */
 				httpmessage_result(response, RESULT_200);
 				ret = EREJECT;
@@ -1169,6 +1168,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			else if (config->authn.type & AUTHN_REDIRECT_E)
 			{
 				ret = auth_redirect_uri(ctx, request, response);
+				httpmessage_result(response, RESULT_302);
 			}
 			else
 			{
@@ -1281,7 +1281,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else
 	{
-		httpmessage_SESSION(request, str_auth, ctx->info, sizeof(*ctx->info));
+		if (httpclient_setsession(ctx->clt, authorization) == EREJECT)
+		{
+			dbg("auth: session already open");
+		}
+		const authsession_t *info = httpclient_session(ctx->clt, str_auth, sizeof(str_auth) - 1, ctx->info, sizeof(*ctx->info));
+
 		if (ctx->info && mod->authn->type & AUTHN_HEADER_E)
 		{
 			_authn_setauthorization_header(ctx,
