@@ -201,7 +201,7 @@ static void _tls_destroy(void *vctx)
 	free(ctx);
 }
 
-static int _tls_recv(void *vctx, char *data, int size)
+static int _tls_recv(void *vctx, char *data, size_t size)
 {
 	int ret;
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
@@ -239,17 +239,17 @@ static int _tls_recv(void *vctx, char *data, int size)
 	return ret;
 }
 
-static int _tls_send(void *vctx, const char *data, int size)
+static int _tls_send(void *vctx, const char *data, size_t size)
 {
 	int ret = 0;
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
 
 	do {
 		ret = SSL_write(ctx->ssl, (unsigned char *)data, size);
-		tls_dbg("tls: send %d %.*s", ret, size, data);
+		tls_dbg("tls: send %d %.*s", ret, (int)size, data);
 		if (ret < 0)
 		{
-			warn("tls: send %d %.*s", ret, size, data);
+			warn("tls: send %d %.*s", ret, (int)size, data);
 			int error = SSL_get_error(ctx->ssl, ret);
 			if (error == SSL_ERROR_WANT_WRITE ||
 				error == SSL_ERROR_WANT_READ ||
