@@ -453,7 +453,7 @@ static void _tls_destroy(void *vctx)
 	free(ctx);
 }
 
-static int _tls_recv(void *vctx, char *data, int size)
+static int _tls_recv(void *vctx, char *data, size_t size)
 {
 	int ret;
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
@@ -491,7 +491,7 @@ static int _tls_recv(void *vctx, char *data, int size)
 	return ret;
 }
 
-static int _tls_send(void *vctx, const char *data, int size)
+static int _tls_send(void *vctx, const char *data, size_t size)
 {
 	int ret;
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
