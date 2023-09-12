@@ -227,7 +227,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 {
 	const mod_python_config_t *config = mod->config;
 	int ret = EREJECT;
-	char *uri = httpmessage_REQUEST(request,"uri");
+	const char *uri = httpmessage_REQUEST(request,"uri");
 	if (uri && config->docroot)
 	{
 		const char *function = NULL;
@@ -264,7 +264,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		if (uri[length - 1] == '/')
 			length--;
 
-		char *iterator = uri;
+		char *iterator = (char *)uri;
 		while (*iterator != '\0')
 		{
 			if (*iterator == '/')
@@ -327,7 +327,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 static int _python_request(mod_python_ctx_t *ctx, http_message_t *request)
 {
 	int ret = ECONTINUE;
-	char *input = NULL;
+	const char *input = NULL;
 	int inputlen;
 	unsigned long long rest;
 
@@ -352,6 +352,7 @@ static int _python_request(mod_python_ctx_t *ctx, http_message_t *request)
 	return ret;
 }
 
+#if 0
 static void _python_is(const char * name,PyObject *obj)
 {
 	dbg("%s", name);
@@ -371,10 +372,10 @@ static void _python_is(const char * name,PyObject *obj)
 		dbg("\tis null");
 	}
 }
+#endif
 
 static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 {
-	_mod_python_t *mod = ctx->mod;
 	int ret = ECONTINUE;
 	ctx->state = STATE_CONTENTCOMPLETE;
 
@@ -552,7 +553,7 @@ static void __attribute__ ((destructor)) _mod_python_finalize(void);
 
 static void _mod_python_init(void)
 {
-	Py_SetProgramName("ouistiti");
+	Py_SetProgramName(L"ouistiti");
 	Py_Initialize();
 }
 
