@@ -36,7 +36,8 @@ servers= ({
 			},{
 				options = "permanently";
 				defaultpage = "index.html";
-				origin = "*/";
+				destination = "error_404.html";
+				origin = 404;
 			});
 		};
 		forward = {

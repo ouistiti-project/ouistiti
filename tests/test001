@@ -1,5 +1,4 @@
 DESC="Parsing: request with relative (bad) URI"
 CONFIG=test1.conf
-TESTCODE=400
-TESTCONTENTLEN=0
-TESTRESPONSE=error400_rs.txt
+TESTCODE=301
+TESTRESPONSE=error414_redirect_rs.txt

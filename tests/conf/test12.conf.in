@@ -26,6 +26,7 @@ servers= ({
 		};
 		redirect = {
 			links = ({
+				options = "query,temporary";
 				origin = "^/token";
 			});
 		};

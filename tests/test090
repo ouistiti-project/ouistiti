@@ -1,4 +1,4 @@
 DESC="Check System file access throught filters"
 CONFIG=test12.conf
-TESTRESPONSE=error403_rs.txt
-TESTCODE=403
+TESTCODE=414
+TESTRESPONSE=error414_rs.txt
