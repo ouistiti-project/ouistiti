@@ -157,7 +157,7 @@ static int _document_docroot(_mod_document_mod_t *mod,
 		}
 		if (fdroot == -1)
 		{
-			err("document: user %s home directory not found from %s", user, getenv("PWD"));
+			err("document: user '%s' home '%s' directory not found from %s", user, home, getenv("PWD"));
 			fdroot = EREJECT;
 		}
 	}
@@ -656,8 +656,8 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 #ifdef DOCUMENTREST
 	if (config->options & DOCUMENT_REST)
 	{
-		httpserver_addmethod(server, str_put, MESSAGE_PROTECTED | MESSAGE_ALLOW_CONTENT);
-		httpserver_addmethod(server, str_delete, MESSAGE_PROTECTED);
+		httpserver_addmethod(server, METHOD(str_put), MESSAGE_PROTECTED | MESSAGE_ALLOW_CONTENT);
+		httpserver_addmethod(server, METHOD(str_delete), MESSAGE_PROTECTED);
 	}
 #endif
 	return mod;

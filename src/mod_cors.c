@@ -157,7 +157,7 @@ static void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 
 	mod->config = config;
 
-	httpserver_addmethod(server, str_options, 0);
+	httpserver_addmethod(server, METHOD(str_options), 0);
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
 	return mod;
 }
