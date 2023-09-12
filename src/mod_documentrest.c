@@ -87,7 +87,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	 * Then the first loop as to complete on the opening
 	 */
 
-	char *input;
+	const char *input;
 	unsigned long long inputlen;
 	/**
 	 * rest = 1 to close the connection on end of file or
