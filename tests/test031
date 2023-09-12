@@ -1,5 +1,5 @@
 DESC="test to access to a forbidden file"
 CONFIG=test1.conf
-TESTCODE=404
 TESTREQUEST=test013_rq.txt
-TESTRESPONSE=error404_rs.txt
+TESTCODE=301
+TESTRESPONSE=error404_redirect_rs.txt

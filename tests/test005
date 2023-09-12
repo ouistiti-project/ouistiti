@@ -1,3 +1,4 @@
 DESC="Document: request for an unexisted file"
 CONFIG=test1.conf
-TESTCODE=404
+TESTCODE=301
+TESTRESPONSE=error414_redirect_rs.txt

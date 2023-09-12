@@ -39,7 +39,8 @@ extern "C"
 typedef struct mod_redirect_link_s mod_redirect_link_t;
 struct mod_redirect_link_s
 {
-	char *origin;
+	const char *origin;
+	int result;
 	const char *destination;
 	int options;
 	const char *defaultpage;
@@ -51,6 +52,7 @@ struct mod_redirect_link_s
 #define REDIRECT_PERMANENTLY	0x0008
 #define REDIRECT_TEMPORARY		0x0010
 #define REDIRECT_ERROR			0x0020
+#define REDIRECT_QUERY			0x0040
 typedef struct mod_redirect_s
 {
 	int options;

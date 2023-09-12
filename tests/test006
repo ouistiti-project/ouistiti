@@ -1,3 +1,4 @@
 DESC="test request with empty URI"
 CONFIG=test1.conf
-TESTCODE=404
+TESTCODE=301
+TESTRESPONSE=defaultpage_rs.txt
