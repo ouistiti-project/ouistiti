@@ -105,16 +105,19 @@ static serverconfig_t *config_server(config_setting_t *iterator, config_t *confi
 	config_setting_lookup_string(iterator, "version", &version);
 	if (version)
 	{
-		for (int i = 0; httpversion[i] != NULL; i++)
+		const char *version_test = NULL;
+		httpserver_version(0, &version_test);
+		for (int i = 0; version_test != NULL; i++)
 		{
-			if (!strcmp(version,  httpversion[i]))
+			if (!strcmp(version_test,  version))
 			{
 				config->server->version = i;
+				config->server->versionstr = version_test;
 				break;
 			}
+			httpserver_version(i + 1, &version_test);
 		}
 	}
-	config->server->versionstr = httpversion[config->server->version];
 	config_setting_lookup_string(iterator, "root", &config->root);
 	config->modulesconfig = iterator;
 	config->configfile = configfile;
