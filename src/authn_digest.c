@@ -188,13 +188,19 @@ static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * 
 	httpmessage_addheader(response, str_authenticate, "Digest ");
 	if (mod->config->realm != NULL && mod->config->realm[0] != 0)
 	{
-		httpmessage_appendheader(response, str_authenticate,
-				"realm=\"", mod->config->realm, "\"", NULL);
+		httpmessage_appendheader(response, str_authenticate, "realm=\"");
+		httpmessage_appendheader(response, str_authenticate, mod->config->realm);
+		httpmessage_appendheader(response, str_authenticate, "\"");
 	}
-	httpmessage_appendheader(response, str_authenticate,
-				",qop=\"auth\",nonce=\"", mod->nonce,
-				"\",opaque=\"", mod->opaque,
-				"\",stale=", (mod->stale)?"true":"false", NULL);
+	httpmessage_appendheader(response, str_authenticate, ",qop=\"auth\",nonce=\"");
+	httpmessage_appendheader(response, str_authenticate, mod->nonce);
+	httpmessage_appendheader(response, str_authenticate, "\",opaque=\"");
+	httpmessage_appendheader(response, str_authenticate, mod->opaque);
+	httpmessage_appendheader(response, str_authenticate, "\",stale=");
+	if (mod->stale)
+		httpmessage_appendheader(response, str_authenticate, "true");
+	else
+		httpmessage_appendheader(response, str_authenticate, "false");
 }
 
 static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), http_message_t *response)
@@ -214,8 +220,8 @@ static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), ht
 		 * this adds a second WWW-AUTHENTICATE header with algorithm
 		 */
 		authn_digest_www_authenticate(mod, response);
-		httpmessage_appendheader(response, str_authenticate,
-				",algorithm=", mod->hash->name, "", NULL);
+		httpmessage_appendheader(response, str_authenticate, ",algorithm=");
+		httpmessage_appendheader(response, str_authenticate, mod->hash->name);
 	}
 
 #ifdef DEBUG

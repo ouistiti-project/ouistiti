@@ -188,7 +188,9 @@ static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const 
 			httpmessage_addheader(response, str_location, "/");
 		else
 			httpmessage_addheader(response, str_location, "");
-		httpmessage_appendheader(response, str_location, url, "/", config->defaultpage, NULL);
+		httpmessage_appendheader(response, str_location, url);
+		httpmessage_appendheader(response, str_location, "/");
+		httpmessage_appendheader(response, str_location, config->defaultpage);
 	}
 	return fdfile;
 }
