@@ -279,16 +279,16 @@ static int _mod_redirect_connector404(_mod_redirect_t *mod, http_message_t *requ
 	{
 		httpmessage_addheader(response, str_location, "");
 		if (urilen > 0 && uri[0] != '/')
-			httpmessage_appendheader(response, str_location, uri, "/", NULL);
-		if (urilen > 0)
 		{
-			httpmessage_appendheader(response, str_location, uri, NULL);
+			httpmessage_appendheader(response, str_location, "/");
 		}
+		if (urilen > 0)
+			httpmessage_appendheader(response, str_location, uri);
 		if (link->defaultpage[0] != '/' && (urilen == 0 || uri[urilen - 1] != '/'))
 		{
-			httpmessage_appendheader(response, str_location, uri, "/", NULL);
+			httpmessage_appendheader(response, str_location, "/");
 		}
-		httpmessage_appendheader(response, str_location, link->defaultpage, NULL);
+		httpmessage_appendheader(response, str_location, link->defaultpage);
 		ret = ESUCCESS;
 	}
 	/**
@@ -328,7 +328,7 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 			httpmessage_addheader(response, str_location, link->destination);
 			if (path_info != NULL)
 			{
-				httpmessage_appendheader(response, str_location, path_info, NULL);
+				httpmessage_appendheader(response, str_location, path_info);
 			}
 			ret = ESUCCESS;
 		}

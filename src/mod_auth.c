@@ -650,7 +650,7 @@ static int _home_connector(void *UNUSED(arg), http_message_t *request, http_mess
 			dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)
 			httpmessage_addheader(response, str_location, home);
-			httpmessage_appendheader(response, str_location, "/", NULL);
+			httpmessage_appendheader(response, str_location, "/");
 			httpmessage_result(response, RESULT_301);
 			ret = ESUCCESS;
 #endif
@@ -991,7 +991,8 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 				int signlen = hash_macsha256->finish(hctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
-				httpmessage_appendheader(response, str_xtoken, ".", b64signature, NULL);
+				httpmessage_appendheader(response, str_xtoken, ".");
+				httpmessage_appendheader(response, str_xtoken, b64signature);
 				if (mod->authz->rules->join)
 					mod->authz->rules->join(mod->authz->ctx, info->user, b64signature, mod->config->expire);
 			}
@@ -1092,22 +1093,29 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 			utils_searchexp(uri, config->protect, NULL) != ESUCCESS)
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
+		httpmessage_appendheader(response, str_location, "?redirect_uri=");
 		const char *scheme = httpserver_INFO(server, "scheme");
+		httpmessage_appendheader(response, str_location, scheme);
+		httpmessage_appendheader(response, str_location, "://");
 		const char *host = httpserver_INFO(server, "host");
-		if (host == NULL)
+		if (host == NULL || host[0] == '\0')
 		{
 			host = httpmessage_SERVER(request, "addr");
 		}
+		httpmessage_appendheader(response, str_location, host);
 		const char *port = httpserver_INFO(server, "port");
-		const char *portseparator = "";
-		if (port[0] != '\0')
-			portseparator = ":";
+		if (port && port[0] != '\0')
+		{
+			httpmessage_appendheader(response, str_location, ":");
+			httpmessage_appendheader(response, str_location, port);
+		}
+		httpmessage_appendheader(response, str_location, uri);
 		const char *query = httpmessage_REQUEST(request, "query");
-		const char *queryseparator = "";
-		if (query[0] != '\0')
-			queryseparator = "?";
-		httpmessage_appendheader(response, str_location, "?redirect_uri=",
-			scheme, "://", host, portseparator, port, uri, queryseparator, query, NULL);
+		if (query && query[0] != '\0')
+		{
+			httpmessage_appendheader(response, str_location, "?");
+			httpmessage_appendheader(response, str_location, query);
+		}
 	}
 
 	httpmessage_addheader(response, str_cachecontrol, "no-cache");
