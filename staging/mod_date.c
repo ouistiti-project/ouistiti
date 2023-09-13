@@ -56,11 +56,15 @@ static int _date_connector(void *arg, http_message_t *request, http_message_t *r
 
 	t = time(NULL);
 	tmp = gmtime(&t);
-	char timestring[26]
+	char timestring[26];
+	int len = -1;
+#ifdef USE_ASCTIME
 	asctime_r(tm, timestring);
-	//strftime(timestring, 25, "%a, %d %b %Y %T GMT", tmp);
+#else
+	len = strftime(timestring, 25, "%a, %d %b %Y %T GMT", tmp);
+#endif
 
-	httpmessage_addheader(response, str_date, timestring);
+	httpmessage_addheader(response, str_date, timestring, len);
 	/* reject the request to allow other connectors to set the response */
 	return EREJECT;
 }

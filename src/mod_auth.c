@@ -649,8 +649,8 @@ static int _home_connector(void *UNUSED(arg), http_message_t *request, http_mess
 		{
 			dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)
-			httpmessage_addheader(response, str_location, home);
-			httpmessage_appendheader(response, str_location, "/");
+			httpmessage_addheader(response, str_location, home, -1);
+			httpmessage_appendheader(response, str_location, STRING_REF("/"));
 			httpmessage_result(response, RESULT_301);
 			ret = ESUCCESS;
 #endif
@@ -979,7 +979,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
 		char *token = mod->authz->generatetoken(mod->config, info);
-		httpmessage_addheader(response, str_xtoken, token);
+		httpmessage_addheader(response, str_xtoken, token, -1);
 		const char *key = ctx->mod->config->secret;
 		if (hash_macsha256 != NULL && key != NULL)
 		{
@@ -990,9 +990,9 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 				char signature[HASH_MAX_SIZE];
 				int signlen = hash_macsha256->finish(hctx, signature);
 				char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
-				base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
-				httpmessage_appendheader(response, str_xtoken, ".");
-				httpmessage_appendheader(response, str_xtoken, b64signature);
+				signlen = base64_urlencoding->encode(signature, signlen, b64signature, sizeof(b64signature));
+				httpmessage_appendheader(response, str_xtoken, STRING_REF("."));
+				httpmessage_appendheader(response, str_xtoken, b64signature, signlen);
 				if (mod->authz->rules->join)
 					mod->authz->rules->join(mod->authz->ctx, info->user, b64signature, mod->config->expire);
 			}
@@ -1000,24 +1000,24 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		else if (mod->authz->rules->join)
 			mod->authz->rules->join(mod->authz->ctx, info->user, token, mod->config->expire);
 		free(token);
-		httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xtoken);
+		httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xtoken));
 	}
 	else
 #endif
 	if (authorization != NULL)
 	{
-		httpmessage_addheader(response, str_authorization, authorization);
+		httpmessage_addheader(response, str_authorization, authorization, -1);
 	}
-	httpmessage_addheader(response, str_xuser, info->user);
-	httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xuser);
+	httpmessage_addheader(response, str_xuser, info->user, -1);
+	httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xuser));
 	if (info->group[0] != '\0')
 	{
-		httpmessage_addheader(response, str_xgroup, info->group);
-		httpmessage_addheader(response, "Access-Control-Expose-Headers", str_xgroup);
+		httpmessage_addheader(response, str_xgroup, info->group, -1);
+		httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xgroup));
 	}
 	if (info->home[0] != '\0')
 	{
-		httpmessage_addheader(response, str_xhome, "~/");
+		httpmessage_addheader(response, str_xhome, STRING_REF("~/"));
 	}
 	return ESUCCESS;
 }
@@ -1085,40 +1085,41 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
-	httpmessage_addheader(response, str_location, config->redirect);
+	httpmessage_addheader(response, str_location, config->redirect, -1);
 
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	const char *query = httpmessage_REQUEST(request, "query");
+	const char *uri = NULL;
+	int urilen = httpmessage_REQUEST2(request, "uri", &uri);
+	const char *query = NULL;
+	int querylen = httpmessage_REQUEST2(request, "query", &query);
 	if (utils_searchexp(query, "noredirect", NULL) != ESUCCESS &&
 			utils_searchexp(uri, config->protect, NULL) != ESUCCESS)
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
-		httpmessage_appendheader(response, str_location, "?redirect_uri=");
+		httpmessage_appendheader(response, str_location, STRING_REF("?redirect_uri="));
 		const char *scheme = httpserver_INFO(server, "scheme");
-		httpmessage_appendheader(response, str_location, scheme);
-		httpmessage_appendheader(response, str_location, "://");
+		httpmessage_appendheader(response, str_location, scheme, -1);
+		httpmessage_appendheader(response, str_location, STRING_REF("://"));
 		const char *host = httpserver_INFO(server, "host");
 		if (host == NULL || host[0] == '\0')
 		{
 			host = httpmessage_SERVER(request, "addr");
 		}
-		httpmessage_appendheader(response, str_location, host);
+		httpmessage_appendheader(response, str_location, host, -1);
 		const char *port = httpserver_INFO(server, "port");
 		if (port && port[0] != '\0')
 		{
-			httpmessage_appendheader(response, str_location, ":");
-			httpmessage_appendheader(response, str_location, port);
+			httpmessage_appendheader(response, str_location, STRING_REF(":"));
+			httpmessage_appendheader(response, str_location, port, -1);
 		}
-		httpmessage_appendheader(response, str_location, uri);
-		const char *query = httpmessage_REQUEST(request, "query");
+		httpmessage_appendheader(response, str_location, uri, urilen);
 		if (query && query[0] != '\0')
 		{
-			httpmessage_appendheader(response, str_location, "?");
-			httpmessage_appendheader(response, str_location, query);
+			httpmessage_appendheader(response, str_location, STRING_REF("?"));
+			httpmessage_appendheader(response, str_location, query, querylen);
 		}
 	}
 
-	httpmessage_addheader(response, str_cachecontrol, "no-cache");
+	httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
 
 	ret = ESUCCESS;
 
@@ -1180,8 +1181,8 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			}
 			else
 			{
-				httpmessage_addheader(response, str_location, config->redirect);
-				httpmessage_addheader(response, str_cachecontrol, "no-cache");
+				httpmessage_addheader(response, str_location, config->redirect, -1);
+				httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
 				httpmessage_result(response, RESULT_302);
 				ret = ESUCCESS;
 			}

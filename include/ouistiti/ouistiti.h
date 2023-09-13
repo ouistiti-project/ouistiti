@@ -89,4 +89,6 @@ const module_list_t *ouistiti_modules(server_t *server);
 int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);
 
+#define STRING_REF(string) string, sizeof(string)-1
+
 #endif

@@ -252,9 +252,10 @@ static int _mod_redirect_connectorlinkquery(_mod_redirect_t *mod, http_message_t
 		int result = mod->result;
 		redirect += 13;
 		char *end = strchr(redirect, '&');
+		int length = strlen(redirect);
 		if (end != NULL)
-			*end = '\0';
-		httpmessage_addheader(response, str_location, redirect);
+			length = end - redirect;
+		httpmessage_addheader(response, str_location, redirect, length);
 		return ESUCCESS;
 	}
 	return ECONTINUE;
@@ -277,18 +278,18 @@ static int _mod_redirect_connector404(_mod_redirect_t *mod, http_message_t *requ
 	 */
 	if (link->defaultpage != NULL && (uri[0] == '\0' || uri[urilen - 1] == '/'))
 	{
-		httpmessage_addheader(response, str_location, "");
+		httpmessage_addheader(response, str_location, STRING_REF(""));
 		if (urilen > 0 && uri[0] != '/')
 		{
-			httpmessage_appendheader(response, str_location, "/");
+			httpmessage_appendheader(response, str_location, STRING_REF("/"));
 		}
 		if (urilen > 0)
-			httpmessage_appendheader(response, str_location, uri);
+			httpmessage_appendheader(response, str_location, uri, urilen);
 		if (link->defaultpage[0] != '/' && (urilen == 0 || uri[urilen - 1] != '/'))
 		{
-			httpmessage_appendheader(response, str_location, "/");
+			httpmessage_appendheader(response, str_location, STRING_REF("/"));
 		}
-		httpmessage_appendheader(response, str_location, link->defaultpage);
+		httpmessage_appendheader(response, str_location, link->defaultpage, -1);
 		ret = ESUCCESS;
 	}
 	/**
@@ -297,7 +298,7 @@ static int _mod_redirect_connector404(_mod_redirect_t *mod, http_message_t *requ
 	else if (link->destination != NULL &&
 			utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
 	{
-		httpmessage_addheader(response, str_location, link->destination);
+		httpmessage_addheader(response, str_location, link->destination, -1);
 		ret = ESUCCESS;
 	}
 	if (ret == ESUCCESS)
@@ -325,10 +326,10 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 		if (link->destination != NULL &&
 				utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
 		{
-			httpmessage_addheader(response, str_location, link->destination);
+			httpmessage_addheader(response, str_location, link->destination, -1);
 			if (path_info != NULL)
 			{
-				httpmessage_appendheader(response, str_location, path_info);
+				httpmessage_appendheader(response, str_location, path_info, -1);
 			}
 			ret = ESUCCESS;
 		}
@@ -372,7 +373,8 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 {
 	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
 	mod_redirect_t *config = mod->config;
-	const char *uri = httpmessage_REQUEST(request, "uri");
+	const char *uri = NULL;
+	int urilen = httpmessage_REQUEST2(request, "uri", &uri);
 
 	if (config->options & REDIRECT_HSTS)
 	{
@@ -384,7 +386,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 		}
 		else
 		{
-			httpmessage_addheader(response, "Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+			httpmessage_addheader(response, "Strict-Transport-Security", STRING_REF("max-age=31536000; includeSubDomains"));
 		}
 	}
 	if (config->options & REDIRECT_GENERATE204)
@@ -445,7 +447,7 @@ static int _mod_redirect_connectorerror(void *arg, http_message_t *request, http
 			if (link->destination != NULL &&
 					utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
 			{
-				httpmessage_addheader(response, str_location, link->destination);
+				httpmessage_addheader(response, str_location, link->destination, -1);
 				httpmessage_result(response, result);
 				ret = ESUCCESS;
 			}

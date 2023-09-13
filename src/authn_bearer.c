@@ -77,9 +77,9 @@ static int authn_bearer_challenge(void *arg, http_message_t *UNUSED(request), ht
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
 	const authn_bearer_config_t *config = mod->config;
 
-	httpmessage_addheader(response, str_authenticate, "Bearer realm=\"");
-	httpmessage_appendheader(response, str_authenticate, config->realm);
-	httpmessage_appendheader(response, str_authenticate, "\"");
+	httpmessage_addheader(response, str_authenticate, STRING_REF("Bearer realm=\""));
+	httpmessage_appendheader(response, str_authenticate, config->realm, -1);
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	return ret;
 }
 

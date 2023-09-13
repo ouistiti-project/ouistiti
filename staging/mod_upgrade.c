@@ -209,8 +209,8 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 		}
 		else if (ret == ECONTINUE)
 		{
-			httpmessage_addheader(response, str_connection, str_upgrade);
-			httpmessage_addheader(response, str_upgrade, mod->upgrade);
+			httpmessage_addheader(response, str_connection, STRING_REF(str_upgrade));
+			httpmessage_addheader(response, str_upgrade, mod->upgrade, -1);
 			/** disable Content-Type and Content-Length inside the headers **/
 			httpmessage_addcontent(response, "none", NULL, -1);
 			httpmessage_result(response, RESULT_101);
