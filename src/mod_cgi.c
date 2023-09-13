@@ -369,9 +369,9 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 {
 	int ret = ECONTINUE;
-	char *input = NULL;
+	const char *input = NULL;
 	int inputlen;
-	unsigned long long rest;
+	size_t rest;
 
 	inputlen = httpmessage_content(request, &input, &rest);
 	if (inputlen > 0)
@@ -521,7 +521,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	}
 	else if ((ctx->state & STATE_MASK) == STATE_OUTFINISH)
 	{
-		unsigned long long length;
+		size_t length;
 		ret = httpmessage_content(response, NULL, &length);
 		cgi_dbg("content len %d %llu", ret, length);
 		if (ret == 0)

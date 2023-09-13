@@ -93,7 +93,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	 * rest = 1 to close the connection on end of file or
 	 * on connection error
 	 */
-	long long rest = 1;
+	size_t rest = 1;
 	inputlen = httpmessage_content(request, &input, &rest);
 	document_dbg("document: put %lld bytes into file", inputlen);
 
