@@ -105,19 +105,7 @@ struct _mod_webstream_ctx_s
 
 static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
 
-/**
- * strings defined in libouistiti
- */
-extern const char str_contenttype[];
-extern const char str_contentlength[];
-
-const char str_contenttype[] = "Content-Type";
-const char str_contentlength[] = "Content-Length";
-const char str_date[] = "Date";
-
 static const char str_webstream[] = "webstream";
-static const char str_multipart_replace[] = "multipart/x-mixed-replace";
-static const char str_boundary[] = "FRAME";
 
 static int _checkname(_mod_webstream_ctx_t *ctx, const char *pathname)
 {

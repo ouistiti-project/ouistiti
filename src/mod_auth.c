@@ -93,12 +93,6 @@ static char *authz_generatetoken(const mod_auth_t *mod, const authsession_t *inf
 #endif
 
 static const char str_auth[] = "auth";
-static const char str_cachecontrol[] = "Cache-Control";
-
-const char str_status_approving[] = "approving";
-const char str_status_reapproving[] = "reapproving";
-const char str_status_activated[] = "activated";
-const char str_status_repudiated[] = "repudiated";
 
 struct _mod_auth_ctx_s
 {
@@ -121,11 +115,6 @@ struct _mod_auth_s
 const char str_authenticate[] = "WWW-Authenticate";
 const char str_authorization[] = "Authorization";
 const char str_anonymous[] = "anonymous";
-
-static const char str_xtoken[] = "X-Auth-Token";
-static const char str_xuser[] = "X-Remote-User";
-static const char str_xgroup[] = "X-Remote-Group";
-static const char str_xhome[] = "X-Remote-Home";
 
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE

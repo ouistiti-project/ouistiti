@@ -57,8 +57,6 @@
 #define python_dbg dbg
 
 static const char str_python[] = "python";
-static const char str_contenttype[] = "Content-Type";
-static const char str_contentlength[] = "Content-Length";
 
 typedef struct mod_cgi_config_s mod_python_config_t;
 typedef struct _mod_python_s _mod_python_t;

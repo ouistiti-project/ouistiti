@@ -51,11 +51,6 @@ static const char *str_authresp = "/auth/resp";
 static const char *str_oauth2 = "oauth2";
 static const char *str_auth = "auth";
 
-static const char *str_authorization_code = "code";
-static const char *str_access_token = "access_token";
-static const char *str_state = "session_state";
-static const char *str_expires = "expires";
-
 typedef struct authn_oauth2_s authn_oauth2_t;
 struct authn_oauth2_s
 {

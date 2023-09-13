@@ -81,8 +81,6 @@ struct _mod_upgrade_ctx_s
 	pid_t pid;
 };
 
-static const char str_connection[] = "Connection";
-static const char str_upgrade[] = "Upgrade";
 const char str_rhttp[] = "PTTH/1.0";
 
 static int default_upgrade_run(void *arg, int sock, http_message_t *request);

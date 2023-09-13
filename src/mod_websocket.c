@@ -93,16 +93,9 @@ struct _mod_websocket_ctx_s
 	pid_t pid;
 };
 
-static const char str_connection[] = "Connection";
-static const char str_upgrade[] = "Upgrade";
-static const char str_websocket[] = "websocket";
-static const char str_protocol[] = "Sec-WebSocket-Protocol";
-static const char str_accept[] = "Sec-WebSocket-Accept";
-static const char str_key[] = "Sec-WebSocket-Key";
-
 static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_message_t *request, http_message_t *response)
 {
-	const char *key = httpmessage_REQUEST(request, str_key);
+	const char *key = httpmessage_REQUEST(request, str_sec_ws_key);
 	if (key && key[0] != 0)
 	{
 		char accept[20] = {0};
@@ -116,7 +109,7 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_mes
 		int outlen = base64->encode(accept, hash_sha1->size, out, 40);
 		websocket_dbg("websocket: handshake %s", out);
 
-		httpmessage_addheader(response, str_accept, out, outlen);
+		httpmessage_addheader(response, str_sec_ws_accept, out, outlen);
 	}
 }
 
@@ -186,7 +179,7 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 		warn("websocket: %s forbidden", uri);
 		return EREJECT;
 	}
-	const char *protocol = httpmessage_REQUEST(request, str_protocol);
+	const char *protocol = httpmessage_REQUEST(request, str_sec_ws_protocol);
 	if (protocol[0] == '\0')
 		protocol = NULL;
 
@@ -219,7 +212,7 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 
 	if (protocol != NULL)
 	{
-		httpmessage_addheader(response, str_protocol, protocol, -1);
+		httpmessage_addheader(response, str_sec_ws_protocol, protocol, -1);
 		warn("websocket: protocol returns %s", protocol);
 	}
 
