@@ -187,14 +187,13 @@ static json_t *_oauth2_authresp_send(authn_oauth2_t *mod, http_message_t *reques
 		const char *type = "authorization_code"; /** RFC6749 4.1.2 */
 
 
-		httpmessage_addheader(request2, str_authorization, "Basic ");
+		httpmessage_addheader(request2, str_authorization, STRING_REF("Basic "));
 
 		char authorization[256] = {0};
 		char basic[164];
 		snprintf(basic, 164, "%s:%s", config->client_id, config->client_passwd);
-		int length = strlen(basic) * 1.5 + 5;
-		base64_urlencoding->encode(basic, strlen(basic), authorization, 256);
-		httpmessage_appendheader(request2, str_authorization, authorization, NULL);
+		int length = base64_urlencoding->encode(basic, strlen(basic), authorization, 256);
+		httpmessage_appendheader(request2, str_authorization, authorization, length);
 
 		response2 = httpmessage_create();
 
@@ -213,27 +212,27 @@ static json_t *_oauth2_authresp_send(authn_oauth2_t *mod, http_message_t *reques
 			host = httpmessage_SERVER(request, "addr");
 		}
 		const char *port = httpserver_INFO(server, "port");
-		_json_load_data.content += httpmessage_addcontent(request2, "application/x-www-form-urlencoded", "grant_type=", -1);
+		_json_load_data.content += httpmessage_addcontent(request2, "application/x-www-form-urlencoded", STRING_REF("grant_type="));
 		_json_load_data.content += httpmessage_appendcontent(request2, type, -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, "&code=", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&code="));
 		_json_load_data.content += httpmessage_appendcontent(request2, code, -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, "&client_id=", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&client_id="));
 		_json_load_data.content += httpmessage_appendcontent(request2, config->client_id, -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, "&scope=openid roles profile", -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, "&redirect_uri=", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&scope=openid roles profile"));
+		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&redirect_uri="));
 		_json_load_data.content += httpmessage_appendcontent(request2, scheme, -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, "://", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("://"));
 		_json_load_data.content += httpmessage_appendcontent(request2, host, -1);
 		if (port[0] != '\0')
 		{
-			_json_load_data.content += httpmessage_appendcontent(request2, ":", -1);
+			_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF(":"));
 			_json_load_data.content += httpmessage_appendcontent(request2, port, -1);
 		}
-		_json_load_data.content += httpmessage_appendcontent(request2, str_authresp, -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, "&state=", -1);
+		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF(str_authresp));
+		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&state="));
 		char state[4] = {0};
-		snprintf(state, 4, "%.3d", mod->state);
-		_json_load_data.content += httpmessage_appendcontent(request2, state, -1);
+		int statelen = snprintf(state, 4, "%.3d", mod->state);
+		_json_load_data.content += httpmessage_appendcontent(request2, state, statelen);
 
 		/**
 		 * send checking request to the authmanager
@@ -355,13 +354,15 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 		{
 			httpmessage_SESSION(request, str_auth, &authinfo, sizeof(authinfo));
 
-			httpmessage_addheader(response, str_authorization, "oAuth2 ");
-			httpmessage_appendheader(response, str_authorization, authinfo.token);
+			httpmessage_addheader(response, str_authorization, STRING_REF("oAuth2 "));
+			httpmessage_appendheader(response, str_authorization, authinfo.token, -1);
 
 			const char *scheme = httpmessage_REQUEST(request, "scheme");
-			httpmessage_addheader(response, str_location, scheme);
+			httpmessage_addheader(response, str_location, scheme, -1);
 			const char *host = httpmessage_REQUEST(request, "host");
-			httpmessage_appendheader(response, str_location, "://", host, "/", NULL);
+			httpmessage_appendheader(response, str_location, STRING_REF("://"));
+			httpmessage_appendheader(response, str_location, host, -1);
+			httpmessage_appendheader(response, str_location, STRING_REF("/"));
 			httpmessage_result(response, RESULT_302);
 
 			ret = ESUCCESS;
@@ -418,8 +419,8 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	char authenticate[256];
-	snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
-	httpmessage_addheader(response, str_authenticate, authenticate);
+	int authlen = snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
+	httpmessage_addheader(response, str_authenticate, authenticate, authlen);
 
 	if (!utils_searchexp(uri, str_authresp, NULL))
 	{
@@ -430,19 +431,27 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 		http_server_t *server = httpclient_server(mod->clt);
 		const char *scheme = httpserver_INFO(server, "scheme");
 		const char *host = httpserver_INFO(server, "host");
-		const char *port = httpserver_INFO(server, "port");
 
 		const char *portseparator = "";
-		if (port[0] != '\0')
 			portseparator = ":";
-		httpmessage_addheader(response, str_location, config->auth_ep);
-		httpmessage_appendheader(response, str_location, "?",
-								"response_type=code&",
-								"scope=openid roles&",
-								"client_id=",config->client_id,"&",
-								"redirect_uri=", scheme, host, portseparator, port, "/", str_authresp,
-								NULL
-								);
+		httpmessage_addheader(response, str_location, config->auth_ep, -1);
+		httpmessage_appendheader(response, str_location, STRING_REF("?"));
+		httpmessage_appendheader(response, str_location, STRING_REF("response_type=code&"));
+		httpmessage_appendheader(response, str_location, STRING_REF("scope=openid roles&"));
+		httpmessage_appendheader(response, str_location, STRING_REF("client_id="));
+		httpmessage_appendheader(response, str_location, config->client_id, -1);
+		httpmessage_appendheader(response, str_location, STRING_REF("&"));
+		httpmessage_appendheader(response, str_location, STRING_REF("redirect_uri="));
+		httpmessage_appendheader(response, str_location, scheme, -1);
+		httpmessage_appendheader(response, str_location, host, -1);
+		const char *port = httpserver_INFO(server, "port");
+		if (port[0] != '\0')
+		{
+			httpmessage_appendheader(response, str_location, STRING_REF(":"));
+			httpmessage_appendheader(response, str_location, port, -1);
+		}
+		httpmessage_appendheader(response, str_location, STRING_REF("/"));
+		httpmessage_appendheader(response, str_location, STRING_REF(str_authresp));
 		httpmessage_result(response, RESULT_302);
 		ret = ESUCCESS;
 	}

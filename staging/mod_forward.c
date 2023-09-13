@@ -230,7 +230,7 @@ static mod_forward_ctx_t * _mod_forward_connectorlink(mod_forward_t *mod, http_m
 		}
 		if (ctx->client != NULL)
 		{
-			httpmessage_appendheader(ctx->request, "User-Agent", PACKAGE_NAME "/" PACKAGE_VERSION);
+			httpmessage_appendheader(ctx->request, "User-Agent", STRING_REF(PACKAGE_NAME "/" PACKAGE_VERSION));
 		}
 	}
 	return ctx;

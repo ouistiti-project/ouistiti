@@ -129,8 +129,8 @@ static int authn_digest_noncetime(void *arg, char *nonce, size_t noncelen)
 			if ((signlen * 1.5) > noncelen)
 				signlen = noncelen / 1.5;
 #endif
-			base64_urlencoding->encode(signature, signlen, nonce, noncelen);
-			return ESUCCESS;
+			signlen = base64_urlencoding->encode(signature, signlen, nonce, noncelen);
+			return signlen;
 		}
 	}
 	return EREJECT;
@@ -185,22 +185,22 @@ static int authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct sock
 
 static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)
 {
-	httpmessage_addheader(response, str_authenticate, "Digest ");
+	httpmessage_addheader(response, str_authenticate, STRING_REF("Digest "));
 	if (mod->config->realm != NULL && mod->config->realm[0] != 0)
 	{
-		httpmessage_appendheader(response, str_authenticate, "realm=\"");
-		httpmessage_appendheader(response, str_authenticate, mod->config->realm);
-		httpmessage_appendheader(response, str_authenticate, "\"");
+		httpmessage_appendheader(response, str_authenticate, STRING_REF("realm=\""));
+		httpmessage_appendheader(response, str_authenticate, mod->config->realm, -1);
+		httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	}
-	httpmessage_appendheader(response, str_authenticate, ",qop=\"auth\",nonce=\"");
-	httpmessage_appendheader(response, str_authenticate, mod->nonce);
-	httpmessage_appendheader(response, str_authenticate, "\",opaque=\"");
-	httpmessage_appendheader(response, str_authenticate, mod->opaque);
-	httpmessage_appendheader(response, str_authenticate, "\",stale=");
+	httpmessage_appendheader(response, str_authenticate, STRING_REF(",qop=\"auth\",nonce=\""));
+	httpmessage_appendheader(response, str_authenticate, mod->nonce, -1);
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\",opaque=\""));
+	httpmessage_appendheader(response, str_authenticate, mod->opaque, -1);
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\",stale="));
 	if (mod->stale)
-		httpmessage_appendheader(response, str_authenticate, "true");
+		httpmessage_appendheader(response, str_authenticate, STRING_REF("true"));
 	else
-		httpmessage_appendheader(response, str_authenticate, "false");
+		httpmessage_appendheader(response, str_authenticate, STRING_REF("false"));
 }
 
 static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), http_message_t *response)
@@ -220,14 +220,14 @@ static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), ht
 		 * this adds a second WWW-AUTHENTICATE header with algorithm
 		 */
 		authn_digest_www_authenticate(mod, response);
-		httpmessage_appendheader(response, str_authenticate, ",algorithm=");
-		httpmessage_appendheader(response, str_authenticate, mod->hash->name);
+		httpmessage_appendheader(response, str_authenticate, STRING_REF(",algorithm="));
+		httpmessage_appendheader(response, str_authenticate, mod->hash->name, -1);
 	}
 
 #ifdef DEBUG
 	char _nonce[(int)(HASH_MAX_SIZE * 1.5) + 1];
-	authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
-	httpmessage_addheader(response, "test-nonce-time", _nonce);
+	int length = authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
+	httpmessage_addheader(response, "test-nonce-time", _nonce, length);
 #endif
 
 	httpmessage_keepalive(response);

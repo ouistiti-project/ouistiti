@@ -185,12 +185,12 @@ static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const 
 		 * It should be "/"
 		 */
 		if (url[0] != '\0')
-			httpmessage_addheader(response, str_location, "/");
+			httpmessage_addheader(response, str_location, STRING_REF("/"));
 		else
-			httpmessage_addheader(response, str_location, "");
-		httpmessage_appendheader(response, str_location, url);
-		httpmessage_appendheader(response, str_location, "/");
-		httpmessage_appendheader(response, str_location, config->defaultpage);
+			httpmessage_addheader(response, str_location, STRING_REF(""));
+		httpmessage_appendheader(response, str_location, url, -1);
+		httpmessage_appendheader(response, str_location, STRING_REF("/"));
+		httpmessage_appendheader(response, str_location, config->defaultpage, -1);
 	}
 	return fdfile;
 }
@@ -394,8 +394,8 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	if (config->options & DOCUMENT_RANGE)
 	{
 		char range[20];
-		snprintf(range, 20, "bytes %.9ld/*", (long)filestat.st_size);
-		httpmessage_addheader(response, "Content-Range", range);
+		int rangelen = snprintf(range, sizeof(range), "bytes %.9ld/*", (long)filestat.st_size);
+		httpmessage_addheader(response, "Content-Range", range, rangelen);
 	}
 #endif
 

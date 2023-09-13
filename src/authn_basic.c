@@ -79,7 +79,7 @@ static int authn_basic_challenge(void *arg, http_message_t *UNUSED(request), htt
 	int ret;
 	const authn_basic_t *mod = (authn_basic_t *)arg;
 
-	httpmessage_addheader(response, str_authenticate, mod->challenge);
+	httpmessage_addheader(response, str_authenticate, mod->challenge, -1);
 	ret = ECONTINUE;
 	return ret;
 }

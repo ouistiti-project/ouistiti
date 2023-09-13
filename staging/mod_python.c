@@ -438,7 +438,7 @@ static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 				const char *value = PyBytes_AsString(pylatin1value);
 				python_dbg("python: header %s: %s", key, value);
 				if (key && value && strcmp(key, str_contenttype) && strcmp(key, str_contentlength))
-					httpmessage_addheader(response, key, value);
+					httpmessage_addheader(response, key, value, -1);
 				else if (key && !strcmp(key, str_contenttype))
 					mime = strdup(value);
 				else if (key && !strcmp(key, str_contentlength))

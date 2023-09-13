@@ -113,10 +113,10 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_mes
 		hash_sha1->finish(hctx, accept);
 
 		char out[40];
-		base64->encode(accept, hash_sha1->size, out, 40);
+		int outlen = base64->encode(accept, hash_sha1->size, out, 40);
 		websocket_dbg("websocket: handshake %s", out);
 
-		httpmessage_addheader(response, str_accept, out);
+		httpmessage_addheader(response, str_accept, out, outlen);
 	}
 }
 
@@ -219,13 +219,13 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 
 	if (protocol != NULL)
 	{
-		httpmessage_addheader(response, str_protocol, protocol);
+		httpmessage_addheader(response, str_protocol, protocol, -1);
 		warn("websocket: protocol returns %s", protocol);
 	}
 
 	_mod_websocket_handshake(ctx, request, response);
-	httpmessage_addheader(response, str_connection, str_upgrade);
-	httpmessage_addheader(response, str_upgrade, str_websocket);
+	httpmessage_addheader(response, str_connection, STRING_REF(str_upgrade));
+	httpmessage_addheader(response, str_upgrade, STRING_REF(str_websocket));
 	/** disable Content-Type and Content-Length inside the headers **/
 	httpmessage_addcontent(response, "none", NULL, -1);
 	httpmessage_result(response, RESULT_101);

@@ -100,31 +100,32 @@ static int _server_connector(void *arg, http_message_t *request, http_message_t 
 	int ret = EREJECT;
 	int options = 0;
 
-	httpmessage_addheader(response, "Server", httpmessage_SERVER(request, "software"));
+	const char *software = httpmessage_SERVER(request, "software");
+	httpmessage_addheader(response, "Server", software, -1);
 	if (config)
 	{
 		options = config->options;
 	}
 	if (!(options & SECURITY_FRAME))
 	{
-		httpmessage_addheader(response, "X-Frame-Options", "DENY");
+		httpmessage_addheader(response, "X-Frame-Options", STRING_REF("DENY"));
 	}
 	if (!(options & SECURITY_CACHE))
 	{
-		httpmessage_addheader(response, "Cache-Control", "no-cache,no-store,max-age=0,must-revalidate");
-		httpmessage_addheader(response, "Pragma", "no-cache");
-		httpmessage_addheader(response, "Expires", "0");
+		httpmessage_addheader(response, "Cache-Control", STRING_REF("no-cache,no-store,max-age=0,must-revalidate"));
+		httpmessage_addheader(response, "Pragma", STRING_REF("no-cache"));
+		httpmessage_addheader(response, "Expires", STRING_REF("0"));
 	}
 	if (!(options & SECURITY_CONTENTTYPE))
 	{
-		httpmessage_addheader(response, "X-Content-Type-Options", "nosniff");
+		httpmessage_addheader(response, "X-Content-Type-Options", STRING_REF("nosniff"));
 	}
 	if (!(options & SECURITY_OTHERORIGIN))
 	{
 		if (options & SECURITY_FRAME)
-			httpmessage_addheader(response, "X-Frame-Options", "SAMEORIGIN");
+			httpmessage_addheader(response, "X-Frame-Options", STRING_REF("SAMEORIGIN"));
 
-		httpmessage_addheader(response, "Referrer-Policy", "origin-when-cross-origin");
+		httpmessage_addheader(response, "Referrer-Policy", STRING_REF("origin-when-cross-origin"));
 
 #ifndef SECURITY_UNCHECKORIGIN
 		const char *origin = httpmessage_REQUEST(request, "Origin");
