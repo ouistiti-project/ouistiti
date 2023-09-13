@@ -329,7 +329,7 @@ static int _python_request(mod_python_ctx_t *ctx, http_message_t *request)
 	int ret = ECONTINUE;
 	const char *input = NULL;
 	int inputlen;
-	unsigned long long rest;
+	size_t rest;
 
 	inputlen = httpmessage_content(request, &input, &rest);
 	if (inputlen > 0)
@@ -510,9 +510,9 @@ static int _python_connector(void *arg, http_message_t *request, http_message_t 
 		break;
 		case STATE_OUTFINISH:
 		{
-			unsigned long long length;
+			size_t length;
 			ret = httpmessage_content(response, NULL, &length);
-			python_dbg("python: content len %d %llu", ret, length);
+			python_dbg("python: content len %d %lu", ret, length);
 			if (ret == 0)
 				ctx->state = STATE_END | STATE_SHUTDOWN;
 			ret = ECONTINUE;
