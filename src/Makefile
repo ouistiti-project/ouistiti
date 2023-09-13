@@ -22,6 +22,7 @@ ifeq ($(VTHREAD_TYPE),pthread)
 $(TARGET)_LIBS-$(VTHREAD)+=pthread rt
 endif
 $(TARGET)_SOURCES+=main.c
+$(TARGET)_SOURCES+=stringscollection.c
 ifneq ($(MODULES),y)
 $(TARGET)_SOURCES-$(STATIC)+=ouistiti_static.c
 endif

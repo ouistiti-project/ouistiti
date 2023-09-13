@@ -63,7 +63,7 @@ struct _mod_cors_s
 };
 
 static const char str_cors[] = "cors";
-static const char str_options[] = "OPTIONS";
+
 static int _cors_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;

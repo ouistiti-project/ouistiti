@@ -61,10 +61,6 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 static int _mod_redirect_connectorerror(void *arg, http_message_t *request, http_message_t *response);
 
 static const char str_redirect[] = "redirect";
-#ifndef __STR_HTTPS
-static const char str_https[] = "https";
-#endif
-static const char str_upgrade_insec_req[] = "Upgrade-Insecure-Requests";
 
 struct _mod_redirect_s
 {

@@ -77,8 +77,6 @@
 #define HANDSHAKE 0x01
 #define RECV_COMPLETE 0x02
 
-static const char str_https[] = "https";
-
 typedef struct _mod_mbedtls_config_s _mod_mbedtls_config_t;
 
 typedef struct _mod_mbedtls_s

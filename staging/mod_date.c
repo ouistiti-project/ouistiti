@@ -36,8 +36,6 @@
 
 static int _date_connector(void *arg, http_message_t *request, http_message_t *response);
 
-static const char str_date[] = "Date";
-
 void *mod_date_create(http_server_t *server)
 {
 	httpserver_addconnector(server, _date_connector, NULL, CONNECTOR_DOCFILTER, str_date);

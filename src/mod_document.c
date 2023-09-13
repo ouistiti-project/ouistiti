@@ -64,9 +64,6 @@ extern int mod_send_sendfile(document_connector_t *private, http_message_t *resp
 #endif
 static int _mime_connector(void *arg, http_message_t *request, http_message_t *response);
 
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
-
 static const char str_document[] = "document";
 
 /**

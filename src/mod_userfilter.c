@@ -59,8 +59,6 @@
 	} while (0)
 
 static const char str_userfilter[] = "userfilter";
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
 static const char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
 typedef struct _mod_userfilter_s _mod_userfilter_t;

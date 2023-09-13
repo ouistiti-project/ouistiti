@@ -91,4 +91,60 @@ http_server_t *ouistiti_httpserver(server_t *server);
 
 #define STRING_REF(string) string, sizeof(string)-1
 
+extern const char str_http[5];
+extern const char str_https[6];
+
+/**
+ * strings defined in libouistiti
+ */
+extern const char str_get[4];
+extern const char str_post[5];
+extern const char str_head[5];
+
+extern const char str_put[4];
+extern const char str_delete[7];
+extern const char str_options[8];
+
+extern const char str_authenticate[17];
+extern const char str_authorization[14];
+extern const char str_Cookie[7];
+extern const char str_SetCookie[10];
+extern const char str_cachecontrol[14];
+extern const char str_xtoken[13];
+extern const char str_xuser[14];
+extern const char str_xgroup[15];
+extern const char str_xhome[14];
+extern const char str_upgrade_insec_req[26];
+extern const char str_connection[11];
+extern const char str_upgrade[8];
+extern const char str_websocket[10];
+extern const char str_sec_ws_protocol[23];
+extern const char str_sec_ws_accept[21];
+extern const char str_sec_ws_key[18];
+extern const char str_date[5];
+extern const char *str_authorization_code[5];
+extern const char *str_access_token[12];
+extern const char *str_state[14];
+extern const char *str_expires[8];
+
+extern const char str_form_urlencoded[34];
+extern const char str_multipart_replace[26];
+extern const char str_text_json[10];
+
+extern const char str_boundary[6];
+
+extern const char str_token[6];
+extern const char str_anonymous[10];
+
+extern const char str_status_approving[10];
+extern const char str_status_reapproving[12];
+extern const char str_status_activated[10];
+extern const char str_status_repudiated[11];
+
+/**
+ * strings defined in libouistiti
+ */
+extern const char str_contenttype[13];
+extern const char str_contentlength[15];
+
 #endif

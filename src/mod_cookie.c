@@ -44,8 +44,6 @@
 typedef struct _mod_cookie_ctx_s _mod_cookie_ctx_t;
 typedef struct _mod_cookie_s _mod_cookie_t;
 
-static const char str_SetCookie[] = "Set-Cookie";
-
 struct _mod_cookie_ctx_s
 {
 	http_client_t *ctl;

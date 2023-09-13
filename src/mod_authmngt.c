@@ -67,9 +67,6 @@ struct _mod_authmngt_s
 	unsigned int isuser:1;
 };
 
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
-
 static const char str_mngtpath[] = "^/auth/mngt*";
 
 static const char error_usernotfound[] = "user not found";
