@@ -80,10 +80,10 @@ static const char *_sizeunit[] = {
 	"GB",
 	"TB",
 };
-static int _dirlisting_connectorheader(_mod_document_mod_t *UNUSED(mod), http_message_t *request, http_message_t *response)
+
+static int _dirlisting_connectorheader(document_connector_t *private, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	document_connector_t *private = httpmessage_private(request, NULL);
 	const char *url = private->url;
 	int fdroot = private->fdroot;
 
@@ -115,8 +115,8 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *UNUSED(mod), http_me
 			const char *uri = httpmessage_REQUEST(request,"uri");
 			int length = strlen(uri);
 			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
-			snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, uri);
-			httpmessage_appendcontent(response, data, strlen(data));
+			length = snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, uri);
+			httpmessage_appendcontent(response, data, length);
 			free(data);
 			ret = ECONTINUE;
 		}
@@ -133,10 +133,56 @@ static int _dirlisting_connectorheader(_mod_document_mod_t *UNUSED(mod), http_me
 	return ret;
 }
 
-static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_message_t *request, http_message_t *response)
+static int _dirlisting_getentity(document_connector_t *private, struct dirent *ent, http_message_t *response)
 {
 	int ret = EREJECT;
-	document_connector_t *private = httpmessage_private(request, NULL);
+	if (ent == NULL)
+		return EREJECT;
+	document_dbg("dirlisting: dirlisting contains %s", ent->d_name);
+	if (ent->d_name[0] != '.')
+	{
+		unsigned int length = strlen(ent->d_name);
+		if (length > MAX_NAMELENGTH)
+		{
+			warn("dirlisting: %s file name length too long", ent->d_name);
+		}
+		struct stat filestat;
+		fstatat(private->fdfile, ent->d_name, &filestat, 0);
+		size_t size = filestat.st_size;
+		if (size == -1)
+		{
+			err("dirlisting: %s stat error %s", ent->d_name, strerror(errno));
+			return EREJECT;
+		}
+		int unit = 0;
+		while (size > 2000)
+		{
+			size /= 1024;
+			unit++;
+		}
+		const char *mime = "inode/directory";
+
+		if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
+		{
+			mime = utils_getmime(ent->d_name);
+		}
+		length += strlen(mime);
+		length += 4 + 2 + 4;
+		char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
+		length = snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
+		document_dbg("dirlisting: %s", data);
+		httpmessage_addcontent(response, NULL, data, length);
+		document_dbg("dirlisting: next");
+		free(data);
+		ret = ECONTINUE;
+	}
+	free(ent);
+	return ret;
+}
+
+static int _dirlisting_connectorcontent(document_connector_t *private, http_message_t *request, http_message_t *response)
+{
+	int ret = EREJECT;
 	struct dirent *ent;
 
 	errno = 0;
@@ -147,78 +193,43 @@ static int _dirlisting_connectorcontent(_mod_document_mod_t *UNUSED(mod), http_m
 		 * private->ents != NULL checked inside _dirlisting_connector
 		 */
 		if (private->nbents > 0)
+		{
 			ent = private->ents[private->nbents - 1];
+			private->nbents--;
+		}
 		else
 			ent = NULL;
 		if (ent)
 		{
-			document_dbg("dirlisting: dirlisting contains %s", ent->d_name);
-			private->nbents--;
-			if (ent->d_name[0] != '.')
-			{
-				unsigned int length = strlen(ent->d_name);
-				if (length > MAX_NAMELENGTH)
-				{
-					warn("dirlisting: %s file name length too long", ent->d_name);
-				}
-				struct stat filestat;
-				fstatat(private->fdfile, ent->d_name, &filestat, 0);
-				size_t size = filestat.st_size;
-				if (size == -1)
-				{
-					err("dirlisting: %s stat error %s", ent->d_name, strerror(errno));
-					return EREJECT;
-				}
-				int unit = 0;
-				while (size > 2000)
-				{
-					size /= 1024;
-					unit++;
-				}
-				const char *mime = "inode/directory";
-
-				if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
-				{
-					mime = utils_getmime(ent->d_name);
-				}
-				length += strlen(mime);
-				length += 4 + 2 + 4;
-				char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-				snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
-				document_dbg("dirlisting: %s", data);
-				httpmessage_addcontent(response, NULL, data, -1);
-				document_dbg("dirlisting: next");
-				free(data);
-				ret = ECONTINUE;
-			}
-			free(ent);
+			ret = _dirlisting_getentity(private, ent, response);
 		}
-		else if (private->fdfile > 0)
+		else
 		{
 			int length = sizeof(DIRLISTING_FOOTER);
 			char *data = calloc(1, length);
-			snprintf(data, length, DIRLISTING_FOOTER, "OK");
-			httpmessage_addcontent(response, NULL, data, -1);
+			length = snprintf(data, length, DIRLISTING_FOOTER, "OK");
+			httpmessage_addcontent(response, NULL, data, length);
 			free(data);
 			close(private->fdfile);
 			private->fdfile = 0;
 			ret = ECONTINUE;
 		}
-		else
-		{
-			/**
-			 * the content length is unknown before the sending.
-			 * We must close the socket to advertise the client.
-			 */
-			document_dbg("dirlisting: socket shutdown");
-			httpclient_shutdown(httpmessage_client(request));
-			free(private->ents);
-			private->ents = NULL;
-			document_close(private, request);
-			ret = ESUCCESS;
-		}
 	}
 	return ret;
+}
+
+static int _dirlisting_connectorender(document_connector_t *private, http_message_t *request, http_message_t *response)
+{
+	/**
+	 * the content length is unknown before the sending.
+	 * We must close the socket to advertise the client.
+	 */
+	document_dbg("dirlisting: socket shutdown");
+	httpclient_shutdown(httpmessage_client(request));
+	free(private->ents);
+	private->ents = NULL;
+	document_close(private, request);
+	return ESUCCESS;
 }
 
 /**
@@ -232,11 +243,15 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 
 	if (private->ents == NULL)
 	{
-		ret = _dirlisting_connectorheader(mod, request, response);
+		ret = _dirlisting_connectorheader(private, request, response);
+	}
+	else if (private->fdfile > 0)
+	{
+		ret = _dirlisting_connectorcontent(private, request, response);
 	}
 	else
 	{
-		ret = _dirlisting_connectorcontent(mod, request, response);
+		ret = _dirlisting_connectorender(private, request, response);
 	}
 	return ret;
 }
