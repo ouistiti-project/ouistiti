@@ -185,9 +185,12 @@ static int _tls_connect(void *vctx, const char *addr, int port)
 static void _tls_disconnect(void *vctx)
 {
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
+	if (ctx->ssl == NULL)
+		return;
 	dbg("tls: disconnect");
 	SSL_shutdown(ctx->ssl);
 	SSL_free(ctx->ssl);
+	ctx->ssl = NULL;
 	ctx->protocolops->disconnect(ctx->protocol);
 }
 
@@ -303,14 +306,14 @@ static const httpclient_ops_t *tlsserver_ops = &(httpclient_ops_t)
 	.scheme = str_https,
 	.default_port = 443,
 	.type = HTTPCLIENT_TYPE_SECURE,
-	.create = _tlsserver_create,
-	.recvreq = _tls_recv,
-	.sendresp = _tls_send,
-	.wait = tls_wait,
-	.status = _tls_status,
-	.flush = _tls_flush,
-	.disconnect = _tls_disconnect,
-	.destroy = _tls_destroy,
+	.create = &_tlsserver_create,
+	.recvreq = &_tls_recv,
+	.sendresp = &_tls_send,
+	.wait = &tls_wait,
+	.status = &_tls_status,
+	.flush = &_tls_flush,
+	.disconnect = &_tls_disconnect,
+	.destroy = &_tls_destroy,
 };
 
 const module_t mod_tls =
