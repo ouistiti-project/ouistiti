@@ -59,6 +59,7 @@
 	} while (0)
 
 static const char str_userfilter[] = "userfilter";
+static const char str_superuser[] = "root";
 static const char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
 typedef struct _mod_userfilter_s _mod_userfilter_t;
@@ -73,7 +74,12 @@ struct _mod_userfilter_s
 	cmp_t cmp;
 	mod_userfilter_t *config;
 	int line;
-	char *configuriexp;
+};
+
+typedef struct string_s string_t;
+struct string_s {
+	const char *data;
+	int length;
 };
 
 int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
@@ -193,8 +199,8 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	userfilter_dbg("select exp from rules " \
-			"where methodid=%d and " \
-			"(roleid=%d or roleid=%d or roleid=2);",
+			"where methodid=%ld and " \
+			"(roleid=%ld or roleid=%ld or roleid=2);",
 			methodid, userid, groupid);
 	ret = EREJECT;
 	int step = sqlite3_step(statement);
@@ -274,7 +280,7 @@ static int _insert_rule(_mod_userfilter_t *ctx, int64_t methodid, int64_t roleid
 	ret = sqlite3_bind_text(statement, index, exp, length, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
-	userfilter_dbg("insert into rules (exp,methodid,roleid) values(%s,%d,%d);",
+	userfilter_dbg("insert into rules (exp,methodid,roleid) values(%s,%ld,%ld);",
 		exp, methodid, roleid);
 	int step = sqlite3_step(statement);
 	if (step == SQLITE_DONE)
@@ -400,15 +406,21 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 
 static int64_t _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield)
 {
-	const char *field[] = {
-		"method=",
-		"role=",
+	string_t fields[] = {
+		{STRING_REF("method=")},
+		{STRING_REF("role=")},
 	};
-	const char *value = strstr(query, field[ifield]);
+
+	if (ifield >= sizeof(fields) / sizeof(string_t))
+		return EREJECT;
+
+	const char *value = strstr(query, fields[ifield].data);
+
 	if (value == NULL)
 		return EREJECT;
 	else
-		value += strlen(field[ifield]);
+		value += fields[ifield].length;
+
 	int length = -1;
 	const char *end = strchr(value, '&');
 	if (end != NULL)
@@ -475,7 +487,7 @@ static int _userfilter_get(_mod_userfilter_t *ctx, http_message_t *response)
 	int ret = EREJECT;
 	if (ctx->line == 0)
 	{
-		httpmessage_addcontent(response, "text/json", NULL, -1);
+		httpmessage_addcontent(response, str_text_json, NULL, -1);
 		httpmessage_appendcontent(response, "[", -1);
 	}
 	else
@@ -500,10 +512,11 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	const char *rest = NULL;
 	const char *uri = httpmessage_REQUEST(request,"uri");
 
-	userfilter_dbg("userfilter: search %s", ctx->configuriexp);
-	if (!utils_searchexp(uri, ctx->configuriexp, &rest))
+	userfilter_dbg("userfilter: search %s", ctx->config->configuri);
+	if (!utils_searchexp(uri, ctx->config->configuri, &rest))
 	{
 		userfilter_dbg("userfilter: filter configuration %s", uri);
+		userfilter_dbg("userfilter: rest %s", rest);
 		const char *method = httpmessage_REQUEST(request, "method");
 		const char *query = httpmessage_REQUEST(request, "query");
 		if (!strcmp(method, str_put) && query != NULL)
@@ -537,6 +550,91 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	return ret;
 }
 
+static int mod_userfilter_createdb(const char *dbname, const char *superuser, const char *regexp)
+{
+	sqlite3 *db = NULL;
+
+	if (sqlite3_open_v2(dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
+	{
+		err("userfilter: db %s not generated", dbname);
+		return EREJECT;
+	}
+
+	const char *query[] = {
+		"create table methods (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
+		"insert into methods (name) values(\"GET\");",
+		"insert into methods (name) values(\"POST\");",
+		"insert into methods (name) values(\"PUT\");",
+		"insert into methods (name) values(\"DELETE\");",
+		"insert into methods (name) values(\"HEAD\");",
+		"create table roles (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
+		"insert into roles (id, name) values(0, @SUPERUSER);",
+		"insert into roles (id, name) values(1, \"anonymous\");",
+		"insert into roles (id, name) values(2, \"*\");",
+#ifdef DEBUG
+		"insert into roles (id, name) values(3, \"users\");",
+#endif
+		"create table rules (\"exp\" TEXT NOT NULL, \"methodid\" INTEGER NOT NULL,\"roleid\" INTEGER NOT NULL, FOREIGN KEY (methodid) REFERENCES methods(id) ON UPDATE SET NULL, FOREIGN KEY (roleid) REFERENCES roles(id) ON UPDATE SET NULL);",
+		/// set rights for superuser role
+		"insert into rules (exp,methodid,roleid) values(\"^/*\",(select id from methods where name=\"GET\"),0);",
+		"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"PUT\"),0);",
+		"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"DELETE\"),0);",
+#ifdef DEBUG
+		"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"GET\"),0);",
+		"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"POST\"),0);",
+		"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"PUT\"),0);",
+		"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"DELETE\"),0);",
+		"insert into rules (exp,methodid,roleid) values(\"^/%g/%u/*\",(select id from methods where name=\"GET\"),3);",
+		"insert into rules (exp,methodid,roleid) values(\"^/trust/*\",(select id from methods where name=\"GET\"),1);",
+#endif
+		NULL,
+	};
+
+	int ret = EREJECT;
+	for (int i = 0; query[i] != NULL; i++)
+	{
+		sqlite3_stmt *statement;
+		ret = sqlite3_prepare_v2(db, query[i], -1, &statement, NULL);
+		if (ret != SQLITE_OK) {
+			err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
+			return EREJECT;
+		}
+
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@SUPERUSER");
+		if (index > 0)
+			ret = sqlite3_bind_text(statement, index, superuser, -1, SQLITE_STATIC);
+		if (ret != SQLITE_OK) {
+			err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
+			sqlite3_finalize(statement);
+			return EREJECT;
+		}
+
+		index = sqlite3_bind_parameter_index(statement, "@CONFIGURI");
+		if (index > 0)
+			ret = sqlite3_bind_text(statement, index, regexp, -1, SQLITE_STATIC);
+		if (ret != SQLITE_OK) {
+			err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
+			sqlite3_finalize(statement);
+			return EREJECT;
+		}
+
+		ret = sqlite3_step(statement);
+		sqlite3_finalize(statement);
+		if (ret != SQLITE_OK && ret != SQLITE_DONE)
+		{
+			err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
+			ret = EREJECT;
+			break;
+		}
+		else
+			ret = ESUCCESS;
+	}
+	sqlite3_close(db);
+	chmod(dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
+	return ret;
+}
+
 #ifdef FILE_CONFIG
 static void *userfilter_config(config_setting_t *iterator, server_t *UNUSED(server))
 {
@@ -550,19 +648,40 @@ static void *userfilter_config(config_setting_t *iterator, server_t *UNUSED(serv
 	{
 		const char *configuri = NULL;
 		config_setting_lookup_string(config, "configuri", &configuri);
+		if (configuri == NULL || configuri[0] == '\0')
+			config_setting_lookup_string(config, "urlpath", &configuri);
+		if (configuri == NULL || configuri[0] == '\0')
+			configuri = NULL;
+		else if (configuri[0] != '^')
+		{
+			err("userfilter: \"uripath\" configuration field must be a regexp and begin with ^");
+			return NULL;
+		}
 
 		const char *dbname = NULL;
 		config_setting_lookup_string(config, "dbname", &dbname);
 		if (dbname == NULL || dbname[0] == '\0')
+			dbname = str_userfilterpath;
+
+		const char *superuser = NULL;
+		config_setting_lookup_string(config, "superuser", &superuser);
+		if (superuser == NULL || superuser[0] == '\0')
+			superuser = str_superuser;
+
+		/// test that db not existing and configurable
+		if (access(dbname, R_OK) &&
+			configuri &&
+			mod_userfilter_createdb(dbname, superuser, configuri) != ESUCCESS)
+		{
+			err("userfilter: impossible to initialize the DB");
 			return NULL;
-		
+		}
+
 		modconfig = calloc(1, sizeof(*modconfig));
-		config_setting_lookup_string(config, "superuser", &modconfig->superuser);
 		config_setting_lookup_string(config, "allow", &modconfig->allow);
 		modconfig->configuri = configuri;
 		modconfig->dbname = dbname;
-		if (modconfig->dbname == NULL || modconfig->dbname[0] == '\0')
-			modconfig->dbname = str_userfilterpath;
+		modconfig->superuser = superuser;
 	}
 	return modconfig;
 }
@@ -576,6 +695,15 @@ mod_userfilter_t g_userfilter_config =
 
 static void *userfilter_config(void *iterator, server_t *server)
 {
+	/// test that db not existing and configurable
+	if (access(dbname, R_OK) &&
+		mod_userfilter_createdb(g_userfilter_config.dname,
+					str_superuser,
+					g_userfilter_config.configuri) != ESUCCESS)
+	{
+		err("userfilter: impossible to initialize the DB");
+		return NULL;
+	}
 	return &g_userfilter_config;
 }
 #endif
@@ -587,95 +715,9 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 		return NULL;
 
 	sqlite3 *db = NULL;
-	char *configuriexp = NULL;
 
-	if (config->configuri != NULL && config->configuri[0] != '\0')
-	{
-		configuriexp = calloc(1, strlen(config->configuri) + 2 + 1);
-		sprintf(configuriexp, "^%s*", config->configuri);
-	}
-	if (access(config->dbname, R_OK) && configuriexp != NULL)
-	{
-		if (sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
-		{
-			err("userfilter: db %s not generated", config->dbname);
-			return NULL;
-		}
-
-		const char *query[] = {
-			"create table methods (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
-			"insert into methods (name) values(\"GET\");",
-			"insert into methods (name) values(\"POST\");",
-			"insert into methods (name) values(\"PUT\");",
-			"insert into methods (name) values(\"DELETE\");",
-			"insert into methods (name) values(\"HEAD\");",
-			"create table roles (\"id\" INTEGER PRIMARY KEY, \"name\" TEXT UNIQUE NOT NULL);",
-			"insert into roles (id, name) values(0, @SUPERUSER);",
-			"insert into roles (id, name) values(1, \"anonymous\");",
-			"insert into roles (id, name) values(2, \"*\");",
-#ifdef DEBUG
-			"insert into roles (id, name) values(3, \"users\");",
-#endif
-			"create table rules (\"exp\" TEXT NOT NULL, \"methodid\" INTEGER NOT NULL,\"roleid\" INTEGER NOT NULL, FOREIGN KEY (methodid) REFERENCES methods(id) ON UPDATE SET NULL, FOREIGN KEY (roleid) REFERENCES roles(id) ON UPDATE SET NULL);",
-			"insert into rules (exp,methodid,roleid) values(\"^/*\",(select id from methods where name=\"GET\"),0);",
-			"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"PUT\"),0);",
-			"insert into rules (exp,methodid,roleid) values(@CONFIGURI,(select id from methods where name=\"DELETE\"),0);",
-#ifdef DEBUG
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"GET\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"POST\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"PUT\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"DELETE\"),0);",
-			"insert into rules (exp,methodid,roleid) values(\"^/%g/%u/*\",(select id from methods where name=\"GET\"),3);",
-			"insert into rules (exp,methodid,roleid) values(\"^/trust/*\",(select id from methods where name=\"GET\"),1);",
-#endif
-			NULL,
-		};
-		int i = 0;
-		while (query[i] != NULL)
-		{
-			int ret;
-			sqlite3_stmt *statement;
-			ret = sqlite3_prepare_v2(db, query[i], -1, &statement, NULL);
-			if (ret != SQLITE_OK) {
-				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
-				return NULL;
-			}
-
-			int index;
-			index = sqlite3_bind_parameter_index(statement, "@SUPERUSER");
-			if (index > 0)
-				ret = sqlite3_bind_text(statement, index, config->superuser, -1, SQLITE_STATIC);
-			if (ret != SQLITE_OK) {
-				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
-				sqlite3_finalize(statement);
-				return NULL;
-			}
-
-			index = sqlite3_bind_parameter_index(statement, "@CONFIGURI");
-			if (index > 0)
-				ret = sqlite3_bind_text(statement, index, configuriexp, -1, SQLITE_STATIC);
-			if (ret != SQLITE_OK) {
-				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db));
-				sqlite3_finalize(statement);
-				return NULL;
-			}
-
-			ret = sqlite3_step(statement);
-			sqlite3_finalize(statement);
-			if (ret != SQLITE_OK && ret != SQLITE_DONE)
-			{
-				err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, query[i], sqlite3_errmsg(db)); \
-				break;
-			}
-			i++;
-		}
-		sqlite3_close(db);
-		chmod(config->dbname, S_IWUSR|S_IRUSR|S_IWGRP|S_IRGRP);
-	}
 	if (sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
 	{
-		if (configuriexp != NULL)
-			free(configuriexp);
 		err("userfilter: database not found %s", config->dbname);
 		return NULL;
 	}
@@ -687,8 +729,7 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	mod->db = db;
 	httpserver_addconnector(server, userfilter_connector, mod, \
 			CONNECTOR_DOCFILTER, str_userfilter);
-	mod->configuriexp = configuriexp;
-	if (configuriexp != NULL)
+	if (config->configuri != NULL)
 		httpserver_addconnector(server, rootgenerator_connector, mod, \
 				CONNECTOR_DOCUMENT, str_userfilter);
 
@@ -702,7 +743,6 @@ void mod_userfilter_destroy(void *arg)
 #ifdef FILE_CONFIG
 	free(mod->config);
 #endif
-	free(mod->configuriexp);
 	free(arg);
 }
 
