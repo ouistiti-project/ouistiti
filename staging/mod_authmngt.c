@@ -47,7 +47,7 @@
 #include "mod_auth.h"
 #include "mod_authmngt.h"
 
-#include "authz_sqlite.h"
+#include "authmngt_sqlite.h"
 
 #define authmngt_dbg(...)
 
