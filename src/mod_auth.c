@@ -665,8 +665,8 @@ static int _authz_computepasswd(const hash_t *hash, const char *user, const char
 	hash->update(ctx, passwd, strlen(passwd));
 	hash->finish(ctx, hashpasswd);
 
-	base64->encode(hashpasswd, hash->size, string, stringlen);
-	return 0;
+	int length = base64->encode(hashpasswd, hash->size, string, stringlen);
+	return length;
 }
 
 int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd)
@@ -707,11 +707,11 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 			checkpasswd++;
 		if (hash && checkpasswd)
 		{
-			char b64passwd[50];
-			_authz_computepasswd(hash, user, realm, passwd, b64passwd, sizeof(b64passwd));
+			char b64passwd[50] = {0};
+			int length = _authz_computepasswd(hash, user, realm, passwd, b64passwd, sizeof(b64passwd));
 
 			auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
-			if (!strcmp(b64passwd, checkpasswd))
+			if (!strncmp(b64passwd, checkpasswd, length))
 				ret = ESUCCESS;
 		}
 		else

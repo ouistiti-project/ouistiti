@@ -90,7 +90,6 @@ subdir-$(CGI)+=mod_cgi.mk
 subdir-$(COOKIE)+=mod_cookie.mk
 subdir-$(DOCUMENT)+=mod_document.mk
 subdir-$(AUTH)+=mod_auth.mk
-subdir-$(AUTHZ_MANAGER)+=mod_authmngt.mk
 subdir-$(MBEDTLS)+=mod_mbedtls.mk
 subdir-$(OPENSSL)+=mod_openssl.mk
 subdir-$(SERVERHEADER)+=mod_server.mk
