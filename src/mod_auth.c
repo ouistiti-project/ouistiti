@@ -793,7 +793,7 @@ int authn_checksignature(const char *key,
 			}
 			char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
 			base64_urlencoding->encode(signature, len, b64signature, sizeof(b64signature));
-			auth_dbg("auth: signature %s", b64signature);
+			auth_dbg("auth: signature %s / %.*s", b64signature, (int)signlen, sign);
 			if (!strncmp(b64signature, sign, signlen))
 				return ESUCCESS;
 		}
@@ -801,12 +801,11 @@ int authn_checksignature(const char *key,
 	return EREJECT;
 }
 
-int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
+int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token, const char **user)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 
-	const char *user = NULL;
 	const char *data = token;
 	const char *sign = strrchr(token, '.');
 	if (sign != NULL)
@@ -819,66 +818,21 @@ int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token)
 			signlen = strlen(sign);
 		size_t datalen = sign - data;
 		sign++;
-		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, signlen) == ESUCCESS)
+		ret = authn_checksignature(mod->authn->config->secret, data, datalen, sign, signlen);
+		if (ret == ESUCCESS)
 		{
-			ctx->info = calloc(1, sizeof(*ctx->info));
-			strncpy(ctx->info->type, str_xtoken, FIELD_MAX);
-			if (user == NULL)
-				user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, token);
-			if (user == NULL)
+			*user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, token);
+			if (*user == NULL)
 			{
-				user = str_anonymous;
+				*user = str_anonymous;
 			}
-
-#ifdef AUTHZ_JWT
-			if (jwt_decode(token, ctx->info) == ESUCCESS)
-			{
-				auth_dbg("auth: jwt user %s", ctx->info->user);
-				ret = EREJECT;
-			}
-			else
-#endif
-			if (user != NULL)
-			{
-				mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
-#ifndef DEBUG
-				time_t now = time(NULL);
-				if (mod->config->expire > 0 &&
-					ctx->info->expires > now &&
-					(ctx->info->expires + mod->config->expire) < now)
-					ret = EREJECT;
-#else
-				ret = EREJECT;
-#endif
-			}
-
-			if (ctx->info->token[0] == '\0')
-			{
-				strncpy(ctx->info->token, sign, TOKEN_MAX);
-			}
+			ret = ESUCCESS;
 		}
 		else
 		{
 			warn("auth: token with bad signature");
 		}
 	}
-	return ret;
-}
-
-int authn_checktokens(_mod_auth_ctx_t *ctx, const char *token)
-{
-	int ret = ECONTINUE;
-	_mod_auth_t *mod = ctx->mod;
-	const char *string = token;
-	do
-	{
-		if (!strncmp(string, str_xtoken, sizeof(str_xtoken) - 1))
-		{
-			string += sizeof(str_xtoken) - 1 + 1; // +1 for the tailing '='
-		}
-		ret = authn_checktoken(ctx, string);
-		string = strstr(string, str_xtoken);
-	} while ((ret == ECONTINUE) && (string != NULL));
 	return ret;
 }
 #endif
@@ -979,7 +933,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 }
 
 static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
-		const char *authorization, http_message_t *request)
+		const char *authorization, http_message_t *request, const char **user)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
@@ -1004,33 +958,10 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	 */
 	if (config->redirect)
 		method = str_head;
-	const char *user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
-	if (user != NULL)
+	*user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
+	if (*user != NULL)
 	{
-		if (ctx->info == NULL)
-		{
-			ctx->info = calloc(1, sizeof(*ctx->info));
-			ctx->info->expires = mod->config->expire * 60;
-			ctx->info->expires += time(NULL);
-			mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
-			strncpy(ctx->info->type, mod->type, FIELD_MAX);
-			ctx->authorization = strdup(authorization);
-		}
-
-		if (!strcmp(ctx->info->status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
-		{
-			warn("auth: user \"%s\" accepted from %p to change password", ctx->info->user, ctx->clt);
-			ret = EREJECT;
-		}
-		else if (strcmp(ctx->info->status, str_status_activated) != 0)
-		{
-			err("auth: user \"%s\" is not yet activated (%s)", ctx->info->user, ctx->info->status);
-		}
-		else
-		{
-			warn("auth: user \"%s\" accepted from %p", ctx->info->user, ctx->clt);
-			ret = EREJECT;
-		}
+		ret = ESUCCESS;
 	}
 	return ret;
 }
@@ -1089,7 +1020,14 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	const mod_auth_t *config = mod->config;
 	const char *uri = httpmessage_REQUEST(request, "uri");
 
-	ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+	if (mod->authn->ctx)
+		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+	else
+	{
+		err("auth: error during configuration, server locked");
+		httpmessage_result(response, RESULT_511);
+		ret = ESUCCESS;
+	}
 	if (ret == ECONTINUE)
 	{
 		if (mod->authn->type & AUTHN_COOKIE_E)
@@ -1157,6 +1095,9 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 	int ret = ECONTINUE;
 	int protect = 1;
 
+	/// the access to home file needs an authorization
+	if (strchr(uri, '~') != NULL)
+		return ret;
 	/**
 	 * check uri
 	 */
@@ -1211,49 +1152,48 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if(mod->authz->rules->setup)
 		mod->authz->rules->setup(mod->authz->ctx);
 
-	ret = _authn_checkuri(config, request, response);
-	auth_dbg("auth: checkuri %d", ret);
-#if 0
-	/**
-	 * If ctx->info is set, this connection has been already authenticated.
-	 * It should be useless to authenticate again, but if another connection
-	 * try to unauthenticate, this may break the security.
-	 */
-	if (ret == ECONTINUE && ctx->info != NULL)
-	{
-		ret = EREJECT;
-	}
-#endif
-
-	/**
-	 * The header WWW-Authenticate inside the request
-	 * allows to disconnect the user.
-	 */
-	authorization = httpmessage_REQUEST(request, str_authenticate);
-	if (ret == ECONTINUE && authorization != NULL && authorization[0] != '\0')
-	{
-		ret = ESUCCESS;
-	}
-	auth_dbg("auth: authenticate %d", ret);
-
+	const char *user = NULL;
 #ifdef AUTH_TOKEN
-	if (ret == ECONTINUE && mod->authz->type & AUTHZ_TOKEN_E)
+	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
 		authorization = _authn_gettoken(ctx, request);
 		auth_dbg("auth: gettoken %d", ret);
-		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
+		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
+			authn_checktoken( ctx, authorization, &user) == ESUCCESS)
 		{
-			ret = authn_checktokens( ctx, authorization);
+			ret = EREJECT;
+			auth_dbg("auth: checktoken %d", ret);
 		}
 	}
 #endif
-	authorization = _authn_getauthorization(ctx, request);
-	auth_dbg("auth: getauthorization %d", ret);
-	if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0')
+	if (ret == ECONTINUE)
 	{
-		ret = _authn_checkauthorization( ctx, authorization, request);
+		/**
+		 * The header WWW-Authenticate inside the request
+		 * allows to disconnect the user.
+		 */
+		authorization = httpmessage_REQUEST(request, str_authenticate);
+		if (ret == ECONTINUE && authorization != NULL && authorization[0] != '\0')
+		{
+			ret = ESUCCESS;
+		}
+		auth_dbg("auth: authenticate %d", ret);
+
+		authorization = _authn_getauthorization(ctx, request);
+		auth_dbg("auth: getauthorization %d", ret);
+		if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
+			_authn_checkauthorization( ctx, authorization, request, &user) == ESUCCESS)
+		{
+			ret = EREJECT;
+		}
+		auth_dbg("auth: checkauthorization %d", ret);
 	}
-	auth_dbg("auth: checkauthorization %d", ret);
+
+	if (ret == ECONTINUE)
+	{
+		ret = _authn_checkuri(config, request, response);
+		auth_dbg("auth: checkuri %d", ret);
+	}
 
 	if (ret != EREJECT)
 	{
@@ -1262,7 +1202,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			free(ctx->info);
 			ctx->info = NULL;
 		}
-		httpmessage_SESSION(request, str_auth, "", 0);
+		httpclient_session(ctx->clt, STRING_REF(str_auth), "", 0);
 		ret = _authn_challenge(ctx, request, response);
 	}
 	else
@@ -1273,23 +1213,42 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		{
 			dbg("auth: session already open");
 			info = httpclient_session(ctx->clt, STRING_REF(str_auth), NULL, -1);
+#ifndef DEBUG
+			time_t now = time(NULL);
+			if (mod->config->expire > 0 &&
+				(info->expires < now ||
+				(info->expires + mod->config->expire) > now))
+			{
+				httpclient_session(ctx->clt, STRING_REF(str_auth), "", 0);
+				return _authn_challenge(ctx, request, response);
+			}
+#endif
 			newsession = 0;
 		}
-		else
+		else if (ctx->info == NULL)
+		{
+			ctx->info = calloc(1, sizeof(*ctx->info));
+			ctx->info->expires = mod->config->expire * 60;
+			ctx->info->expires += time(NULL);
+			mod->authz->rules->setsession(mod->authz->ctx, user, ctx->info);
+			snprintf(ctx->info->type, FIELD_MAX, "%s", mod->type);
 			info = httpclient_session(ctx->clt, STRING_REF(str_auth), ctx->info, sizeof(*ctx->info));
+			ctx->authorization = strdup(authorization);
+			info = ctx->info;
+		}
 
 		if (info->status && !strcmp(info->status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
 		{
-			warn("auth: user \"%s\" accepted from %p to change password", info->user, ctx->clt);
+			warn("auth: user \"%s\" accepted from %p to change password", user, ctx->clt);
 			ret = EREJECT;
 		}
 		else if (info->status && strcmp(info->status, str_status_activated) != 0)
 		{
-			err("auth: user \"%s\" is not yet activated (%s)", info->user, info->status);
+			err("auth: user \"%s\" is not yet activated (%s)", user, info->status);
 		}
 		else
 		{
-			warn("auth: user \"%s\" accepted from %p", info->user, ctx->clt);
+			warn("auth: user \"%s\" accepted from %p", user, ctx->clt);
 			ret = EREJECT;
 		}
 
@@ -1312,7 +1271,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			httpclient_session(ctx->clt, STRING_REF(str_token), ref, reflen);
 			if (mod->authz->rules->join)
 			{
-				mod->authz->rules->join(mod->authz->ctx, info->user, ref, mod->config->expire);
+				mod->authz->rules->join(mod->authz->ctx, user, ref, mod->config->expire);
 			}
 		}
 
@@ -1328,7 +1287,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 		if (mod->authz->type & AUTHZ_CHOWN_E)
 		{
-			auth_setowner(info->user);
+			auth_setowner(user);
 		}
 		if (token)
 			free(token);

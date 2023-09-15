@@ -59,7 +59,7 @@ typedef struct authz_jwt_s authz_jwt_t;
 struct authz_jwt_s
 {
 	authz_jwt_config_t *config;
-	authsession_t token;
+	const char *token;
 };
 
 #ifdef FILE_CONFIG
@@ -280,10 +280,15 @@ static void *authz_jwt_create(http_server_t *UNUSED(server), void *arg)
 
 static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
-	ctx->token.user[0] = '\0';
-	jwt_decode(token, &ctx->token);
-	if (ctx->token.user[0] != '\0')
-		return ctx->token.user;
+	json_t *jinfo = jwt_decode_json(token);
+	if (jinfo != NULL)
+	{
+		authsession_t authsession = {0};
+		if (_jwt_checkexpiration(jinfo, &authsession) != ESUCCESS)
+			return NULL;
+		ctx->token = token;
+		return _jwt_getuser(jinfo);
+	}
 	return NULL;
 }
 
@@ -296,15 +301,17 @@ static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const ch
 static int authz_jwt_setsession(void *arg, const char *UNUSED(user), authsession_t *authsession)
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	memcpy(authsession, &ctx->token, sizeof(*authsession));
-	return ESUCCESS;
+	const char *token = ctx->token;
+	return jwt_decode(token, authsession);
 }
 
 #ifdef AUTH_TOKEN
 static int authz_jwt_join(void *arg, const char *user, const char *UNUSED(token), int expire)
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	if (!strcmp(ctx->token.user, user) && (expire + time(NULL)) > ctx->token.expires)
+	authsession_t authsession = {0};
+	jwt_decode(ctx->token, &authsession);
+	if (!strcmp(authsession.user, user) && (expire + time(NULL)) > authsession.expires)
 		return ESUCCESS;
 	return EREJECT;
 }
