@@ -215,9 +215,15 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 	int ret = 0;
 
 	const char *checkpasswd = authz_file_passwd(ctx, user);
-	if (checkpasswd != NULL &&
-			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)
-		return 1;
+	if (checkpasswd != NULL)
+	{
+		string_t userstr = {0};
+		_string_store(&userstr, user, -1);
+		string_t passwdstr = {0};
+		_string_store(&passwdstr, passwd, -1);
+		if (authz_checkpasswd(checkpasswd, &userstr, NULL,  &passwdstr) == ESUCCESS)
+			return 1;
+	}
 	else
 		err("auth: user %s not found in file", user);
 	return ret;

@@ -418,9 +418,15 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 	int ret = 0;
 	const char *checkpasswd = authz_sqlite_passwd(ctx, user);
 	auth_dbg("auth: check password for %s => %s (%s)", user, passwd, checkpasswd);
-	if (checkpasswd != NULL &&
-			authz_checkpasswd(checkpasswd, user, NULL,  passwd) == ESUCCESS)
-		ret = 1;
+	if (checkpasswd != NULL)
+	{
+		string_t userstr = {0};
+		_string_store(&userstr, user, -1);
+		string_t passwdstr = {0};
+		_string_store(&passwdstr, passwd, -1);
+		if (authz_checkpasswd(checkpasswd, &userstr, NULL, &passwdstr) == ESUCCESS)
+			ret = 1;
+	}
 	else
 		err("auth: user %s not found in DB", user);
 	if (ctx->statement != NULL)

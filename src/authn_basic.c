@@ -52,7 +52,10 @@ void *authn_basic_config(const config_setting_t *configauth)
 	authn_basic_config_t *authn_config = NULL;
 
 	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
+	const char *realm = NULL;
+	config_setting_lookup_string(configauth, "realm", &realm);
+	if (realm != NULL)
+		_string_store(&authn_config->realm, realm, -1);
 	return authn_config;
 }
 #endif
@@ -63,13 +66,13 @@ static void *authn_basic_create(const authn_t *authn, authz_t *authz, void *arg)
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
 	mod->authz = authz;
 	mod->config = (authn_basic_config_t *)arg;
-	if (mod->config->realm == NULL)
-		mod->config->realm = httpserver_INFO(authn->server, "host");
+	if (mod->config->realm.data == NULL)
+		_string_store(&mod->config->realm, httpserver_INFO(authn->server, "host"), -1);
 	size_t length = sizeof(FORMAT) - 2
-					+ strlen(mod->config->realm) + 1;
+					+ mod->config->realm.length + 1;
 	mod->challenge = calloc(1, length);
 	if (mod->challenge)
-		snprintf(mod->challenge, length, FORMAT, mod->config->realm);
+		snprintf(mod->challenge, length, FORMAT, mod->config->realm.data);
 
 	return mod;
 }

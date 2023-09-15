@@ -54,7 +54,10 @@ void *authn_bearer_config(const config_setting_t *configauth)
 	authn_bearer_config_t *authn_config = NULL;
 
 	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
+	const char *realm = NULL;
+	config_setting_lookup_string(configauth, "realm", &realm);
+	if (realm != NULL)
+		_string_store(&authn_config->realm, realm, -1);
 	return authn_config;
 }
 #endif
@@ -65,8 +68,8 @@ static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg
 	mod->authn = authn;
 	mod->authz = authz;
 	mod->config = (authn_bearer_config_t *)arg;
-	if (mod->config->realm == NULL)
-		mod->config->realm = httpserver_INFO(authn->server, "host");
+	if (_string_empty(&mod->config->realm))
+		_string_store(&mod->config->realm, httpserver_INFO(authn->server, "host"), -1);
 
 	return mod;
 }
@@ -78,7 +81,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *UNUSED(request), ht
 	const authn_bearer_config_t *config = mod->config;
 
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Bearer realm=\""));
-	httpmessage_appendheader(response, str_authenticate, config->realm, -1);
+	httpmessage_appendheader(response, str_authenticate, config->realm.data, config->realm.length);
 	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	return ret;
 }
