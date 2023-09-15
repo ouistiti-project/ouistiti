@@ -89,7 +89,19 @@ const module_list_t *ouistiti_modules(server_t *server);
 int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);
 
+typedef struct string_s string_t;
+struct string_s
+{
+	const char *data;
+	size_t length;
+};
+
 #define STRING_REF(string) string, sizeof(string)-1
+#define STRING_INFO(string) string.data, string.length
+#define STRING_DCL(string) {.data=string, .length=sizeof(string)-1}
+int _string_store(string_t *str, const char *pointer, size_t length);
+int _string_cmp(const string_t *str, const char *cmp, size_t length);
+int _string_empty(const string_t *str);
 
 extern const char str_http[5];
 extern const char str_https[6];
