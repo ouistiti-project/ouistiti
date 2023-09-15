@@ -300,34 +300,36 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 			return EREJECT;
 		}
 
-		/**
-		 * split the URI between the CGI script path and the
-		 * path_info for the CGI.
-		 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
-		 */
-		int length = 255;
-		if (path_info != NULL && (path_info - uri) < length)
-		{
-			length = path_info - uri;
-		}
-
-		char cgipath[256];
 		while (*uri == '/' && *uri != '\0')
 		{
 			uri++;
-			length--;
 		}
-		strncpy(cgipath, uri, length);
-		cgipath[length] = '\0';
+
+		mod_cgi_ctx_t *ctx;
+		ctx = calloc(1, sizeof(*ctx));
+		if (path_info != NULL)
+		{
+			/**
+			 * split the URI between the CGI script path and the
+			 * path_info for the CGI.
+			 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
+			 */
+			snprintf(ctx->cgipath, sizeof(ctx->cgipath), "%.*s", (int)(path_info - uri), uri);
+		}
+		else
+		{
+			snprintf(ctx->cgipath, sizeof(ctx->cgipath), "%s", uri);
+		}
 
 		/**
 		 * check the path access
 		 */
 		int scriptfd = -1;
-		scriptfd = openat(mod->rootfd, cgipath, O_PATH);
+		scriptfd = openat(mod->rootfd, ctx->cgipath, O_PATH);
 		if (scriptfd < 0)
 		{
-			warn("cgi: %s error %s", cgipath, strerror(errno));
+			warn("cgi: %s error %s", ctx->cgipath, strerror(errno));
+			free(ctx);
 			return EREJECT;
 		}
 
@@ -338,22 +340,21 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		{
 			dbg("cgi: %s is directory", uri);
 			close(scriptfd);
+			free(ctx);
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
 		if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
 		{
 			httpmessage_result(response, RESULT_403);
-			warn("cgi: %s access denied", cgipath);
+			warn("cgi: %s access denied", uri);
 			warn("cgi: %s", strerror(errno));
 			close(scriptfd);
+			free(ctx);
 			return ESUCCESS;
 		}
 
-		mod_cgi_ctx_t *ctx;
 		dbg("cgi: run %s", uri);
-		ctx = calloc(1, sizeof(*ctx));
-		strncpy(ctx->cgipath, cgipath, sizeof(ctx->cgipath) - 1);
 		ctx->mod = mod;
 		ctx->path_info = path_info;
 		ctx->pid = _mod_cgi_fork(ctx, request);
