@@ -648,7 +648,8 @@ static int _home_connector(void *UNUSED(arg), http_message_t *request, http_mess
 	return ret;
 }
 
-static int _authz_computepasswd(const hash_t *hash, const char *user, const char *realm, const char *passwd,
+static int _authz_computepasswd(const hash_t *hash, const string_t *user,
+			const string_t *realm, const string_t *passwd,
 			char *string, int stringlen)
 {
 	char hashpasswd[32];
@@ -657,22 +658,23 @@ static int _authz_computepasswd(const hash_t *hash, const char *user, const char
 	ctx = hash->init();
 	if (realm)
 	{
-		hash->update(ctx, user, strlen(user));
+		hash->update(ctx, user->data, user->length);
 		hash->update(ctx, ":", 1);
-		hash->update(ctx, realm, strlen(realm));
+		hash->update(ctx, realm->data, realm->length);
 		hash->update(ctx, ":", 1);
 	}
-	hash->update(ctx, passwd, strlen(passwd));
+	hash->update(ctx, passwd->data, passwd->length);
 	hash->finish(ctx, hashpasswd);
 
 	int length = base64->encode(hashpasswd, hash->size, string, stringlen);
 	return length;
 }
 
-int authz_checkpasswd(const char *checkpasswd, const char *user, const char *realm, const char *passwd)
+int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
+		const string_t *realm, const string_t *passwd)
 {
 	int ret = EREJECT;
-	auth_dbg("auth: check %s %s", passwd, checkpasswd);
+	auth_dbg("auth: check %s %s", passwd->data, checkpasswd);
 	if (checkpasswd[0] == '$')
 	{
 		const hash_t *hash = NULL;
@@ -682,7 +684,7 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 			hashtype = checkpasswd[2];
 		}
 		const char *checkrealm = NULL;
-		int realmlength = 0;
+		int checkrealmlen = 0;
 		/**
 		 * If the realm is linked to the password,
 		 * it must be the same as the requested realm.
@@ -693,8 +695,8 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 		if (checkrealm)
 		{
 			checkrealm += 6;
-			realmlength = strpbrk(checkrealm, ";$") - checkrealm - 1;
-			if (strncmp(checkrealm, realm, realmlength))
+			checkrealmlen = strpbrk(checkrealm, ";$") - checkrealm - 1;
+			if (_string_empty(realm) || _string_cmp(realm, checkrealm, checkrealmlen))
 				return ret;
 		}
 		else
@@ -708,7 +710,8 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 		if (hash && checkpasswd)
 		{
 			char b64passwd[50] = {0};
-			int length = _authz_computepasswd(hash, user, realm, passwd, b64passwd, sizeof(b64passwd));
+			int length = _authz_computepasswd(hash, user,
+						realm, passwd, b64passwd, sizeof(b64passwd));
 
 			auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
 			if (!strncmp(b64passwd, checkpasswd, length))
@@ -717,7 +720,7 @@ int authz_checkpasswd(const char *checkpasswd, const char *user, const char *rea
 		else
 			err("auth: %.3s not supported change password encryption", checkpasswd);
 	}
-	else if (!strcmp(passwd, checkpasswd))
+	else if (!_string_cmp(passwd, checkpasswd, -1))
 	{
 		ret = ESUCCESS;
 	}

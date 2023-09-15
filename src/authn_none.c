@@ -64,7 +64,7 @@ void *authn_none_config(const config_setting_t *configauth)
 	if (user != NULL)
 	{
 		authn_config = calloc(1, sizeof(*authn_config));
-		authn_config->user = user;
+		_string_store(&authn_config->user, user, -1);
 	}
 	else
 		warn("config: authn_none needs to set the user");
@@ -92,7 +92,7 @@ static const char *authn_none_check(void *arg, const char *UNUSED(method), const
 	const authn_none_t *mod = (const authn_none_t *)arg;
 	const authn_none_config_t *config = mod->config;
 
-	return config->user;
+	return config->user.data;
 }
 
 static void authn_none_destroy(void *arg)

@@ -60,10 +60,10 @@ typedef struct authsession_s
 typedef struct authz_simple_config_s authz_simple_config_t;
 struct authz_simple_config_s
 {
-	const char *user;
-	const char *passwd;
-	const char *group;
-	const char *home;
+	string_t user;
+	string_t passwd;
+	string_t group;
+	string_t home;
 };
 
 typedef struct authz_file_config_s authz_file_config_t;
@@ -140,38 +140,38 @@ typedef struct mod_authz_s mod_authz_t;
 typedef struct authn_none_config_s authn_none_config_t;
 struct authn_none_config_s
 {
-	const char *user;
+	string_t user;
 };
 
 typedef struct authn_basic_config_s authn_basic_config_t;
 struct authn_basic_config_s
 {
-	const char *realm;
+	string_t realm;
 };
 
 typedef struct authn_digest_config_s authn_digest_config_t;
 struct authn_digest_config_s
 {
-	const char *realm;
-	const char *opaque;
+	string_t realm;
+	string_t opaque;
 };
 
 typedef struct authn_bearer_config_s authn_bearer_config_t;
 struct authn_bearer_config_s
 {
-	const char *realm;
+	string_t realm;
 };
 
 typedef struct authn_oauth2_config_s authn_oauth2_config_t;
 struct authn_oauth2_config_s
 {
-	const char *realm;
-	const char *client_id;
-	const char *client_passwd;
-	const char *discovery;
-	const char *auth_ep;
-	const char *token_ep;
-	const char *iss;
+	string_t realm;
+	string_t client_id;
+	string_t client_passwd;
+	string_t discovery;
+	string_t auth_ep;
+	string_t token_ep;
+	string_t iss;
 };
 
 typedef struct authn_s authn_t;
@@ -236,8 +236,8 @@ struct mod_auth_s
 
 extern const module_t mod_auth;
 
-int authz_checkpasswd(const char *checkpasswd,
-		const char *user, const char *realm, const char *passwd);
+int authz_checkpasswd(const char *checkpasswd, const string_t *user,
+		const string_t *realm, const string_t *passwd);
 int authn_checksignature(const char *key,
 		const char *data, size_t datalen,
 		const char *sign, size_t signlen);

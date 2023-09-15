@@ -44,22 +44,30 @@ typedef authz_simple_config_t authz_simple_t;
 void *authz_simple_config(const config_setting_t *configauth)
 {
 	authz_simple_config_t *authz_config = NULL;
+
 	const char *user = NULL;
 	config_setting_lookup_string(configauth, "user", &user);
-	if (user != NULL && user[0] != '0')
-	{
-		const char *passwd = NULL;
-		const char *group = NULL;
-		const char *home = NULL;
-		config_setting_lookup_string(configauth, "passwd", &passwd);
-		config_setting_lookup_string(configauth, "group", &group);
-		config_setting_lookup_string(configauth, "home", &home);
-		authz_config = calloc(1, sizeof(*authz_config));
-		authz_config->user = user;
-		authz_config->group = group;
-		authz_config->home = home;
-		authz_config->passwd = passwd;
-	}
+	if (user == NULL || user[0] == '0')
+		return NULL;
+
+	authz_config = calloc(1, sizeof(*authz_config));
+	_string_store(&authz_config->user, user, -1);
+
+	const char *passwd = NULL;
+	config_setting_lookup_string(configauth, "passwd", &passwd);
+	if (passwd != NULL && passwd[0] != '0')
+		_string_store(&authz_config->passwd, passwd, -1);
+
+	const char *group = NULL;
+	config_setting_lookup_string(configauth, "group", &group);
+	if (group != NULL && group[0] != '0')
+		_string_store(&authz_config->group, group, -1);
+
+	const char *home = NULL;
+	config_setting_lookup_string(configauth, "home", &home);
+	if (home != NULL && home[0] != '0')
+		_string_store(&authz_config->home, home, -1);
+
 	return authz_config;
 }
 #endif
@@ -72,8 +80,8 @@ static void *authz_simple_create(http_server_t *UNUSED(server), void *config)
 static const char *authz_simple_passwd(void *arg,const  char *user)
 {
 	const authz_simple_t *ctx = (const authz_simple_t *)arg;
-	if (!strcmp(user, ctx->user))
-		return ctx->passwd;
+	if (!_string_cmp(&ctx->user, user, -1))
+		return ctx->passwd.data;
 	return NULL;
 }
 
@@ -81,8 +89,9 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 {
 	const authz_simple_t *ctx = (const authz_simple_t *)arg;
 
-	if (user != NULL && passwd != NULL && !strcmp(user, ctx->user) &&
-		ctx->passwd && (authz_checkpasswd(passwd, ctx->user, NULL,  ctx->passwd) == ESUCCESS))
+	if (user != NULL && passwd != NULL &&
+		!_string_cmp(&ctx->user, user, -1) && !_string_empty(&ctx->passwd) &&
+		(authz_checkpasswd(passwd, &ctx->user, NULL,  &ctx->passwd) == ESUCCESS))
 	{
 			return user;
 	}
@@ -96,17 +105,17 @@ static int authz_simple_setsession(void *arg, const char * user, authsession_t *
 	if (user == NULL)
 		return EREJECT;
 
-	if (strcmp(user, config->user))
+	if (_string_cmp(&config->user, user, -1))
 		return EREJECT;
 
-	strncpy(info->user, config->user, USER_MAX);
-	if (config->group && config->group[0] != '\0')
-		strncpy(info->group, config->group, FIELD_MAX);
-	else if (!strcmp(user, "anonymous"))
-		strncpy(info->group, "anonymous", FIELD_MAX);
-	if (config->home && config->home[0] != '\0')
-		strncpy(info->home, config->home, PATH_MAX);
-	strncpy(info->status, str_status_activated, FIELD_MAX);
+	snprintf(info->user, USER_MAX, "%s", config->user.data);
+	if (!_string_empty(&config->group))
+		snprintf(info->group, FIELD_MAX, "%s", config->group.data);
+	else if (!strcmp(user, str_anonymous))
+		snprintf(info->group, FIELD_MAX, "%s", str_anonymous);
+	if (!_string_empty(&config->home))
+		snprintf(info->home, PATH_MAX, "%s", config->home.data);
+	snprintf(info->status, FIELD_MAX, "%s", str_status_activated);
 	return ESUCCESS;
 }
 

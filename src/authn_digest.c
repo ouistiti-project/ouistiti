@@ -50,8 +50,8 @@ struct authn_digest_s
 	authz_t *authz;
 	const authn_t *authn;
 	const hash_t *hash;
-	const char *opaque;
-	char nonce[MAXNONCE];
+	char _nonce[MAXNONCE];
+	string_t nonce;
 	char *user;
 	int stale;
 	int encode;
@@ -62,9 +62,20 @@ void *authn_digest_config(const config_setting_t *configauth)
 {
 	authn_digest_config_t *authn_config = NULL;
 
+	const char *opaque = NULL;
+	config_setting_lookup_string(configauth, "opaque", &opaque);
+	if (opaque == NULL)
+	{
+		err("authn Digest needs opaque value");
+		return NULL;
+	}
+
 	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
-	config_setting_lookup_string(configauth, "opaque", &authn_config->opaque);
+	_string_store(&authn_config->opaque, opaque, -1);
+	const char *realm = NULL;
+	config_setting_lookup_string(configauth, "realm", &realm);
+	if (realm != NULL)
+		_string_store(&authn_config->realm, realm, -1);
 	return authn_config;
 }
 #endif
@@ -79,7 +90,11 @@ static char *utils_stringify(const unsigned char *data, size_t len)
 	return result;
 }
 
-static char str_opaque[] = "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS";
+#ifdef DEBUG
+static char str_opaque_rfc7616[] = "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS";
+static char str_nonce_rfc7616[] = "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v";
+static char str_nonce_rfc2617[] = "dcd98b7102dd2f0e8b11d0f600bfb0c093";
+#endif
 
 static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *config)
 {
@@ -97,12 +112,16 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 	mod->authn = authn;
 	mod->authz = authz;
 	mod->hash = authn->hash;
-	if (mod->config->opaque == NULL)
-		mod->opaque = str_opaque;
+	_string_store(&mod->nonce, mod->_nonce, 0);
+#ifdef DEBUG
+	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
+	if (! _string_cmp(&mod->config->opaque, STRING_REF(str_opaque_rfc7616)))
+		mod->nonce.length = snprintf(STRING_REF(mod->_nonce), "%s", str_nonce_rfc7616); //RFC7616
 	else
-		mod->opaque = mod->config->opaque;
-	if (mod->config->realm == NULL)
-		mod->config->realm = httpserver_INFO(authn->server, "host");
+		mod->nonce.length = snprintf(STRING_REF(mod->_nonce), "%s", str_nonce_rfc2617); //RFC2617
+#endif
+	if (mod->config->realm.data == NULL)
+		_string_store(&mod->config->realm, httpserver_INFO(authn->server, "host"), -1);
 	return mod;
 }
 
@@ -136,7 +155,7 @@ static int authn_digest_noncetime(void *arg, char *nonce, size_t noncelen)
 	return EREJECT;
 }
 
-static int authn_digest_nonce(void *arg, char *nonce, size_t noncelen)
+static int authn_digest_nonce(authn_digest_t *mod, char *nonce, size_t noncelen)
 {
 	int ret = EREJECT;
 
@@ -145,7 +164,7 @@ static int authn_digest_nonce(void *arg, char *nonce, size_t noncelen)
  * or hexa encoded data
  */
 #ifndef DEBUG
-	char _nonce[(int)(HASH_MAX_SIZE * 1.5) + 1];
+	char _nonce[(int)(HASH_MAX_SIZE * 1.5) + 1] = {0};
 
 	srandom(time(NULL));
 	int usedate = random() % 5;
@@ -158,18 +177,10 @@ static int authn_digest_nonce(void *arg, char *nonce, size_t noncelen)
 		int i;
 		for (i = 0; i < (sizeof(_nonce) / sizeof(int)); i++)
 			*(int *)(_nonce + i * sizeof(int)) = random();
-		base64->encode(_nonce, sizeof(_nonce), nonce, noncelen);
-		ret = ESUCCESS;
+		ret = base64->encode(_nonce, sizeof(_nonce), nonce, noncelen);
 	}
 #else
-	const authn_digest_t *mod = (authn_digest_t *)arg;
-
-	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
-	if (!strcmp(mod->opaque, str_opaque))
-		strncpy(nonce, "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v", noncelen); //RFC7616
-	else
-		strncpy(nonce, "dcd98b7102dd2f0e8b11d0f600bfb0c093", noncelen);  //RFC2617
-	ret = ESUCCESS;
+	ret = mod->nonce.length;
 #endif
 	return ret;
 }
@@ -179,23 +190,26 @@ static int authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct sock
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
 	mod->stale = 0;
-	authn_digest_nonce(arg, mod->nonce, MAXNONCE);
-	return 0;
+	int length = authn_digest_nonce(arg, STRING_REF(mod->_nonce));
+	if (length < 0)
+		return EREJECT;
+	mod->nonce.length = length;
+	return ESUCCESS;
 }
 
 static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)
 {
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Digest "));
-	if (mod->config->realm != NULL && mod->config->realm[0] != 0)
+	if (mod->config->realm.data != NULL && mod->config->realm.data[0] != 0)
 	{
 		httpmessage_appendheader(response, str_authenticate, STRING_REF("realm=\""));
-		httpmessage_appendheader(response, str_authenticate, mod->config->realm, -1);
+		httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->config->realm));
 		httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	}
 	httpmessage_appendheader(response, str_authenticate, STRING_REF(",qop=\"auth\",nonce=\""));
-	httpmessage_appendheader(response, str_authenticate, mod->nonce, -1);
+	httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->nonce));
 	httpmessage_appendheader(response, str_authenticate, STRING_REF("\",opaque=\""));
-	httpmessage_appendheader(response, str_authenticate, mod->opaque, -1);
+	httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->config->opaque));
 	httpmessage_appendheader(response, str_authenticate, STRING_REF("\",stale="));
 	if (mod->stale)
 		httpmessage_appendheader(response, str_authenticate, STRING_REF("true"));
@@ -216,10 +230,6 @@ static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), ht
 
 	if (mod->hash != hash_md5)
 	{
-		/**
-		 * this adds a second WWW-AUTHENTICATE header with algorithm
-		 */
-		authn_digest_www_authenticate(mod, response);
 		httpmessage_appendheader(response, str_authenticate, STRING_REF(",algorithm="));
 		httpmessage_appendheader(response, str_authenticate, mod->hash->name, -1);
 	}
@@ -227,7 +237,8 @@ static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), ht
 #ifdef DEBUG
 	char _nonce[(int)(HASH_MAX_SIZE * 1.5) + 1];
 	int length = authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
-	httpmessage_addheader(response, "test-nonce-time", _nonce, length);
+	if (length > 0)
+		httpmessage_addheader(response, "test-nonce-time", _nonce, length);
 #endif
 
 	httpmessage_keepalive(response);
@@ -312,7 +323,7 @@ static char *authn_digest_a1(const hash_t * hash, const char *user, size_t userl
 			char *a1 = NULL;
 			if (decode)
 			{
-				char b64passwd[64];
+				char b64passwd[64] = {0};
 				int len = base64->decode(passwd, strlen(passwd), b64passwd, 64);
 				a1 = utils_stringify(b64passwd, len);
 			}
@@ -425,7 +436,7 @@ static int authn_digest_checkrealm(void *data, const char *value, size_t length)
 	checkstring_t *info = (checkstring_t *)data;
 	const authn_digest_t *mod = info->mod;
 
-	if (value != NULL && !strncmp(value, mod->config->realm, length))
+	if (value != NULL && !_string_cmp(&mod->config->realm, value, length))
 	{
 		info->value = value;
 		info->length = length;
@@ -441,7 +452,7 @@ static int authn_digest_checknonce(void *data, const char *value, size_t length)
 	checkstring_t *info = (checkstring_t *)data;
 	authn_digest_t *mod = info->mod;
 
-	if (value != NULL && !strncmp(value, mod->nonce, length))
+	if (value != NULL && !_string_cmp(&mod->nonce, value, length))
 	{
 		info->value = value;
 		info->length = length;
@@ -459,15 +470,13 @@ static int authn_digest_checkopaque(void *data, const char *value, size_t length
 	checkstring_t *info = (checkstring_t *)data;
 	const authn_digest_t *mod = info->mod;
 
-	if (value != NULL && mod->opaque != NULL && !strncmp(value, mod->opaque, length))
+	if (value != NULL && !_string_cmp(&mod->config->opaque, value, length))
 	{
 		info->value = value;
 		info->length = length;
 		auth_dbg("opaque %.*s", length, value);
 		return ESUCCESS;
 	}
-	else if (mod->opaque != NULL)
-		return EREJECT;
 	warn("auth: opaque is unset");
 	return ECONTINUE;
 }
@@ -547,22 +556,19 @@ struct checkuser_s
 	const char *passwd;
 };
 typedef struct checkuser_s checkuser_t;
-static int authn_digest_checkuser(void *data, const char *value, size_t length)
+static int authn_digest_checkuser(void *data, const char *user, size_t length)
 {
 	checkuser_t *info = (checkuser_t *)data;
 	const authn_digest_t *mod = info->mod;
 
-	if (value != NULL)
+	if (user != NULL)
 	{
-		char user[USER_MAX + 1] = {0};
-		length = (length > (USER_MAX))? USER_MAX: length;
-		strncpy(user, value, length);
 		info->passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
 		if (info->passwd != NULL)
 		{
-			info->value = value;
+			info->value = user;
 			info->length = length;
-			auth_dbg("user %.*s", length, value);
+			auth_dbg("user %.*s", length, user);
 			return ESUCCESS;
 		}
 		warn("auth: user %s is unknown", user);
