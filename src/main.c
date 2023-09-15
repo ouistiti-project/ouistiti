@@ -70,6 +70,28 @@
 
 extern const char str_hostname[];
 
+int _string_store(string_t *str, const char *pointer, size_t length)
+{
+	str->data = pointer;
+	if (length == (size_t) -1)
+		str->length = strlen(pointer);
+	else
+		str->length = length;
+	return ESUCCESS;
+}
+
+int _string_cmp(const string_t *str, const char *cmp, size_t length)
+{
+	if ((length != (size_t) -1) && (length != str->length))
+		return EREJECT;
+	return strncasecmp(str->data, cmp, str->length);
+}
+
+int _string_empty(const string_t *str)
+{
+	return ! (str->data != NULL && str->data[0] != '\0');
+}
+
 const char *auth_info(http_message_t *request, const char *key)
 {
 	const authsession_t *info = NULL;

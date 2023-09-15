@@ -76,12 +76,6 @@ struct _mod_userfilter_s
 	int line;
 };
 
-typedef struct string_s string_t;
-struct string_s {
-	const char *data;
-	int length;
-};
-
 int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
 				const char *user, const char *group, const char *home,
 				const char *uri)
