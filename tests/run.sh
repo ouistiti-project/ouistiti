@@ -97,7 +97,7 @@ start () {
 	ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
-	ARGUMENTS=$ARGUMENTS" -M ./src:./staging"
+	ARGUMENTS=$ARGUMENTS" -M ./staging:./src"
 	ARGUMENTS=$ARGUMENTS" -p ${TESTDIR}run.pid"
 	if [ -n "$INFO" ]; then
 		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
@@ -107,6 +107,7 @@ start () {
 	${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS} -D
 	PID=$(cat ${TESTDIR}run.pid)
 	echo "${TARGET} started with pid ${PID}"
+	echo "config ${TESTDIR}conf/${CONFIG}"
 	sleep 1
 }
 
