@@ -394,6 +394,7 @@ static void authn_oauth2_destroy(void *arg)
 {
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 
+	free(mod->config);
 	free(mod);
 }
 
