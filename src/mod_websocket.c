@@ -105,7 +105,7 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_mes
 		hash_sha1->update(hctx, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", sizeof("258EAFA5-E914-47DA-95CA-C5AB0DC85B11") -1);
 		hash_sha1->finish(hctx, accept);
 
-		char out[40];
+		char out[40] = {0};
 		int outlen = base64->encode(accept, hash_sha1->size, out, 40);
 		websocket_dbg("websocket: handshake %s", out);
 
@@ -386,7 +386,7 @@ static int _websocket_unix(const char *filepath)
 	struct sockaddr_un addr;
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
+	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", filepath);
 
 	warn("websocket: open %s", addr.sun_path);
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);

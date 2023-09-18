@@ -57,7 +57,7 @@ int ouistiti_initmodules(const char *pkglib)
 	int ret;
 	struct dirent **namelist = NULL;
 	char cwd[PATH_MAX];
-	strncpy(cwd, pkglib, PATH_MAX);
+	snprintf(cwd, PATH_MAX, "%s", pkglib);
 	char *it_r;
 	char *iterator = strtok_r(cwd, ":", &it_r);
 	while (iterator != NULL)
@@ -72,6 +72,9 @@ int ouistiti_initmodules(const char *pkglib)
 			if (strstr(name, ".so") == NULL)
 				continue;
 
+			/**
+			 * the path must contain a /
+			 */
 			void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
 
 			if (dh != NULL)
