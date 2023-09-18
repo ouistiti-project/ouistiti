@@ -84,12 +84,14 @@ struct authz_jwt_config_s
 	const char *none;
 };
 
+typedef int (*auth_saveinfo_t)(void *arg, const char *key, const char *value, size_t valuelen);
+
 typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
 typedef int (*authz_rule_setup_t)(void *arg);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
 typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);
-typedef int (*authz_rule_setsession_t)(void* arg, const char *user, authsession_t *info);
+typedef int (*authz_rule_setsession_t)(void* arg, const char *user, auth_saveinfo_t cb, void *cbarg);
 typedef void (*authz_rule_cleanup_t)(void *arg);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
@@ -119,7 +121,7 @@ typedef enum
 	AUTHZ_MNGT_E = 0x400,
 } authz_type_t;
 typedef struct authz_s authz_t;
-typedef char *(*generatetoken_t)(const mod_auth_t *mod, const authsession_t *info);
+typedef char *(*generatetoken_t)(const mod_auth_t *mod, http_message_t *info);
 struct authz_s
 {
 	void *ctx;

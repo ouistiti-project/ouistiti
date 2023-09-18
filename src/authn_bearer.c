@@ -112,6 +112,7 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 static void authn_bearer_destroy(void *arg)
 {
 	authn_bearer_t *mod = (authn_bearer_t *)arg;
+	free(mod->config);
 	free(mod);
 }
 

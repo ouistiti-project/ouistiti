@@ -268,16 +268,16 @@ static int _authz_sqlite_storeuser(const authz_sqlite_t *UNUSED(ctx), sqlite3_st
 	const char *field;
 	int i = 0;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, "user", field);
+	callback(cbarg, "user", field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, "group", field);
+	callback(cbarg, "group", field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, "status", field);
+	callback(cbarg, "status", field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, "home", field);
+	callback(cbarg, "home", field, -1);
 	i++;
 
 	return ESUCCESS;
@@ -364,10 +364,10 @@ int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback,
 	return EREJECT;
 }
 
-static int authz_sqlite_setsession(void *arg, const char *user, authsession_t *info)
+static int authz_sqlite_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-	return authz_sqlite_getuser_byName(ctx, user, _authz_store_toauth, info);
+	return authz_sqlite_getuser_byName(ctx, user, cb, cbarg);
 }
 
 static const char *authz_sqlite_passwd(void *arg, const char *user)

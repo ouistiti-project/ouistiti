@@ -117,6 +117,7 @@ static void authn_basic_destroy(void *arg)
 	authn_basic_t *mod = (authn_basic_t *)arg;
 	if (mod->challenge)
 		free(mod->challenge);
+	free(mod->config);
 	free(mod);
 }
 

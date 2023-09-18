@@ -220,21 +220,16 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 	return NULL;
 }
 
-static int authz_unix_setsession(void *arg, const char * user, authsession_t *info)
+static int authz_unix_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
 {
 	const authz_unix_t *ctx = (const authz_unix_t *)arg;
 
-	if (user == NULL)
-		return EREJECT;
-
-	strncpy(info->user, ctx->auth.user, USER_MAX);
+	cb(cbarg, "user", ctx->auth.user, -1);
 	if (ctx->group && ctx->auth.group[0] != '\0')
-		strncpy(info->group, ctx->auth.group, FIELD_MAX);
-	else if (!strcmp(user, "anonymous"))
-		strncpy(info->group, "anonymous", FIELD_MAX);
+		cb(cbarg, "group", ctx->auth.group, -1);
 	if (ctx->home && ctx->auth.home[0] != '\0')
-		strncpy(info->home, ctx->auth.home, PATH_MAX);
-	strncpy(info->status, ctx->auth.status, FIELD_MAX);
+		cb(cbarg, "home", ctx->auth.home, -1);
+	cb(cbarg, "status", ctx->auth.status, -1);
 	return ESUCCESS;
 }
 

@@ -150,6 +150,9 @@ static int _authz_file_parsestring(char *string,
 		*phome[0] = '\0';
 		*phome += 1;
 	}
+	char *endline = strchr(*puser, '\n');
+	if (endline)
+		endline[0] = '\0';
 	return 0;
 }
 
@@ -238,22 +241,22 @@ static const char *authz_file_check(void *arg, const char *user, const char *pas
 	return NULL;
 }
 
-static int authz_file_setsession(void *arg, const char *user, authsession_t *info)
+static int authz_file_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
 {
 	const authz_file_t *ctx = (const authz_file_t *)arg;
-	const char *group = "users";
-	const char *home = "";
 
-	strncpy(info->user, ctx->user, USER_MAX);
-	if (!strcmp(user, "anonymous"))
-		group = "anonymous";
-	if (ctx->group && ctx->group[0] != '\0')
-		group = ctx->group;
-	strncpy(info->group, group, FIELD_MAX);
+	cb(cbarg, "user", ctx->user, -1);
+	if (!strcmp(ctx->user, str_anonymous))
+		cb(cbarg, "group", STRING_REF(str_anonymous));
+	else if (ctx->group && ctx->group[0] != '\0')
+		cb(cbarg, "group", ctx->group, -1);
+	else
+		cb(cbarg, "group", STRING_REF("users"));
 	if (ctx->home && ctx->home[0] != '\0')
-		home = ctx->home;
-	strncpy(info->home, home, PATH_MAX);
-	strncpy(info->status, str_status_activated, FIELD_MAX);
+		cb(cbarg, "home", ctx->home, -1);
+	else
+		cb(cbarg, "home", STRING_REF("~"));
+	cb(cbarg, "status", STRING_REF(str_status_activated));
 
 	return ESUCCESS;
 }

@@ -98,24 +98,16 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 	return NULL;
 }
 
-static int authz_simple_setsession(void *arg, const char * user, authsession_t *info)
+static int authz_simple_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
 {
 	const authz_simple_t *config = (const authz_simple_t *)arg;
 
-	if (user == NULL)
-		return EREJECT;
-
-	if (_string_cmp(&config->user, user, -1))
-		return EREJECT;
-
-	snprintf(info->user, USER_MAX, "%s", config->user.data);
+	cb(cbarg, "user", config->user.data, config->user.length);
 	if (!_string_empty(&config->group))
-		snprintf(info->group, FIELD_MAX, "%s", config->group.data);
-	else if (!strcmp(user, str_anonymous))
-		snprintf(info->group, FIELD_MAX, "%s", str_anonymous);
+		cb(cbarg, "group", config->group.data, config->group.length);
 	if (!_string_empty(&config->home))
-		snprintf(info->home, PATH_MAX, "%s", config->home.data);
-	snprintf(info->status, FIELD_MAX, "%s", str_status_activated);
+		cb(cbarg, "home", config->home.data, config->home.length);
+	cb(cbarg, "status", STRING_REF(str_status_activated));
 	return ESUCCESS;
 }
 

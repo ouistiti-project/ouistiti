@@ -98,6 +98,7 @@ static const char *authn_none_check(void *arg, const char *UNUSED(method), const
 static void authn_none_destroy(void *arg)
 {
 	authn_none_t *mod = (authn_none_t *)arg;
+	free(mod->config);
 	free(mod);
 }
 

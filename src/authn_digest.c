@@ -647,6 +647,7 @@ static void authn_digest_destroy(void *arg)
 	authn_digest_t *mod = (authn_digest_t *)arg;
 	if (mod->user != NULL)
 		free(mod->user);
+	free(mod->config);
 	free(mod);
 }
 

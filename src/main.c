@@ -108,6 +108,8 @@ const char *auth_info(http_message_t *request, const char *key)
 		value = (const char *)info->type;
 	if (!strcmp(key, "home"))
 		value = (const char *)info->home;
+	if (!strcmp(key, "status"))
+		value = (const char *)info->status;
 	return value;
 }
 
