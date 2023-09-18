@@ -102,12 +102,12 @@ static int authz_simple_setsession(void *arg, const char *user, auth_saveinfo_t 
 {
 	const authz_simple_t *config = (const authz_simple_t *)arg;
 
-	cb(cbarg, "user", config->user.data, config->user.length);
+	cb(cbarg, STRING_REF("user"), config->user.data, config->user.length);
 	if (!_string_empty(&config->group))
-		cb(cbarg, "group", config->group.data, config->group.length);
+		cb(cbarg, STRING_REF("group"), config->group.data, config->group.length);
 	if (!_string_empty(&config->home))
-		cb(cbarg, "home", config->home.data, config->home.length);
-	cb(cbarg, "status", STRING_REF(str_status_activated));
+		cb(cbarg, STRING_REF("home"), config->home.data, config->home.length);
+	cb(cbarg, STRING_REF("status"), STRING_REF(str_status_activated));
 	return ESUCCESS;
 }
 

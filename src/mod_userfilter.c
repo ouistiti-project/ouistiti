@@ -363,7 +363,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	int ret = ESUCCESS;
 	const char *uri = httpmessage_REQUEST(request,"uri");
 	const char *method = httpmessage_REQUEST(request, "method");
-	const char *user = auth_info(request, "user");
+	const char *user = auth_info(request, STRING_REF("user"));
 	if (user == NULL)
 		user = str_anonymous;
 
@@ -376,8 +376,8 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 		ret = EREJECT;
 	}
 	else if (_request(ctx, method, user,
-				auth_info(request, "group"),
-				auth_info(request, "home"),
+				auth_info(request, STRING_REF("group")),
+				auth_info(request, STRING_REF("home")),
 				uri) == 0)
 	{
 		ret = EREJECT;

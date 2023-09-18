@@ -612,11 +612,10 @@ static void _mod_auth_freectx(void *vctx)
 static int _home_connector(void *UNUSED(arg), http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	const authsession_t *info = httpmessage_SESSION(request, str_auth, NULL, 0);
+	const char *home = auth_info(request, STRING_REF("home"));
 
-	if (info && info->home)
+	if (home)
 	{
-		const char *home = info->home;
 		/**
 		 * disable home redirection for websocket
 		 */
@@ -625,12 +624,11 @@ static int _home_connector(void *UNUSED(arg), http_message_t *request, http_mess
 			return ret;
 		const char *uri = httpmessage_REQUEST(request, "uri");
 		size_t homelength = strlen(home);
-		if ((homelength > 0) &&
-			(strncmp(home + 1, uri, homelength - 1) != 0))
+		if ((homelength > 0) && !strncmp(home + 1, uri, homelength - 1))
 		{
 			dbg("redirect the url to home %s", home);
 #if defined(RESULT_301)
-			httpmessage_addheader(response, str_location, home, -1);
+			httpmessage_addheader(response, str_location, home, homelength);
 			httpmessage_appendheader(response, str_location, STRING_REF("/"));
 			httpmessage_result(response, RESULT_301);
 			ret = ESUCCESS;
@@ -881,12 +879,12 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 	{
 		cookie_set(response, str_authorization, authorization, NULL);
 	}
-	const char *user = auth_info(response, "user");
+	const char *user = auth_info(response, STRING_REF("user"));
 	cookie_set(response, str_xuser, user, NULL);
-	const char *group = auth_info(response, "group");
+	const char *group = auth_info(response, STRING_REF("group"));
 	if (group && group[0] != '\0')
 		cookie_set(response, str_xgroup, group, NULL);
-	const char *home = auth_info(response, "home");
+	const char *home = auth_info(response, STRING_REF("home"));
 	if (home && home[0] != '\0')
 		cookie_set(response, str_xhome, "~/", NULL);
 	return ESUCCESS;
@@ -912,16 +910,16 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 	{
 		httpmessage_addheader(response, str_authorization, authorization, -1);
 	}
-	const char *user = auth_info(response, "user");
+	const char *user = auth_info(response, STRING_REF("user"));
 	httpmessage_addheader(response, str_xuser, user, -1);
 	httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xuser));
-	const char *group = auth_info(response, "group");
+	const char *group = auth_info(response, STRING_REF("group"));
 	if (group && group[0] != '\0')
 	{
 		httpmessage_addheader(response, str_xgroup, group, -1);
 		httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xgroup));
 	}
-	const char *home = auth_info(response, "home");
+	const char *home = auth_info(response, STRING_REF("home"));
 	if (home && home[0] != '\0')
 	{
 		httpmessage_addheader(response, str_xhome, STRING_REF("~/"));
@@ -1129,38 +1127,17 @@ static int _authn_signtoken(_mod_auth_ctx_t *ctx, char *token, char *b64signatur
 			char signature[HASH_MAX_SIZE];
 			int signlen = hash_macsha256->finish(hctx, signature);
 			length = base64_urlencoding->encode(signature, signlen, b64signature, b64signaturelen);
-			httpclient_session(ctx->clt, STRING_REF(str_token), b64signature, length);
 		}
 	}
 	return length;
 }
 
-static int auth_saveinfo(void *arg, const char *key, const char *value, size_t valuelen)
+static int auth_saveinfo(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen)
 {
 	int ret = ECONTINUE;
-	authsession_t *info = (authsession_t *)arg;
+	http_client_t *clt = (http_client_t *)arg;
 
-	if (!strncmp(key, STRING_REF("user")))
-	{
-		//httpclient_session(clt, STRING_REF("user"), value, valuelen);
-		snprintf(info->user, sizeof(info->user), "%s", value);
-		ret = ESUCCESS;
-	}
-	if (!strncmp(key, STRING_REF("group")))
-	{
-		snprintf(info->group, sizeof(info->group), "%s", value);
-		ret = ESUCCESS;
-	}
-	if (!strncmp(key, STRING_REF("home")))
-	{
-		snprintf(info->home, sizeof(info->home), "%s", value);
-		ret = ESUCCESS;
-	}
-	if (!strncmp(key, STRING_REF("status")))
-	{
-		snprintf(info->status, sizeof(info->status), "%s", value);
-		ret = ESUCCESS;
-	}
+	httpclient_session(clt, key, keylen, value, valuelen);
 	return ret;
 }
 
@@ -1223,7 +1200,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret != EREJECT)
 	{
-		httpclient_session(ctx->clt, STRING_REF(str_auth), "", 0);
+		httpclient_dropsession(ctx->clt);
 		ret = _authn_challenge(ctx, request, response);
 	}
 	else
@@ -1232,7 +1209,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (httpclient_setsession(ctx->clt, authorization) == EREJECT)
 		{
 			dbg("auth: session already open");
-			const char *expire_str = auth_info(request, "expire");
+			const char *expire_str = auth_info(request, STRING_REF("expire"));
 			int expire = 0;
 			if (expire_str)
 				expire = strtol(expire_str, NULL, 10);
@@ -1250,15 +1227,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else
 		{
-			authsession_t info = {0};
-			mod->authz->rules->setsession(mod->authz->ctx, user, auth_saveinfo, &info);
-
-			info.expires = mod->config->expire * 60;
-			info.expires += time(NULL);
-			snprintf(info.type, FIELD_MAX, "%s", mod->type);
-			httpclient_session(ctx->clt, STRING_REF(str_auth), &info, sizeof(info));
+			mod->authz->rules->setsession(mod->authz->ctx, user, auth_saveinfo, ctx->clt);
+			httpclient_session(ctx->clt, STRING_REF("authtype"), mod->type, -1);
 		}
-		const char *status = auth_info(request, "status");
+		const char *status = auth_info(request, STRING_REF("status"));
 		if (status && !strcmp(status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
 		{
 			warn("auth: user \"%s\" accepted from %p to change password", user, ctx->clt);

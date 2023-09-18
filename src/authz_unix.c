@@ -224,12 +224,12 @@ static int authz_unix_setsession(void *arg, const char *user, auth_saveinfo_t cb
 {
 	const authz_unix_t *ctx = (const authz_unix_t *)arg;
 
-	cb(cbarg, "user", ctx->auth.user, -1);
+	cb(cbarg, STRING_REF("user"), ctx->auth.user, -1);
 	if (ctx->group && ctx->auth.group[0] != '\0')
-		cb(cbarg, "group", ctx->auth.group, -1);
+		cb(cbarg, STRING_REF("group"), ctx->auth.group, -1);
 	if (ctx->home && ctx->auth.home[0] != '\0')
-		cb(cbarg, "home", ctx->auth.home, -1);
-	cb(cbarg, "status", ctx->auth.status, -1);
+		cb(cbarg, STRING_REF("home"), ctx->auth.home, -1);
+	cb(cbarg, STRING_REF("status"), ctx->auth.status, -1);
 	return ESUCCESS;
 }
 

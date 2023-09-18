@@ -272,10 +272,10 @@ static int authmngt_stringifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *
 
 static int _authmngt_checkrights(_mod_authmngt_t *mod, const char *user, http_message_t *request)
 {
-	const char *auth = auth_info(request, "user");
+	const char *auth = auth_info(request, STRING_REF("user"));
 	if (auth && user)
 		mod->isuser = !strcmp(auth, user);
-	const char *group = auth_info(request, "group");
+	const char *group = auth_info(request, STRING_REF("group"));
 	if (group && !strcmp(group, "root"))
 	{
 		mod->isroot = 1;

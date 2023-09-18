@@ -92,25 +92,9 @@ int _string_empty(const string_t *str)
 	return ! (str->data != NULL && str->data[0] != '\0');
 }
 
-const char *auth_info(http_message_t *request, const char *key)
+const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 {
-	const authsession_t *info = NULL;
-	info = httpclient_session(httpmessage_client(request), "auth", 4, NULL, 0);
-	const char *value = NULL;
-
-	if (info == NULL)
-		return NULL;
-	if (!strcmp(key, "user"))
-		value = (const char *)info->user;
-	if (!strcmp(key, "group"))
-		value = (const char *)info->group;
-	if (!strcmp(key, "type"))
-		value = (const char *)info->type;
-	if (!strcmp(key, "home"))
-		value = (const char *)info->home;
-	if (!strcmp(key, "status"))
-		value = (const char *)info->status;
-	return value;
+	return httpclient_session(httpmessage_client(request), key, keylen, NULL, -1);
 }
 
 int auth_setowner(const char *user)

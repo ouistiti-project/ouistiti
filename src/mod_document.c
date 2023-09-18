@@ -113,8 +113,8 @@ static int _document_dochome(_mod_document_mod_t *mod,
 
 	while ((*uri)[0] == '/') (*uri)++;
 
-	const char *user = auth_info(request, "user");
-	const char *home = auth_info(request, "home");
+	const char *user = auth_info(request, STRING_REF("user"));
+	const char *home = auth_info(request, STRING_REF("home"));
 	while ((home[0] == '/' || home[0] == '.') && home[0] != '\0') home++;
 	if (home[0] == '\0')
 		home = user;

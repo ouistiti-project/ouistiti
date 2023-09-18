@@ -84,7 +84,7 @@ struct authz_jwt_config_s
 	const char *none;
 };
 
-typedef int (*auth_saveinfo_t)(void *arg, const char *key, const char *value, size_t valuelen);
+typedef int (*auth_saveinfo_t)(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen);
 
 typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
 typedef int (*authz_rule_setup_t)(void *arg);
@@ -244,7 +244,7 @@ int authn_checksignature(const char *key,
 		const char *data, size_t datalen,
 		const char *sign, size_t signlen);
 
-const char *auth_info(http_message_t *request, const char *key);
+const char *auth_info(http_message_t *request, const char *key, size_t keylen);
 int auth_setowner(const char *user);
 
 #ifdef __cplusplus

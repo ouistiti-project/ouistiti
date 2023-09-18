@@ -69,7 +69,7 @@ struct authz_sqlite_s
 	int userid;
 };
 
-typedef int (*storeinfo_t)(void *arg, const char *key, const char *value, size_t valuelen);
+typedef int (*storeinfo_t)(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen);
 
 int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int table);
 int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback, void *cbarg);

@@ -250,34 +250,21 @@ static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, ch
 	return value;
 }
 
-static int _authz_store_toauth(void *arg, const char *key, const char *field)
-{
-	if (! strcmp(key, "user"))
-		strncpy(((authsession_t*)arg)->user, field, USER_MAX);
-	if (! strcmp(key, "group"))
-		strncpy(((authsession_t*)arg)->group, field, FIELD_MAX);
-	if (! strcmp(key, "home"))
-		strncpy(((authsession_t*)arg)->home, field, PATH_MAX);
-	if (! strcmp(key, "status"))
-		strncpy(((authsession_t*)arg)->status, field, FIELD_MAX);
-	return ESUCCESS;
-}
-
 static int _authz_sqlite_storeuser(const authz_sqlite_t *UNUSED(ctx), sqlite3_stmt *statement, storeinfo_t callback, void *cbarg)
 {
 	const char *field;
 	int i = 0;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, "user", field, -1);
+	callback(cbarg, STRING_REF("user"), field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, "group", field, -1);
+	callback(cbarg, STRING_REF("group"), field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, "status", field, -1);
+	callback(cbarg, STRING_REF("status"), field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, "home", field, -1);
+	callback(cbarg, STRING_REF("home"), field, -1);
 	i++;
 
 	return ESUCCESS;
