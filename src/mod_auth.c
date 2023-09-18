@@ -1219,7 +1219,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				(expire < now ||
 				(expire + mod->config->expire) > now))
 			{
-				httpclient_session(ctx->clt, STRING_REF(str_auth), "", 0);
+				httpclient_dropsession(ctx->clt);
 				return _authn_challenge(ctx, request, response);
 			}
 #endif
@@ -1239,7 +1239,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		else if (status && strcmp(status, str_status_activated) != 0)
 		{
 			err("auth: user \"%s\" is not yet activated (%s)", user, status);
-			httpclient_session(ctx->clt, STRING_REF(str_auth), "", 0);
+			httpclient_dropsession(ctx->clt);
 			return _authn_challenge(ctx, request, response);
 		}
 		else
