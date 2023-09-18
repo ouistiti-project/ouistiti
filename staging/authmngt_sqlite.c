@@ -154,16 +154,16 @@ static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char 
 	return EREJECT;
 }
 
-static int _authz_store_toauth(void *arg, const char *key, const char *field)
+static int _authz_store_toauth(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen)
 {
 	if (! strcmp(key, "user"))
-		strncpy(((authsession_t*)arg)->user, field, USER_MAX);
+		snprintf(((authsession_t*)arg)->user, USER_MAX, "%s", value);
 	if (! strcmp(key, "group"))
-		strncpy(((authsession_t*)arg)->group, field, FIELD_MAX);
+		snprintf(((authsession_t*)arg)->group, FIELD_MAX, "%s", value);
 	if (! strcmp(key, "home"))
-		strncpy(((authsession_t*)arg)->home, field, PATH_MAX);
+		snprintf(((authsession_t*)arg)->home, PATH_MAX, "%s", value);
 	if (! strcmp(key, "status"))
-		strncpy(((authsession_t*)arg)->status, field, FIELD_MAX);
+		snprintf(((authsession_t*)arg)->status, FIELD_MAX, "%s", value);
 	return ESUCCESS;
 }
 

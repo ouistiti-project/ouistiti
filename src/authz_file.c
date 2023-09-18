@@ -245,18 +245,16 @@ static int authz_file_setsession(void *arg, const char *user, auth_saveinfo_t cb
 {
 	const authz_file_t *ctx = (const authz_file_t *)arg;
 
-	cb(cbarg, "user", ctx->user, -1);
+	cb(cbarg, STRING_REF("user"), ctx->user, -1);
 	if (!strcmp(ctx->user, str_anonymous))
-		cb(cbarg, "group", STRING_REF(str_anonymous));
+		cb(cbarg, STRING_REF("group"), STRING_REF(str_anonymous));
 	else if (ctx->group && ctx->group[0] != '\0')
-		cb(cbarg, "group", ctx->group, -1);
+		cb(cbarg, STRING_REF("group"), ctx->group, -1);
 	else
-		cb(cbarg, "group", STRING_REF("users"));
+		cb(cbarg, STRING_REF("group"), STRING_REF("users"));
 	if (ctx->home && ctx->home[0] != '\0')
-		cb(cbarg, "home", ctx->home, -1);
-	else
-		cb(cbarg, "home", STRING_REF("~"));
-	cb(cbarg, "status", STRING_REF(str_status_activated));
+		cb(cbarg, STRING_REF("home"), ctx->home, -1);
+	cb(cbarg, STRING_REF("status"), STRING_REF(str_status_activated));
 
 	return ESUCCESS;
 }

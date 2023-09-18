@@ -184,17 +184,17 @@ const char *env_remoteport(const mod_cgi_config_t *UNUSED(config), http_message_
 
 const char *env_authuser(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
 {
-	return auth_info(request, "user");
+	return auth_info(request, STRING_REF("user"));
 }
 
 const char *env_authgroup(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
 {
-	return auth_info(request, "group");
+	return auth_info(request, STRING_REF("group"));
 }
 
 const char *env_authtype(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
 {
-	return auth_info(request, "type");
+	return auth_info(request, STRING_REF("authtype"));
 }
 
 enum cgi_env_e
