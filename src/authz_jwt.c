@@ -145,7 +145,7 @@ char *authz_generatejwtoken(const mod_auth_t *config, http_message_t *request)
 
 	ret = base64_urlencoding->encode(ttoken, strlen(ttoken), offset, length);
 	free(ttoken);
-	warn("token %s", token);
+	warn("auth: jwttoken %s", token);
 	/**
 	 * the signature is added inside mod_auth
 	 */
