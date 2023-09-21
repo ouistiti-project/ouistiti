@@ -87,6 +87,7 @@ typedef struct _mod_auth_ctx_s _mod_auth_ctx_t;
 static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize);
 static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
+static int _forbidden_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifndef AUTHZ_JWT
 static size_t authz_generatetoken(const mod_auth_t *mod, http_message_t *request, char **token);
@@ -445,17 +446,24 @@ static void *auth_config(config_setting_t *iterator, server_t *server)
 		}
 		config_setting_lookup_int(configauth, "expire", &auth->expire);
 
-		int ret;
 		ret = authz_config(configauth, &auth->authz);
 		if (ret == EREJECT)
 		{
 			err("config: authz is not set");
+			auth->authn.type = AUTHN_FORBIDDEN_E;
 		}
 
 		ret = authn_config(configauth, &auth->authn);
 		if (ret == EREJECT)
 		{
 			err("config: authn type is not set");
+			auth->authn.type = AUTHN_FORBIDDEN_E;
+		}
+
+		if (auth->secret.data == NULL && auth->authz.type & AUTHZ_TOKEN_E)
+		{
+			err("auth: to enable the token, set the \"secret\" into configuration");
+			auth->authn.type = AUTHN_FORBIDDEN_E;
 		}
 	}
 	return auth;
@@ -536,12 +544,12 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
 	mod->authn->config = config;
-	mod->authn->server = server;
-	mod->authn->type = config->authn.type;
-	mod->authn->rules = authn_rules[config->authn.type & AUTHN_TYPE_MASK];
-
-	_mod_sethash(mod, config);
-
+	if (config->authn.type != AUTHN_FORBIDDEN_E)
+	{
+		mod->authn->server = server;
+		mod->authn->type = config->authn.type;
+		mod->authn->rules = authn_rules[config->authn.type & AUTHN_TYPE_MASK];
+	}
 	if (mod->authn->rules == NULL)
 		err("authentication type is not availlable, change configuration");
 	else
@@ -555,12 +563,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 	else
 	{
-		if (mod->authz->rules->destroy)
-			mod->authz->rules->destroy(mod->authz->ctx);
-		free(mod->authz);
-		free(mod->authn);
-		free(mod);
-		mod = NULL;
+		httpserver_addconnector(server, _forbidden_connector, mod, CONNECTOR_AUTH, str_auth);
 	}
 
 	return mod;
@@ -599,7 +602,7 @@ static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 	/**
 	 * authn may require prioritary connector and it has to be added after this one
 	 */
-	if(mod->authn->rules->setup)
+	if(mod->authn->ctx && mod->authn->rules->setup)
 		mod->authn->rules->setup(mod->authn->ctx, clt, addr, addrsize);
 
 	return ctx;
@@ -611,6 +614,14 @@ static void _mod_auth_freectx(void *vctx)
 
 	free(ctx->authenticate);
 	free(ctx);
+}
+
+static int _forbidden_connector(void *UNUSED(arg), http_message_t *request, http_message_t *response)
+{
+	int ret = ESUCCESS;
+	err("auth: configuration error, all access are lock");
+	httpmessage_result(response, RESULT_401);
+	return ret;
 }
 
 static int _home_connector(void *UNUSED(arg), http_message_t *request, http_message_t *response)
