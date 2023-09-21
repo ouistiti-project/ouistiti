@@ -41,8 +41,6 @@
 
 #define MAXNONCE 64
 
-static const char *str_digest;
-
 typedef struct authn_digest_s authn_digest_t;
 struct authn_digest_s
 {
@@ -98,20 +96,19 @@ static char str_nonce_rfc2617[] = "dcd98b7102dd2f0e8b11d0f600bfb0c093";
 
 static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *config)
 {
-	if (authn->hash == NULL)
+	if (authn->config->authn.hash == NULL)
 		return NULL;
 	if (authz->rules->passwd == NULL)
 	{
-		err("authn Digest is not compatible with authz %s", authz->name);
+		err("authn Digest is not compatible with authz %s", authz->name.data);
 		return NULL;
 	}
-	str_digest = authn->config->authn.name;
 
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
 	mod->authn = authn;
 	mod->authz = authz;
-	mod->hash = authn->hash;
+	mod->hash = authn->config->authn.hash;
 	_string_store(&mod->nonce, mod->_nonce, 0);
 #ifdef DEBUG
 	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
@@ -134,10 +131,11 @@ static int authn_digest_noncetime(void *arg, char *nonce, size_t noncelen)
 	time_t now = time(NULL);
 	now -= now % (60 * expire);
 	now += (60 *expire);
-	const char *key = mod->authn->config->secret;
+	const char *key = mod->authn->config->secret.data;
+	size_t keylen = mod->authn->config->secret.length;
 	if (hash_macsha256 != NULL && key != NULL)
 	{
-		void *ctx = hash_macsha256->initkey(key, strlen(key));
+		void *ctx = hash_macsha256->initkey(key, keylen);
 		if (ctx)
 		{
 			hash_macsha256->update(ctx, (char*)&now, sizeof(now));
