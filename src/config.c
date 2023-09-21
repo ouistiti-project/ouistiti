@@ -198,8 +198,9 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 {
 	int ret;
 
-	gethostname(str_hostname, HOST_NAME_MAX);
-	strncat(str_hostname, ".local", sizeof(str_hostname) - HOST_NAME_MAX);
+	char hostname[HOST_NAME_MAX];
+	gethostname(hostname, HOST_NAME_MAX);
+	snprintf(str_hostname, sizeof(str_hostname), "%s.local", hostname);
 
 	if (access(filepath, R_OK))
 	{
