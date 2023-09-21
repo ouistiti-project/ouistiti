@@ -97,6 +97,11 @@ const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 	return httpclient_session(httpmessage_client(request), key, keylen, NULL, -1);
 }
 
+size_t auth_info2(http_message_t *request, const char *key, const char **value)
+{
+	return httpmessage_SESSION2(request, key, (void **)value);
+}
+
 int auth_setowner(const char *user)
 {
 	int ret = EREJECT;

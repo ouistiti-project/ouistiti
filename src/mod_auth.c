@@ -612,7 +612,8 @@ static void _mod_auth_freectx(void *vctx)
 static int _home_connector(void *UNUSED(arg), http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	const char *home = auth_info(request, STRING_REF("home"));
+	const char *home = NULL;
+	size_t homelength = auth_info2(request, "home", &home);
 
 	if (home)
 	{
@@ -623,7 +624,7 @@ static int _home_connector(void *UNUSED(arg), http_message_t *request, http_mess
 		if (websocket && websocket[0] != '\0')
 			return ret;
 		const char *uri = httpmessage_REQUEST(request, "uri");
-		size_t homelength = strlen(home);
+		strlen(home);
 		if ((homelength > 0) && !strncmp(home + 1, uri, homelength - 1))
 		{
 			dbg("redirect the url to home %s", home);
@@ -912,13 +913,15 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 	{
 		httpmessage_addheader(response, str_authorization, authorization, -1);
 	}
-	const char *user = auth_info(response, STRING_REF("user"));
-	httpmessage_addheader(response, str_xuser, user, -1);
+	const char *user = NULL;
+	size_t userlen = auth_info2(response, "user", &user);
+	httpmessage_addheader(response, str_xuser, user, userlen);
 	httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xuser));
-	const char *group = auth_info(response, STRING_REF("group"));
-	if (group && group[0] != '\0')
+	const char *group = NULL;
+	size_t grouplen = auth_info2(response, "group", &group);
+	if (group && grouplen > 0)
 	{
-		httpmessage_addheader(response, str_xgroup, group, -1);
+		httpmessage_addheader(response, str_xgroup, group, grouplen);
 		httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xgroup));
 	}
 	const char *home = auth_info(response, STRING_REF("home"));
@@ -1253,7 +1256,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else
 	{
-		if (httpclient_setsession(ctx->clt, authorization) == EREJECT)
+		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
 		{
 			dbg("auth: session already open");
 			const char *expire_str = auth_info(request, STRING_REF("expire"));
