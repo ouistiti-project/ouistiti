@@ -46,7 +46,7 @@ typedef struct _mod_cookie_s _mod_cookie_t;
 
 struct _mod_cookie_ctx_s
 {
-	http_client_t *ctl;
+	http_client_t *clt;
 	_mod_cookie_t *mod;
 };
 
@@ -76,15 +76,15 @@ static void mod_cookie_destroy(void *arg)
 }
 
 #if OLD_COOKIE
-static void *_mod_cookie_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
+static void *_mod_cookie_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	_mod_cookie_t *mod = (_mod_cookie_t *)arg;
 	_mod_cookie_ctx_t *ctx = calloc(1, sizeof(*ctx));
 
-	ctx->ctl = ctl;
+	ctx->clt = clt;
 	ctx->mod = mod;
 
-	httpclient_addconnector(ctl, _cookie_connector, ctx, str_cookie);
+	httpclient_addconnector(clt, _cookie_connector, ctx, str_cookie);
 
 	return ctx;
 }
@@ -132,20 +132,19 @@ static int _cookie_connector(void **arg, http_message_t *request, http_message_t
 	_mod_cookie_ctx_t *ctx = (_mod_cookie_ctx_t *)*arg;
 	_mod_cookie_t *mod = ctx->mod;
 
-	const char *data = httpmessage_REQUEST(request, str_Cookie);
+	const char *data = NULL;
+	size_t size = httpmessage_REQUEST2(request, str_Cookie, &data);
 	if (data == NULL || data[0] == '\0')
 		return EREJECT;
 
-	int size = strlen(data);
 	int length = 0;
 	_cookiesession_t * cookie = NULL;
-	cookie = (_cookiesession_t *)httpmessage_SESSION(request, str_Cookie, NULL, 0);
+	httpmessage_SESSION2(ctx->clt, STRING_REF(str_Cookie), $cookie);
 	if (cookie != NULL)
 		_cookie_free(cookie);
 	cookie = calloc(1, sizeof(*cookie));
-	cookie->data = calloc(size + 1, sizeof(char));
-	strcpy(cookie->data, data);
-	httpmessage_SESSION(request, str_Cookie, cookie, sizeof(*cookie));
+	cookie->data = strdup(data);
+	httpclient_session(ctx->clt, STRING_REF(str_Cookie), cookie, sizeof(*cookie));
 	data = cookie->data;
 
 	data += size + 1;
@@ -208,7 +207,7 @@ const char *cookie_get(http_message_t *request, const char *key)
 {
 	const char *value = NULL;
 	_cookiesession_t * cookie = NULL;
-	cookie = (_cookiesession_t *)httpmessage_SESSION(request, str_Cookie, NULL, 0);
+	httpmessage_SESSION2(request, str_Cookie, &cookie);
 	if (cookie != NULL)
 	{
 		_cookie_t *it = cookie->next;
@@ -243,7 +242,8 @@ const char *cookie_get(http_message_t *request, const char *key)
 int cookie_set(http_message_t *response, const char *key, const char *value, ...)
 {
 	int ret = 0;
-	const char *domain = httpmessage_SERVER(response, "domain");
+	const char *domain = NULL;
+	size_t domainlen = httpmessage_REQUEST2(response, "domain", &domain);
 	httpmessage_addheader(response, str_SetCookie, key, -1);
 	httpmessage_appendheader(response, str_SetCookie, STRING_REF("="));
 #ifdef USE_STDARG
@@ -267,7 +267,7 @@ int cookie_set(http_message_t *response, const char *key, const char *value, ...
 
 	if (domain != NULL && strncmp(domain, "local", 5))
 		ret = httpmessage_appendheader(response, str_SetCookie, STRING_REF("; Domain=."));
-		ret = httpmessage_appendheader(response, str_SetCookie, domain, -1);
+		ret = httpmessage_appendheader(response, str_SetCookie, domain, domainlen);
 	return ret;
 }
 

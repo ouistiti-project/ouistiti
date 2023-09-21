@@ -112,11 +112,11 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 		}
 		else
 		{
-			const char *uri = httpmessage_REQUEST(request,"uri");
-			int length = strlen(uri);
-			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + length + 1);
-			length = snprintf(data, DIRLISTING_HEADER_LENGTH + length, DIRLISTING_HEADER, uri);
-			httpmessage_appendcontent(response, data, length);
+			const char *uri = NULL;
+			size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
+			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + urilen + 1);
+			urilen = snprintf(data, DIRLISTING_HEADER_LENGTH + urilen, DIRLISTING_HEADER, uri);
+			httpmessage_appendcontent(response, data, urilen);
 			free(data);
 			ret = ECONTINUE;
 		}
