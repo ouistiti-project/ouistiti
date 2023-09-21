@@ -128,14 +128,14 @@ struct authz_s
 	authz_rules_t *rules;
 	authz_type_t type;
 	generatetoken_t generatetoken;
-	const char *name;
+	string_t name;
 };
 
 struct mod_authz_s
 {
 	void *config;
 	authz_type_t type;
-	const char *name;
+	string_t name;
 };
 typedef struct mod_authz_s mod_authz_t;
 
@@ -211,7 +211,6 @@ struct authn_s
 	void *ctx;
 	authn_rules_t *rules;
 	authn_type_t type;
-	const hash_t *hash;
 	http_server_t *server;
 	mod_auth_t *config;
 };
@@ -220,7 +219,8 @@ struct mod_authn_s
 {
 	void *config;
 	authn_type_t type;
-	const char *name;
+	string_t name;
+	const hash_t *hash;
 };
 typedef struct mod_authn_s mod_authn_t;
 
@@ -228,9 +228,9 @@ struct mod_auth_s
 {
 	mod_authn_t authn;
 	mod_authz_t authz;
-	const char *algo;
-	const char *secret;
-	const char *redirect;
+	string_t algo;
+	string_t secret;
+	string_t redirect;
 	const char *protect;
 	const char *unprotect;
 	int expire;
@@ -240,7 +240,7 @@ extern const module_t mod_auth;
 
 int authz_checkpasswd(const char *checkpasswd, const string_t *user,
 		const string_t *realm, const string_t *passwd);
-int authn_checksignature(const char *key,
+int authn_checksignature(const char *key, size_t keylen,
 		const char *data, size_t datalen,
 		const char *sign, size_t signlen);
 
