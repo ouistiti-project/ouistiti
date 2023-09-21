@@ -1,0 +1,7 @@
+HTTP/1.1 301 Moved Permanently
+Location: error_414.html
+Content-Type: text/plain
+Content-Length: 24
+Connection: Close
+
+ 301 Moved Permanently

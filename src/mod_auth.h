@@ -193,6 +193,7 @@ struct authn_rules_s
 };
 typedef enum
 {
+	AUTHN_FORBIDDEN_E = -1,
 	AUTHN_NONE_E = 0,
 	AUTHN_BASIC_E = 1,
 	AUTHN_DIGEST_E,
