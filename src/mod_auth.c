@@ -89,7 +89,7 @@ static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifndef AUTHZ_JWT
-static char *authz_generatetoken(const mod_auth_t *mod, http_message_t *request);
+static size_t authz_generatetoken(const mod_auth_t *mod, http_message_t *request, char **token);
 #endif
 
 static const char str_auth[] = "auth";
@@ -719,10 +719,10 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 }
 
 #ifndef AUTHZ_JWT
-static char *authz_generatetoken(const mod_auth_t *config, http_message_t *UNUSED(request))
+static size_t authz_generatetoken(const mod_auth_t *config, http_message_t *UNUSED(request), char **token)
 {
-	int tokenlen = (((24 + 1 + sizeof(time_t)) * 1.5) + 1) + 1;
-	char *token = calloc(1, tokenlen);
+	size_t tokenlen = (((24 + 1 + sizeof(time_t)) * 1.5) + 1) + 1;
+	*token = calloc(1, tokenlen);
 	char _nonce[(24 + 1 + sizeof(time_t))];
 	int i;
 	for (i = 0; i < (24 / sizeof(int)); i++)
@@ -735,8 +735,8 @@ static char *authz_generatetoken(const mod_auth_t *config, http_message_t *UNUSE
 		expire = 60 * 30;
 	expire += time(NULL);
 	memcpy(&_nonce[25], &expire, sizeof(time_t));
-	base64_urlencoding->encode(_nonce, 24, token, tokenlen);
-	return token;
+	tokenlen = base64_urlencoding->encode(_nonce, 24, *token, tokenlen);
+	return tokenlen;
 }
 #endif
 
@@ -1117,7 +1117,7 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 	return ret;
 }
 
-static int _authn_signtoken(_mod_auth_ctx_t *ctx, char *token, char *b64signature, int b64signaturelen)
+static int _authn_signtoken(_mod_auth_ctx_t *ctx, char *token, size_t tokenlen, char *b64signature, int b64signaturelen)
 {
 	const _mod_auth_t *mod = ctx->mod;
 	int length = 0;
@@ -1128,7 +1128,7 @@ static int _authn_signtoken(_mod_auth_ctx_t *ctx, char *token, char *b64signatur
 		void *hctx = hash_macsha256->initkey(key, strlen(key));
 		if (hctx)
 		{
-			hash_macsha256->update(hctx, token, strlen(token));
+			hash_macsha256->update(hctx, token, tokenlen);
 			char signature[HASH_MAX_SIZE];
 			int signlen = hash_macsha256->finish(hctx, signature);
 			length = base64_urlencoding->encode(signature, signlen, b64signature, b64signaturelen);
@@ -1151,17 +1151,17 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 {
 	const _mod_auth_t *mod = ctx->mod;
 	char *ttoken = NULL;
-	int tokenlen = -1;
+	size_t tokenlen = -1;
 	char *tsign = NULL;
-	int tsignlen = 0;
+	size_t tsignlen = 0;
 	if (token == NULL)
 	{
-		int ttokenlen = -1;
+		size_t ttokenlen = -1;
 		tsignlen = (int)(HASH_MAX_SIZE * 1.5) + 1;
 		tsign = calloc(1, tsignlen);
 
-		ttoken = mod->authz->generatetoken(mod->config, request);
-		tsignlen = _authn_signtoken(ctx, ttoken, tsign, tsignlen);
+		ttokenlen = mod->authz->generatetoken(mod->config, request, &ttoken);
+		tsignlen = _authn_signtoken(ctx, ttoken, ttokenlen, tsign, tsignlen);
 		if (tsign == NULL)
 			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, tsignlen);
 		else
