@@ -70,13 +70,19 @@ void *authz_jwt_config(const config_setting_t *UNUSED(configauth))
 }
 #endif
 
-char *authz_generatejwtoken(const mod_auth_t *config, http_message_t *request)
+size_t authz_generatejwtoken(const mod_auth_t *config, http_message_t *request, char **token)
 {
+#ifdef JWT_FORMATHEADER
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));
 	json_object_set(jheader, "typ", json_string("JWT"));
 	char *theader = json_dumps(jheader, 0);
+	size_t theaderlen = strlen(theader);
 	json_decref(jheader);
+#else
+	char theader[] = "{\"alg\": \"HS256\", \"typ\": \"JWT\"}";
+	size_t theaderlen = sizeof(theader) - 1;
+#endif
 
 	json_t *jtoken = json_object();
 	const char *user = auth_info(request, STRING_REF("user"));
@@ -124,32 +130,39 @@ char *authz_generatejwtoken(const mod_auth_t *config, http_message_t *request)
 	if (info->urlspace && info->urlspace[0] != '\0')
 		json_object_set(jtoken, "iss", json_string(info->urlspace));
 #endif
-	char *ttoken = json_dumps(jtoken, 0);
+	size_t ttokenlen = json_dumpb(jtoken, NULL, 0, 0);
+	if (ttokenlen == 0)
+		return 0;
+	char *ttoken = malloc(ttokenlen);
+	json_dumpb(jtoken, ttoken, ttokenlen, 0);
 	auth_dbg("jwt: encode %s", ttoken);
 	json_decref(jtoken);
 
-	int ret;
-	size_t length = (strlen(theader) + 1 + strlen(ttoken) + 1) * 3 / 2;
+	int ret = 0;
+	size_t length = (theaderlen + 1 + ttokenlen + 1) * 3 / 2;
 
-	char *token = calloc(2, length + 1);
-	char *offset = token;
+	*token = calloc(2, length + 1);
+	char *offset = *token;
 	length *= 2;
-	ret = base64_urlencoding->encode(theader, strlen(theader), offset, length);
+	ret = base64_urlencoding->encode(theader, theaderlen, offset, length);
 	offset += ret;
 	length -= ret;
+#ifdef JWT_FORMATHEADER
 	free(theader);
+#endif
 
 	*offset = '.';
 	offset++;
+	ret++;
 	length--;
 
-	ret = base64_urlencoding->encode(ttoken, strlen(ttoken), offset, length);
+	ret += base64_urlencoding->encode(ttoken, ttokenlen, offset, length);
 	free(ttoken);
-	warn("auth: jwttoken %s", token);
+	warn("auth: jwttoken %s", *token);
 	/**
 	 * the signature is added inside mod_auth
 	 */
-	return token;
+	return ret;
 }
 
 static json_t *jwt_decode_json(const char *id_token)

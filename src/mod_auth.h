@@ -121,7 +121,7 @@ typedef enum
 	AUTHZ_MNGT_E = 0x400,
 } authz_type_t;
 typedef struct authz_s authz_t;
-typedef char *(*generatetoken_t)(const mod_auth_t *mod, http_message_t *info);
+typedef size_t (*generatetoken_t)(const mod_auth_t *mod, http_message_t *info, char **token);
 struct authz_s
 {
 	void *ctx;
