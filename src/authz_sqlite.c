@@ -218,12 +218,12 @@ static int authz_sqlite_setup(void *arg)
 						"inner join status on status.id=users.statusid " \
 						"where users.name=@NAME;"
 
-static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field)
+static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field, int fieldlen)
 {
 	int ret;
 	const char *value = NULL;
 
-	size_t size = sizeof(SEARCH_QUERY) + strlen(field);
+	size_t size = sizeof(SEARCH_QUERY) + fieldlen;
 	char *sql = sqlite3_malloc(size);
 	snprintf(sql, size, SEARCH_QUERY, field);
 
@@ -361,7 +361,7 @@ static const char *authz_sqlite_passwd(void *arg, const char *user)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	const char * passwd = authz_sqlite_search(ctx, user, "passwd");
+	const char * passwd = authz_sqlite_search(ctx, user, STRING_REF("passwd"));
 	return passwd;
 }
 

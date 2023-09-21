@@ -237,7 +237,7 @@ void mod_redirect_destroy(void *arg)
 
 static int _mod_redirect_connectorlinkquery(_mod_redirect_t *mod, http_message_t *request,
 									http_message_t *response, mod_redirect_link_t *link,
-									const char *search)
+									const char *search, size_t searchlen)
 {
 	char *redirect = NULL;
 
@@ -248,7 +248,7 @@ static int _mod_redirect_connectorlinkquery(_mod_redirect_t *mod, http_message_t
 		int result = mod->result;
 		redirect += 13;
 		char *end = strchr(redirect, '&');
-		int length = strlen(redirect);
+		int length = searchlen - (redirect - search);
 		if (end != NULL)
 			length = end - redirect;
 		httpmessage_addheader(response, str_location, redirect, length);
@@ -331,8 +331,9 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 		}
 		else if (link->options & REDIRECT_QUERY)
 		{
-			const char *search = httpmessage_REQUEST(request, "query");
-			ret =_mod_redirect_connectorlinkquery(mod, request, response, link, search);
+			const char *search = NULL;
+			size_t searchlen = httpmessage_REQUEST2(request, "query", &search);
+			ret =_mod_redirect_connectorlinkquery(mod, request, response, link, search, searchlen);
 		}
 		if (ret == ESUCCESS)
 		{
@@ -407,7 +408,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 					ret = ESUCCESS;
 				}
 				if (ret == ECONTINUE)
-					ret = _mod_redirect_connectorlink(mod, request, response, link, uri, strlen(uri));
+					ret = _mod_redirect_connectorlink(mod, request, response, link, uri, urilen);
 			}
 			if (ret != ECONTINUE)
 			{
@@ -423,7 +424,8 @@ static int _mod_redirect_connectorerror(void *arg, http_message_t *request, http
 {
 	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
 	mod_redirect_t *config = mod->config;
-	const char *uri = httpmessage_REQUEST(request, "uri");
+	const char *uri = NULL;
+	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
 	int result = httpmessage_result(response, 0);
 
 	mod_redirect_link_t *link = config->links;
@@ -431,7 +433,7 @@ static int _mod_redirect_connectorerror(void *arg, http_message_t *request, http
 	{
 		int ret = ECONTINUE;
 		if (result == 404 && link->result == result)
-			ret = _mod_redirect_connector404(mod, request, response, link, uri, strlen(uri));
+			ret = _mod_redirect_connector404(mod, request, response, link, uri, urilen);
 		if ((ret == ECONTINUE) && (link->options & REDIRECT_ERROR) && (link->result == result))
 		{
 			int result = mod->result;

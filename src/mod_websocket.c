@@ -95,13 +95,14 @@ struct _mod_websocket_ctx_s
 
 static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_message_t *request, http_message_t *response)
 {
-	const char *key = httpmessage_REQUEST(request, str_sec_ws_key);
+	const char *key = NULL;
+	size_t keylen = httpmessage_REQUEST2(request, str_sec_ws_key, &key);
 	if (key && key[0] != 0)
 	{
 		char accept[20] = {0};
 		void *hctx;
 		hctx = hash_sha1->init();
-		hash_sha1->update(hctx, key, strlen(key));
+		hash_sha1->update(hctx, key, keylen);
 		hash_sha1->update(hctx, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", sizeof("258EAFA5-E914-47DA-95CA-C5AB0DC85B11") -1);
 		hash_sha1->finish(hctx, accept);
 
