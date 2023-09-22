@@ -78,14 +78,15 @@ void *authn_digest_config(const config_setting_t *configauth)
 }
 #endif
 
-static char *utils_stringify(const unsigned char *data, size_t len)
+static size_t utils_stringify(const unsigned char *data, size_t len, char **result)
 {
-	char *result = calloc(2, len + 1);
+	size_t length = 0;
+	*result = calloc(2, len + 1);
 	for (size_t i = 0; i < len; i++)
 	{
-		snprintf(result + i * 2, 3, "%02x", data[i]);
+		length += snprintf(*result + i * 2, 3, "%02x", data[i]);
 	}
-	return result;
+	return length;
 }
 
 #ifdef DEBUG
@@ -246,12 +247,12 @@ static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), ht
 
 struct authn_digest_computing_s
 {
-	char *(*digest)(const hash_t * hash, const char *a1, const char *nonce, size_t noncelen, const char *nc, size_t nclen, const char *cnonce, size_t cnoncelen, const char *qop, size_t qoplen, const char *a2);
-	char *(*a1)(const hash_t * hash, const char *user, size_t userlen, const char *realm, size_t realmlen, const char *passwd, size_t passwdlen);
-	char *(*a2)(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen);
+	char *(*digest)(const hash_t * hash, const char *a1, size_t a1len, const char *nonce, size_t noncelen, const char *nc, size_t nclen, const char *cnonce, size_t cnoncelen, const char *qop, size_t qoplen, const char *a2, size_t a2len);
+	size_t (*a1)(const hash_t * hash, const char *user, size_t userlen, const char *realm, size_t realmlen, const char *passwd, size_t passwdlen, char **a1);
+	size_t (*a2)(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen, char **a2);
 };
 
-static char *authn_digest_digest(const hash_t * hash, const char *a1, const char *nonce, size_t noncelen, const char *nc, size_t nclen, const char *cnonce, size_t cnoncelen, const char *qop, size_t qoplen, const char *a2)
+static char *authn_digest_digest(const hash_t * hash, const char *a1, size_t a1len, const char *nonce, size_t noncelen, const char *nc, size_t nclen, const char *cnonce, size_t cnoncelen, const char *qop, size_t qoplen, const char *a2, size_t a2len)
 {
 	if (a1 && a2)
 	{
@@ -259,7 +260,7 @@ static char *authn_digest_digest(const hash_t * hash, const char *a1, const char
 		void *ctx;
 
 		ctx = hash->init();
-		hash->update(ctx, a1, strlen(a1));
+		hash->update(ctx, a1, a1len);
 		hash->update(ctx, ":", 1);
 		hash->update(ctx, nonce, noncelen);
 		if (qop && !strncmp(qop, "auth", qoplen))
@@ -278,14 +279,16 @@ static char *authn_digest_digest(const hash_t * hash, const char *a1, const char
 			hash->update(ctx, qop, qoplen);
 		}
 		hash->update(ctx, ":", 1);
-		hash->update(ctx, a2, strlen(a2));
+		hash->update(ctx, a2, a2len);
 		hash->finish(ctx, digest);
-		return utils_stringify(digest, hash->size);
+		char *result = NULL;
+		utils_stringify(digest, hash->size, &result);
+		return result;
 	}
 	return NULL;
 }
 
-static char *authn_digest_a1(const hash_t * hash, const char *user, size_t userlen, const char *realm, size_t realmlen, const char *passwd, size_t passwdlen)
+static size_t authn_digest_a1(const hash_t * hash, const char *user, size_t userlen, const char *realm, size_t realmlen, const char *passwd, size_t passwdlen, char **a1)
 {
 	if (passwd[0] != '$')
 	{
@@ -299,10 +302,11 @@ static char *authn_digest_a1(const hash_t * hash, const char *user, size_t userl
 		hash->update(ctx, ":", 1);
 		hash->update(ctx, passwd, passwdlen);
 		hash->finish(ctx, A1);
-		return utils_stringify(A1, hash->size);
+		return utils_stringify(A1, hash->size, a1);
 	}
 	else if (passwd[0] == '$')
 	{
+		const char *fullpasswd = passwd;
 		int i = 1;
 		int decode = 0;
 		if (passwd[i] == 'a')
@@ -318,22 +322,21 @@ static char *authn_digest_a1(const hash_t * hash, const char *user, size_t userl
 		{
 			passwd = strrchr(passwd + 1, '$');
 			passwd += 1;
-			char *a1 = NULL;
 			if (decode)
 			{
 				char b64passwd[64] = {0};
-				int len = base64->decode(passwd, strlen(passwd), b64passwd, 64);
-				a1 = utils_stringify(b64passwd, len);
+				passwdlen -= passwd - fullpasswd;
+				int len = base64->decode(passwd, passwdlen, b64passwd, 64);
+				return utils_stringify(b64passwd, len, a1);
 			}
-			else
-				a1 = strdup(passwd);
-			return a1;
+			*a1 = strdup(passwd);
+			return passwdlen;
 		}
 	}
-	return NULL;
+	return 0;
 }
 
-static char *authn_digest_a2(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen)
+static size_t authn_digest_a2(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen, char **a2)
 {
 	char A2[32];
 	void *ctx;
@@ -348,7 +351,7 @@ static char *authn_digest_a2(const hash_t * hash, const char *method, size_t met
 		hash->update(ctx, entity, entitylen);
 	}
 	hash->finish(ctx, A2);
-	return utils_stringify(A2, hash->size);
+	return utils_stringify(A2, hash->size, a2);
 }
 static struct authn_digest_computing_s authn_digest_md5_computing =
 {
@@ -607,21 +610,23 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	int ret = utils_parsestring(string, 10, parser);
 	if (ret == ESUCCESS && authn_digest_computing)
 	{
-		char *a1 = authn_digest_computing->a1(algorithm.hash,
+		char *a1 = NULL;
+		size_t a1len = authn_digest_computing->a1(algorithm.hash,
 						user.value, user.length,
 						realm.value, realm.length,
-						user.passwd, strlen(user.passwd));
-		char *a2 = authn_digest_computing->a2(algorithm.hash,
+						user.passwd, strlen(user.passwd), &a1);
+		char *a2 = NULL;
+		size_t a2len = authn_digest_computing->a2(algorithm.hash,
 						method, strlen(method),
 						uri.value, uri.length,
-						NULL, 0);
+						NULL, 0, &a2);
 		char *digest = authn_digest_computing->digest(algorithm.hash,
-						a1,
+						a1, a1len,
 						nonce.value, nonce.length,
 						nc.value, nc.length,
 						cnonce.value, cnonce.length,
 						qop.value, qop.length,
-						a2);
+						a2, a2len);
 
 		auth_dbg("Digest:\n\t%.*s\n\t%s", response.length, response.value, digest);
 		if (mod->user != NULL)
