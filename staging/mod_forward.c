@@ -47,7 +47,9 @@
 #include <libconfig.h>
 #endif
 
-#define HTTPCLIENT_FEATURES
+#ifndef HTTPCLIENT_FEATURES
+#error MOD_FORWARD needs HTTPCLIENT_FEATURES to compile
+#endif
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
 #include "ouistiti/log.h"
