@@ -537,7 +537,7 @@ clean: default_action ;
 
 distclean: action:=_clean
 distclean: build:=$(action) -f $(makemore) file
-distclean: default_action cleanconfig
+distclean: cleanconfig default_action
 	@$(call cmd,clean_dir,$(wildcard $(builddir)host))
 	@$(call cmd,clean_dir,$(filter-out $(srcdir),$(builddir)))
 	@$(call cmd,clean_dir,$(wildcard $(gitclone-target)))
