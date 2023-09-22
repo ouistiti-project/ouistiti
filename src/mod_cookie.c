@@ -235,7 +235,9 @@ const char *cookie_get(http_message_t *request, const char *key)
 #else
 const char *cookie_get(http_message_t *request, const char *key)
 {
-	return httpmessage_cookie(request, key);
+	const char *cookie = NULL;
+	httpmessage_cookie(request, key, &cookie);
+	return cookie;
 }
 #endif
 
