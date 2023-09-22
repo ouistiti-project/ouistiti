@@ -756,7 +756,7 @@ static size_t authz_generatetoken(const mod_auth_t *config, http_message_t *UNUS
 #endif
 
 #ifdef AUTH_TOKEN
-static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request, const char **token)
+static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request, const char **token, size_t *tokenlen)
 {
 	const _mod_auth_t *mod = ctx->mod;
 	const char *authorization = NULL;
@@ -766,10 +766,10 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	 */
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
-		*token = httpmessage_REQUEST(request, str_xtoken);
+		*tokenlen = httpmessage_REQUEST2(request, str_xtoken, token);
 	}
 	if (*token == NULL)
-		*token = cookie_get(request, str_xtoken);
+		*tokenlen = httpmessage_cookie(request, str_xtoken, token);
 	if (*token != NULL && *token[0] != '\0')
 	{
 		authorization = strrchr(*token, '.');
@@ -782,10 +782,12 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	return NULL;
 }
 
-int authn_checksignature(const char *key, size_t keylen,
+static size_t _authn_signtoken(const char *key, size_t keylen,
 		const char *data, size_t datalen,
-		const char *sign, size_t signlen)
+		char *b64signature, size_t b64signaturelen)
 {
+	size_t length = 0;
+
 	if (hash_macsha256 != NULL && key != NULL)
 	{
 		void *ctx = hash_macsha256->initkey(key, keylen);
@@ -793,58 +795,50 @@ int authn_checksignature(const char *key, size_t keylen,
 		{
 			hash_macsha256->update(ctx, data, datalen);
 			char signature[HASH_MAX_SIZE];
-			size_t len = hash_macsha256->finish(ctx, signature);
-			if (signlen < len)
+			length = hash_macsha256->finish(ctx, signature);
+			if (b64signaturelen < length)
 			{
 				err("auth: signature buffer too small");
-				len = signlen / 3 * 2;
+				return -1;
 			}
-			char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
-			base64_urlencoding->encode(signature, len, b64signature, sizeof(b64signature));
+			length = base64_urlencoding->encode(signature, length, b64signature, b64signaturelen);
 			auth_dbg("auth: signature %s / %.*s", b64signature, (int)signlen, sign);
-			if (!strncmp(b64signature, sign, signlen))
-				return ESUCCESS;
 		}
 	}
+	return length;
+}
+
+int authn_checksignature(const char *key, size_t keylen,
+		const char *data, size_t datalen,
+		const char *sign, size_t signlen)
+{
+	char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
+	if (_authn_signtoken(key, keylen, data, datalen,b64signature, sizeof(b64signature)) > 0 &&
+		(!strncmp(b64signature, sign, signlen)))
+		return ESUCCESS;
 	return EREJECT;
 }
 
-int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token, const char *sign, const char **user)
+static int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token, size_t tokenlen, const char *sign, size_t signlen, const char **user)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 
-	if (sign == NULL)
+	const char *key = mod->config->secret.data;
+	size_t keylen = mod->config->secret.length;
+	ret = authn_checksignature(key, keylen, token, tokenlen, sign, signlen);
+	if (ret == ESUCCESS)
 	{
-		sign = strrchr(token, '.');
-		if (sign != NULL)
-			sign++;
+		*user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, token);
+		if (*user == NULL)
+		{
+			*user = str_anonymous;
+		}
+		ret = ESUCCESS;
 	}
-	if (sign != NULL)
+	else
 	{
-		size_t signlen = 0;
-		const char *end = strchr(sign, ';');
-		if (end != NULL)
-			signlen = end - sign;
-		else
-			signlen = strlen(sign);
-		size_t datalen = sign - token - 1;
-		const char *key = ctx->mod->config->secret.data;
-		size_t keylen = ctx->mod->config->secret.length;
-		ret = authn_checksignature(key, keylen, token, datalen, sign, signlen);
-		if (ret == ESUCCESS)
-		{
-			*user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, token);
-			if (*user == NULL)
-			{
-				*user = str_anonymous;
-			}
-			ret = ESUCCESS;
-		}
-		else
-		{
-			warn("auth: token with bad signature");
-		}
+		err("auth: token with bad signature %.*s", (int)signlen, sign);
 	}
 	return ret;
 }
@@ -922,7 +916,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		httpmessage_addheader(response, str_xtoken, token, tokenlen);
 		if (sign && signlen > 0)
 		{
-			httpmessage_appendheader(response, str_xtoken, ".", 1);
+			httpmessage_appendheader(response, str_xtoken, STRING_REF("."));
 			httpmessage_appendheader(response, str_xtoken, sign, signlen);
 		}
 	}
@@ -1134,27 +1128,6 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 	return ret;
 }
 
-static int _authn_signtoken(_mod_auth_ctx_t *ctx, char *token, size_t tokenlen, char *b64signature, int b64signaturelen)
-{
-	const _mod_auth_t *mod = ctx->mod;
-	int length = 0;
-	const char *key = ctx->mod->config->secret.data;
-	size_t keylen = ctx->mod->config->secret.length;
-
-	if (hash_macsha256 != NULL && key != NULL && b64signature != NULL)
-	{
-		void *hctx = hash_macsha256->initkey(key, keylen);
-		if (hctx)
-		{
-			hash_macsha256->update(hctx, token, tokenlen);
-			char signature[HASH_MAX_SIZE];
-			int signlen = hash_macsha256->finish(hctx, signature);
-			length = base64_urlencoding->encode(signature, signlen, b64signature, b64signaturelen);
-		}
-	}
-	return length;
-}
-
 static int auth_saveinfo(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen)
 {
 	int ret = ECONTINUE;
@@ -1179,7 +1152,9 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 		tsign = calloc(1, tsignlen);
 
 		ttokenlen = mod->authz->generatetoken(mod->config, request, &ttoken);
-		tsignlen = _authn_signtoken(ctx, ttoken, ttokenlen, tsign, tsignlen);
+		const char *key = mod->config->secret.data;
+		size_t keylen = mod->config->secret.length;
+		tsignlen = _authn_signtoken(key, keylen, ttoken, ttokenlen, tsign, tsignlen);
 		if (tsign == NULL)
 			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, tsignlen);
 		else
@@ -1227,14 +1202,21 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 #ifdef AUTH_TOKEN
 	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
-		authorization = _authn_gettoken(ctx, request, &token);
+		size_t tokenlen = 0;
+		authorization = _authn_gettoken(ctx, request, &token, &tokenlen);
 		auth_dbg("auth: gettoken %d", ret);
 		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
-					token != NULL &&
-			authn_checktoken( ctx, token, authorization, &user) == ESUCCESS)
+					token != NULL)
 		{
-			ret = EREJECT;
-			auth_dbg("auth: checktoken %d", ret);
+			size_t authorizationlen = tokenlen - (authorization - token);
+			/// the signature is concated to the end of token
+			/// only the token part must be checked
+			/// remove the signature and the leading dot to the tokenlen
+			if (authn_checktoken( ctx, token, tokenlen - authorizationlen - 1, authorization, authorizationlen, &user) == ESUCCESS)
+			{
+				ret = EREJECT;
+				auth_dbg("auth: checktoken %d", ret);
+			}
 		}
 	}
 #endif
