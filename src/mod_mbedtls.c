@@ -347,7 +347,7 @@ static void *_tlsclient_create(void *arg, http_client_t *clt)
 	mbedtls_entropy_init(&config->entropy);
 
 	ret = mbedtls_ctr_drbg_seed(&config->ctr_drbg, mbedtls_entropy_func, &config->entropy,
-			(const unsigned char *) "ouistiti", strlen("ouistiti"));
+			STRING_REF(str_servername));
 	if (ret)
 	{
 		err("mbedtls_ctr_drbg_seed %d\n", ret);

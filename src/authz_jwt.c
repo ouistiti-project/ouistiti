@@ -125,7 +125,7 @@ size_t authz_generatejwtoken(const mod_auth_t *config, http_message_t *request, 
 #ifdef AUTH_OPENID
 	json_object_set(jtoken, "sub", juser);
 	json_object_set(jtoken, "preferred_username", juser);
-	json_object_set(jtoken, "aud", json_string("ouistiti"));
+	json_object_set(jtoken, "aud", json_string(str_servername));
 	json_object_set(jtoken, "iat", json_integer(now));
 	if (info->urlspace && info->urlspace[0] != '\0')
 		json_object_set(jtoken, "iss", json_string(info->urlspace));

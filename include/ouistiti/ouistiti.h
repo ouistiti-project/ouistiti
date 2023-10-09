@@ -103,6 +103,8 @@ int _string_store(string_t *str, const char *pointer, size_t length);
 int _string_cmp(const string_t *str, const char *cmp, size_t length);
 int _string_empty(const string_t *str);
 
+extern const char str_servername[9];
+
 extern const char str_http[5];
 extern const char str_https[6];
 
