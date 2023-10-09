@@ -25,6 +25,8 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
+const char str_servername[9] = "ouistiti";
+
 const char str_http[5] = "http";
 const char str_https[6] = "https";
 
