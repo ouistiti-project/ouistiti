@@ -1000,20 +1000,23 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
 		httpmessage_appendheader(response, str_location, STRING_REF("?redirect_uri="));
-		const char *scheme = httpserver_INFO(server, "scheme");
-		httpmessage_appendheader(response, str_location, scheme, -1);
+		const char *scheme = NULL;
+		size_t schemelen = httpserver_INFO2(server, "scheme", &scheme);
+		httpmessage_appendheader(response, str_location, scheme, schemelen);
 		httpmessage_appendheader(response, str_location, STRING_REF("://"));
-		const char *host = httpserver_INFO(server, "host");
-		if (host == NULL || host[0] == '\0')
+		const char *host = NULL;
+		size_t hostlen = httpserver_INFO2(server, "hostname", &host);
+		if (hostlen == 0)
 		{
-			host = httpmessage_SERVER(request, "addr");
+			hostlen = httpmessage_REQUEST2(request, "addr", &host);
 		}
-		httpmessage_appendheader(response, str_location, host, -1);
-		const char *port = httpserver_INFO(server, "port");
-		if (port && port[0] != '\0')
+		httpmessage_appendheader(response, str_location, host, hostlen);
+		const char *port = NULL;
+		size_t portlen = httpserver_INFO2(server, "port", &port);
+		if (portlen != 0)
 		{
 			httpmessage_appendheader(response, str_location, STRING_REF(":"));
-			httpmessage_appendheader(response, str_location, port, -1);
+			httpmessage_appendheader(response, str_location, port, portlen);
 		}
 		httpmessage_appendheader(response, str_location, uri, urilen);
 		if (query && query[0] != '\0')

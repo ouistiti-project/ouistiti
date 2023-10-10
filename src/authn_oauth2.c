@@ -200,13 +200,6 @@ static json_t *_oauth2_authresp_send(authn_oauth2_t *mod, http_message_t *reques
 		};
 
 		http_server_t *server = httpclient_server(mod->clt);
-		const char *scheme = httpserver_INFO(server, "scheme");
-		const char *host = httpserver_INFO(server, "host");
-		if (host == NULL)
-		{
-			host = httpmessage_SERVER(request, "addr");
-		}
-		const char *port = httpserver_INFO(server, "port");
 		_json_load_data.content += httpmessage_addcontent(request2, "application/x-www-form-urlencoded", STRING_REF("grant_type="));
 		_json_load_data.content += httpmessage_appendcontent(request2, type, -1);
 		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&code="));
@@ -215,13 +208,23 @@ static json_t *_oauth2_authresp_send(authn_oauth2_t *mod, http_message_t *reques
 		_json_load_data.content += httpmessage_appendcontent(request2, config->client_id, -1);
 		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&scope=openid roles profile"));
 		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&redirect_uri="));
-		_json_load_data.content += httpmessage_appendcontent(request2, scheme, -1);
+		const char *scheme = NULL;
+		size_t schemelen = httpserver_INFO2(server, "scheme", &scheme);
+		_json_load_data.content += httpmessage_appendcontent(request2, scheme, schemelen);
 		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("://"));
-		_json_load_data.content += httpmessage_appendcontent(request2, host, -1);
-		if (port[0] != '\0')
+		const char *host = NULL;
+		size_t hostlen = httpserver_INFO2(server, "hostname", &host);
+		if (hostlen == 0)
+		{
+			hostlen = httpserver_REQUEST2(request, "addr", &host);
+		}
+		_json_load_data.content += httpmessage_appendcontent(request2, host, hostlen);
+		const char *port = NULL;
+		size_t portlen = httpserver_INFO2(server, "port");
+		if (portlen != 0)
 		{
 			_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF(":"));
-			_json_load_data.content += httpmessage_appendcontent(request2, port, -1);
+			_json_load_data.content += httpmessage_appendcontent(request2, port, portlen);
 		}
 		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF(str_authresp));
 		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&state="));
