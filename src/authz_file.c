@@ -198,7 +198,6 @@ static const char *authz_file_passwd(void *arg, const char *user)
 			len = end - ctx->user;
 		else
 			len = strlen(ctx->user);
-		len = (len > MAXLENGTH)?MAXLENGTH:len;
 		if (!strncmp(user, ctx->user, len))
 		{
 			_authz_file_parsestring(ctx->user, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
