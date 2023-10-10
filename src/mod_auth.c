@@ -850,35 +850,34 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token, size_t toke
 }
 #endif
 
-static const char *_authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t *request)
+static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t *request, const char **authorization)
 {
 	const _mod_auth_t *mod = ctx->mod;
-	const char *authorization = NULL;
+	size_t authorizationlen = 0;
 	/**
 	 * with standard authentication, the authorization code
 	 * is sended info header
 	 */
-	if (authorization == NULL || authorization[0] == '\0')
-	{
-		authorization = httpmessage_REQUEST(request, str_authorization);
-	}
+	authorizationlen = httpmessage_REQUEST2(request, str_authorization, authorization);
 	/**
 	 * to send the authorization header only once, the "cookie"
 	 * option of the server store the authorization inside cookie.
 	 * This method allow to use little client which manage only cookie.
 	 */
-	if (authorization == NULL || authorization[0] == '\0')
+	if (authorizationlen == 0)
 	{
-		authorization = cookie_get(request, str_authorization);
+		*authorization = cookie_get(request, str_authorization);
+		authorizationlen = strlen(*authorization);
 		warn("auth: cookie get %s %p",str_authorization, authorization);
 	}
 
-	if (authorization != NULL && strncmp(authorization, mod->type.data, mod->type.length))
+	if (*authorization != NULL && strncmp(*authorization, mod->type.data, mod->type.length))
 	{
-		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, authorization, (int)mod->type.length, mod->type.data);
-		authorization = NULL;
+		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, *authorization, (int)mod->type.length, mod->type.data);
+		*authorization = NULL;
+		authorizationlen = 0;
 	}
-	return authorization;
+	return authorizationlen;
 }
 
 static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
@@ -950,7 +949,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 }
 
 static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
-		const char *authorization, http_message_t *request, const char **user)
+		const char *authorization, size_t authorizationlen, http_message_t *request, const char **user)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
@@ -962,7 +961,10 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
 
 	if (authentication)
+	{
 		authentication++;
+		authorizationlen -= authentication - authorization;
+	}
 	else
 		authentication = authorization;
 	/**
@@ -977,7 +979,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	 */
 	if (config->redirect.data)
 		method = str_head;
-	*user = mod->authn->rules->check(mod->authn->ctx, method, methodlen, uri, urilen, authentication, strlen(authentication));
+	*user = mod->authn->rules->check(mod->authn->ctx, method, methodlen, uri, urilen, authentication, authorizationlen);
 	if (*user != NULL)
 	{
 		ret = ESUCCESS;
@@ -1243,11 +1245,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			ret = ESUCCESS;
 		}
 		auth_dbg("auth: authenticate %d", ret);
+	}
 
-		authorization = _authn_getauthorization(ctx, request);
+	if (ret == ECONTINUE)
+	{
+		size_t authorizationlen = _authn_getauthorization(ctx, request, &authorization);
 		auth_dbg("auth: getauthorization %d", ret);
 		if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
-			_authn_checkauthorization( ctx, authorization, request, &user) == ESUCCESS)
+			_authn_checkauthorization( ctx, authorization, authorizationlen, request, &user) == ESUCCESS)
 		{
 			ret = EREJECT;
 		}

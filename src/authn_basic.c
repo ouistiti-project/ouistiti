@@ -87,7 +87,7 @@ static const char *authn_basic_check(void *arg, const char *method, size_t metho
 
 	memset(user, 0, 256);
 	auth_dbg("auth basic check: %s", string);
-	base64->decode(string, strlen(string), user, 256);
+	base64->decode(string, stringlen, user, 256);
 	passwd = strchr(user, ':');
 	if (passwd != NULL)
 	{
