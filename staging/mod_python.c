@@ -54,7 +54,7 @@
 #include "ouistiti/log.h"
 #include "mod_cgi.h"
 
-#define python_dbg dbg
+#define python_dbg(...)
 
 static const char str_python[] = "python";
 
@@ -225,7 +225,8 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 {
 	const mod_python_config_t *config = mod->config;
 	int ret = EREJECT;
-	const char *uri = httpmessage_REQUEST(request,"uri");
+	const char *uri = NULL;
+	size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
 	if (uri && config->docroot)
 	{
 		const char *function = NULL;
@@ -239,18 +240,17 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		 * function name.
 		 * /test.python/function => /test.python and  function
 		 */
-		int length = strlen(uri);
-		if (function != NULL && (function - uri) < length)
+		if (function != NULL && (size_t)(function - uri) < urilen)
 		{
-			length = function - uri;
+			urilen = function - uri;
 		}
 		else
-			function = uri + length;
+			function = uri + urilen;
 
 		while (*uri == '/' && *uri != '\0')
 		{
 			uri++;
-			length--;
+			urilen--;
 		}
 		while (*function == '/' && *function != '\0')
 		{
@@ -258,9 +258,9 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		}
 		const char *ext = strstr(uri, ".py");
 		if (ext != NULL)
-			length = ext - uri;
-		if (uri[length - 1] == '/')
-			length--;
+			urilen = ext - uri;
+		if (uri[urilen - 1] == '/')
+			urilen--;
 
 		char *iterator = (char *)uri;
 		while (*iterator != '\0')
@@ -270,7 +270,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 			iterator++;
 		}
 
-		python_dbg("python: new uri %.*s", length, uri);
+		python_dbg("python: new uri %.*s", (int)urilen, uri);
 		python_dbg("python: function %s", function);
 		PyObject *script_name = PyUnicode_DecodeFSDefaultAndSize(uri, length);
 		//PyObject *pymodule = PyImport_Import(script_name);
@@ -283,7 +283,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 			pyfunc = PyObject_GetAttrString(pymodule, function);
 		}
 		else
-			warn("python: unable to modulize %.*s", length, uri);
+			warn("python: unable to modulize %.*s", (int)urilen, uri);
 		if (!pyfunc || !PyCallable_Check(pyfunc))
 		{
 			httpmessage_result(response, RESULT_403);
@@ -296,7 +296,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		ctx->mod = mod;
 		ctx->pymodule = pymodule;
 		ctx->pyfunc = pyfunc;
-		char **env = cgi_buildenv(config, request, NULL, NULL);
+		char **env = cgi_buildenv(config, request, uri, urilen, NULL, 0);
 		int count = 0;
 		ctx->pyenv = PyDict_New();
 		for (;env[count] != NULL; count++)
