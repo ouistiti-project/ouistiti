@@ -71,8 +71,10 @@ struct mod_python_ctx_s
 
 	PyObject *pyfunc;
 	PyObject *pyenv;
+	PyObject *pyresult;
 	PyObject *pycontent;
 	PyObject *pymodule;
+	ssize_t contentread;
 
 	enum
 	{
@@ -392,7 +394,6 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 
 static int _python_request(mod_python_ctx_t *ctx, http_message_t *request)
 {
-	int ret = ECONTINUE;
 	const char *input = NULL;
 	int inputlen;
 	size_t rest;
@@ -413,9 +414,11 @@ static int _python_request(mod_python_ctx_t *ctx, http_message_t *request)
 			PyUnicode_AppendAndDel(&ctx->pycontent, pychunk);
 		}
 	}
-	else if (inputlen != EINCOMPLETE)
+	if (inputlen != EINCOMPLETE || rest == 0)
+	{
 		ctx->state = STATE_INFINISH;
-	return ret;
+	}
+	return EINCOMPLETE;
 }
 
 #if 0
@@ -440,10 +443,9 @@ static void _python_is(const char * name,PyObject *obj)
 }
 #endif
 
-static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
+static int _python_responseheader(mod_python_ctx_t *ctx, http_message_t *response)
 {
 	int ret = ECONTINUE;
-	ctx->state = STATE_CONTENTCOMPLETE;
 
 	PyObject *pyrequestclass = PyObject_GetAttrString(ctx->pymodule, "HttpRequest");
 	if (pyrequestclass == NULL || !PyCallable_Check(pyrequestclass))
@@ -479,10 +481,17 @@ static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 		warn("python: script bad syntax HttpResponse not available");
 		return ESUCCESS;
 	}
-	PyObject *pyresult = PyObject_CallFunctionObjArgs(ctx->pyfunc, pyrequest, NULL);
-	if (pyresult)
+	ctx->pyresult = PyObject_CallFunctionObjArgs(ctx->pyfunc, pyrequest, NULL);
+	if (ctx->pycontent)
+		Py_DECREF(ctx->pycontent);
+	ctx->pycontent = NULL;
+	if (ctx->pyenv)
+		Py_DECREF(ctx->pyenv);
+	ctx->pyenv = NULL;
+
+	if (ctx->pyresult)
 	{
-		PyObject *pystatus = PyObject_GetAttrString(pyresult, "status_code");
+		PyObject *pystatus = PyObject_GetAttrString(ctx->pyresult, "status_code");
 		if (pystatus != NULL)
 		{
 			httpmessage_result(response, PyLong_AsLong(pystatus));
@@ -490,9 +499,9 @@ static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 		}
 		char *mime = NULL;
 		Py_ssize_t length = 0;
-		if (PyMapping_Check(pyresult))
+		if (PyMapping_Check(ctx->pyresult))
 		{
-			PyObject *pyheaders = PyMapping_Items(pyresult);
+			PyObject *pyheaders = PyMapping_Items(ctx->pyresult);
 			for (int i = 0; i < PyList_Size(pyheaders); i++)
 			{
 				PyObject *pyheader = PyList_GetItem(pyheaders, i);
@@ -517,33 +526,54 @@ static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 			}
 			Py_DECREF(pyheaders);
 		}
-		PyObject *pycontentfunc = PyObject_GetAttrString(pyresult, "content");
-		PyObject *pycontent = NULL;
+		PyObject *pycontentfunc = PyObject_GetAttrString(ctx->pyresult, "content");
 		if (pycontentfunc && PyCallable_Check(pycontentfunc))
-			pycontent = PyObject_CallNoArgs(pycontentfunc);
+		{
+			ctx->pycontent = PyObject_CallNoArgs(pycontentfunc);
+			Py_DECREF(pycontentfunc);
+		}
 		else
-			pycontent = pycontentfunc;
+			ctx->pycontent = pycontentfunc;
 
+		if (length == 0)
+		{
+			char *content = NULL;
+			PyBytes_AsStringAndSize(ctx->pycontent, &content, &length);
+		}
+
+		httpmessage_addcontent(response, mime, NULL, length);
+
+		if (mime)
+			free(mime);
+		ctx->state = STATE_HEADERCOMPLETE;
+	}
+	else
+	{
+		httpmessage_result(response, RESULT_500);
+		ctx->state = STATE_OUTFINISH;
+	}
+	return ret;
+}
+
+static int _python_responsecontent(mod_python_ctx_t *ctx, http_message_t *response)
+{
+	int ret = ECONTINUE;
+
+	if (ctx->pycontent != NULL)
+	{
 		Py_ssize_t size = 0;
 		char *content = NULL;
-		if (pycontent != NULL)
-			PyBytes_AsStringAndSize(pycontent, &content, &size);
+		PyBytes_AsStringAndSize(ctx->pycontent, &content, &size);
 		python_dbg("python: content %s", content);
 		if (content != NULL)
 		{
-			if (length == 0)
-				httpmessage_addcontent(response, mime, content, size);
-			else
-				httpmessage_addcontent(response, mime, content, length);
-			if (mime)
-				free(mime);
+			ctx->contentread += httpmessage_addcontent(response, "none", content + ctx->contentread, size - ctx->contentread);
 		}
-		Py_DECREF(pycontent);
-		Py_DECREF(pycontentfunc);
+		if (ctx->contentread >= size)
+		{
+			ctx->state = STATE_OUTFINISH;
+		}
 	}
-	else
-		httpmessage_result(response, RESULT_500);
-	ctx->state = STATE_OUTFINISH;
 	return ret;
 }
 static int _python_connector(void *arg, http_message_t *request, http_message_t *response)
@@ -558,21 +588,24 @@ static int _python_connector(void *arg, http_message_t *request, http_message_t 
 		if (ret != EINCOMPLETE)
 			return ret;
 		ctx = httpmessage_private(request, NULL);
-		_python_request(ctx, request);
+		ctx->state = STATE_START;
+		ret = _python_request(ctx, request);
 	}
 	else
 	{
 		switch (ctx->state & STATE_MASK)
 		{
 		case STATE_START:
-			_python_request(ctx, request);
+			ret = _python_request(ctx, request);
 			/**
 			 * Read the request. The connector is still EINCOMPLETE
 			 */
 		break;
 		case STATE_INFINISH:
-			_python_response(ctx, response);
-			ret = ECONTINUE;
+			ret = _python_responseheader(ctx, response);
+		break;
+		case STATE_HEADERCOMPLETE:
+			ret = _python_responsecontent(ctx, response);
 		break;
 		case STATE_OUTFINISH:
 		{
@@ -584,13 +617,10 @@ static int _python_connector(void *arg, http_message_t *request, http_message_t 
 			ret = ECONTINUE;
 		}
 		break;
-		case STATE_CONTENTCOMPLETE:
-			ret = httpmessage_parsecgi(response, NULL, 0);
-			ret = ECONTINUE;
-			ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
-		break;
 		case STATE_END:
 			_python_freectx(ctx);
+			Py_DECREF(ctx->pycontent);
+			Py_DECREF(ctx->pyresult);
 			httpmessage_private(request, NULL);
 			ret = ESUCCESS;
 		break;
