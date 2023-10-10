@@ -601,7 +601,7 @@ static const char *authn_digest_check(void *arg, const char *method, size_t meth
 		{.field = "opaque", .cb = authn_digest_checkopaque, .cbdata = &opaque},
 	};
 
-	int ret = utils_parsestring(string, 10, parser);
+	int ret = utils_parsestring(string, stringlen, 10, parser);
 	if (ret == ESUCCESS && authn_digest_computing)
 	{
 		char *a1 = NULL;
@@ -611,7 +611,7 @@ static const char *authn_digest_check(void *arg, const char *method, size_t meth
 						user.passwd, strlen(user.passwd), &a1);
 		char *a2 = NULL;
 		size_t a2len = authn_digest_computing->a2(algorithm.hash,
-						method, strlen(method),
+						method, methodlen,
 						url.value, url.length,
 						NULL, 0, &a2);
 		char *digest = authn_digest_computing->digest(algorithm.hash,
