@@ -59,6 +59,7 @@ typedef struct _mod_server_s _mod_server_t;
 struct _mod_server_s
 {
 	mod_security_t *config;
+	http_server_t *server;
 };
 
 #ifdef FILE_CONFIG
@@ -128,20 +129,24 @@ static int _server_connector(void *arg, http_message_t *request, http_message_t 
 		httpmessage_addheader(response, "Referrer-Policy", STRING_REF("origin-when-cross-origin"));
 
 #ifndef SECURITY_UNCHECKORIGIN
-		const char *origin = httpmessage_REQUEST(request, "Origin");
+		const char *origin = NULL;
+		size_t originlen = httpmessage_REQUEST2(request, "Origin", &origin);
 		if (origin != NULL)
 		{
-			const char *host = httpmessage_SERVER(request, "hostname");
+			const char *host = NULL;
+			size_t hostlen = httpserver_INFO2(mod->server, "hostname", &host);
 			const char *refererhost = strstr(origin, "://");
 			if (refererhost == NULL)
 				refererhost = origin;
+			else
+				originlen -= refererhost - origin;
 			char *end = strchr(refererhost, '/');
 			int len;
 			if (end == NULL)
-				len = strlen(refererhost);
+				len = originlen;
 			else
 				len = end - refererhost;
-			if ((strlen(host) != len) || strncmp(refererhost, host, len))
+			if ((hostlen != len) || strncmp(refererhost, host, len))
 			{
 				httpmessage_result(response, RESULT_403);
 				ret = ESUCCESS;
@@ -159,6 +164,7 @@ static void *mod_server_create(http_server_t *server, void *config)
 	_mod_server_t *mod = calloc(1, sizeof(*mod));
 
 	mod->config = config;
+	mod->server = server;
 	httpserver_addconnector(server, _server_connector, mod, CONNECTOR_SERVER, str_server);
 
 	return mod;
