@@ -429,7 +429,7 @@ static const httpenv_t cgi_env[] =
 	}
 };
 
-char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, const char *cgi_path, const char *path_info)
+char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, const char *cgi_path, size_t cgi_pathlen, const char *path_info, size_t path_infolen)
 {
 	char **env = NULL;
 	int nbenvs = sizeof(cgi_env) / sizeof(*cgi_env);
@@ -450,14 +450,12 @@ char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, con
 			case SCRIPT_NAME:
 			case SCRIPT_FILENAME:
 				value = cgi_path;
-				if (cgi_path != NULL)
-					valuelength = (int)strlen(cgi_path);
+				valuelength = (int)cgi_pathlen;
 			break;
 			case PATH_INFO:
 			case PATH_TRANSLATED:
 				value = path_info;
-				if (path_info != NULL)
-					valuelength = (int)strlen(path_info);
+				valuelength = (int)path_infolen;
 			break;
 			case HTTPS:
 				if (config->options & CGI_OPTION_TLS)

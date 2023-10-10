@@ -79,8 +79,8 @@ struct mod_cgi_ctx_s
 	_mod_cgi_t *mod;
 	http_client_t *ctl;
 
-	char cgipath[256];
-	const char *path_info;
+	string_t cgi_path;
+	string_t path_info;
 
 	pid_t pid;
 	int tocgi[2];
@@ -215,7 +215,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		close(ctx->fromcgi[1]);
 #ifdef DEBUG
 		char **envs = NULL;
-		envs = cgi_buildenv(config, request, ctx->cgipath, ctx->path_info);
+		envs = cgi_buildenv(config, request, ctx->cgi_path.data, ctx->cgi_path.length, ctx->path_info.data, ctx->path_info.length);
 		char *env = *envs++;
 		while (env != NULL)
 		{
@@ -242,10 +242,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 
 		int sock = httpmessage_keepalive(request);
 
-		char * const argv[2] = { (char *)ctx->cgipath, NULL };
+		char * const argv[2] = { (char *)ctx->cgi_path.data, NULL };
 
 		char **env = NULL;
-		env = cgi_buildenv(config, request, ctx->cgipath, ctx->path_info);
+		env = cgi_buildenv(config, request, ctx->cgi_path.data, ctx->cgi_path.length, ctx->path_info.data, ctx->path_info.length);
 
 		close(sock);
 
@@ -255,9 +255,9 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		 * cgipath is absolute, but in fact execveat runs in docroot.
 		 */
 #ifdef USE_EXECVEAT
-		execveat(mod->rootfd, ctx->cgipath, argv, env);
+		execveat(mod->rootfd, ctx->cgi_path.data, argv, env);
 #else
-		int scriptfd = openat(mod->rootfd, ctx->cgipath, O_PATH);
+		int scriptfd = openat(mod->rootfd, ctx->cgi_path.data, O_PATH);
 		close(mod->rootfd);
 		fexecve(scriptfd, argv, env);
 #endif
@@ -290,8 +290,9 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 {
 	const mod_cgi_config_t *config = mod->config;
 	int ret = EREJECT;
-	const char *uri = httpmessage_REQUEST(request,"uri");
-	if (uri && config->docroot)
+	const char *uri = NULL;
+	size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
+	if (urilen > 0 && config->docroot)
 	{
 		const char *path_info = NULL;
 		if (_cgi_checkname(mod, uri, &path_info) != ESUCCESS)
@@ -303,10 +304,12 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		while (*uri == '/' && *uri != '\0')
 		{
 			uri++;
+			urilen--;
 		}
 
 		mod_cgi_ctx_t *ctx;
 		ctx = calloc(1, sizeof(*ctx));
+		char *data = calloc(1, urilen + 2);
 		if (path_info != NULL)
 		{
 			/**
@@ -314,21 +317,25 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 			 * path_info for the CGI.
 			 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
 			 */
-			snprintf(ctx->cgipath, sizeof(ctx->cgipath), "%.*s", (int)(path_info - uri), uri);
+			ctx->cgi_path.length = snprintf(data, urilen + 2, "%.*s", (int)(path_info - uri), uri);
+			ctx->cgi_path.data = data;
+			ctx->path_info.length = snprintf(data + ctx->cgi_path.length + 1, urilen - ctx->cgi_path.length + 1, "%s", path_info);
+			ctx->path_info.data = data + ctx->cgi_path.length + 1;
 		}
 		else
 		{
-			snprintf(ctx->cgipath, sizeof(ctx->cgipath), "%s", uri);
+			ctx->cgi_path.length = snprintf(data, urilen + 2, "%s", uri);
+			ctx->cgi_path.data = data;
 		}
 
 		/**
 		 * check the path access
 		 */
 		int scriptfd = -1;
-		scriptfd = openat(mod->rootfd, ctx->cgipath, O_PATH);
+		scriptfd = openat(mod->rootfd, ctx->cgi_path.data, O_PATH);
 		if (scriptfd < 0)
 		{
-			warn("cgi: %s error %s", ctx->cgipath, strerror(errno));
+			warn("cgi: %s error %s", ctx->cgi_path.data, strerror(errno));
 			free(ctx);
 			return EREJECT;
 		}
@@ -356,7 +363,6 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 
 		dbg("cgi: run %s", uri);
 		ctx->mod = mod;
-		ctx->path_info = path_info;
 		ctx->pid = _mod_cgi_fork(ctx, request);
 		ctx->state = STATE_START;
 		ctx->chunk = malloc(config->chunksize + 1);
