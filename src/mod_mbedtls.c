@@ -94,6 +94,7 @@ struct _mod_mbedtls_config_s
 	const httpclient_ops_t *protocolops;
 	mod_tls_t *config;
 	const char *pers;
+	size_t perslen;
 	void *protocol;
 	mbedtls_ssl_config conf;
 	mbedtls_entropy_context entropy;
@@ -193,7 +194,7 @@ static int _mod_mbedtls_setup(_mod_mbedtls_config_t *mod)
 	{
 		warn("tls: wait for random generator...");
 		ret = mbedtls_ctr_drbg_seed(&mod->ctr_drbg, mbedtls_entropy_func, &mod->entropy,
-			(const unsigned char *) mod->pers, strlen(mod->pers));
+			(const unsigned char *) mod->pers, mod->perslen);
 		if (ret)
 		{
 			err("tls: entropy error 0x%X\n", -ret);
@@ -232,7 +233,10 @@ static void *mod_mbedtls_create(http_server_t *server, mod_tls_t *modconfig)
 	if (! mod->pers)
 	{
 		mod->pers = str_tls;
+		mod->perslen = sizeof(str_tls) - 1;
 	}
+	else
+		mod->perslen = strlen(mod->pers);
 	if (_mod_mbedtls_setup(mod) == ESUCCESS)
 		warn("tls: enables on %s %s", httpserver_INFO(server, "hostname"), httpserver_INFO(server, "port"));
 	else
