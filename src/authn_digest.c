@@ -574,11 +574,11 @@ static int authn_digest_checkuser(void *data, const char *user, size_t length)
 
 
 static char *str_empty = "";
-static const char *authn_digest_check(void *arg, const char *method, const char *url, const char *string)
+static const char *authn_digest_check(void *arg, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen)
 {
 	const char *user_ret = NULL;
 	authn_digest_t *mod = (authn_digest_t *)arg;
-	checkuri_t uri = { .mod = mod, .url = url};
+	checkuri_t url = { .mod = mod, .url = uri};
 	chekcalgorithm_t algorithm = { .mod = mod};
 	checkuser_t user = {.mod = mod};
 	checkstring_t realm = {.mod = mod, .value = str_empty, .length = 0};
@@ -591,7 +591,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 	utils_parsestring_t parser[] = {
 		{.field = "username", .cb = authn_digest_checkuser, .cbdata = &user},
 		{.field = "response", .cb = authn_digest_checkresponse, .cbdata = &response},
-		{.field = "uri", .cb = authn_digest_checkuri, .cbdata = &uri},
+		{.field = "uri", .cb = authn_digest_checkuri, .cbdata = &url},
 		{.field = "algorithm", .cb = authn_digest_checkalgorithm, .cbdata = &algorithm},
 		{.field = "realm", .cb = authn_digest_checkrealm, .cbdata = &realm},
 		{.field = "qop", .cb = authn_digest_checkqop, .cbdata = &qop},
@@ -612,7 +612,7 @@ static const char *authn_digest_check(void *arg, const char *method, const char 
 		char *a2 = NULL;
 		size_t a2len = authn_digest_computing->a2(algorithm.hash,
 						method, strlen(method),
-						uri.value, uri.length,
+						url.value, url.length,
 						NULL, 0, &a2);
 		char *digest = authn_digest_computing->digest(algorithm.hash,
 						a1, a1len,

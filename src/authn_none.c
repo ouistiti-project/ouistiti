@@ -87,7 +87,7 @@ static int authn_none_challenge(void *UNUSED(arg), http_message_t *UNUSED(reques
 	return EREJECT;
 }
 
-static const char *authn_none_check(void *arg, const char *UNUSED(method), const char *UNUSED(uri), const char *UNUSED(string))
+static const char *authn_none_check(void *arg, const char *UNUSED(method), size_t UNUSED(methodlen), const char *UNUSED(uri), size_t UNUSED(urilen), const char *UNUSED(string), size_t UNUSED(stringlen))
 {
 	const authn_none_t *mod = (const authn_none_t *)arg;
 	const authn_none_config_t *config = mod->config;

@@ -956,8 +956,10 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	_mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 	const char *authentication = strchr(authorization, ' ');
-	const char *method = httpmessage_REQUEST(request, "method");
-	const char *uri = httpmessage_REQUEST(request, "uri");
+	const char *method = NULL;
+	size_t methodlen = httpmessage_REQUEST2(request, "method", &method);
+	const char *uri = NULL;
+	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
 
 	if (authentication)
 		authentication++;
@@ -975,7 +977,7 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	 */
 	if (config->redirect.data)
 		method = str_head;
-	*user = mod->authn->rules->check(mod->authn->ctx, method, uri, authentication);
+	*user = mod->authn->rules->check(mod->authn->ctx, method, methodlen, uri, urilen, authentication, strlen(authentication));
 	if (*user != NULL)
 	{
 		ret = ESUCCESS;
