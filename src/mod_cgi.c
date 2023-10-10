@@ -452,7 +452,6 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 		else
 		{
 			ctx->chunk[size] = 0;
-			size = strlen(ctx->chunk);
 			cgi_dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
 			/**
 			 * if content_length is not null, parcgi is able to
