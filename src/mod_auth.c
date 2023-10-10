@@ -446,6 +446,12 @@ static void *auth_config(config_setting_t *iterator, server_t *server)
 		}
 		config_setting_lookup_int(configauth, "expire", &auth->expire);
 
+		const char *realm = NULL;
+		if (config_setting_lookup_string(configauth, "realm", &realm) == CONFIG_FALSE)
+			if (config_setting_lookup_string(iterator, "hostname", &realm) == CONFIG_FALSE)
+				realm = str_servername;
+		_string_store(&auth->realm, realm, -1);
+
 		ret = authz_config(configauth, &auth->authz);
 		if (ret == EREJECT)
 		{

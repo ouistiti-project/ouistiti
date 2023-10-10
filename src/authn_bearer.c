@@ -42,7 +42,6 @@
 typedef struct authn_bearer_s authn_bearer_t;
 struct authn_bearer_s
 {
-	authn_bearer_config_t *config;
 	const authn_t *authn;
 	authz_t *authz;
 	http_client_t *clt;
@@ -51,14 +50,7 @@ struct authn_bearer_s
 #ifdef FILE_CONFIG
 void *authn_bearer_config(const config_setting_t *configauth)
 {
-	authn_bearer_config_t *authn_config = NULL;
-
-	authn_config = calloc(1, sizeof(*authn_config));
-	const char *realm = NULL;
-	config_setting_lookup_string(configauth, "realm", &realm);
-	if (realm != NULL)
-		_string_store(&authn_config->realm, realm, -1);
-	return authn_config;
+	return (void *)1;
 }
 #endif
 
@@ -67,9 +59,6 @@ static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg
 	authn_bearer_t *mod = calloc(1, sizeof(*mod));
 	mod->authn = authn;
 	mod->authz = authz;
-	mod->config = (authn_bearer_config_t *)arg;
-	if (_string_empty(&mod->config->realm))
-		_string_store(&mod->config->realm, httpserver_INFO(authn->server, "host"), -1);
 
 	return mod;
 }
@@ -78,7 +67,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *UNUSED(request), ht
 {
 	int ret = ECONTINUE;
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
-	const authn_bearer_config_t *config = mod->config;
+	const mod_auth_t *config = mod->authn->config;
 
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Bearer realm=\""));
 	httpmessage_appendheader(response, str_authenticate, config->realm.data, config->realm.length);
@@ -114,7 +103,6 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 static void authn_bearer_destroy(void *arg)
 {
 	authn_bearer_t *mod = (authn_bearer_t *)arg;
-	free(mod->config);
 	free(mod);
 }
 

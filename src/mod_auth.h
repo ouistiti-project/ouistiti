@@ -145,29 +145,15 @@ struct authn_none_config_s
 	string_t user;
 };
 
-typedef struct authn_basic_config_s authn_basic_config_t;
-struct authn_basic_config_s
-{
-	string_t realm;
-};
-
 typedef struct authn_digest_config_s authn_digest_config_t;
 struct authn_digest_config_s
 {
-	string_t realm;
 	string_t opaque;
-};
-
-typedef struct authn_bearer_config_s authn_bearer_config_t;
-struct authn_bearer_config_s
-{
-	string_t realm;
 };
 
 typedef struct authn_oauth2_config_s authn_oauth2_config_t;
 struct authn_oauth2_config_s
 {
-	string_t realm;
 	string_t client_id;
 	string_t client_passwd;
 	string_t discovery;
@@ -232,6 +218,7 @@ struct mod_auth_s
 	string_t algo;
 	string_t secret;
 	string_t redirect;
+	string_t realm;
 	const char *protect;
 	const char *unprotect;
 	int expire;

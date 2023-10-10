@@ -70,10 +70,6 @@ void *authn_digest_config(const config_setting_t *configauth)
 
 	authn_config = calloc(1, sizeof(*authn_config));
 	_string_store(&authn_config->opaque, opaque, -1);
-	const char *realm = NULL;
-	config_setting_lookup_string(configauth, "realm", &realm);
-	if (realm != NULL)
-		_string_store(&authn_config->realm, realm, -1);
 	return authn_config;
 }
 #endif
@@ -118,8 +114,6 @@ static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *con
 	else
 		mod->nonce.length = snprintf(STRING_REF(mod->_nonce), "%s", str_nonce_rfc2617); //RFC2617
 #endif
-	if (mod->config->realm.data == NULL)
-		_string_store(&mod->config->realm, httpserver_INFO(authn->server, "host"), -1);
 	return mod;
 }
 
@@ -199,10 +193,10 @@ static int authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct sock
 static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)
 {
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Digest "));
-	if (mod->config->realm.data != NULL && mod->config->realm.data[0] != 0)
+	if (mod->authn->config->realm.data != NULL && mod->authn->config->realm.data[0] != 0)
 	{
 		httpmessage_appendheader(response, str_authenticate, STRING_REF("realm=\""));
-		httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->config->realm));
+		httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->authn->config->realm));
 		httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	}
 	httpmessage_appendheader(response, str_authenticate, STRING_REF(",qop=\"auth\",nonce=\""));
@@ -437,7 +431,7 @@ static int authn_digest_checkrealm(void *data, const char *value, size_t length)
 	checkstring_t *info = (checkstring_t *)data;
 	const authn_digest_t *mod = info->mod;
 
-	if (value != NULL && !_string_cmp(&mod->config->realm, value, length))
+	if (value != NULL && !_string_cmp(&mod->authn->config->realm, value, length))
 	{
 		info->value = value;
 		info->length = length;
