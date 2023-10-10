@@ -44,7 +44,7 @@ static char str_null[] = "";
 static char str_gatewayinterface[] = "CGI/1.1";
 
 #define ENV_NOTREQUIRED 0x01
-typedef const char *(*httpenv_callback_t)(const mod_cgi_config_t *config, http_message_t *request, const char *cgi_path);
+typedef size_t (*httpenv_callback_t)(const mod_cgi_config_t *config, http_message_t *request, const char *cgi_path, const char **value);
 struct httpenv_s
 {
 	int id;
@@ -55,147 +55,149 @@ struct httpenv_s
 };
 typedef struct httpenv_s httpenv_t;
 
-const char *env_gatewayinterface(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_gatewayinterface(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return str_gatewayinterface;
+	*value = str_gatewayinterface;
+	return sizeof(str_gatewayinterface) - 1;
 }
 
-const char *env_docroot(const mod_cgi_config_t *config, http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_docroot(const mod_cgi_config_t *config, http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return config->docroot;
+	*value = config->docroot;
+	return -1;
 }
 
-const char *env_serversoftware(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_serversoftware(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_SERVER(request, "software");
+	return httpmessage_REQUEST2(request, "software", value);
 }
 
-const char *env_servername(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_servername(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_SERVER(request, "name");
+	return httpmessage_REQUEST2(request, "name", value);
 }
 
-const char *env_serverprotocol(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_serverprotocol(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_SERVER(request, "protocol");
+	return httpmessage_REQUEST2(request, "protocol", value);
 }
 
-const char *env_serveraddr(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_serveraddr(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_SERVER(request, "addr");
+	return httpmessage_REQUEST2(request, "addr", value);
 }
 
-const char *env_serverport(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_serverport(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_SERVER(request, "port");
+	return httpmessage_REQUEST2(request, "port", value);
 }
 
-const char *env_serverservice(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_serverservice(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_SERVER(request, "service");
+	return httpmessage_REQUEST2(request, "service", value);
 }
 
-const char *env_requestmethod(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestmethod(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "method");
+	return httpmessage_REQUEST2(request, "method", value);
 }
 
-const char *env_requestscheme(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestscheme(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "scheme");
+	return httpmessage_REQUEST2(request, "scheme", value);
 }
 
-const char *env_requesturi(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requesturi(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "uri");
+	return httpmessage_REQUEST2(request, "uri", value);
 }
 
-const char *env_requestcontentlength(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestcontentlength(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Content-Length");
+	return httpmessage_REQUEST2(request, "Content-Length", value);
 }
 
-const char *env_requestcontenttype(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestcontenttype(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Content-Type");
+	return httpmessage_REQUEST2(request, "Content-Type", value);
 }
 
-const char *env_requestquery(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestquery(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "query");
+	return httpmessage_REQUEST2(request, "query", value);
 }
 
-const char *env_requestaccept(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestaccept(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Accept");
+	return httpmessage_REQUEST2(request, "Accept", value);
 }
 
-const char *env_requestacceptencoding(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestacceptencoding(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Accept-Encoding");
+	return httpmessage_REQUEST2(request, "Accept-Encoding", value);
 }
 
-const char *env_requestacceptlanguage(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestacceptlanguage(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Accept-Language");
+	return httpmessage_REQUEST2(request, "Accept-Language", value);
 }
 
-const char *env_requestcookie(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestcookie(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Cookie");
+	return httpmessage_REQUEST2(request, "Cookie", value);
 }
 
-const char *env_requestuseragent(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestuseragent(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "User-Agent");
+	return httpmessage_REQUEST2(request, "User-Agent", value);
 }
 
-const char *env_requesthost(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requesthost(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Host");
+	return httpmessage_REQUEST2(request, "Host", value);
 }
 
-const char *env_requestreferer(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestreferer(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Referer");
+	return httpmessage_REQUEST2(request, "Referer", value);
 }
 
-const char *env_requestorigin(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_requestorigin(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "Origin");
+	return httpmessage_REQUEST2(request, "Origin", value);
 }
 
-const char *env_remotehost(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_remotehost(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	const char *value = httpmessage_REQUEST(request, "remote_host");
-	if (value == NULL)
-		value = httpmessage_REQUEST(request, "remote_addr");
-	return value;
+	size_t valuelen = httpmessage_REQUEST2(request, "remote_host", value);
+	if (valuelen == 0)
+		valuelen = httpmessage_REQUEST2(request, "remote_addr", value);
+	return valuelen;
 }
 
-const char *env_remoteaddr(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_remoteaddr(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "remote_addr");
+	return httpmessage_REQUEST2(request, "remote_addr", value);
 }
 
-const char *env_remoteport(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_remoteport(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST(request, "remote_port");
+	return httpmessage_REQUEST2(request, "remote_port", value);
 }
 
-const char *env_authuser(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_authuser(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return auth_info(request, STRING_REF("user"));
+	return auth_info2(request, ("user"), value);
 }
 
-const char *env_authgroup(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_authgroup(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return auth_info(request, STRING_REF("group"));
+	return auth_info2(request, ("group"), value);
 }
 
-const char *env_authtype(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path))
+size_t env_authtype(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return auth_info(request, STRING_REF("authtype"));
+	return auth_info2(request, ("authtype"), value);
 }
 
 enum cgi_env_e
@@ -446,18 +448,16 @@ char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, con
 		switch (cgi_env[i].id)
 		{
 			case SCRIPT_NAME:
-				value = cgi_path;
-				if (path_info != NULL)
-					valuelength = (int)strlen(path_info);
-			break;
 			case SCRIPT_FILENAME:
 				value = cgi_path;
+				if (cgi_path != NULL)
+					valuelength = (int)strlen(cgi_path);
 			break;
 			case PATH_INFO:
-				value = path_info;
-			break;
 			case PATH_TRANSLATED:
 				value = path_info;
+				if (path_info != NULL)
+					valuelength = (int)strlen(path_info);
 			break;
 			case HTTPS:
 				if (config->options & CGI_OPTION_TLS)
@@ -465,14 +465,15 @@ char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, con
 			break;
 			default:
 				if (cgi_env[i].cb != NULL)
-					value = cgi_env[i].cb(config, request, cgi_path);
+					valuelength = cgi_env[i].cb(config, request, cgi_path, &value);
 		}
 		if ((value == NULL) && (options & ENV_NOTREQUIRED) == 0)
+		{
 			value = str_null;
+			valuelength = sizeof(str_null) - 1;
+		}
 		if (value != NULL)
 		{
-			if (valuelength == -1)
-				valuelength = (int)strlen(value);
 			snprintf(env[j], length + 1, "%s%.*s", cgi_env[i].target.data, valuelength, value);
 			j++;
 		}
