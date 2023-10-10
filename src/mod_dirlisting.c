@@ -161,12 +161,13 @@ static int _dirlisting_getentity(document_connector_t *private, struct dirent *e
 			unit++;
 		}
 		const char *mime = "inode/directory";
+		size_t mimelen = 15;
 
 		if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
 		{
-			mime = utils_getmime(ent->d_name);
+			mimelen = utils_getmime2(ent->d_name, &mime);
 		}
-		length += strlen(mime);
+		length += mimelen;
 		length += 4 + 2 + 4;
 		char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
 		length = snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
