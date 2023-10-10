@@ -38,11 +38,19 @@ extern "C"
 
 #define CGI_OPTION_TLS 0x01
 
+typedef struct mod_cgi_config_script_s mod_cgi_config_script_t;
+struct mod_cgi_config_script_s
+{
+	string_t path;
+	mod_cgi_config_script_t *next;
+};
+
 typedef struct mod_cgi_config_s
 {
 	char *docroot;
 	char *allow;
 	char *deny;
+	mod_cgi_config_script_t *scripts;
 	const char **env;
 	int nbenvs;
 	int chunksize;
