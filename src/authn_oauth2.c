@@ -415,7 +415,7 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	char authenticate[256];
-	int authlen = snprintf(authenticate, 256, "Bearer realm=\"%s\"", config->realm);
+	int authlen = snprintf(authenticate, 256, "Bearer realm=\"%s\"", mod->authn->config->realm);
 	httpmessage_addheader(response, str_authenticate, authenticate, authlen);
 
 	if (!utils_searchexp(uri, str_authresp, NULL))

@@ -9,6 +9,7 @@ servers= ({
 		hostname = "myvhost";
 		auth = {
 			type="Basic";
+			realm="www.ouistiti.net";
 			user="foo";
 			passwd="bar";
 		};
