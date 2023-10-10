@@ -346,17 +346,19 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 static int _mod_redirect_hsts(_mod_redirect_t *mod, http_message_t *request, http_message_t *response,
 			const char *scheme, int schemelen, const char *uri, int urilen)
 {
-	const char *host = httpmessage_SERVER(request, "host");
-	if (host && host[0] != '\0')
+	const char *host = NULL;
+	size_t hostlen = httpmessage_REQUEST2(request, "host", &host);
+	if (hostlen != EREJECT)
 	{
 		httpmessage_addheader(response, str_location, scheme, -1);
 		httpmessage_appendheader(response, str_location, STRING_REF("://"));
-		httpmessage_appendheader(response, str_location, host, -1);
-		const char *port = httpmessage_SERVER(request, "port");
-		if (port[0] != '\0')
+		httpmessage_appendheader(response, str_location, host, hostlen);
+		const char *port = NULL;
+		size_t portlen = httpmessage_REQUEST2(request, "port", &port);
+		if (portlen != EREJECT)
 		{
 			httpmessage_appendheader(response, str_location, STRING_REF(":"));
-			httpmessage_appendheader(response, str_location, port, -1);
+			httpmessage_appendheader(response, str_location, port, portlen);
 		}
 		httpmessage_appendheader(response, str_location, uri, urilen);
 		httpmessage_addheader(response, "Vary", STRING_REF(str_upgrade_insec_req));
