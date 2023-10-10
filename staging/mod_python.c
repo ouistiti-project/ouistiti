@@ -88,14 +88,35 @@ struct mod_python_ctx_s
 	} state;
 };
 
+typedef struct _mod_python_script_s _mod_python_script_t;
+struct _mod_python_script_s
+{
+	string_t path;
+	PyObject *pymodule;
+	_mod_python_script_t *next;
+};
 struct _mod_python_s
 {
 	http_server_t *server;
 	mod_python_config_t *config;
 	int rootfd;
+	_mod_python_script_t *scripts;
 };
 
 #ifdef FILE_CONFIG
+static int _python_configscript(config_setting_t *setting, mod_python_config_t *python)
+{
+	const char *data = config_setting_get_string(setting);
+	if (data == NULL)
+		return EREJECT;
+	mod_cgi_config_script_t *script = calloc(1, sizeof(*script));
+	script->path.data = data;
+	script->path.length = strlen(script->path.data);
+	script->next = python->scripts;
+	python->scripts = script;
+	return ESUCCESS;
+}
+
 static void *python_config(config_setting_t *iterator, server_t *server)
 {
 	mod_python_config_t *python = NULL;
@@ -110,6 +131,19 @@ static void *python_config(config_setting_t *iterator, server_t *server)
 		config_setting_lookup_string(configpython, "docroot", (const char **)&python->docroot);
 		config_setting_lookup_string(configpython, "allow", (const char **)&python->allow);
 		config_setting_lookup_string(configpython, "deny", (const char **)&python->deny);
+		config_setting_t *scripts = config_setting_lookup(configpython, "scripts");
+		if (scripts && config_setting_is_scalar(scripts))
+		{
+			_python_configscript(scripts, python);
+		}
+		else if (scripts && config_setting_is_aggregate(scripts))
+		{
+			for (int i = 0; i < config_setting_length(scripts); i++)
+			{
+				config_setting_t *script = config_setting_get_elem(scripts, i);
+				_python_configscript(script, python);
+			}
+		}
 		python->nbenvs = 0;
 		python->options |= CGI_OPTION_TLS;
 		python->chunksize = HTTPMESSAGE_CHUNKSIZE;
@@ -148,6 +182,15 @@ static void *python_config(void *iterator, server_t *server)
 }
 #endif
 
+static PyObject *_mod_python_modulize(const char *uri, size_t urilen)
+{
+	PyObject *script_name = PyUnicode_DecodeFSDefaultAndSize(uri, urilen);
+	//PyObject *pymodule = PyImport_Import(script_name);
+	PyObject *pymodule = PyImport_ImportModuleLevelObject(script_name, NULL, NULL, NULL, 0);
+	Py_DECREF(script_name);
+	return pymodule;
+}
+
 static void *mod_python_create(http_server_t *server, mod_python_config_t *modconfig)
 {
 	_mod_python_t *mod;
@@ -182,6 +225,21 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 	if (modconfig->timeout == 0)
 		modconfig->timeout = 3;
 
+	mod_cgi_config_script_t *script = modconfig->scripts;
+	while (script)
+	{
+		PyObject *pymodule = _mod_python_modulize(script->path.data, script->path.length);
+		if (pymodule)
+		{
+			_mod_python_script_t *pscript = calloc(1, sizeof(*pscript));
+			pscript->pymodule = pymodule;
+			_string_store(&pscript->path, script->path.data, script->path.length);
+			pscript->next = mod->scripts;
+			mod->scripts = pscript;
+		}
+		script = script->next;
+	}
+	PyErr_Clear();
 	httpserver_addconnector(server, _python_connector, mod, CONNECTOR_DOCUMENT, str_python);
 
 	return mod;
@@ -272,11 +330,21 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 
 		python_dbg("python: new uri %.*s", (int)urilen, uri);
 		python_dbg("python: function %s", function);
-		PyObject *script_name = PyUnicode_DecodeFSDefaultAndSize(uri, length);
-		//PyObject *pymodule = PyImport_Import(script_name);
-		PyObject *pymodule = PyImport_ImportModuleLevelObject(script_name, NULL, NULL, NULL, 0);
-		Py_DECREF(script_name);
-
+		PyObject *pymodule = NULL;
+		_mod_python_script_t *script = mod->scripts;
+		while (script)
+		{
+			if (((size_t)urilen == script->path.length) && !strncasecmp(script->path.data, uri, urilen))
+			{
+				pymodule = script->pymodule;
+				break;
+			}
+			script = script->next;
+		}
+		if (pymodule == NULL)
+		{
+			pymodule = _mod_python_modulize(uri, urilen);
+		}
 		PyObject *pyfunc = NULL;
 		if (pymodule != NULL)
 		{
