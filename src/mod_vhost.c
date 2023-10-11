@@ -81,6 +81,7 @@ static int _vhost_connector(void *arg, http_message_t *request, http_message_t *
 #ifdef FILE_CONFIG
 static int vhost_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
+	int ret = ESUCCESS;
 	mod_vhost_t *vhost = NULL;
 
 #if LIBCONFIG_VER_MINOR < 5
@@ -88,7 +89,14 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 #else
 	config_setting_t *config = config_setting_lookup(iterator, "vhost");
 #endif
-	if (config)
+	if (config && config_setting_is_list(config))
+	{
+			if (index >= config_setting_length(config))
+				return EREJECT;
+			config = config_setting_get_elem(config, index);
+			ret = ECONTINUE;
+	}
+	if (config && config_setting_is_group(config))
 	{
 		const char *hostname;
 		config_setting_lookup_string(config, "hostname", (const char **)&hostname);
@@ -102,9 +110,11 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 		vhost->server = server;
 		vhost->modulesconfig = config;
 	}
+	else
+		ret = EREJECT;
 
 	*modconfig = vhost;
-	return ESUCCESS;
+	return ret;
 }
 #else
 #define vhost_config(...) NULL
@@ -140,7 +150,6 @@ static mod_t *mod_vhost_loadmodule(_mod_vhost_t *vhost, const module_t *module)
 		}
 		if (obj)
 		{
-			warn("vhost: module are not freed");
 			mod_t *mod = calloc(1, sizeof(*mod));
 			mod->ops = module;
 			mod->obj = obj;
@@ -162,17 +171,20 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod->config = config;
 
 	mod->vserver = httpserver_dup(server);
-	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_FILTER, str_vhost);
+	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_SERVER, str_vhost);
 	const module_list_t *iterator = ouistiti_modules(config->server);
 	while (iterator != NULL)
 	{
-		mod_t *entry = mod_vhost_loadmodule(mod, iterator->module);
-		if (entry)
+		if (strcmp(iterator->module->name, str_vhost))
 		{
-			mod_t *last = entry;
-			while (last->next) last = last->next;
-			last->next = mod->modules;
-			mod->modules = entry;
+			mod_t *entry = mod_vhost_loadmodule(mod, iterator->module);
+			if (entry)
+			{
+				mod_t *last = entry;
+				while (last->next) last = last->next;
+				last->next = mod->modules;
+				mod->modules = entry;
+			}
 		}
 		iterator = iterator->next;
 	}
