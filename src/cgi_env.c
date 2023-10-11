@@ -32,6 +32,10 @@
 #include <unistd.h>
 #include <libgen.h>
 
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
+
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
 #include "ouistiti.h"
@@ -483,3 +487,53 @@ char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, con
 	env[j + i] = NULL;
 	return env;
 }
+
+#ifdef FILE_CONFIG
+int cgienv_config(config_setting_t *configserver, config_setting_t *config, server_t *server, mod_cgi_config_t **modconfig, cgi_configscript_t configscript)
+{
+	mod_cgi_config_t *cgi = calloc(1, sizeof(*cgi));
+	config_setting_lookup_string(config, "docroot", (const char **)&cgi->docroot);
+	config_setting_lookup_string(config, "allow", (const char **)&cgi->allow);
+	config_setting_lookup_string(config, "deny", (const char **)&cgi->deny);
+	if (configscript)
+	{
+		config_setting_t *scripts = config_setting_lookup(config, "scripts");
+		if (scripts && config_setting_is_scalar(scripts))
+		{
+			configscript(scripts, cgi);
+		}
+		else if (scripts && config_setting_is_aggregate(scripts))
+		{
+			for (int i = 0; i < config_setting_length(scripts); i++)
+			{
+				config_setting_t *script = config_setting_get_elem(scripts, i);
+				configscript(script, cgi);
+			}
+		}
+	}
+	cgi->nbenvs = 0;
+	if (ouistiti_issecure(server))
+		cgi->options |= CGI_OPTION_TLS;
+	cgi->chunksize = HTTPMESSAGE_CHUNKSIZE;
+	config_setting_lookup_int(configserver, "chunksize", &cgi->chunksize);
+#if LIBCONFIG_VER_MINOR < 5
+	config_setting_t *envs = config_setting_get_member(config, "env");
+#else
+	config_setting_t *envs = config_setting_lookup(config, "env");
+#endif
+	if (envs)
+	{
+		int count = config_setting_length(envs);
+		int i;
+		cgi->env = calloc(sizeof(char *), count);
+		for (i = 0; i < count; i++)
+		{
+			config_setting_t *iterator = config_setting_get_elem(envs, i);
+			cgi->env[i] = config_setting_get_string(iterator);
+		}
+		cgi->nbenvs = count;
+	}
+	*modconfig = cgi;
+	return ESUCCESS;
+}
+#endif

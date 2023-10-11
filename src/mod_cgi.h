@@ -60,7 +60,9 @@ typedef struct mod_cgi_config_s
 
 extern const module_t mod_cgi;
 
+typedef int (*cgi_configscript_t)(config_setting_t *setting, mod_cgi_config_t *python);
 char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, const char *cgi_path, size_t cgi_pathlen, const char *path_info, size_t path_infolen);
+int cgienv_config(config_setting_t *configserver, config_setting_t *config, server_t *server, mod_cgi_config_t **modconfig, cgi_configscript_t configscript);
 
 #ifdef __cplusplus
 }

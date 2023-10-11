@@ -97,9 +97,8 @@ struct _mod_cgi_s
 };
 
 #ifdef FILE_CONFIG
-static void *cgi_config(config_setting_t *iterator, server_t *server)
+static int cgi_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
-	mod_cgi_config_t *cgi = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configcgi = config_setting_get_member(iterator, "cgi");
 #else
@@ -107,33 +106,9 @@ static void *cgi_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (configcgi)
 	{
-		cgi = calloc(1, sizeof(*cgi));
-		config_setting_lookup_string(configcgi, "docroot", (const char **)&cgi->docroot);
-		config_setting_lookup_string(configcgi, "allow", (const char **)&cgi->allow);
-		config_setting_lookup_string(configcgi, "deny", (const char **)&cgi->deny);
-		cgi->nbenvs = 0;
-		cgi->options |= CGI_OPTION_TLS;
-		cgi->chunksize = HTTPMESSAGE_CHUNKSIZE;
-		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);
-#if LIBCONFIG_VER_MINOR < 5
-		config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
-#else
-		config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
-#endif
-		if (cgienv)
-		{
-			int count = config_setting_length(cgienv);
-			int i;
-			cgi->env = calloc(sizeof(char *), count);
-			for (i = 0; i < count; i++)
-			{
-				config_setting_t *iterator = config_setting_get_elem(cgienv, i);
-				cgi->env[i] = config_setting_get_string(iterator);
-			}
-			cgi->nbenvs = count;
-		}
+		cgienv_config(iterator, configcgi, server, (mod_cgi_config_t **)modconfig, NULL);
 	}
-	return cgi;
+	return ESUCCESS;
 }
 #else
 static const mod_cgi_config_t g_cgi_config =
@@ -548,6 +523,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 
 const module_t mod_cgi =
 {
+	.version = 0x01,
 	.name = str_cgi,
 	.configure = (module_configure_t)&cgi_config,
 	.create = (module_create_t)&mod_cgi_create,
