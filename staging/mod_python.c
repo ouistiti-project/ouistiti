@@ -129,44 +129,7 @@ static void *python_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (configpython)
 	{
-		python = calloc(1, sizeof(*python));
-		config_setting_lookup_string(configpython, "docroot", (const char **)&python->docroot);
-		config_setting_lookup_string(configpython, "allow", (const char **)&python->allow);
-		config_setting_lookup_string(configpython, "deny", (const char **)&python->deny);
-		config_setting_t *scripts = config_setting_lookup(configpython, "scripts");
-		if (scripts && config_setting_is_scalar(scripts))
-		{
-			_python_configscript(scripts, python);
-		}
-		else if (scripts && config_setting_is_aggregate(scripts))
-		{
-			for (int i = 0; i < config_setting_length(scripts); i++)
-			{
-				config_setting_t *script = config_setting_get_elem(scripts, i);
-				_python_configscript(script, python);
-			}
-		}
-		python->nbenvs = 0;
-		python->options |= CGI_OPTION_TLS;
-		python->chunksize = HTTPMESSAGE_CHUNKSIZE;
-		config_setting_lookup_int(iterator, "chunksize", &python->chunksize);
-#if LIBCONFIG_VER_MINOR < 5
-		config_setting_t *pythonenv = config_setting_get_member(configpython, "env");
-#else
-		config_setting_t *pythonenv = config_setting_lookup(configpython, "env");
-#endif
-		if (pythonenv)
-		{
-			int count = config_setting_length(pythonenv);
-			int i;
-			python->env = calloc(sizeof(char *), count);
-			for (i = 0; i < count; i++)
-			{
-				config_setting_t *iterator = config_setting_get_elem(pythonenv, i);
-				python->env[i] = config_setting_get_string(iterator);
-			}
-			python->nbenvs = count;
-		}
+		cgienv_config(iterator, configpython, server, &python, _python_configscript);
 	}
 	return python;
 }
