@@ -42,16 +42,18 @@ typedef struct module_list_s module_list_t;
 
 #define WEBSOCKET_REALTIME 0x01
 
-#define MODULE_VERSION_CURRENT 0x0000
+#define MODULE_VERSION_CURRENT 0x0001
 #define MODULE_VERSION_DEPRECATED 0x8000
-typedef void *(*module_configure_t)(void *parser, server_t *server);
+typedef void *(*module_configure_v0_t)(void *parser, server_t *server);
+typedef int (*module_configure_t)(void *parser, server_t *server, int index, void **config);
 typedef void *(*module_create_t)(http_server_t *server, void *config);
+typedef void (*module_destroy_t)(void*);
 struct module_s
 {
 	const char *name;
-	void *(*configure)(void *parser, server_t *server);
-	void *(*create)(http_server_t *server, void *config);
-	void (*destroy)(void*);
+	module_configure_t configure;
+	module_create_t create;
+	module_destroy_t destroy;
 	unsigned short version;
 };
 
@@ -59,6 +61,14 @@ struct module_list_s
 {
 	const module_t *module;
 	struct module_list_s *next;
+};
+
+typedef struct mod_s mod_t;
+struct mod_s
+{
+	void *obj;
+	const module_t *ops;
+	mod_t *next;
 };
 
 struct serverconfig_s

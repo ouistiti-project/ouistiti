@@ -132,18 +132,12 @@ int auth_setowner(const char *user)
 
 static module_list_t *g_modules = NULL;
 
-typedef struct mod_s
-{
-	void *obj;
-	const module_t *ops;
-} mod_t;
-
 #define MAX_MODULES 16
 struct server_s
 {
 	serverconfig_t *config;
 	http_server_t *server;
-	mod_t modules[MAX_MODULES + MAX_SERVERS];
+	mod_t *modules;
 
 	struct server_s *next;
 	unsigned int id;
@@ -301,13 +295,13 @@ int ouistiti_issecure(server_t *server)
 static int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
 {
 	int i = 0;
-	mod_t *mod = &server->modules[i];
+	mod_t *mod = server->modules;
 	warn("module %s regitering...", module->name);
-	while (i < MAX_MODULES && mod->obj != NULL)
+	for (;i < MAX_MODULES && mod != NULL; i++)
 	{
 		if (! strcmp(mod->ops->name, module->name))
 			warn(" already set");
-		mod = &server->modules[++i];
+		mod = mod->next;
 	}
 	if (i == MAX_MODULES)
 		return EREJECT;
@@ -321,17 +315,39 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 	{
 		warn(" old. Please check");
 	}
-	void *config = NULL;
-	if (module->configure != NULL)
-		config = module->configure(parser, server);
-	else if (configure != NULL)
-		config = configure(parser, module, server);
-#ifdef DEBUG
-	if (config != NULL) {dbg("main: %s configurated", module->name);}
-#endif
-	mod->obj = module->create(server->server, config);
-	mod->ops = module;
-	return (mod->obj != NULL)?ESUCCESS:EREJECT;
+	int ret = ECONTINUE;
+	i = 0;
+	while (ret == ECONTINUE)
+	{
+		void *config = NULL;
+		if (module->configure != NULL && module->version == 0x00)
+		{
+			config = ((module_configure_v0_t)module->configure)(parser, server);
+			ret = ESUCCESS;
+		}
+		else if (module->configure != NULL && module->version == 0x01)
+			ret = module->configure(parser, server, i++, &config);
+		else if (configure != NULL)
+			config = configure(parser, module, server);
+		else
+			ret = ESUCCESS;
+		void *obj = NULL;
+		// check to case if the configure is deprecated and returns handle
+		if (ret == ECONTINUE || ret == ESUCCESS)
+		{
+			obj = module->create(server->server, config);
+		}
+		if (obj)
+		{
+			mod = calloc(1, sizeof(*mod));
+			dbg("main: %s configurated", module->name);
+			mod->obj = obj;
+			mod->ops = module;
+			mod->next = server->modules;
+			server->modules = mod;
+		}
+	}
+	return ret;
 }
 
 static int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
@@ -473,11 +489,13 @@ void main_destroy(server_t *first)
 	for (server_t *server = first; server != NULL; server = next)
 	{
 		next = server->next;
-		for (int j = 0; server->modules[j].obj; j++)
+		mod_t *mod = server->modules;
+		while (mod)
 		{
-			dbg("main: destroy %s", server->modules[j].ops->name);
-			if (server->modules[j].ops->destroy)
-				server->modules[j].ops->destroy(server->modules[j].obj);
+			dbg("main: destroy %s", mod->ops->name);
+			if (mod->ops->destroy)
+				mod->ops->destroy(mod->obj);
+			mod = mod->next;
 		}
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
