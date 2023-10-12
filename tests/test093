@@ -1,3 +1,7 @@
+if [ "$AUHTMNGT" != "y" ]; then
+	echo "authmngt module disabled"
+	DISABLED=1
+fi
 DESC="authmngt: change user password"
 CONFIG=test12.conf
 TESTCODE=200

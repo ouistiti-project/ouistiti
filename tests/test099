@@ -1,3 +1,7 @@
+if [ "$AUHTMNGT" != "y" ]; then
+	echo "authmngt module disabled"
+	DISABLED=1
+fi
 DESC="create user with authmngt from forbidden Origin "
 CONFIG=test12.conf
 TESTCODE=405

@@ -1,3 +1,7 @@
+if [ "$AUHTMNGT" != "y" ]; then
+	echo "authmngt module disabled"
+	DISABLED=1
+fi
 DESC="authmngt: remove user"
 CONFIG=test12.conf
 TESTRESPONSE=result200_rs.txt
