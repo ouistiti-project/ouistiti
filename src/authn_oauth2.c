@@ -350,8 +350,6 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 
 		if (ret == ESUCCESS)
 		{
-			httpmessage_SESSION(request, str_auth, &authinfo, sizeof(authinfo));
-
 			httpmessage_addheader(response, str_authorization, STRING_REF("oAuth2 "));
 			httpmessage_appendheader(response, str_authorization, authinfo.token, -1);
 
@@ -379,13 +377,12 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 	return ret;
 }
 
-static void *authn_oauth2_create(const authn_t *authn, authz_t *authz, void *config)
+static void *authn_oauth2_create(const authn_t *authn, void *config)
 {
 	if (authn->hash == NULL)
 		return NULL;
 	authn_oauth2_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_oauth2_config_t *)config;
-	mod->authz = authz;
 	mod->state = 0;
 	if (mod->config->realm == NULL)
 		mod->config->realm = httpserver_INFO(authn->server, "host");
@@ -401,13 +398,21 @@ static void authn_oauth2_destroy(void *arg)
 	free(mod);
 }
 
-static int authn_oauth2_setup(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
+static void *authn_oauth2_setup(void *arg, authz_t *authz, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 
-	mod->clt = clt;
-	httpclient_addconnector(clt, _oauth2_authresp_connector, mod, CONNECTOR_AUTH, str_oauth2);
-	return ESUCCESS;
+	authn_oauth2_t *cltmod = calloc(1, sizeof(*cltmod));
+	cltmod->clt = clt;
+	cltmod->authz = authz;
+	cltmod->config = mod->config;
+	httpclient_addconnector(clt, _oauth2_authresp_connector, cltmod, CONNECTOR_AUTH, str_oauth2);
+	return cltmod;
+}
+
+static void authn_oauth2_cleanup(void *arg)
+{
+	free(arg);
 }
 
 static int authn_oauth2_challenge(void *arg, http_message_t *request, http_message_t *response)
@@ -481,6 +486,7 @@ authn_rules_t authn_oauth2_rules =
 {
 	.create = &authn_oauth2_create,
 	.setup = &authn_oauth2_setup,
+	.cleanup = &authn_oauth2_cleanup,
 	.challenge = &authn_oauth2_challenge,
 	.check = &authn_oauth2_check,
 	.destroy = &authn_oauth2_destroy,

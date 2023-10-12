@@ -87,10 +87,10 @@ struct authz_jwt_config_s
 typedef int (*auth_saveinfo_t)(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen);
 
 typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
-typedef int (*authz_rule_setup_t)(void *arg);
+typedef void *(*authz_rule_setup_t)(void *arg);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
-typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);
+typedef int (*authz_rule_passwd_t)(void *arg, const char *user, const char **passwd);
 typedef int (*authz_rule_setsession_t)(void* arg, const char *user, auth_saveinfo_t cb, void *cbarg);
 typedef void (*authz_rule_cleanup_t)(void *arg);
 typedef void (*authz_rule_destroy_t)(void *arg);
@@ -163,16 +163,18 @@ struct authn_oauth2_config_s
 };
 
 typedef struct authn_s authn_t;
-typedef void *(*authn_rule_create_t)(const authn_t *authn, authz_t *authz, void *config);
-typedef int (*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
+typedef void *(*authn_rule_create_t)(const authn_t *authn, void *config);
+typedef void *(*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
+typedef void (*authn_rule_cleanup_t)(void *arg);
 typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);
-typedef const char *(*authn_rule_check_t)(void *arg, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen);
+typedef const char *(*authn_rule_check_t)(void *arg, authz_t *authz, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen);
 typedef void (*authn_rule_destroy_t)(void *arg);
 typedef struct authn_rules_s authn_rules_t;
 struct authn_rules_s
 {
 	authn_rule_create_t create;
 	authn_rule_setup_t setup;
+	authn_rule_cleanup_t cleanup;
 	authn_rule_challenge_t challenge;
 	authn_rule_check_t check;
 	authn_rule_destroy_t destroy;
