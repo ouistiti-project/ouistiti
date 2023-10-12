@@ -45,7 +45,6 @@ typedef struct authn_digest_s authn_digest_t;
 struct authn_digest_s
 {
 	authn_digest_config_t *config;
-	authz_t *authz;
 	const authn_t *authn;
 	const hash_t *hash;
 	char _nonce[MAXNONCE];
@@ -91,20 +90,13 @@ static char str_nonce_rfc7616[] = "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v"
 static char str_nonce_rfc2617[] = "dcd98b7102dd2f0e8b11d0f600bfb0c093";
 #endif
 
-static void *authn_digest_create(const authn_t *authn, authz_t *authz, void *config)
+static void *authn_digest_create(const authn_t *authn, void *config)
 {
 	if (authn->config->authn.hash == NULL)
 		return NULL;
-	if (authz->rules->passwd == NULL)
-	{
-		err("authn Digest is not compatible with authz %s", authz->name.data);
-		return NULL;
-	}
-
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
 	mod->authn = authn;
-	mod->authz = authz;
 	mod->hash = authn->config->authn.hash;
 	_string_store(&mod->nonce, mod->_nonce, 0);
 #ifdef DEBUG
@@ -178,16 +170,16 @@ static int authn_digest_nonce(authn_digest_t *mod, char *nonce, size_t noncelen)
 	return ret;
 }
 
-static int authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct sockaddr *UNUSED(addr), int UNUSED(addrsize))
+static void * authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct sockaddr *UNUSED(addr), int UNUSED(addrsize))
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
 
 	mod->stale = 0;
 	int length = authn_digest_nonce(arg, STRING_REF(mod->_nonce));
 	if (length < 0)
-		return EREJECT;
+		return NULL;
 	mod->nonce.length = length;
-	return ESUCCESS;
+	return mod;
 }
 
 static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)
@@ -545,21 +537,23 @@ static int authn_digest_checkresponse(void *data, const char *value, size_t leng
 
 struct checkuser_s
 {
-	authn_digest_t *mod;
+	authz_t *authz;
 	const char *value;
 	size_t length;
 	const char *passwd;
+	size_t passwdlen;
 };
+
 typedef struct checkuser_s checkuser_t;
 static int authn_digest_checkuser(void *data, const char *user, size_t length)
 {
 	checkuser_t *info = (checkuser_t *)data;
-	const authn_digest_t *mod = info->mod;
+	authz_t *authz = info->authz;
 
 	if (user != NULL)
 	{
-		info->passwd = mod->authz->rules->passwd(mod->authz->ctx, user);
-		if (info->passwd != NULL)
+		info->passwdlen = authz->rules->passwd(authz->ctx, user, &info->passwd);
+		if (info->passwdlen > 0)
 		{
 			info->value = user;
 			info->length = length;
@@ -574,13 +568,13 @@ static int authn_digest_checkuser(void *data, const char *user, size_t length)
 
 
 static char *str_empty = "";
-static const char *authn_digest_check(void *arg, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen)
+static const char *authn_digest_check(void *arg, authz_t *authz, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen)
 {
 	const char *user_ret = NULL;
 	authn_digest_t *mod = (authn_digest_t *)arg;
 	checkuri_t url = { .mod = mod, .url = uri};
 	chekcalgorithm_t algorithm = { .mod = mod};
-	checkuser_t user = {.mod = mod};
+	checkuser_t user = {.authz = authz};
 	checkstring_t realm = {.mod = mod, .value = str_empty, .length = 0};
 	checkstring_t qop = {.mod = mod};
 	checkstring_t nonce = {.mod = mod};
@@ -608,7 +602,7 @@ static const char *authn_digest_check(void *arg, const char *method, size_t meth
 		size_t a1len = authn_digest_computing->a1(algorithm.hash,
 						user.value, user.length,
 						realm.value, realm.length,
-						user.passwd, strlen(user.passwd), &a1);
+						user.passwd, user.passwdlen, &a1);
 		char *a2 = NULL;
 		size_t a2len = authn_digest_computing->a2(algorithm.hash,
 						method, methodlen,

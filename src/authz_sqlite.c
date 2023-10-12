@@ -193,23 +193,32 @@ static void *authmngt_sqlite_create(http_server_t *UNUSED(server), void *arg)
 	return ctx;
 }
 
-static int authz_sqlite_setup(void *arg)
+static void *authz_sqlite_setup(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int ret;
-
-	/**
-	 * sqlite3 documentation tells to open the database for each process
-	 */
-	ret = sqlite3_open_v2(ctx->config->dbname, &ctx->db, SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK)
+	ctx->ref++;
+	authz_sqlite_t *cltctx = ctx;
+/**
+	cltctx = calloc(1, sizeof(*cltctx));
+	cltctx->config = ctx->config;
+	cltctx->ref = ctx->ref;
+	if (ctx->db == NULL)
 	{
-		err("auth: database not found %s", ctx->config->dbname);
-		return EREJECT;
+*/
+		/// sqlite3 documentation tells to open the database for each process
+		ret = sqlite3_open_v2(ctx->config->dbname, &ctx->db, SQLITE_OPEN_READONLY, NULL);
+		if (ret != SQLITE_OK)
+		{
+			err("auth: database not found %s", ctx->config->dbname);
+			return NULL;
+		}
+		auth_dbg("auth: authentication DB storage on %s", ctx->config->dbname);
+/**
 	}
-	auth_dbg("auth: authentication DB storage on %s", ctx->config->dbname);
-
-	return ESUCCESS;
+	cltctx->db = ctx->db;
+**/
+	return cltctx;
 }
 
 #define SEARCH_QUERY "select %s " \
@@ -357,12 +366,14 @@ static int authz_sqlite_setsession(void *arg, const char *user, auth_saveinfo_t 
 	return authz_sqlite_getuser_byName(ctx, user, cb, cbarg);
 }
 
-static const char *authz_sqlite_passwd(void *arg, const char *user)
+static int authz_sqlite_passwd(void *arg, const char *user, const char **passwd)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	const char * passwd = authz_sqlite_search(ctx, user, STRING_REF("passwd"));
-	return passwd;
+	*passwd = authz_sqlite_search(ctx, user, STRING_REF("passwd"));
+	if (*passwd)
+		return strlen(*passwd);
+	return 0;
 }
 
 #ifdef AUTH_TOKEN
@@ -403,7 +414,8 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	const char *checkpasswd = authz_sqlite_passwd(ctx, user);
+	const char *checkpasswd = NULL;
+	authz_sqlite_passwd(ctx, user, &checkpasswd);
 	auth_dbg("auth: check password for %s => %s (%s)", user, passwd, checkpasswd);
 	if (checkpasswd != NULL)
 	{
@@ -670,8 +682,13 @@ static void authz_sqlite_cleanup(void *arg)
 	if (ctx->statement != NULL)
 		sqlite3_finalize(ctx->statement);
 	ctx->statement = NULL;
-	sqlite3_close(ctx->db);
-	ctx->db = NULL;
+	ctx->ref--;
+	if (ctx->ref == 0)
+	{
+		sqlite3_close(ctx->db);
+		ctx->db = NULL;
+	}
+//	free(ctx);
 }
 
 static void authz_sqlite_destroy(void *arg)

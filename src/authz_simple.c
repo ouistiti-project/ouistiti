@@ -77,12 +77,15 @@ static void *authz_simple_create(http_server_t *UNUSED(server), void *config)
 	return config;
 }
 
-static const char *authz_simple_passwd(void *arg,const  char *user)
+static int authz_simple_passwd(void *arg,const  char *user, const char **passwd)
 {
 	const authz_simple_t *ctx = (const authz_simple_t *)arg;
 	if (!_string_cmp(&ctx->user, user, -1))
-		return ctx->passwd.data;
-	return NULL;
+	{
+		*passwd = ctx->passwd.data;
+		return ctx->passwd.length;
+	}
+	return 0;
 }
 
 static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))

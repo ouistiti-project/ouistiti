@@ -100,6 +100,7 @@ struct _mod_auth_ctx_s
 	_mod_auth_t *mod;
 	http_client_t *clt;
 	char *authenticate;
+	authn_t authn;
 };
 
 struct _mod_auth_s
@@ -405,7 +406,7 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 	return ret;
 }
 
-static void *auth_config(config_setting_t *iterator, server_t *server)
+static int auth_config(config_setting_t *iterator, server_t *server, int index, void **config)
 {
 	mod_auth_t *auth = NULL;
 #if LIBCONFIG_VER_MINOR < 5
@@ -472,7 +473,8 @@ static void *auth_config(config_setting_t *iterator, server_t *server)
 			auth->authn.type = AUTHN_FORBIDDEN_E;
 		}
 	}
-	return auth;
+	*config = (void *)auth;
+	return ESUCCESS;
 }
 #else
 static const mod_auth_t g_auth_config =
@@ -493,9 +495,10 @@ static const mod_auth_t g_auth_config =
 	},
 };
 
-static void *auth_config(void *iterator, server_t *server)
+static int auth_config(void *iterator, server_t *server, int index, void **config)
 {
-	return (void *)&g_auth_config;
+	*config = (void *)&g_auth_config;
+	return ESUCCESS;
 }
 #endif
 
@@ -560,7 +563,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		err("authentication type is not availlable, change configuration");
 	else
 	{
-		mod->authn->ctx = mod->authn->rules->create(mod->authn, mod->authz, config->authn.config);
+		mod->authn->ctx = mod->authn->rules->create(mod->authn, config->authn.config);
 	}
 	if (mod->authn->ctx)
 	{
@@ -609,7 +612,10 @@ static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 	 * authn may require prioritary connector and it has to be added after this one
 	 */
 	if(mod->authn->ctx && mod->authn->rules->setup)
-		mod->authn->rules->setup(mod->authn->ctx, clt, addr, addrsize);
+	{
+		ctx->authn.ctx = mod->authn->rules->setup(mod->authn->ctx, clt, addr, addrsize);
+		ctx->authn.rules = mod->authn->rules;
+	}
 
 	return ctx;
 }
@@ -618,6 +624,8 @@ static void _mod_auth_freectx(void *vctx)
 {
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)vctx;
 
+	if(ctx->authn.ctx && ctx->authn.rules->cleanup)
+		ctx->authn.rules->cleanup(ctx->authn.ctx);
 	free(ctx->authenticate);
 	free(ctx);
 }
@@ -825,7 +833,7 @@ int authn_checksignature(const char *key, size_t keylen,
 	return EREJECT;
 }
 
-static int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token, size_t tokenlen, const char *sign, size_t signlen, const char **user)
+static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *token, size_t tokenlen, const char *sign, size_t signlen, const char **user)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
@@ -835,7 +843,7 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, const char *token, size_t toke
 	ret = authn_checksignature(key, keylen, token, tokenlen, sign, signlen);
 	if (ret == ESUCCESS)
 	{
-		*user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, token);
+		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
 		if (*user == NULL)
 		{
 			*user = str_anonymous;
@@ -871,7 +879,7 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 		warn("auth: cookie get %s %p",str_authorization, authorization);
 	}
 
-	if (*authorization != NULL && strncmp(*authorization, mod->type.data, mod->type.length))
+	if (authorizationlen != 0 && strncmp(*authorization, mod->type.data, mod->type.length))
 	{
 		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, *authorization, (int)mod->type.length, mod->type.data);
 		*authorization = NULL;
@@ -948,7 +956,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 	return ESUCCESS;
 }
 
-static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
+static int _authn_checkauthorization(_mod_auth_ctx_t *ctx, authz_t *authz,
 		const char *authorization, size_t authorizationlen, http_message_t *request, const char **user)
 {
 	int ret = ECONTINUE;
@@ -979,7 +987,11 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx,
 	 */
 	if (config->redirect.data)
 		method = str_head;
-	*user = mod->authn->rules->check(mod->authn->ctx, method, methodlen, uri, urilen, authentication, authorizationlen);
+	/// authn may use setup for initialize some data, and the ctx change with client
+	authn_t *authn = mod->authn;
+	if (ctx->authn.ctx)
+		authn = &ctx->authn;
+	*user = authn->rules->check(authn->ctx, authz, method, methodlen, uri, urilen, authentication, authorizationlen);
 	if (*user != NULL)
 	{
 		ret = ESUCCESS;
@@ -1045,7 +1057,9 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	const char *uri = httpmessage_REQUEST(request, "uri");
 
 	if (mod->authn->ctx)
+	{
 		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+	}
 	else
 	{
 		err("auth: error during configuration, server locked");
@@ -1208,12 +1222,19 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	/**
 	 * authz may need setup the user setting for each message
 	 **/
+	authz_t ctx_authz = {0};
+	authz_t *authz = mod->authz;
 	if(mod->authz->rules->setup)
-		mod->authz->rules->setup(mod->authz->ctx);
+	{
+		ctx_authz.ctx = mod->authz->rules->setup(mod->authz->ctx);
+		ctx_authz.rules = mod->authz->rules;
+		ctx_authz.type = mod->authz->type;
+		authz = &ctx_authz;
+	}
 
 	const char *user = NULL;
 #ifdef AUTH_TOKEN
-	if (mod->authz->type & AUTHZ_TOKEN_E)
+	if (authz->type & AUTHZ_TOKEN_E)
 	{
 		size_t tokenlen = 0;
 		authorization = _authn_gettoken(ctx, request, &token, &tokenlen);
@@ -1225,7 +1246,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			/// the signature is concated to the end of token
 			/// only the token part must be checked
 			/// remove the signature and the leading dot to the tokenlen
-			if (authn_checktoken( ctx, token, tokenlen - authorizationlen - 1, authorization, authorizationlen, &user) == ESUCCESS)
+			if (authn_checktoken( ctx, authz, token, tokenlen - authorizationlen - 1, authorization, authorizationlen, &user) == ESUCCESS)
 			{
 				ret = EREJECT;
 				auth_dbg("auth: checktoken %d", ret);
@@ -1252,7 +1273,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		size_t authorizationlen = _authn_getauthorization(ctx, request, &authorization);
 		auth_dbg("auth: getauthorization %d", ret);
 		if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
-			_authn_checkauthorization( ctx, authorization, authorizationlen, request, &user) == ESUCCESS)
+			_authn_checkauthorization( ctx, authz, authorization, authorizationlen, request, &user) == ESUCCESS)
 		{
 			ret = EREJECT;
 		}
@@ -1292,11 +1313,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else
 		{
-			mod->authz->rules->setsession(mod->authz->ctx, user, auth_saveinfo, ctx->clt);
+			authz->rules->setsession(authz->ctx, user, auth_saveinfo, ctx->clt);
 			httpclient_session(ctx->clt, STRING_REF("authtype"), STRING_INFO(mod->type));
-			if (mod->authz->rules->join)
+			if (authz->rules->join)
 			{
-				mod->authz->rules->join(mod->authz->ctx, user, authorization, mod->config->expire);
+				authz->rules->join(authz->ctx, user, authorization, mod->config->expire);
 			}
 		}
 		const char *status = auth_info(request, STRING_REF("status"));
@@ -1321,15 +1342,16 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	/**
 	 * As the setup, the authz may need to cleanup between each message
 	 **/
-	if (mod->authz->ctx  && mod->authz->rules->cleanup)
+	if (authz->ctx  && authz->rules->cleanup)
 	{
-		mod->authz->rules->cleanup(mod->authz->ctx);
+		authz->rules->cleanup(authz->ctx);
 	}
 	return ret;
 }
 
 const module_t mod_auth =
 {
+	.version = 0x01,
 	.name = str_auth,
 	.configure = (module_configure_t)&auth_config,
 	.create = (module_create_t)&mod_auth_create,

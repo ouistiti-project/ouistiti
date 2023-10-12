@@ -53,10 +53,11 @@ typedef struct authz_file_s authz_file_t;
 struct authz_file_s
 {
 	authz_file_config_t *config;
-	char *user;
-	char *passwd;
-	char *group;
-	char *home;
+	char *storage;
+	string_t user;
+	string_t passwd;
+	string_t group;
+	string_t home;
 #ifdef FILE_MMAP
 	char *map;
 	int map_size;
@@ -107,8 +108,9 @@ static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
 #endif
 		ctx = calloc(1, sizeof(*ctx));
 		ctx->config = config;
-		ctx->user = calloc(1, MAXLENGTH + 1);
-#ifdef FILE_MMAP
+#ifndef FILE_MMAP
+		ctx->storage = calloc(1, MAXLENGTH + 1);
+#else
 		ctx->map = addr;
 		ctx->map_size = sb.st_size;
 		ctx->fd = fd;
@@ -122,41 +124,40 @@ static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
 	return ctx;
 }
 
-static int _authz_file_parsestring(char *string,
-			char **puser,
-			char **ppasswd,
-			char **pgroup,
-			char **phome)
+static int _authz_file_parsestring(char *string, int length,
+			string_t *puser,
+			string_t *ppasswd,
+			string_t *pgroup,
+			string_t *phome)
 {
-	*ppasswd = NULL;
-	*pgroup = NULL;
-	*phome = NULL;
-	*puser = string;
-	*ppasswd = strchr(*puser, ':');
-	if (*ppasswd)
-	{
-		*ppasswd[0] = '\0';
-		*ppasswd += 1;
-		*pgroup = strchr(*ppasswd, ':');
-	}
-	if (*ppasswd && *pgroup)
-	{
-		*pgroup[0] = '\0';
-		*pgroup += 1;
-		*phome = strchr(*pgroup, ':');
-	}
-	if (*ppasswd && *pgroup && *phome)
-	{
-		*phome[0] = '\0';
-		*phome += 1;
-	}
-	char *endline = strchr(*puser, '\n');
-	if (endline)
+	char *endline = strchr(string, '\n');
+	if (endline != NULL)
 		endline[0] = '\0';
+	else
+		endline = string + length;
+
+	string_t *setters[4] = {puser, ppasswd, pgroup, phome};
+	int current = 0;
+
+	puser->data = string;
+	for (int current = 0; current < (sizeof(setters) / sizeof(string_t*)) - 1; current++)
+	{
+		setters[current + 1]->data = strchr(setters[current]->data, ':');
+		if (setters[current + 1]->data)
+		{
+			setters[current]->length = setters[current + 1]->data - setters[current]->data;
+			setters[current + 1]->data += 1;
+		}
+		else
+		{
+			setters[current + 1]->data = endline;
+			setters[current]->length = endline - setters[current]->data;
+		}
+	}
 	return 0;
 }
 
-static const char *authz_file_passwd(void *arg, const char *user)
+static int authz_file_passwd(void *arg, const char *user, const char **passwd)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	const authz_file_config_t *config = ctx->config;
@@ -179,9 +180,9 @@ static const char *authz_file_passwd(void *arg, const char *user)
 			end = line + 1;
 		if (!strncmp(line, user, end - line))
 		{
-			strncpy(ctx->user, line, len);
-			_authz_file_parsestring(ctx->user, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
-			return ctx->passwd;
+			_authz_file_parsestring(line, len, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
+			*passwd = ctx->passwd.data;
+			return ctx->passwd.length;
 		}
 	}
 #else
@@ -189,34 +190,34 @@ static const char *authz_file_passwd(void *arg, const char *user)
 	while(file && !feof(file))
 	{
 		size_t len = 0;
-		if (fgets(ctx->user, MAXLENGTH, file) == NULL)
+		memset(ctx->storage, 0, MAXLENGTH);
+		if (fgets(ctx->storage, MAXLENGTH, file) == NULL)
 			break;
-		const char *end = strchr(ctx->user, ':');
+		const char *end = strchr(ctx->storage, ':');
 		if (end == NULL)
-			end = strchr(ctx->user, '\n');
-		if (end)
-			len = end - ctx->user;
-		else
-			len = strlen(ctx->user);
-		if (!strncmp(user, ctx->user, len))
+			continue;
+		len = end - ctx->storage;
+		if (!strncmp(user, ctx->storage, len))
 		{
-			_authz_file_parsestring(ctx->user, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
+			// storage is MAXLENGTH + 1 length and the last byte is always 0
+			int linelen = strlen(ctx->storage);
+			_authz_file_parsestring(ctx->storage, linelen, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
 			fclose(file);
-			return ctx->passwd;
+			*passwd = ctx->passwd.data;
+			return ctx->passwd.length;
 		}
-		ctx->user[0] = 0;
 	}
 	if (file) fclose(file);
 #endif
-	memset(ctx->user, 0, MAXLENGTH);
-	return NULL;
+	return 0;
 }
 
 static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
 
-	const char *checkpasswd = authz_file_passwd(ctx, user);
+	const char *checkpasswd = NULL;
+	authz_file_passwd(ctx, user, &checkpasswd);
 	if (checkpasswd != NULL)
 	{
 		string_t userstr = {0};
@@ -244,15 +245,15 @@ static int authz_file_setsession(void *arg, const char *user, auth_saveinfo_t cb
 {
 	const authz_file_t *ctx = (const authz_file_t *)arg;
 
-	cb(cbarg, STRING_REF("user"), ctx->user, -1);
-	if (!strcmp(ctx->user, str_anonymous))
+	cb(cbarg, STRING_REF("user"), STRING_INFO(ctx->user));
+	if (!strcmp(ctx->user.data, str_anonymous))
 		cb(cbarg, STRING_REF("group"), STRING_REF(str_anonymous));
-	else if (ctx->group && ctx->group[0] != '\0')
-		cb(cbarg, STRING_REF("group"), ctx->group, -1);
+	else if (ctx->group.data && ctx->group.length > 0)
+		cb(cbarg, STRING_REF("group"), STRING_INFO(ctx->group));
 	else
 		cb(cbarg, STRING_REF("group"), STRING_REF("users"));
-	if (ctx->home && ctx->home[0] != '\0')
-		cb(cbarg, STRING_REF("home"), ctx->home, -1);
+	if (ctx->home.data && ctx->home.length > 0)
+		cb(cbarg, STRING_REF("home"), STRING_INFO(ctx->home));
 	cb(cbarg, STRING_REF("status"), STRING_REF(str_status_activated));
 
 	return ESUCCESS;
@@ -265,12 +266,8 @@ static void authz_file_destroy(void *arg)
 #ifdef FILE_MMAP
 	munmap(ctx->map, ctx->map_size);
 	close(ctx->fd);
-	free(ctx->passwd);
-	free(ctx->group);
-	if (ctx->home)
-		free(ctx->home);
 #else
-	free(ctx->user);
+	free(ctx->storage);
 #endif
 	free(ctx);
 }

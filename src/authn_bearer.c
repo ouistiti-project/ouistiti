@@ -43,7 +43,6 @@ typedef struct authn_bearer_s authn_bearer_t;
 struct authn_bearer_s
 {
 	const authn_t *authn;
-	authz_t *authz;
 	http_client_t *clt;
 };
 
@@ -54,12 +53,10 @@ void *authn_bearer_config(const config_setting_t *configauth)
 }
 #endif
 
-static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg)
+static void *authn_bearer_create(const authn_t *authn, void *arg)
 {
 	authn_bearer_t *mod = calloc(1, sizeof(*mod));
 	mod->authn = authn;
-	mod->authz = authz;
-
 	return mod;
 }
 
@@ -75,7 +72,7 @@ static int authn_bearer_challenge(void *arg, http_message_t *UNUSED(request), ht
 	return ret;
 }
 
-static const char *authn_bearer_check(void *arg, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen)
+static const char *authn_bearer_check(void *arg, authz_t *authz, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen)
 {
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
 	(void) method;
@@ -96,7 +93,7 @@ static const char *authn_bearer_check(void *arg, const char *method, size_t meth
 		size_t keylen = mod->authn->config->secret.length;
 		if (authn_checksignature(key, keylen, data, datalen, sign, signlen) == ESUCCESS)
 		{
-			user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
+			user = authz->rules->check(authz->ctx, NULL, NULL, string);
 		}
 	}
 	return user;

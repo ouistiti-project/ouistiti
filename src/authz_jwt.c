@@ -267,6 +267,19 @@ static void *authz_jwt_create(http_server_t *UNUSED(server), void *arg)
 	return ctx;
 }
 
+static void *authz_jwt_setup(void *arg)
+{
+	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+
+	authz_jwt_t *cltctx = calloc(1, sizeof(*ctx));
+	return cltctx;
+}
+
+static void authz_jwt_cleanup(void *arg)
+{
+	free(arg);
+}
+
 static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
 	json_t *jinfo = jwt_decode_json(token);
@@ -365,6 +378,8 @@ static void authz_jwt_destroy(void *arg)
 authz_rules_t authz_jwt_rules =
 {
 	.create = &authz_jwt_create,
+	.setup = authz_jwt_setup,
+	.cleanup = authz_jwt_cleanup,
 	.check = &authz_jwt_check,
 	.passwd = NULL,
 	.setsession = &authz_jwt_setsession,
