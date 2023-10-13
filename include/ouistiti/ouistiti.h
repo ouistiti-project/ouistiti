@@ -84,7 +84,6 @@ typedef struct ouistiticonfig_s
 {
 	void *configfile;
 	char *user;
-	const char *pidfile;
 	const char *init_d;
 	serverconfig_t *config[MAX_SERVERS];
 	int nservers;
