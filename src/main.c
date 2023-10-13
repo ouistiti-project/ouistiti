@@ -491,10 +491,12 @@ void main_destroy(server_t *first)
 		mod_t *mod = server->modules;
 		while (mod)
 		{
+			mod_t *next = mod->next;
 			dbg("main: destroy %s", mod->ops->name);
 			if (mod->ops->destroy)
 				mod->ops->destroy(mod->obj);
-			mod = mod->next;
+			free(mod);
+			mod = next;
 		}
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
