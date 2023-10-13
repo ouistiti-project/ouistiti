@@ -529,22 +529,6 @@ static server_t *ouistiti_loadservers(ouistiticonfig_t *ouistiticonfig, int serv
 	return first;
 }
 
-static int ouistiti_kill(const char *configfile, const char *pidfile)
-{
-	ouistiticonfig_t *ouistiticonfig = NULL;
-	if (pidfile == NULL)
-	{
-		ouistiticonfig = ouistiticonfig_create(configfile);
-		if (ouistiticonfig && ouistiticonfig->pidfile)
-			pidfile = ouistiticonfig->pidfile;
-	}
-	killdaemon(pidfile);
-	if (ouistiticonfig)
-		ouistiticonfig_destroy(ouistiticonfig);
-	main_destroy(first);
-	return 0;
-}
-
 #define DAEMONIZE 0x01
 #define KILLDAEMON 0x02
 #define CONFIGURATION 0x04
@@ -613,7 +597,19 @@ int main(int argc, char * const *argv)
 
 	if (mode & KILLDAEMON)
 	{
-		return ouistiti_kill(configfile, pidfile);
+		if (pidfile)
+			killdaemon(pidfile);
+		return 0;
+	}
+
+	if ((mode & DAEMONIZE) && daemonize(pidfile) == -1)
+	{
+		/**
+		 * if main is destroyed, it close the server socket here
+		 * and the true process is not able to receive any connection
+		 */
+		// main_destroy /( first /) /;
+		return 0;
 	}
 
 	if (workingdir != NULL && chdir(workingdir) != 0)
@@ -637,9 +633,6 @@ int main(int argc, char * const *argv)
 		return 1;
 	}
 
-	if (pidfile == NULL && ouistiticonfig->pidfile)
-		pidfile = ouistiticonfig->pidfile;
-
 	if (mode & CONFIGURATION)
 	{
 		display_configuration(configfile, pidfile);
@@ -650,16 +643,6 @@ int main(int argc, char * const *argv)
 	{
 		int rootfd = AT_FDCWD;
 		main_initat(rootfd, ouistiticonfig->init_d, 0);
-	}
-
-	if ((mode & DAEMONIZE) && daemonize(pidfile) == -1)
-	{
-		/**
-		 * if main is destroyed, it close the server socket here
-		 * and the true process is not able to receive any connection
-		 */
-		// main_destroy /( first /) /;
-		return 0;
 	}
 
 	if (ouistiticonfig == NULL)

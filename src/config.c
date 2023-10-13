@@ -234,7 +234,6 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 		else
 			err("log file error %s", strerror(errno));
 	}
-	config_lookup_string(configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
 	config_lookup_string(configfile, "init_d", (const char **)&ouistiticonfig->init_d);
 	const config_setting_t *configmimes = config_lookup(configfile, "mimetypes");
 	config_mimes(configmimes);

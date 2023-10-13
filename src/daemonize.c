@@ -62,6 +62,7 @@ static void _setpidfile(const char *pidfile)
 			fl.l_pid = 0;
 			if (fcntl(_pidfd, F_SETLK, &fl) == -1) {
 				err("server already running");
+				close(_pidfd);
 				exit(1);
 			}
 
