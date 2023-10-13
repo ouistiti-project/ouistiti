@@ -88,7 +88,7 @@ int ouistiti_initmodules(const char *pkglib)
 				 */
 				module_t *module = dlsym(dh, "mod_info");
 				if (module)
-					ouistiti_registermodule(module);
+					ouistiti_registermodule(module, dh);
 				else
 					err("%s not a module", path);
 			}
@@ -102,4 +102,9 @@ int ouistiti_initmodules(const char *pkglib)
 	}
 	free(namelist);
 	return ESUCCESS;
+}
+
+void ouistiti_finalizemodule(void *dh)
+{
+	dlclose(dh);
 }

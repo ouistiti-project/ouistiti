@@ -362,7 +362,7 @@ static int ouistiti_setmodules(server_t *server, configure_t configure, void *pa
 	return 0;
 }
 
-void ouistiti_registermodule(const module_t *module)
+void ouistiti_registermodule(const module_t *module, void *dh)
 {
 	for (const module_list_t *iterator = g_modules; iterator != NULL; iterator = iterator->next)
 	{
@@ -375,6 +375,7 @@ void ouistiti_registermodule(const module_t *module)
 	module_list_t *new = calloc(1, sizeof(*new));
 	new->module = module;
 	new->next = g_modules;
+	new->dh = dh;
 	g_modules = new;
 }
 
@@ -388,6 +389,7 @@ static void __ouistiti_freemodule()
 	module_list_t *next;
 	for (module_list_t *iterator = g_modules; iterator != NULL; iterator = next)
 	{
+		ouistiti_finalizemodule(iterator->dh);
 		next = iterator->next;
 		free(iterator);
 	}
