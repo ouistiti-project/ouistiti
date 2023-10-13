@@ -511,8 +511,9 @@ static int _mime_connector(void *arg, http_message_t *request, http_message_t *r
 }
 
 #ifdef FILE_CONFIG
-static void *document_config(config_setting_t *iterator, server_t *server)
+static int document_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
+	int ret = EREJECT;
 	const char *entries[] = {
 		"document", "filestorage", "static_file"
 	};
@@ -580,8 +581,10 @@ static void *document_config(config_setting_t *iterator, server_t *server)
 
 		if (!strcmp(config_setting_name(configstaticfile), "filestorage"))
 			static_file->options |= DOCUMENT_REST;
+		ret = ESUCCESS;
 	}
-	return static_file;
+	*modconfig = (void *)static_file;
+	return ret;
 }
 #else
 static const mod_document_t g_document_config =
@@ -593,9 +596,10 @@ static const mod_document_t g_document_config =
 	.options = DOCUMENT_RANGE | DOCUMENT_DIRLISTING | DOCUMENT_REST,
 };
 
-static void *document_config(void *iterator, server_t *server)
+static int document_config(void *iterator, server_t *server, int index, void **config)
 {
-	return (void *)&g_document_config;
+	*config = (void *)&g_document_config;
+	return ESUCCESS;
 }
 #endif
 
@@ -667,6 +671,7 @@ static void mod_document_destroy(void *data)
 
 const module_t mod_document =
 {
+	.version = 0x01,
 	.name = str_document,
 	.configure = (module_configure_t)&document_config,
 	.create = (module_create_t)&mod_document_create,
