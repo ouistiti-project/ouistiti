@@ -70,7 +70,10 @@ int ouistiti_initmodules(const char *pkglib)
 			char path[PATH_MAX];
 			snprintf(path, PATH_MAX, "%s/%s", iterator, name);
 			if (strstr(name, ".so") == NULL)
+			{
+				free(namelist[i]);
 				continue;
+			}
 
 			/**
 			 * the path must contain a /
