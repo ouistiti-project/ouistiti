@@ -52,6 +52,8 @@
 #include "ouistiti/log.h"
 #include "mod_cgi.h"
 
+#define USE_EXECVEAT
+
 #define cgi_dbg(...)
 
 static const char str_cgi[] = "cgi";
@@ -231,8 +233,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		 * cgipath is absolute, but in fact execveat runs in docroot.
 		 */
 #ifdef USE_EXECVEAT
-		execveat(mod->rootfd, ctx->cgi_path.data, argv, env);
+		execveat(mod->rootfd, ctx->cgi_path.data, argv, env, 0);
 #else
+		// this part die if the program is running under valgrind
+		// use execeat
 		int scriptfd = openat(mod->rootfd, ctx->cgi_path.data, O_PATH);
 		close(mod->rootfd);
 		fexecve(scriptfd, argv, env);
