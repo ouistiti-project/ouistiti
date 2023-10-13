@@ -249,7 +249,7 @@ void display_help(char * const *argv)
 }
 
 #undef BACKTRACE
-static server_t *first = NULL;
+static server_t *g_first = NULL;
 static char run = 0;
 static int g_default_port = 80;
 #ifdef HAVE_SIGACTION
@@ -397,10 +397,10 @@ static void __ouistiti_freemodule()
 
 static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 {
-	if (first == NULL && id == -1)
+	if (g_first == NULL && id == -1)
 		id = 0;
 
-	if (first != NULL && first->id == MAX_SERVERS)
+	if (g_first != NULL && g_first->id == MAX_SERVERS)
 		return NULL;
 
 	if (config->server->port == 0)
@@ -414,10 +414,7 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 
 	server->server = httpserver;
 	server->config = config;
-	if (id == -1)
-		server->id = first->id + 1;
-	else
-		server->id = id;
+	server->id = id;
 	char *cwd = NULL;
 	if (config->root != NULL && config->root[0] != '\0' )
 	{
@@ -650,7 +647,7 @@ int main(int argc, char * const *argv)
 		return -1;
 	}
 
-	first = ouistiti_loadservers(ouistiticonfig, serverid);
+	g_first = ouistiti_loadservers(ouistiticonfig, serverid);
 
 #ifdef HAVE_SIGACTION
 	struct sigaction action;
@@ -681,10 +678,10 @@ int main(int argc, char * const *argv)
 	else
 		warn("%s run as %s", argv[0], ouistiticonfig->user);
 
-	main_run(first);
+	main_run(g_first);
 
 	killdaemon(pidfile);
-	main_destroy(first);
+	main_destroy(g_first);
 	if (ouistiticonfig->init_d != NULL)
 	{
 		int rootfd = AT_FDCWD;
