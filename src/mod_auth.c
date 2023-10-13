@@ -408,6 +408,7 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 
 static int auth_config(config_setting_t *iterator, server_t *server, int index, void **config)
 {
+	int ret = EREJECT;
 	mod_auth_t *auth = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	const config_setting_t *configauth = config_setting_get_member(iterator, "auth");
@@ -416,8 +417,6 @@ static int auth_config(config_setting_t *iterator, server_t *server, int index, 
 #endif
 	if (configauth)
 	{
-		int ret;
-
 		auth = calloc(1, sizeof(*auth));
 		/**
 		 * signin URI allowed to access to the signin page
@@ -472,9 +471,11 @@ static int auth_config(config_setting_t *iterator, server_t *server, int index, 
 			err("auth: to enable the token, set the \"secret\" into configuration");
 			auth->authn.type = AUTHN_FORBIDDEN_E;
 		}
+		/// auth is alway ESUCCESS to block every request on bad configuration
+		ret = ESUCCESS;
 	}
 	*config = (void *)auth;
-	return ESUCCESS;
+	return ret;
 }
 #else
 static const mod_auth_t g_auth_config =
