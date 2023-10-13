@@ -108,7 +108,7 @@ static const module_t *default_modules[] =
 	NULL
 };
 
-int ouistiti_initmodules(const char *UNUSED(pkglib))
+int ouistiti_initmodules(const char *UNUSED(pkglib),void *UNUSED(dh))
 {
 	for (int i = 0; default_modules[i] != NULL; i++)
 	{

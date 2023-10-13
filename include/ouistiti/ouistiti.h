@@ -60,6 +60,7 @@ struct module_s
 struct module_list_s
 {
 	const module_t *module;
+	void *dh;
 	struct module_list_s *next;
 };
 
@@ -93,8 +94,9 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
 int ouistiti_initmodules(const char *pkglib);
+void ouistiti_finalizemodule(void *dh);
 typedef void *(*configure_t)(void *data, const module_t *module, server_t *server);
-void ouistiti_registermodule(const module_t *module);
+void ouistiti_registermodule(const module_t *module, void *dh);
 const module_list_t *ouistiti_modules(server_t *server);
 int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);

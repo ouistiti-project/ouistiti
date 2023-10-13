@@ -118,9 +118,10 @@ static const mod_cgi_config_t g_cgi_config =
 	.allow = "*.cgi*",
 };
 
-static void *cgi_config(void *iterator, server_t *server)
+static int cgi_config(void *iterator, server_t *server, int index, void **config)
 {
-	return (void *)&g_cgi_config;
+	*config = (void *)&g_cgi_config;
+	return ESUCCESS;
 }
 #endif
 
