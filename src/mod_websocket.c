@@ -75,23 +75,52 @@ static int _mod_websocket_socket(const char *filepath);
 typedef struct _mod_websocket_s _mod_websocket_t;
 typedef struct _mod_websocket_ctx_s _mod_websocket_ctx_t;
 
+typedef struct _ws_link_s _ws_link_t;
+struct _ws_link_s
+{
+	enum {
+		E_TCP,
+		E_UNIX,
+		E_TTY,
+		E_FIFO,
+	} type;
+	string_t origin;
+	string_t destination;
+	const char *info;
+	_ws_link_t *next;
+};
+
+typedef struct mod_websocket_s mod_websocket_t;
+struct mod_websocket_s
+{
+	const char *docroot;
+	const char *allow;
+	const char *deny;
+	_ws_link_t *links;
+	int options;
+};
+
 struct _mod_websocket_s
 {
 	mod_websocket_t *config;
 	mod_websocket_run_t run;
 	void *runarg;
 	int fdroot;
-	const char *host;
 };
 
 struct _mod_websocket_ctx_s
 {
 	_mod_websocket_t *mod;
 	char *uri;
-	int fddir;
+	int fdfile;
 	int socket;
 	pid_t pid;
 };
+
+static int _websocket_unix(const char *filepath);
+static int _websocket_tty(int fdroot, const char *filepath, const char *path_info);
+static int _websocket_fifo(int fdroot, const char *filepath);
+static int _websocket_tcp(const char *host, const char *port);
 
 static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_message_t *request, http_message_t *response)
 {
@@ -114,23 +143,29 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_mes
 	}
 }
 
-static int _checkname(const mod_websocket_t *config, const char *pathname)
+static int _checkname(const mod_websocket_t *config, const char *pathname, const char **path_info)
 {
 	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
-		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
+		utils_searchexp(pathname, config->allow, path_info) != ESUCCESS)
 	{
 		return  EREJECT;
+	}
+	if (*path_info == pathname)
+	{
+		// path_info must not be the first caracter of uri
+		*path_info = strchr(*path_info + 1, '/');
 	}
 	return ESUCCESS;
 }
 
 static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *protocol)
 {
-	int fdfile = openat(ctx->mod->fdroot, uri, O_PATH);
+	int fdroot = ctx->mod->fdroot;
+	int fdfile = openat(fdroot, uri, O_PATH);
 	if (fdfile == -1 && protocol != NULL)
 	{
 		uri = protocol;
-		fdfile = openat(ctx->mod->fdroot, uri, O_PATH);
+		fdfile = openat(fdroot, uri, O_PATH);
 	}
 	if (fdfile == -1)
 	{
@@ -138,11 +173,11 @@ static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *pr
 		return EREJECT;
 	}
 
-	struct stat filestat;
+	struct stat filestat = {0};
 	fstat(fdfile, &filestat);
 	if (S_ISDIR(filestat.st_mode))
 	{
-		int fdroot = fdfile;
+		fdroot = fdfile;
 		if (protocol != NULL)
 			fdfile = openat(fdroot, protocol, O_PATH);
 		else
@@ -154,18 +189,32 @@ static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *pr
 			return EREJECT;
 		}
 		fstat(fdfile, &filestat);
-		ctx->fddir = dup(fdroot);
+	}
+	close(fdfile);
+	if (S_ISSOCK(filestat.st_mode))
+	{
+		int fddir = open(".", O_PATH);
+		if (fchdir(fdroot) < 0)
+		{
+			return EREJECT;
+		}
+		ctx->fdfile  = _websocket_unix(uri);
+		if (fchdir(fddir) < 0)
+			return EREJECT;
+		close(fddir);
+	}
+	else if (S_ISCHR(filestat.st_mode))
+	{
+		ctx->fdfile  = _websocket_tty(fdroot, uri, NULL);
+	}
+	else if (S_ISFIFO(filestat.st_mode))
+	{
+		ctx->fdfile  = _websocket_fifo(fdroot, uri);
 	}
 	else
-		ctx->fddir = dup(ctx->mod->fdroot);
-	close(fdfile);
-
-	if (!S_ISSOCK(filestat.st_mode))
 	{
-		close(ctx->fddir);
 		return EREJECT;
 	}
-	ctx->uri = strdup(uri);
 	return ESUCCESS;
 }
 
@@ -174,8 +223,9 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	_mod_websocket_t *mod = ctx->mod;
 	int ret = EREJECT;
 
+	const char *path_info = NULL;
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (_checkname(mod->config, uri) != ESUCCESS)
+	if (_checkname(mod->config, uri, &path_info) != ESUCCESS)
 	{
 		warn("websocket: %s forbidden", uri);
 		return EREJECT;
@@ -189,10 +239,44 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	{
 		ret = _checkfile(ctx, uri, protocol);
 	}
-	else if (mod->host)
+	else if (mod->config->links)
 	{
-		ctx->uri = strdup(mod->host);
-		ret = ESUCCESS;
+		const char *query = NULL;
+		httpmessage_REQUEST2(request, "query", &query);
+		_ws_link_t *it = NULL;
+		for (it = mod->config->links;it; it = it->next)
+		{
+			if (!strncmp(uri, it->origin.data, it->origin.length))
+				break;
+		}
+		if (it != NULL)
+		{
+			switch (it->type)
+			{
+			case E_UNIX:
+			{
+				ctx->fdfile  = _websocket_unix(it->destination.data);
+			}
+			break;
+			case E_TTY:
+			{
+				ctx->fdfile  = _websocket_tty(ctx->mod->fdroot, it->destination.data, it->info);
+			}
+			break;
+			case E_FIFO:
+			{
+				ctx->fdfile  = _websocket_fifo(ctx->mod->fdroot, it->destination.data);
+			}
+			break;
+			case E_TCP:
+			{
+				ctx->fdfile  = _websocket_tcp(it->destination.data, it->info);
+			}
+			break;
+			}
+		}
+		else
+			return EREJECT;
 	}
 	else
 	{
@@ -202,12 +286,6 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	if (ret == EREJECT)
 	{
 		httpmessage_result(response, RESULT_403);
-		return ESUCCESS;
-	}
-
-	if (fchdir(ctx->fddir) == -1)
-	{
-		httpmessage_result(response, RESULT_500);
 		return ESUCCESS;
 	}
 
@@ -240,18 +318,10 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 	{
 		ret = websocket_connector_init(ctx, request, response);
 	}
-	else if (ctx->socket > 0)
+	else if (ctx->socket > 0 && ctx->fdfile > 0)
 	{
-		char *uri = ctx->uri;
-		while (*uri == '/' && *uri != '\0') uri++;
-		int wssock = _mod_websocket_socket(uri);
-		if (wssock > 0)
-		{
-			ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, wssock, request);
-			free(ctx->uri);
-			ctx->uri = NULL;
-			ret = ESUCCESS;
-		}
+		ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, ctx->fdfile, request);
+		ret = ESUCCESS;
 	}
 	return ret;
 }
@@ -292,20 +362,51 @@ static void _mod_websocket_freectx(void *arg)
 }
 
 #ifdef FILE_CONFIG
+static int _ws_configlink(config_setting_t *setting, mod_websocket_t *conf)
+{
+	if (!config_setting_is_group(setting))
+		return EREJECT;
+	
+	_ws_link_t *link = calloc(1, sizeof(*link));
+	config_setting_lookup_string(setting, "origin", &link->origin.data);
+	link->origin.length = strlen(link->origin.data);
+	config_setting_lookup_string(setting, "destination", &link->destination.data);
+	config_setting_lookup_string(setting, "port", &link->info);
+	config_setting_lookup_string(setting, "baud", &link->info);
+	link->destination.length = strlen(link->destination.data);
+	const char *type;
+	config_setting_lookup_string(setting, "type", &type);
+	if (!strcmp(type, "tcp"))
+		link->type = E_TCP;
+	else if (!strcmp(type, "unix"))
+		link->type = E_UNIX;
+	else if (!strcmp(type, "tty"))
+		link->type = E_TTY;
+	else if (!strcmp(type, "fifo"))
+		link->type = E_FIFO;
+	else
+	{
+		free(link);
+		return EREJECT;
+	}
+	link->next = conf->links;
+	conf->links = link;
+	return ESUCCESS;
+}
+
 static void *websocket_config(config_setting_t *iterator, server_t *server)
 {
 	mod_websocket_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	const config_setting_t *configws = config_setting_get_member(iterator, "websocket");
+	config_setting_t *configws = config_setting_get_member(iterator, "websocket");
 #else
-	const config_setting_t *configws = config_setting_lookup(iterator, "websocket");
+	config_setting_t *configws = config_setting_lookup(iterator, "websocket");
 #endif
 	if (configws)
 	{
 		const char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
 		config_setting_lookup_string(configws, "docroot", &conf->docroot);
-		config_setting_lookup_string(configws, "server", &conf->server);
 		config_setting_lookup_string(configws, "allow", &conf->allow);
 		config_setting_lookup_string(configws, "deny", &conf->deny);
 		config_setting_lookup_string(configws, "options", &mode);
@@ -319,6 +420,15 @@ static void *websocket_config(config_setting_t *iterator, server_t *server)
 		}
 #else
 #endif
+		const config_setting_t *links = config_setting_lookup(configws, "links");
+		if (links && config_setting_is_list(links))
+		{
+			for (int i = 0; i < config_setting_length(links); i++)
+			{
+				config_setting_t *link = config_setting_get_elem(links, i);
+				_ws_configlink(link, conf);
+			}
+		}
 	}
 	return conf;
 }
@@ -366,7 +476,6 @@ static void *mod_websocket_create(http_server_t *server, mod_websocket_t *config
 
 	mod->runarg = config;
 	mod->fdroot = fdroot;
-	mod->host = config->server;
 	httpserver_addmod(server, _mod_websocket_getctx, _mod_websocket_freectx, mod, str_websocket);
 	return mod;
 }
@@ -407,6 +516,20 @@ static int _websocket_unix(const char *filepath)
 	return sock;
 }
 
+static int _websocket_tty(int fdroot, const char *filepath, const char *path_info)
+{
+	int fdfile;
+	fdfile = openat(fdroot, filepath, O_RDWR);
+	return fdfile;
+}
+
+static int _websocket_fifo(int fdroot, const char *filepath)
+{
+	int fdfile;
+	fdfile = openat(fdroot, filepath, O_RDONLY);
+	return fdfile;
+}
+
 static int _websocket_tcp(const char *host, const char *port)
 {
 	int sock = -1;
@@ -444,23 +567,6 @@ static int _websocket_tcp(const char *host, const char *port)
 	else
 		warn("websocket: open %s", host);
 
-	return sock;
-}
-
-static int _mod_websocket_socket(const char *filepath)
-{
-	int sock = -1;
-	char *port;
-	if (!access(filepath, F_OK))
-	{
-		sock = _websocket_unix(filepath);
-	}
-	else if ((port = strchr(filepath, ':')) != NULL)
-	{
-		*port = '\0';
-		port += 1;
-		sock = _websocket_tcp(filepath, port);
-	}
 	return sock;
 }
 

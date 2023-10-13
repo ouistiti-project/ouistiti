@@ -39,16 +39,6 @@ extern "C"
 {
 #endif
 
-typedef struct mod_websocket_s mod_websocket_t;
-struct mod_websocket_s
-{
-	const char *docroot;
-	const char *allow;
-	const char *deny;
-	const char *server;
-	int options;
-};
-
 extern const module_t mod_websocket;
 
 #ifdef __cplusplus
