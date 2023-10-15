@@ -105,6 +105,7 @@ struct string_s
 {
 	const char *data;
 	size_t length;
+	size_t size;
 };
 
 #define STRING_REF(string) string, sizeof(string)-1

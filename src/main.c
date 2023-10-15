@@ -70,13 +70,22 @@
 
 extern const char str_hostname[];
 
+#define MAX_STRING 256
+
+static size_t _string_len(string_t *str, const char *pointer)
+{
+	if (str->size == 0) str->size = MAX_STRING;
+	return strnlen(pointer, str->size);
+}
+
 int _string_store(string_t *str, const char *pointer, size_t length)
 {
 	str->data = pointer;
 	if (pointer && length == (size_t) -1)
-		str->length = strlen(pointer);
+		str->length = _string_len(str, pointer);
 	else
 		str->length = length;
+	str->size = str->length + 1;
 	return ESUCCESS;
 }
 
