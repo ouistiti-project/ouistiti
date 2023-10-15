@@ -44,12 +44,19 @@
 extern "C"
 {
 #endif
+typedef struct htaccess_s htaccess_t;
+struct htaccess_s
+{
+	string_t denyfirst;
+	string_t allow;
+	string_t denylast;
+};
+
 typedef struct mod_document_s
 {
 	const char *docroot;
 	const char *dochome;
-	const char *allow;
-	const char *deny;
+	htaccess_t htaccess;
 	const char *defaultpage;
 	int options;
 } mod_document_t;
@@ -122,6 +129,12 @@ int _document_getconnnectordelete(_mod_document_mod_t *mod,
 #endif
 
 void document_close(document_connector_t *private, http_message_t *request);
+
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+int htaccess_config(config_setting_t *setting, htaccess_t *htaccess);
+#endif
+int htaccess_check(const htaccess_t *htaccess, const char *uri, const char **path_info);
 
 #ifdef __cplusplus
 }

@@ -493,8 +493,7 @@ int cgienv_config(config_setting_t *configserver, config_setting_t *config, serv
 {
 	mod_cgi_config_t *cgi = calloc(1, sizeof(*cgi));
 	config_setting_lookup_string(config, "docroot", (const char **)&cgi->docroot);
-	config_setting_lookup_string(config, "allow", (const char **)&cgi->allow);
-	config_setting_lookup_string(config, "deny", (const char **)&cgi->deny);
+	htaccess_config(config, &cgi->htaccess);
 	if (configscript)
 	{
 		config_setting_t *scripts = config_setting_lookup(config, "scripts");

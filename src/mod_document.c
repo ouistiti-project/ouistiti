@@ -87,23 +87,6 @@ void document_close(document_connector_t *private, http_message_t *request)
 	free(private);
 }
 
-static int document_checkname(const _mod_document_mod_t *mod, const char *uri)
-{
-	const mod_document_t *config = mod->config;
-
-	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
-	{
-		document_dbg("document: %s deny", uri);
-		return  EREJECT;
-	}
-	if (utils_searchexp(uri, config->allow, NULL) != ESUCCESS)
-	{
-		document_dbg("document: %s not allowed", uri);
-		return  EREJECT;
-	}
-	return ESUCCESS;
-}
-
 #ifdef DOCUMENTHOME
 static int _document_dochome(_mod_document_mod_t *mod,
 		http_message_t *request, const char **uri)
@@ -256,7 +239,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	const char *uri = NULL;
 	int urilen = httpmessage_REQUEST2(request,"uri", &uri);
 
-	if (document_checkname(mod, uri) == EREJECT)
+	if (htaccess_check(&mod->config->htaccess, uri, NULL) == EREJECT)
 	{
 		document_dbg("document: %s forbidden extension", uri);
 		/**
@@ -541,8 +524,7 @@ static int document_config(config_setting_t *iterator, server_t *server, int ind
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
 		config_setting_lookup_string(configstaticfile, "dochome", (const char **)&static_file->dochome);
-		config_setting_lookup_string(configstaticfile, "allow", (const char **)&static_file->allow);
-		config_setting_lookup_string(configstaticfile, "deny", (const char **)&static_file->deny);
+		htaccess_config(configstaticfile, &static_file->htaccess);
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
 
 		char *options = NULL;

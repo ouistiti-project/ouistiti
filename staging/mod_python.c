@@ -225,25 +225,6 @@ static void _python_freectx(mod_python_ctx_t *ctx)
 	free(ctx);
 }
 
-static int _python_checkname(_mod_python_t *mod, const char *uri, const char **path_info)
-{
-	const mod_python_config_t *config = mod->config;
-	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (utils_searchexp(uri, config->allow, path_info) != ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (*path_info == uri)
-	{
-		// path_info must not be the first caracter of uri
-		*path_info = strchr(*path_info + 1, '/');
-	}
-	return ESUCCESS;
-}
-
 static int _python_start(_mod_python_t *mod, http_message_t *request, http_message_t *response)
 {
 	const mod_python_config_t *config = mod->config;
@@ -253,10 +234,15 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 	if (uri && config->docroot)
 	{
 		const char *function = NULL;
-		if (_python_checkname(mod, uri, &function) != ESUCCESS)
+		if (htaccess_check(&config->htaccess, uri, &function) != ESUCCESS)
 		{
 			dbg("python: %s forbidden extension", uri);
 			return EREJECT;
+		}
+		if (function == uri)
+		{
+			// path_info must not be the first caracter of uri
+			function = strchr(function + 1, '/');
 		}
 		/**
 		 * split the URI between the Python script path and the
