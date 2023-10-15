@@ -247,25 +247,6 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return pid;
 }
 
-static int _cgi_checkname(_mod_cgi_t *mod, const char *uri, const char **path_info)
-{
-	const mod_cgi_config_t *config = mod->config;
-	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (utils_searchexp(uri, config->allow, path_info) != ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (*path_info == uri)
-	{
-		// path_info must not be the first caracter of uri
-		*path_info = strchr(*path_info + 1, '/');
-	}
-	return ESUCCESS;
-}
-
 static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *response)
 {
 	const mod_cgi_config_t *config = mod->config;
@@ -275,7 +256,7 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 	if (urilen > 0 && config->docroot)
 	{
 		const char *path_info = NULL;
-		if (_cgi_checkname(mod, uri, &path_info) != ESUCCESS)
+		if (htaccess_check(&config->htaccess, uri, &path_info) != ESUCCESS)
 		{
 			dbg("cgi: %s forbidden extension", uri);
 			return EREJECT;

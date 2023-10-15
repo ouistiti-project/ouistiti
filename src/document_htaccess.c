@@ -1,5 +1,5 @@
 /*****************************************************************************
- * mod_cgi.h: Simple HTTP module
+ * docuemtn_htaccess.c: check accessfile feature
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
  * Copyright (C) 2016-2017
@@ -25,47 +25,52 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
+#include <stdlib.h>
+#include <stdio.h>
 
-#ifndef __MOD_CGI_H__
-#define __MOD_CGI_H__
+#ifdef FILE_CONFIG
+#include <libconfig.h>
+#endif
 
-#include "ouistiti.h"
+#include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
+#include "ouistiti/log.h"
 #include "mod_document.h"
 
-#ifdef __cplusplus
-extern "C"
+const char str_wildcard[] = "*";
+
+int htaccess_config(config_setting_t *setting, htaccess_t *htaccess)
 {
-#endif
+	const char *allow = NULL;;
+	const char *deny = str_wildcard;;
+	int denylast = 0;
 
-#define CGI_OPTION_TLS 0x01
+	config_setting_lookup_string(setting, "allow", &allow);
+	config_setting_lookup_string(setting, "deny", &deny);
 
-typedef struct mod_cgi_config_script_s mod_cgi_config_script_t;
-struct mod_cgi_config_script_s
-{
-	string_t path;
-	mod_cgi_config_script_t *next;
-};
+	config_setting_lookup_bool(setting, "denylast", &denylast);
 
-typedef struct mod_cgi_config_s
-{
-	char *docroot;
-	htaccess_t htaccess;
-	mod_cgi_config_script_t *scripts;
-	const char **env;
-	int nbenvs;
-	int chunksize;
-	int timeout;
-	int options;
-} mod_cgi_config_t;
-
-extern const module_t mod_cgi;
-
-typedef int (*cgi_configscript_t)(config_setting_t *setting, mod_cgi_config_t *python);
-char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, const char *cgi_path, size_t cgi_pathlen, const char *path_info, size_t path_infolen);
-int cgienv_config(config_setting_t *configserver, config_setting_t *config, server_t *server, mod_cgi_config_t **modconfig, cgi_configscript_t configscript);
-
-#ifdef __cplusplus
+	_string_store(&htaccess->allow, allow, -1);
+	if (!denylast)
+		_string_store(&htaccess->denyfirst, deny, -1);
+	else
+		_string_store(&htaccess->denylast, deny, -1);
+	return ESUCCESS;
 }
-#endif
 
-#endif
+int htaccess_check(const htaccess_t *htaccess, const char *uri, const char **path_info)
+{
+	if (htaccess->denyfirst.data != NULL && utils_searchexp(uri, htaccess->denyfirst.data, NULL) == ESUCCESS)
+	{
+		return  EREJECT;
+	}
+	if (htaccess->allow.data != NULL && utils_searchexp(uri, htaccess->allow.data, path_info) == ESUCCESS)
+	{
+		return  ESUCCESS;
+	}
+	if (htaccess->denylast.data != NULL && utils_searchexp(uri, htaccess->denylast.data, NULL) == ESUCCESS)
+	{
+		return  EREJECT;
+	}
+	return ESUCCESS;
+}

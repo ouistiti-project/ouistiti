@@ -55,6 +55,7 @@
 #include "ouistiti/httpserver.h"
 #include "ouistiti/hash.h"
 #include "mod_websocket.h"
+#include "mod_document.h"
 #include "ouistiti/utils.h"
 #include "ouistiti/websocket.h"
 
@@ -94,8 +95,7 @@ typedef struct mod_websocket_s mod_websocket_t;
 struct mod_websocket_s
 {
 	const char *docroot;
-	const char *allow;
-	const char *deny;
+	htaccess_t htaccess;
 	_ws_link_t *links;
 	int options;
 };
@@ -141,21 +141,6 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_mes
 
 		httpmessage_addheader(response, str_sec_ws_accept, out, outlen);
 	}
-}
-
-static int _checkname(const mod_websocket_t *config, const char *pathname, const char **path_info)
-{
-	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
-		utils_searchexp(pathname, config->allow, path_info) != ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (*path_info == pathname)
-	{
-		// path_info must not be the first caracter of uri
-		*path_info = strchr(*path_info + 1, '/');
-	}
-	return ESUCCESS;
 }
 
 static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *protocol)
@@ -225,10 +210,15 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 
 	const char *path_info = NULL;
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (_checkname(mod->config, uri, &path_info) != ESUCCESS)
+	if (htaccess_check(&mod->config->htaccess, uri, &path_info) != ESUCCESS)
 	{
 		warn("websocket: %s forbidden", uri);
 		return EREJECT;
+	}
+	if (path_info == uri)
+	{
+		// path_info must not be the first caracter of uri
+		path_info = strchr(path_info + 1, '/');
 	}
 	const char *protocol = httpmessage_REQUEST(request, str_sec_ws_protocol);
 	if (protocol[0] == '\0')
@@ -407,8 +397,7 @@ static void *websocket_config(config_setting_t *iterator, server_t *server)
 		const char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
 		config_setting_lookup_string(configws, "docroot", &conf->docroot);
-		config_setting_lookup_string(configws, "allow", &conf->allow);
-		config_setting_lookup_string(configws, "deny", &conf->deny);
+		htaccess_config(configws, &conf->htaccess);
 		config_setting_lookup_string(configws, "options", &mode);
 #ifdef WEBSOCKET_RT
 		if (utils_searchexp("direct", mode, NULL) == ESUCCESS)
