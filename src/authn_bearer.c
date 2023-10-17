@@ -42,32 +42,21 @@
 typedef struct authn_bearer_s authn_bearer_t;
 struct authn_bearer_s
 {
-	authn_bearer_config_t *config;
 	const authn_t *authn;
-	authz_t *authz;
 	http_client_t *clt;
 };
 
 #ifdef FILE_CONFIG
 void *authn_bearer_config(const config_setting_t *configauth)
 {
-	authn_bearer_config_t *authn_config = NULL;
-
-	authn_config = calloc(1, sizeof(*authn_config));
-	config_setting_lookup_string(configauth, "realm", &authn_config->realm);
-	return authn_config;
+	return (void *)1;
 }
 #endif
 
-static void *authn_bearer_create(const authn_t *authn, authz_t *authz, void *arg)
+static void *authn_bearer_create(const authn_t *authn, void *arg)
 {
 	authn_bearer_t *mod = calloc(1, sizeof(*mod));
 	mod->authn = authn;
-	mod->authz = authz;
-	mod->config = (authn_bearer_config_t *)arg;
-	if (mod->config->realm == NULL)
-		mod->config->realm = httpserver_INFO(authn->server, "host");
-
 	return mod;
 }
 
@@ -75,14 +64,15 @@ static int authn_bearer_challenge(void *arg, http_message_t *UNUSED(request), ht
 {
 	int ret = ECONTINUE;
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
-	const authn_bearer_config_t *config = mod->config;
+	const mod_auth_t *config = mod->authn->config;
 
-	httpmessage_addheader(response, str_authenticate, "Bearer realm=\"");
-	httpmessage_appendheader(response, str_authenticate, config->realm, "\"", NULL);
+	httpmessage_addheader(response, str_authenticate, STRING_REF("Bearer realm=\""));
+	httpmessage_appendheader(response, str_authenticate, config->realm.data, config->realm.length);
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	return ret;
 }
 
-static const char *authn_bearer_check(void *arg, const char *method, const char *uri, const char *string)
+static const char *authn_bearer_check(void *arg, authz_t *authz, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen)
 {
 	const authn_bearer_t *mod = (authn_bearer_t *)arg;
 	(void) method;
@@ -95,11 +85,15 @@ static const char *authn_bearer_check(void *arg, const char *method, const char 
 	const char *sign = strrchr(string, '.');
 	if (sign != NULL)
 	{
+		size_t signlen = stringlen;
 		size_t datalen = sign - data;
 		sign++;
-		if (authn_checksignature(mod->authn->config->secret, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		signlen -= sign - string;
+		const char *key = mod->authn->config->secret.data;
+		size_t keylen = mod->authn->config->secret.length;
+		if (authn_checksignature(key, keylen, data, datalen, sign, signlen) == ESUCCESS)
 		{
-			user = mod->authz->rules->check(mod->authz->ctx, NULL, NULL, string);
+			user = authz->rules->check(authz->ctx, NULL, NULL, string);
 		}
 	}
 	return user;

@@ -47,7 +47,7 @@
 #include "mod_auth.h"
 #include "mod_authmngt.h"
 
-#include "authz_sqlite.h"
+#include "authmngt_sqlite.h"
 
 #define authmngt_dbg(...)
 
@@ -66,9 +66,6 @@ struct _mod_authmngt_s
 	unsigned int isroot:1;
 	unsigned int isuser:1;
 };
-
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
 
 static const char str_mngtpath[] = "^/auth/mngt*";
 
@@ -185,9 +182,9 @@ static void *mod_authmngt_create(http_server_t *server, mod_authmngt_t *config)
 		return NULL;
 	}
 
-	httpserver_addmethod(server, str_post, MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
-	httpserver_addmethod(server, str_put, MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
-	httpserver_addmethod(server, str_delete, MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
+	httpserver_addmethod(server, METHOD(str_post), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
+	httpserver_addmethod(server, METHOD(str_put), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
+	httpserver_addmethod(server, METHOD(str_delete), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
 	httpserver_addconnector(server, _authmngt_connector, mod, CONNECTOR_DOCUMENT, "authmngt");
 
 	return mod;
@@ -275,10 +272,10 @@ static int authmngt_stringifyuser(_mod_authmngt_t *UNUSED(mod), http_message_t *
 
 static int _authmngt_checkrights(_mod_authmngt_t *mod, const char *user, http_message_t *request)
 {
-	const char *auth = auth_info(request, "user");
+	const char *auth = auth_info(request, STRING_REF("user"));
 	if (auth && user)
 		mod->isuser = !strcmp(auth, user);
-	const char *group = auth_info(request, "group");
+	const char *group = auth_info(request, STRING_REF("group"));
 	if (group && !strcmp(group, "root"))
 	{
 		mod->isroot = 1;

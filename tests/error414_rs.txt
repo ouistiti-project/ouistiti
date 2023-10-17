@@ -1,0 +1,6 @@
+HTTP/1.1 414 Request URI too long
+Content-Type: text/plain
+Content-Length: 27
+Connection: Close
+
+ 414 Request URI too long

@@ -87,25 +87,25 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 			private->size = offset - private->offset + 1;
 		}
 
-		char buffer[256];
-		snprintf(buffer, 256, "bytes %lu-%d/%d",
+		char range[256];
+		int rangelen = snprintf(range, 256, "bytes %lu-%d/%d",
 					(unsigned long)private->offset,
 					offset,
 					filesize);
-		httpmessage_addheader(response, "Content-Range", buffer);
+		httpmessage_addheader(response, "Content-Range", range, rangelen);
 		httpmessage_result(response, RESULT_206);
 
 		lseek(private->fdfile, private->offset, SEEK_SET);
 	}
-	httpmessage_addheader(response, "Accept-Ranges", "bytes");
+	httpmessage_addheader(response, "Accept-Ranges", STRING_REF("bytes"));
 
 	return EREJECT;
 
 NOSATISFIABLE:
 	{
-		char buffer[256];
-		snprintf(buffer, 256, "bytes */%d", filesize);
-		httpmessage_addheader(response, "Content-Range", buffer);
+		char range[256];
+		int rangelen = snprintf(range, 256, "bytes */%d", filesize);
+		httpmessage_addheader(response, "Content-Range", range, rangelen);
 		httpmessage_result(response, RESULT_416);
 		document_close(private, request);
 	}

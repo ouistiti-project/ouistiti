@@ -183,9 +183,9 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
 			ret = 1;
-			strncpy(ctx->auth.user, pw->pw_name, USER_MAX);
-			strncpy(ctx->auth.home, pw->pw_dir, PATH_MAX);
-			strncpy(ctx->auth.status, status, FIELD_MAX);
+			snprintf(ctx->auth.user, USER_MAX, "%s", pw->pw_name);
+			snprintf(ctx->auth.home, PATH_MAX, "%s", pw->pw_dir);
+			snprintf(ctx->auth.status, FIELD_MAX, "%s", status);
 
 			struct group *grp;
 			struct group grpstorage;
@@ -196,7 +196,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			if (grp != NULL)
 #endif
 			{
-				strncpy(ctx->auth.group, grp->gr_name, FIELD_MAX);
+				snprintf(ctx->auth.group, FIELD_MAX, "%s", grp->gr_name);
 			}
 		}
 		else
@@ -220,21 +220,16 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 	return NULL;
 }
 
-static int authz_unix_setsession(void *arg, const char * user, authsession_t *info)
+static int authz_unix_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
 {
 	const authz_unix_t *ctx = (const authz_unix_t *)arg;
 
-	if (user == NULL)
-		return EREJECT;
-
-	strncpy(info->user, ctx->auth.user, USER_MAX);
+	cb(cbarg, STRING_REF("user"), ctx->auth.user, -1);
 	if (ctx->group && ctx->auth.group[0] != '\0')
-		strncpy(info->group, ctx->auth.group, FIELD_MAX);
-	else if (!strcmp(user, "anonymous"))
-		strncpy(info->group, "anonymous", FIELD_MAX);
+		cb(cbarg, STRING_REF("group"), ctx->auth.group, -1);
 	if (ctx->home && ctx->auth.home[0] != '\0')
-		strncpy(info->home, ctx->auth.home, PATH_MAX);
-	strncpy(info->status, ctx->auth.status, FIELD_MAX);
+		cb(cbarg, STRING_REF("home"), ctx->auth.home, -1);
+	cb(cbarg, STRING_REF("status"), ctx->auth.status, -1);
 	return ESUCCESS;
 }
 

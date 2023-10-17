@@ -1,3 +1,7 @@
+if [ "$UPGRADE" != "y" ]; then
+	echo "upgrade module disabled"
+	DISABLED=1
+fi
 DESC="open upgrade socket"
 #PREPARE="./utils/streamer -R /tmp -n reverse -u $USER -s 10 -t -D"
 CONFIG=test5.conf

@@ -50,7 +50,6 @@ struct authn_none_s
 {
 	authn_none_config_t *config;
 	const authn_t *authn;
-	authz_t *authz;
 	char *challenge;
 };
 
@@ -64,7 +63,7 @@ void *authn_none_config(const config_setting_t *configauth)
 	if (user != NULL)
 	{
 		authn_config = calloc(1, sizeof(*authn_config));
-		authn_config->user = user;
+		_string_store(&authn_config->user, user, -1);
 	}
 	else
 		warn("config: authn_none needs to set the user");
@@ -72,12 +71,11 @@ void *authn_none_config(const config_setting_t *configauth)
 }
 #endif
 
-static void *authn_none_create(const authn_t *authn, authz_t *authz, void *arg)
+static void *authn_none_create(const authn_t *authn, void *arg)
 {
 	authn_none_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_none_config_t *)arg;
 	mod->authn = authn;
-	mod->authz = authz;
 
 	return mod;
 }
@@ -87,17 +85,18 @@ static int authn_none_challenge(void *UNUSED(arg), http_message_t *UNUSED(reques
 	return EREJECT;
 }
 
-static const char *authn_none_check(void *arg, const char *UNUSED(method), const char *UNUSED(uri), const char *UNUSED(string))
+static const char *authn_none_check(void *arg, authz_t *UNUSED(authz), const char *UNUSED(method), size_t UNUSED(methodlen), const char *UNUSED(uri), size_t UNUSED(urilen), const char *UNUSED(string), size_t UNUSED(stringlen))
 {
 	const authn_none_t *mod = (const authn_none_t *)arg;
 	const authn_none_config_t *config = mod->config;
 
-	return config->user;
+	return config->user.data;
 }
 
 static void authn_none_destroy(void *arg)
 {
 	authn_none_t *mod = (authn_none_t *)arg;
+	free(mod->config);
 	free(mod);
 }
 

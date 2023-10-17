@@ -30,7 +30,26 @@
 #define __AUTHN_SQLITE_H__
 
 #include "mod_auth.h"
-#include "mod_authmngt.h"
+
+#define DEFAULT_GROUPID 2
+
+#define FIELD_NAME 0
+#define FIELD_GROUP 1
+#define FIELD_STATUS 2
+#define FIELD_PASSWD 3
+#define FIELD_HOME 4
+
+#ifdef DEBUG
+#define SQLITE3_CHECK(ret, value, sql) \
+	do { \
+		if (ret != SQLITE_OK) { \
+			err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql, sqlite3_errmsg(ctx->db)); \
+			return value; \
+		} \
+	} while(0)
+#else
+#define SQLITE3_CHECK(...)
+#endif
 
 #ifdef FILE_CONFIG
 #include <libconfig.h>
@@ -38,6 +57,23 @@ void *authz_sqlite_config(const config_setting_t *configauth);
 #endif
 
 extern authz_rules_t authz_sqlite_rules;
-extern authmngt_rules_t authmngt_sqlite_rules;
+
+#include <sqlite3.h>
+typedef struct authz_sqlite_s authz_sqlite_t;
+struct authz_sqlite_s
+{
+	const authz_sqlite_config_t *config;
+	int ref;
+	sqlite3 *db;
+	sqlite3 *dbjoin;
+	sqlite3_stmt *statement;
+	int userid;
+};
+
+typedef int (*storeinfo_t)(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen);
+
+int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int table);
+int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback, void *cbarg);
+int authz_sqlite_getuser_byName(authz_sqlite_t *ctx, const char * user, storeinfo_t callback, void *cbarg);
 
 #endif

@@ -135,7 +135,7 @@ static int _skeleton_connector(void *arg, http_message_t *request, http_message_
 	_mod_skeleton_config_t *config = ctx->config;
 
 	ctx->state = STATE_4;
-	httpmessage_addheader(response, config->header_key, config->header_value);
+	httpmessage_addheader(response, config->header_key, config->header_value, -1);
 	return ECONTINUE;
 }
 

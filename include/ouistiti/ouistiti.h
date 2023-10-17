@@ -42,23 +42,34 @@ typedef struct module_list_s module_list_t;
 
 #define WEBSOCKET_REALTIME 0x01
 
-#define MODULE_VERSION_CURRENT 0x0000
+#define MODULE_VERSION_CURRENT 0x0001
 #define MODULE_VERSION_DEPRECATED 0x8000
-typedef void *(*module_configure_t)(void *parser, server_t *server);
+typedef void *(*module_configure_v0_t)(void *parser, server_t *server);
+typedef int (*module_configure_t)(void *parser, server_t *server, int index, void **config);
 typedef void *(*module_create_t)(http_server_t *server, void *config);
+typedef void (*module_destroy_t)(void*);
 struct module_s
 {
 	const char *name;
-	void *(*configure)(void *parser, server_t *server);
-	void *(*create)(http_server_t *server, void *config);
-	void (*destroy)(void*);
+	module_configure_t configure;
+	module_create_t create;
+	module_destroy_t destroy;
 	unsigned short version;
 };
 
 struct module_list_s
 {
 	const module_t *module;
+	void *dh;
 	struct module_list_s *next;
+};
+
+typedef struct mod_s mod_t;
+struct mod_s
+{
+	void *obj;
+	const module_t *ops;
+	mod_t *next;
 };
 
 struct serverconfig_s
@@ -73,7 +84,6 @@ typedef struct ouistiticonfig_s
 {
 	void *configfile;
 	char *user;
-	const char *pidfile;
 	const char *init_d;
 	serverconfig_t *config[MAX_SERVERS];
 	int nservers;
@@ -83,10 +93,84 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
 int ouistiti_initmodules(const char *pkglib);
+void ouistiti_finalizemodule(void *dh);
 typedef void *(*configure_t)(void *data, const module_t *module, server_t *server);
-void ouistiti_registermodule(const module_t *module);
+void ouistiti_registermodule(const module_t *module, void *dh);
 const module_list_t *ouistiti_modules(server_t *server);
 int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);
+
+typedef struct string_s string_t;
+struct string_s
+{
+	const char *data;
+	size_t length;
+	size_t size;
+};
+
+#define STRING_REF(string) string, sizeof(string)-1
+#define STRING_INFO(string) string.data, string.length
+#define STRING_DCL(string) {.data=string, .length=sizeof(string)-1}
+int _string_store(string_t *str, const char *pointer, size_t length);
+int _string_cmp(const string_t *str, const char *cmp, size_t length);
+int _string_empty(const string_t *str);
+
+extern const char str_servername[9];
+
+extern const char str_http[5];
+extern const char str_https[6];
+
+/**
+ * strings defined in libouistiti
+ */
+extern const char str_get[4];
+extern const char str_post[5];
+extern const char str_head[5];
+
+extern const char str_put[4];
+extern const char str_delete[7];
+extern const char str_options[8];
+
+extern const char str_authenticate[17];
+extern const char str_authorization[14];
+extern const char str_Cookie[7];
+extern const char str_SetCookie[10];
+extern const char str_cachecontrol[14];
+extern const char str_xtoken[13];
+extern const char str_xuser[14];
+extern const char str_xgroup[15];
+extern const char str_xhome[14];
+extern const char str_upgrade_insec_req[26];
+extern const char str_connection[11];
+extern const char str_upgrade[8];
+extern const char str_websocket[10];
+extern const char str_sec_ws_protocol[23];
+extern const char str_sec_ws_accept[21];
+extern const char str_sec_ws_key[18];
+extern const char str_date[5];
+extern const char *str_authorization_code[5];
+extern const char *str_access_token[12];
+extern const char *str_state[14];
+extern const char *str_expires[8];
+
+extern const char str_form_urlencoded[34];
+extern const char str_multipart_replace[26];
+extern const char str_text_json[10];
+
+extern const char str_boundary[6];
+
+extern const char str_token[6];
+extern const char str_anonymous[10];
+
+extern const char str_status_approving[10];
+extern const char str_status_reapproving[12];
+extern const char str_status_activated[10];
+extern const char str_status_repudiated[11];
+
+/**
+ * strings defined in libouistiti
+ */
+extern const char str_contenttype[13];
+extern const char str_contentlength[15];
 
 #endif

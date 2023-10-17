@@ -54,11 +54,9 @@
 #include "ouistiti/log.h"
 #include "mod_cgi.h"
 
-#define python_dbg dbg
+#define python_dbg(...)
 
 static const char str_python[] = "python";
-static const char str_contenttype[] = "Content-Type";
-static const char str_contentlength[] = "Content-Length";
 
 typedef struct mod_cgi_config_s mod_python_config_t;
 typedef struct _mod_python_s _mod_python_t;
@@ -73,8 +71,10 @@ struct mod_python_ctx_s
 
 	PyObject *pyfunc;
 	PyObject *pyenv;
+	PyObject *pyresult;
 	PyObject *pycontent;
 	PyObject *pymodule;
+	ssize_t contentread;
 
 	enum
 	{
@@ -90,14 +90,35 @@ struct mod_python_ctx_s
 	} state;
 };
 
+typedef struct _mod_python_script_s _mod_python_script_t;
+struct _mod_python_script_s
+{
+	string_t path;
+	PyObject *pymodule;
+	_mod_python_script_t *next;
+};
 struct _mod_python_s
 {
 	http_server_t *server;
 	mod_python_config_t *config;
 	int rootfd;
+	_mod_python_script_t *scripts;
 };
 
 #ifdef FILE_CONFIG
+static int _python_configscript(config_setting_t *setting, mod_python_config_t *python)
+{
+	const char *data = config_setting_get_string(setting);
+	if (data == NULL)
+		return EREJECT;
+	mod_cgi_config_script_t *script = calloc(1, sizeof(*script));
+	script->path.data = data;
+	script->path.length = strlen(script->path.data);
+	script->next = python->scripts;
+	python->scripts = script;
+	return ESUCCESS;
+}
+
 static void *python_config(config_setting_t *iterator, server_t *server)
 {
 	mod_python_config_t *python = NULL;
@@ -108,31 +129,7 @@ static void *python_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (configpython)
 	{
-		python = calloc(1, sizeof(*python));
-		config_setting_lookup_string(configpython, "docroot", (const char **)&python->docroot);
-		config_setting_lookup_string(configpython, "allow", (const char **)&python->allow);
-		config_setting_lookup_string(configpython, "deny", (const char **)&python->deny);
-		python->nbenvs = 0;
-		python->options |= CGI_OPTION_TLS;
-		python->chunksize = HTTPMESSAGE_CHUNKSIZE;
-		config_setting_lookup_int(iterator, "chunksize", &python->chunksize);
-#if LIBCONFIG_VER_MINOR < 5
-		config_setting_t *pythonenv = config_setting_get_member(configpython, "env");
-#else
-		config_setting_t *pythonenv = config_setting_lookup(configpython, "env");
-#endif
-		if (pythonenv)
-		{
-			int count = config_setting_length(pythonenv);
-			int i;
-			python->env = calloc(sizeof(char *), count);
-			for (i = 0; i < count; i++)
-			{
-				config_setting_t *iterator = config_setting_get_elem(pythonenv, i);
-				python->env[i] = config_setting_get_string(iterator);
-			}
-			python->nbenvs = count;
-		}
+		cgienv_config(iterator, configpython, server, &python, _python_configscript);
 	}
 	return python;
 }
@@ -149,6 +146,15 @@ static void *python_config(void *iterator, server_t *server)
 	return (void *)&g_python_config;
 }
 #endif
+
+static PyObject *_mod_python_modulize(const char *uri, size_t urilen)
+{
+	PyObject *script_name = PyUnicode_DecodeFSDefaultAndSize(uri, urilen);
+	//PyObject *pymodule = PyImport_Import(script_name);
+	PyObject *pymodule = PyImport_ImportModuleLevelObject(script_name, NULL, NULL, NULL, 0);
+	Py_DECREF(script_name);
+	return pymodule;
+}
 
 static void *mod_python_create(http_server_t *server, mod_python_config_t *modconfig)
 {
@@ -184,6 +190,21 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 	if (modconfig->timeout == 0)
 		modconfig->timeout = 3;
 
+	mod_cgi_config_script_t *script = modconfig->scripts;
+	while (script)
+	{
+		PyObject *pymodule = _mod_python_modulize(script->path.data, script->path.length);
+		if (pymodule)
+		{
+			_mod_python_script_t *pscript = calloc(1, sizeof(*pscript));
+			pscript->pymodule = pymodule;
+			_string_store(&pscript->path, script->path.data, script->path.length);
+			pscript->next = mod->scripts;
+			mod->scripts = pscript;
+		}
+		script = script->next;
+	}
+	PyErr_Clear();
 	httpserver_addconnector(server, _python_connector, mod, CONNECTOR_DOCUMENT, str_python);
 
 	return mod;
@@ -204,55 +225,41 @@ static void _python_freectx(mod_python_ctx_t *ctx)
 	free(ctx);
 }
 
-static int _python_checkname(_mod_python_t *mod, const char *uri, const char **path_info)
-{
-	const mod_python_config_t *config = mod->config;
-	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (utils_searchexp(uri, config->allow, path_info) != ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (*path_info == uri)
-	{
-		// path_info must not be the first caracter of uri
-		*path_info = strchr(*path_info + 1, '/');
-	}
-	return ESUCCESS;
-}
-
 static int _python_start(_mod_python_t *mod, http_message_t *request, http_message_t *response)
 {
 	const mod_python_config_t *config = mod->config;
 	int ret = EREJECT;
-	char *uri = httpmessage_REQUEST(request,"uri");
+	const char *uri = NULL;
+	size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
 	if (uri && config->docroot)
 	{
 		const char *function = NULL;
-		if (_python_checkname(mod, uri, &function) != ESUCCESS)
+		if (htaccess_check(&config->htaccess, uri, &function) != ESUCCESS)
 		{
 			dbg("python: %s forbidden extension", uri);
 			return EREJECT;
+		}
+		if (function == uri)
+		{
+			// path_info must not be the first caracter of uri
+			function = strchr(function + 1, '/');
 		}
 		/**
 		 * split the URI between the Python script path and the
 		 * function name.
 		 * /test.python/function => /test.python and  function
 		 */
-		int length = strlen(uri);
-		if (function != NULL && (function - uri) < length)
+		if (function != NULL && (size_t)(function - uri) < urilen)
 		{
-			length = function - uri;
+			urilen = function - uri;
 		}
 		else
-			function = uri + length;
+			function = uri + urilen;
 
 		while (*uri == '/' && *uri != '\0')
 		{
 			uri++;
-			length--;
+			urilen--;
 		}
 		while (*function == '/' && *function != '\0')
 		{
@@ -260,11 +267,11 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		}
 		const char *ext = strstr(uri, ".py");
 		if (ext != NULL)
-			length = ext - uri;
-		if (uri[length - 1] == '/')
-			length--;
+			urilen = ext - uri;
+		if (uri[urilen - 1] == '/')
+			urilen--;
 
-		char *iterator = uri;
+		char *iterator = (char *)uri;
 		while (*iterator != '\0')
 		{
 			if (*iterator == '/')
@@ -272,20 +279,30 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 			iterator++;
 		}
 
-		python_dbg("python: new uri %.*s", length, uri);
+		python_dbg("python: new uri %.*s", (int)urilen, uri);
 		python_dbg("python: function %s", function);
-		PyObject *script_name = PyUnicode_DecodeFSDefaultAndSize(uri, length);
-		//PyObject *pymodule = PyImport_Import(script_name);
-		PyObject *pymodule = PyImport_ImportModuleLevelObject(script_name, NULL, NULL, NULL, 0);
-		Py_DECREF(script_name);
-
+		PyObject *pymodule = NULL;
+		_mod_python_script_t *script = mod->scripts;
+		while (script)
+		{
+			if (((size_t)urilen == script->path.length) && !strncasecmp(script->path.data, uri, urilen))
+			{
+				pymodule = script->pymodule;
+				break;
+			}
+			script = script->next;
+		}
+		if (pymodule == NULL)
+		{
+			pymodule = _mod_python_modulize(uri, urilen);
+		}
 		PyObject *pyfunc = NULL;
 		if (pymodule != NULL)
 		{
 			pyfunc = PyObject_GetAttrString(pymodule, function);
 		}
 		else
-			warn("python: unable to modulize %.*s", length, uri);
+			warn("python: unable to modulize %.*s", (int)urilen, uri);
 		if (!pyfunc || !PyCallable_Check(pyfunc))
 		{
 			httpmessage_result(response, RESULT_403);
@@ -298,7 +315,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		ctx->mod = mod;
 		ctx->pymodule = pymodule;
 		ctx->pyfunc = pyfunc;
-		char **env = cgi_buildenv(config, request, NULL, NULL);
+		char **env = cgi_buildenv(config, request, uri, urilen, NULL, 0);
 		int count = 0;
 		ctx->pyenv = PyDict_New();
 		for (;env[count] != NULL; count++)
@@ -326,10 +343,9 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 
 static int _python_request(mod_python_ctx_t *ctx, http_message_t *request)
 {
-	int ret = ECONTINUE;
-	char *input = NULL;
+	const char *input = NULL;
 	int inputlen;
-	unsigned long long rest;
+	size_t rest;
 
 	inputlen = httpmessage_content(request, &input, &rest);
 	if (inputlen > 0)
@@ -347,11 +363,14 @@ static int _python_request(mod_python_ctx_t *ctx, http_message_t *request)
 			PyUnicode_AppendAndDel(&ctx->pycontent, pychunk);
 		}
 	}
-	else if (inputlen != EINCOMPLETE)
+	if (inputlen != EINCOMPLETE || rest == 0)
+	{
 		ctx->state = STATE_INFINISH;
-	return ret;
+	}
+	return EINCOMPLETE;
 }
 
+#if 0
 static void _python_is(const char * name,PyObject *obj)
 {
 	dbg("%s", name);
@@ -371,12 +390,11 @@ static void _python_is(const char * name,PyObject *obj)
 		dbg("\tis null");
 	}
 }
+#endif
 
-static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
+static int _python_responseheader(mod_python_ctx_t *ctx, http_message_t *response)
 {
-	_mod_python_t *mod = ctx->mod;
 	int ret = ECONTINUE;
-	ctx->state = STATE_CONTENTCOMPLETE;
 
 	PyObject *pyrequestclass = PyObject_GetAttrString(ctx->pymodule, "HttpRequest");
 	if (pyrequestclass == NULL || !PyCallable_Check(pyrequestclass))
@@ -412,10 +430,17 @@ static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 		warn("python: script bad syntax HttpResponse not available");
 		return ESUCCESS;
 	}
-	PyObject *pyresult = PyObject_CallFunctionObjArgs(ctx->pyfunc, pyrequest, NULL);
-	if (pyresult)
+	ctx->pyresult = PyObject_CallFunctionObjArgs(ctx->pyfunc, pyrequest, NULL);
+	if (ctx->pycontent)
+		Py_DECREF(ctx->pycontent);
+	ctx->pycontent = NULL;
+	if (ctx->pyenv)
+		Py_DECREF(ctx->pyenv);
+	ctx->pyenv = NULL;
+
+	if (ctx->pyresult)
 	{
-		PyObject *pystatus = PyObject_GetAttrString(pyresult, "status_code");
+		PyObject *pystatus = PyObject_GetAttrString(ctx->pyresult, "status_code");
 		if (pystatus != NULL)
 		{
 			httpmessage_result(response, PyLong_AsLong(pystatus));
@@ -423,9 +448,9 @@ static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 		}
 		char *mime = NULL;
 		Py_ssize_t length = 0;
-		if (PyMapping_Check(pyresult))
+		if (PyMapping_Check(ctx->pyresult))
 		{
-			PyObject *pyheaders = PyMapping_Items(pyresult);
+			PyObject *pyheaders = PyMapping_Items(ctx->pyresult);
 			for (int i = 0; i < PyList_Size(pyheaders); i++)
 			{
 				PyObject *pyheader = PyList_GetItem(pyheaders, i);
@@ -437,7 +462,7 @@ static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 				const char *value = PyBytes_AsString(pylatin1value);
 				python_dbg("python: header %s: %s", key, value);
 				if (key && value && strcmp(key, str_contenttype) && strcmp(key, str_contentlength))
-					httpmessage_addheader(response, key, value);
+					httpmessage_addheader(response, key, value, -1);
 				else if (key && !strcmp(key, str_contenttype))
 					mime = strdup(value);
 				else if (key && !strcmp(key, str_contentlength))
@@ -450,33 +475,54 @@ static int _python_response(mod_python_ctx_t *ctx, http_message_t *response)
 			}
 			Py_DECREF(pyheaders);
 		}
-		PyObject *pycontentfunc = PyObject_GetAttrString(pyresult, "content");
-		PyObject *pycontent = NULL;
+		PyObject *pycontentfunc = PyObject_GetAttrString(ctx->pyresult, "content");
 		if (pycontentfunc && PyCallable_Check(pycontentfunc))
-			pycontent = PyObject_CallNoArgs(pycontentfunc);
+		{
+			ctx->pycontent = PyObject_CallNoArgs(pycontentfunc);
+			Py_DECREF(pycontentfunc);
+		}
 		else
-			pycontent = pycontentfunc;
+			ctx->pycontent = pycontentfunc;
 
+		if (length == 0)
+		{
+			char *content = NULL;
+			PyBytes_AsStringAndSize(ctx->pycontent, &content, &length);
+		}
+
+		httpmessage_addcontent(response, mime, NULL, length);
+
+		if (mime)
+			free(mime);
+		ctx->state = STATE_HEADERCOMPLETE;
+	}
+	else
+	{
+		httpmessage_result(response, RESULT_500);
+		ctx->state = STATE_OUTFINISH;
+	}
+	return ret;
+}
+
+static int _python_responsecontent(mod_python_ctx_t *ctx, http_message_t *response)
+{
+	int ret = ECONTINUE;
+
+	if (ctx->pycontent != NULL)
+	{
 		Py_ssize_t size = 0;
 		char *content = NULL;
-		if (pycontent != NULL)
-			PyBytes_AsStringAndSize(pycontent, &content, &size);
+		PyBytes_AsStringAndSize(ctx->pycontent, &content, &size);
 		python_dbg("python: content %s", content);
 		if (content != NULL)
 		{
-			if (length == 0)
-				httpmessage_addcontent(response, mime, content, size);
-			else
-				httpmessage_addcontent(response, mime, content, length);
-			if (mime)
-				free(mime);
+			ctx->contentread += httpmessage_addcontent(response, "none", content + ctx->contentread, size - ctx->contentread);
 		}
-		Py_DECREF(pycontent);
-		Py_DECREF(pycontentfunc);
+		if (ctx->contentread >= size)
+		{
+			ctx->state = STATE_OUTFINISH;
+		}
 	}
-	else
-		httpmessage_result(response, RESULT_500);
-	ctx->state = STATE_OUTFINISH;
 	return ret;
 }
 static int _python_connector(void *arg, http_message_t *request, http_message_t *response)
@@ -491,39 +537,39 @@ static int _python_connector(void *arg, http_message_t *request, http_message_t 
 		if (ret != EINCOMPLETE)
 			return ret;
 		ctx = httpmessage_private(request, NULL);
-		_python_request(ctx, request);
+		ctx->state = STATE_START;
+		ret = _python_request(ctx, request);
 	}
 	else
 	{
 		switch (ctx->state & STATE_MASK)
 		{
 		case STATE_START:
-			_python_request(ctx, request);
+			ret = _python_request(ctx, request);
 			/**
 			 * Read the request. The connector is still EINCOMPLETE
 			 */
 		break;
 		case STATE_INFINISH:
-			_python_response(ctx, response);
-			ret = ECONTINUE;
+			ret = _python_responseheader(ctx, response);
+		break;
+		case STATE_HEADERCOMPLETE:
+			ret = _python_responsecontent(ctx, response);
 		break;
 		case STATE_OUTFINISH:
 		{
-			unsigned long long length;
+			size_t length;
 			ret = httpmessage_content(response, NULL, &length);
-			python_dbg("python: content len %d %llu", ret, length);
+			python_dbg("python: content len %d %lu", ret, length);
 			if (ret == 0)
 				ctx->state = STATE_END | STATE_SHUTDOWN;
 			ret = ECONTINUE;
 		}
 		break;
-		case STATE_CONTENTCOMPLETE:
-			ret = httpmessage_parsecgi(response, NULL, 0);
-			ret = ECONTINUE;
-			ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
-		break;
 		case STATE_END:
 			_python_freectx(ctx);
+			Py_DECREF(ctx->pycontent);
+			Py_DECREF(ctx->pyresult);
 			httpmessage_private(request, NULL);
 			ret = ESUCCESS;
 		break;
@@ -552,7 +598,7 @@ static void __attribute__ ((destructor)) _mod_python_finalize(void);
 
 static void _mod_python_init(void)
 {
-	Py_SetProgramName("ouistiti");
+	Py_SetProgramName(L"ouistiti");
 	Py_Initialize();
 }
 

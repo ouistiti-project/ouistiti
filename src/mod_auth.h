@@ -37,14 +37,7 @@
 extern "C"
 {
 #endif
-extern const char str_authenticate[];
-extern const char str_authorization[];
-extern const char str_anonymous[];
 extern const char *str_authenticate_engine[];
-extern const char str_status_approving[];
-extern const char str_status_reapproving[];
-extern const char str_status_activated[];
-extern const char str_status_repudiated[];
 
 typedef struct mod_auth_s mod_auth_t;
 
@@ -67,10 +60,10 @@ typedef struct authsession_s
 typedef struct authz_simple_config_s authz_simple_config_t;
 struct authz_simple_config_s
 {
-	const char *user;
-	const char *passwd;
-	const char *group;
-	const char *home;
+	string_t user;
+	string_t passwd;
+	string_t group;
+	string_t home;
 };
 
 typedef struct authz_file_config_s authz_file_config_t;
@@ -91,12 +84,14 @@ struct authz_jwt_config_s
 	const char *none;
 };
 
+typedef int (*auth_saveinfo_t)(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen);
+
 typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
-typedef int (*authz_rule_setup_t)(void *arg);
+typedef void *(*authz_rule_setup_t)(void *arg);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
-typedef const char *(*authz_rule_passwd_t)(void *arg, const char *user);
-typedef int (*authz_rule_setsession_t)(void* arg, const char *user, authsession_t *info);
+typedef int (*authz_rule_passwd_t)(void *arg, const char *user, const char **passwd);
+typedef int (*authz_rule_setsession_t)(void* arg, const char *user, auth_saveinfo_t cb, void *cbarg);
 typedef void (*authz_rule_cleanup_t)(void *arg);
 typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
@@ -126,78 +121,67 @@ typedef enum
 	AUTHZ_MNGT_E = 0x400,
 } authz_type_t;
 typedef struct authz_s authz_t;
-typedef char *(*generatetoken_t)(const mod_auth_t *mod, const authsession_t *info);
+typedef size_t (*generatetoken_t)(const mod_auth_t *mod, http_message_t *info, char **token);
 struct authz_s
 {
 	void *ctx;
 	authz_rules_t *rules;
 	authz_type_t type;
 	generatetoken_t generatetoken;
-	const char *name;
+	string_t name;
 };
 
 struct mod_authz_s
 {
 	void *config;
 	authz_type_t type;
-	const char *name;
+	string_t name;
 };
 typedef struct mod_authz_s mod_authz_t;
 
 typedef struct authn_none_config_s authn_none_config_t;
 struct authn_none_config_s
 {
-	const char *user;
-};
-
-typedef struct authn_basic_config_s authn_basic_config_t;
-struct authn_basic_config_s
-{
-	const char *realm;
+	string_t user;
 };
 
 typedef struct authn_digest_config_s authn_digest_config_t;
 struct authn_digest_config_s
 {
-	const char *realm;
-	const char *opaque;
-};
-
-typedef struct authn_bearer_config_s authn_bearer_config_t;
-struct authn_bearer_config_s
-{
-	const char *realm;
+	string_t opaque;
 };
 
 typedef struct authn_oauth2_config_s authn_oauth2_config_t;
 struct authn_oauth2_config_s
 {
-	const char *realm;
-	const char *client_id;
-	const char *client_passwd;
-	const char *discovery;
-	const char *auth_ep;
-	const char *token_ep;
-	const char *iss;
+	string_t client_id;
+	string_t client_passwd;
+	string_t discovery;
+	string_t auth_ep;
+	string_t token_ep;
+	string_t iss;
 };
 
 typedef struct authn_s authn_t;
-typedef void *(*authn_rule_create_t)(const authn_t *authn, authz_t *authz, void *config);
-typedef int (*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
+typedef void *(*authn_rule_create_t)(const authn_t *authn, void *config);
+typedef void *(*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
+typedef void (*authn_rule_cleanup_t)(void *arg);
 typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);
-typedef const char *(*authn_rule_check_t)(void *arg, const char *method, const char *uri, const char *string);
+typedef const char *(*authn_rule_check_t)(void *arg, authz_t *authz, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen);
 typedef void (*authn_rule_destroy_t)(void *arg);
 typedef struct authn_rules_s authn_rules_t;
 struct authn_rules_s
 {
 	authn_rule_create_t create;
 	authn_rule_setup_t setup;
+	authn_rule_cleanup_t cleanup;
 	authn_rule_challenge_t challenge;
 	authn_rule_check_t check;
 	authn_rule_destroy_t destroy;
 };
 typedef enum
 {
+	AUTHN_FORBIDDEN_E = -1,
 	AUTHN_NONE_E = 0,
 	AUTHN_BASIC_E = 1,
 	AUTHN_DIGEST_E,
@@ -216,7 +200,6 @@ struct authn_s
 	void *ctx;
 	authn_rules_t *rules;
 	authn_type_t type;
-	const hash_t *hash;
 	http_server_t *server;
 	mod_auth_t *config;
 };
@@ -225,7 +208,8 @@ struct mod_authn_s
 {
 	void *config;
 	authn_type_t type;
-	const char *name;
+	string_t name;
+	const hash_t *hash;
 };
 typedef struct mod_authn_s mod_authn_t;
 
@@ -233,9 +217,10 @@ struct mod_auth_s
 {
 	mod_authn_t authn;
 	mod_authz_t authz;
-	const char *algo;
-	const char *secret;
-	const char *redirect;
+	string_t algo;
+	string_t secret;
+	string_t redirect;
+	string_t realm;
 	const char *protect;
 	const char *unprotect;
 	int expire;
@@ -243,13 +228,14 @@ struct mod_auth_s
 
 extern const module_t mod_auth;
 
-int authz_checkpasswd(const char *checkpasswd,
-		const char *user, const char *realm, const char *passwd);
-int authn_checksignature(const char *key,
+int authz_checkpasswd(const char *checkpasswd, const string_t *user,
+		const string_t *realm, const string_t *passwd);
+int authn_checksignature(const char *key, size_t keylen,
 		const char *data, size_t datalen,
 		const char *sign, size_t signlen);
 
-const char *auth_info(http_message_t *request, const char *key);
+const char *auth_info(http_message_t *request, const char *key, size_t keylen);
+size_t auth_info2(http_message_t *request, const char *key, const char **value);
 int auth_setowner(const char *user);
 
 #ifdef __cplusplus

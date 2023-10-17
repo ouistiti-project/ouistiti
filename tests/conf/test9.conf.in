@@ -10,6 +10,7 @@ servers= ({
 			type="Digest";
 			file="%PWD%/tests/conf/passwd";
 			realm="http-auth@example.org";
+			opaque="FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS";
 			algorithm="SHA-256";
 		};
 		document = {

@@ -57,7 +57,7 @@ int ouistiti_initmodules(const char *pkglib)
 	int ret;
 	struct dirent **namelist = NULL;
 	char cwd[PATH_MAX];
-	strncpy(cwd, pkglib, PATH_MAX);
+	snprintf(cwd, PATH_MAX, "%s", pkglib);
 	char *it_r;
 	char *iterator = strtok_r(cwd, ":", &it_r);
 	while (iterator != NULL)
@@ -70,8 +70,14 @@ int ouistiti_initmodules(const char *pkglib)
 			char path[PATH_MAX];
 			snprintf(path, PATH_MAX, "%s/%s", iterator, name);
 			if (strstr(name, ".so") == NULL)
+			{
+				free(namelist[i]);
 				continue;
+			}
 
+			/**
+			 * the path must contain a /
+			 */
 			void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
 
 			if (dh != NULL)
@@ -85,7 +91,7 @@ int ouistiti_initmodules(const char *pkglib)
 				 */
 				module_t *module = dlsym(dh, "mod_info");
 				if (module)
-					ouistiti_registermodule(module);
+					ouistiti_registermodule(module, dh);
 				else
 					err("%s not a module", path);
 			}
@@ -99,4 +105,9 @@ int ouistiti_initmodules(const char *pkglib)
 	}
 	free(namelist);
 	return ESUCCESS;
+}
+
+void ouistiti_finalizemodule(void *dh)
+{
+	dlclose(dh);
 }

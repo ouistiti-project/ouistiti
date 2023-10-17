@@ -52,6 +52,8 @@
 #include "ouistiti/log.h"
 #include "mod_cgi.h"
 
+#define USE_EXECVEAT
+
 #define cgi_dbg(...)
 
 static const char str_cgi[] = "cgi";
@@ -79,8 +81,8 @@ struct mod_cgi_ctx_s
 	_mod_cgi_t *mod;
 	http_client_t *ctl;
 
-	char cgipath[256];
-	const char *path_info;
+	string_t cgi_path;
+	string_t path_info;
 
 	pid_t pid;
 	int tocgi[2];
@@ -97,9 +99,8 @@ struct _mod_cgi_s
 };
 
 #ifdef FILE_CONFIG
-static void *cgi_config(config_setting_t *iterator, server_t *server)
+static int cgi_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
-	mod_cgi_config_t *cgi = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configcgi = config_setting_get_member(iterator, "cgi");
 #else
@@ -107,33 +108,9 @@ static void *cgi_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (configcgi)
 	{
-		cgi = calloc(1, sizeof(*cgi));
-		config_setting_lookup_string(configcgi, "docroot", (const char **)&cgi->docroot);
-		config_setting_lookup_string(configcgi, "allow", (const char **)&cgi->allow);
-		config_setting_lookup_string(configcgi, "deny", (const char **)&cgi->deny);
-		cgi->nbenvs = 0;
-		cgi->options |= CGI_OPTION_TLS;
-		cgi->chunksize = HTTPMESSAGE_CHUNKSIZE;
-		config_setting_lookup_int(iterator, "chunksize", &cgi->chunksize);
-#if LIBCONFIG_VER_MINOR < 5
-		config_setting_t *cgienv = config_setting_get_member(configcgi, "env");
-#else
-		config_setting_t *cgienv = config_setting_lookup(configcgi, "env");
-#endif
-		if (cgienv)
-		{
-			int count = config_setting_length(cgienv);
-			int i;
-			cgi->env = calloc(sizeof(char *), count);
-			for (i = 0; i < count; i++)
-			{
-				config_setting_t *iterator = config_setting_get_elem(cgienv, i);
-				cgi->env[i] = config_setting_get_string(iterator);
-			}
-			cgi->nbenvs = count;
-		}
+		cgienv_config(iterator, configcgi, server, (mod_cgi_config_t **)modconfig, NULL);
 	}
-	return cgi;
+	return ESUCCESS;
 }
 #else
 static const mod_cgi_config_t g_cgi_config =
@@ -143,9 +120,10 @@ static const mod_cgi_config_t g_cgi_config =
 	.allow = "*.cgi*",
 };
 
-static void *cgi_config(void *iterator, server_t *server)
+static int cgi_config(void *iterator, server_t *server, int index, void **config)
 {
-	return (void *)&g_cgi_config;
+	*config = (void *)&g_cgi_config;
+	return ESUCCESS;
 }
 #endif
 
@@ -215,7 +193,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		close(ctx->fromcgi[1]);
 #ifdef DEBUG
 		char **envs = NULL;
-		envs = cgi_buildenv(config, request, ctx->cgipath, ctx->path_info);
+		envs = cgi_buildenv(config, request, ctx->cgi_path.data, ctx->cgi_path.length, ctx->path_info.data, ctx->path_info.length);
 		char *env = *envs++;
 		while (env != NULL)
 		{
@@ -242,10 +220,10 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 
 		int sock = httpmessage_keepalive(request);
 
-		char * const argv[2] = { (char *)ctx->cgipath, NULL };
+		char * const argv[2] = { (char *)ctx->cgi_path.data, NULL };
 
 		char **env = NULL;
-		env = cgi_buildenv(config, request, ctx->cgipath, ctx->path_info);
+		env = cgi_buildenv(config, request, ctx->cgi_path.data, ctx->cgi_path.length, ctx->path_info.data, ctx->path_info.length);
 
 		close(sock);
 
@@ -255,9 +233,11 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 		 * cgipath is absolute, but in fact execveat runs in docroot.
 		 */
 #ifdef USE_EXECVEAT
-		execveat(mod->rootfd, ctx->cgipath, argv, env);
+		execveat(mod->rootfd, ctx->cgi_path.data, argv, env, 0);
 #else
-		int scriptfd = openat(mod->rootfd, ctx->cgipath, O_PATH);
+		// this part die if the program is running under valgrind
+		// use execeat
+		int scriptfd = openat(mod->rootfd, ctx->cgi_path.data, O_PATH);
 		close(mod->rootfd);
 		fexecve(scriptfd, argv, env);
 #endif
@@ -267,67 +247,57 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return pid;
 }
 
-static int _cgi_checkname(_mod_cgi_t *mod, const char *uri, const char **path_info)
-{
-	const mod_cgi_config_t *config = mod->config;
-	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (utils_searchexp(uri, config->allow, path_info) != ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	if (*path_info == uri)
-	{
-		// path_info must not be the first caracter of uri
-		*path_info = strchr(*path_info + 1, '/');
-	}
-	return ESUCCESS;
-}
-
 static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *response)
 {
 	const mod_cgi_config_t *config = mod->config;
 	int ret = EREJECT;
-	const char *uri = httpmessage_REQUEST(request,"uri");
-	if (uri && config->docroot)
+	const char *uri = NULL;
+	size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
+	if (urilen > 0 && config->docroot)
 	{
 		const char *path_info = NULL;
-		if (_cgi_checkname(mod, uri, &path_info) != ESUCCESS)
+		if (htaccess_check(&config->htaccess, uri, &path_info) != ESUCCESS)
 		{
 			dbg("cgi: %s forbidden extension", uri);
 			return EREJECT;
 		}
 
-		/**
-		 * split the URI between the CGI script path and the
-		 * path_info for the CGI.
-		 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
-		 */
-		int length = 255;
-		if (path_info != NULL && (path_info - uri) < length)
-		{
-			length = path_info - uri;
-		}
-
-		char cgipath[256];
 		while (*uri == '/' && *uri != '\0')
 		{
 			uri++;
-			length--;
+			urilen--;
 		}
-		strncpy(cgipath, uri, length);
-		cgipath[length] = '\0';
+
+		mod_cgi_ctx_t *ctx;
+		ctx = calloc(1, sizeof(*ctx));
+		char *data = calloc(1, urilen + 2);
+		if (path_info != NULL)
+		{
+			/**
+			 * split the URI between the CGI script path and the
+			 * path_info for the CGI.
+			 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
+			 */
+			ctx->cgi_path.length = snprintf(data, urilen + 2, "%.*s", (int)(path_info - uri), uri);
+			ctx->cgi_path.data = data;
+			ctx->path_info.length = snprintf(data + ctx->cgi_path.length + 1, urilen - ctx->cgi_path.length + 1, "%s", path_info);
+			ctx->path_info.data = data + ctx->cgi_path.length + 1;
+		}
+		else
+		{
+			ctx->cgi_path.length = snprintf(data, urilen + 2, "%s", uri);
+			ctx->cgi_path.data = data;
+		}
 
 		/**
 		 * check the path access
 		 */
 		int scriptfd = -1;
-		scriptfd = openat(mod->rootfd, cgipath, O_PATH);
+		scriptfd = openat(mod->rootfd, ctx->cgi_path.data, O_PATH);
 		if (scriptfd < 0)
 		{
-			warn("cgi: %s error %s", cgipath, strerror(errno));
+			warn("cgi: %s error %s", ctx->cgi_path.data, strerror(errno));
+			free(ctx);
 			return EREJECT;
 		}
 
@@ -338,24 +308,22 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		{
 			dbg("cgi: %s is directory", uri);
 			close(scriptfd);
+			free(ctx);
 			return EREJECT;
 		}
 		/* at least user or group may execute the CGI */
 		if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
 		{
 			httpmessage_result(response, RESULT_403);
-			warn("cgi: %s access denied", cgipath);
+			warn("cgi: %s access denied", uri);
 			warn("cgi: %s", strerror(errno));
 			close(scriptfd);
+			free(ctx);
 			return ESUCCESS;
 		}
 
-		mod_cgi_ctx_t *ctx;
 		dbg("cgi: run %s", uri);
-		ctx = calloc(1, sizeof(*ctx));
-		strncpy(ctx->cgipath, cgipath, sizeof(ctx->cgipath) - 1);
 		ctx->mod = mod;
-		ctx->path_info = path_info;
 		ctx->pid = _mod_cgi_fork(ctx, request);
 		ctx->state = STATE_START;
 		ctx->chunk = malloc(config->chunksize + 1);
@@ -369,9 +337,9 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 {
 	int ret = ECONTINUE;
-	char *input = NULL;
+	const char *input = NULL;
 	int inputlen;
-	unsigned long long rest;
+	size_t rest;
 
 	inputlen = httpmessage_content(request, &input, &rest);
 	if (inputlen > 0)
@@ -451,7 +419,6 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 		else
 		{
 			ctx->chunk[size] = 0;
-			size = strlen(ctx->chunk);
 			cgi_dbg("cgi: receive (%d)\n%s", size, ctx->chunk);
 			/**
 			 * if content_length is not null, parcgi is able to
@@ -521,7 +488,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	}
 	else if ((ctx->state & STATE_MASK) == STATE_OUTFINISH)
 	{
-		unsigned long long length;
+		size_t length;
 		ret = httpmessage_content(response, NULL, &length);
 		cgi_dbg("content len %d %llu", ret, length);
 		if (ret == 0)
@@ -542,6 +509,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 
 const module_t mod_cgi =
 {
+	.version = 0x01,
 	.name = str_cgi,
 	.configure = (module_configure_t)&cgi_config,
 	.create = (module_create_t)&mod_cgi_create,

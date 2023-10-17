@@ -63,7 +63,7 @@ struct _mod_cors_s
 };
 
 static const char str_cors[] = "cors";
-static const char str_options[] = "OPTIONS";
+
 static int _cors_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -73,7 +73,7 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	const char *host = httpmessage_REQUEST(request, "Host");
 	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
 	{
-		httpmessage_addheader(response, "Access-Control-Allow-Origin", origin);
+		httpmessage_addheader(response, "Access-Control-Allow-Origin", origin, -1);
 		const char *method;
 		method = httpmessage_REQUEST(request, "method");
 		const char *methods = method;
@@ -83,14 +83,14 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 		ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
 		if (ac_request && ac_request[0] != '\0')
 		{
-			httpmessage_addheader(response, "Access-Control-Allow-Methods", methods);
+			httpmessage_addheader(response, "Access-Control-Allow-Methods", methods, -1);
 		}
 		ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
 		if (ac_request && ac_request[0] != '\0')
 		{
-			httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request);
+			httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request, -1);
 		}
-		httpmessage_addheader(response, "Access-Control-Allow-Credentials", "true");
+		httpmessage_addheader(response, "Access-Control-Allow-Credentials", STRING_REF("true"));
 		if (!strcmp(method, str_options))
 		{
 			ret = ESUCCESS;
@@ -103,7 +103,7 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	}
 	else
 	{
-		httpmessage_addheader(response, "Vary", "Origin");
+		httpmessage_addheader(response, "Vary", STRING_REF("Origin"));
 	}
 	return ret;
 }
@@ -157,7 +157,7 @@ static void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 
 	mod->config = config;
 
-	httpserver_addmethod(server, str_options, 0);
+	httpserver_addmethod(server, METHOD(str_options), 0);
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
 	return mod;
 }
