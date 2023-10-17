@@ -109,9 +109,8 @@ static void *authn_digest_create(const authn_t *authn, void *config)
 	return mod;
 }
 
-static int authn_digest_noncetime(void *arg, char *nonce, size_t noncelen)
+static int authn_digest_noncetime(authn_digest_t *mod, char *nonce, size_t noncelen)
 {
-	const authn_digest_t *mod = (authn_digest_t *)arg;
 	int expire = 30;
 	if (mod->authn->config->expire != 0)
 		expire = mod->authn->config->expire;
@@ -149,13 +148,13 @@ static int authn_digest_nonce(authn_digest_t *mod, char *nonce, size_t noncelen)
  * or hexa encoded data
  */
 #ifndef DEBUG
-	char _nonce[(int)(HASH_MAX_SIZE * 1.5) + 1] = {0};
+	char _nonce[((HASH_MAX_SIZE * 3) / 2 + 1)] = {0};
 
 	srandom(time(NULL));
 	int usedate = random() % 5;
 	if (usedate)
 	{
-		ret = authn_digest_noncetime(arg, _nonce, sizeof(_nonce));
+		ret = authn_digest_noncetime(mod, _nonce, sizeof(_nonce));
 	}
 	if (ret == EREJECT)
 	{
