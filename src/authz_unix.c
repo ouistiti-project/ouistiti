@@ -49,6 +49,7 @@
 
 #define auth_dbg(...)
 
+#define USE_PASSWD_R
 //#define FILE_MMAP
 #define MAXLENGTH 255
 
@@ -70,12 +71,9 @@ typedef struct authz_unix_s authz_unix_t;
 struct authz_unix_s
 {
 	authz_file_config_t *config;
-	authsession_t auth;
-
-	char user[32];
-	char passwd[128];
-	char group[32];
-	char home[128];
+	struct passwd pwstore;
+	char passwd[NSS_BUFLEN_PASSWD];
+	string_t status;
 };
 
 #ifdef FILE_CONFIG
@@ -104,19 +102,30 @@ static void *authz_unix_create(http_server_t *UNUSED(server), void *arg)
 	return ctx;
 }
 
+static struct spwd *_authz_getspnam(authz_unix_t *ctx, const char *user, struct spwd *spwdstore, char *shadow, int shadowlen)
+{
+	struct spwd *spasswd;
+#ifdef USE_PASSWD_R
+	getspnam_r(user, spwdstore, shadow, shadowlen, &spasswd);
+#else
+	spasswd = getspnam(user);
+	memcpy(shadow, spasswd->, shadowlen);
+	spwdstore->sp_pwdp = shadow;
+	spwdstore->sp_expire = 0;
+#endif
+	return spasswd;
+}
+
 static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	const char *status = str_status_activated;
+	string_t status = STRING_DCL(str_status_activated);
 	struct passwd *pw = NULL;
-
-#ifdef USE_PASSWD_R
 	struct spwd spwdstore;
 	char shadow[NSS_BUFLEN_PASSWD];
-	struct passwd pwstore;
-	char buffer[NSS_BUFLEN_PASSWD];
 
-	getpwnam_r(user, &pwstore, buffer, sizeof(buffer), &pw);
+#ifdef USE_PASSWD_R
+	getpwnam_r(user, &ctx->pwstore, ctx->passwd, sizeof(ctx->passwd), &pw);
 #else
 	pw = getpwnam(user);
 #endif
@@ -134,12 +143,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			 */
 			if (seteuid(0) < 0)
 				warn("not enought rights to change user to root");
-			struct spwd *spasswd;
-#ifdef USE_PASSWD_R
-			getspnam_r(pw->pw_name, &spwdstore, shadow, sizeof(shadow), &spasswd);
-#else
-			spasswd = getspnam(pw->pw_name);
-#endif
+			struct spwd *spasswd = _authz_getspnam(ctx, user, &spwdstore, shadow, sizeof(shadow));
 			/**
 			 * enable again the user
 			 */
@@ -163,13 +167,13 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			time_t now = time(NULL);
 			long day = now / (60 * 60 * 24);
 			if (spasswd->sp_max > 0 && day > (spasswd->sp_lstchg + spasswd->sp_max))
-				status = str_status_reapproving;
+				_string_store(&status, STRING_REF(str_status_reapproving));
 			if (spasswd->sp_expire > 0 && day > spasswd->sp_expire)
-				status = str_status_repudiated;
+				_string_store(&status, STRING_REF(str_status_repudiated));
 		}
 		else if (cryptpasswd[0] == '!')
 		{
-			status = str_status_repudiated;
+			_string_store(&status, STRING_REF(str_status_repudiated));
 			cryptpasswd += 1;
 		}
 
@@ -183,21 +187,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
 			ret = 1;
-			snprintf(ctx->auth.user, USER_MAX, "%s", pw->pw_name);
-			snprintf(ctx->auth.home, PATH_MAX, "%s", pw->pw_dir);
-			snprintf(ctx->auth.status, FIELD_MAX, "%s", status);
-
-			struct group *grp;
-			struct group grpstorage;
-#ifdef USE_GROUP_R
-			if (getgrgid_r(pw->pw_gid, &grpstorage, buffer, sizeof(buffer), &grp))
-#else
-			grp = getgrgid(pw->pw_gid);
-			if (grp != NULL)
-#endif
-			{
-				snprintf(ctx->auth.group, FIELD_MAX, "%s", grp->gr_name);
-			}
+			_string_store(&ctx->status, STRING_INFO(status));
 		}
 		else
 		{
@@ -224,12 +214,20 @@ static int authz_unix_setsession(void *arg, const char *user, auth_saveinfo_t cb
 {
 	const authz_unix_t *ctx = (const authz_unix_t *)arg;
 
-	cb(cbarg, STRING_REF("user"), ctx->auth.user, -1);
-	if (ctx->group && ctx->auth.group[0] != '\0')
-		cb(cbarg, STRING_REF("group"), ctx->auth.group, -1);
-	if (ctx->home && ctx->auth.home[0] != '\0')
-		cb(cbarg, STRING_REF("home"), ctx->auth.home, -1);
-	cb(cbarg, STRING_REF("status"), ctx->auth.status, -1);
+	cb(cbarg, STRING_REF("user"), ctx->pwstore.pw_name, -1);
+
+	struct group *grp = NULL;
+	struct group grpstorage;
+	char group[NSS_BUFLEN_PASSWD];
+#ifdef USE_GROUP_R
+	getgrgid_r(ctx->pwstore.pw_gid, &grpstorage, group, sizeof(group), &grp);
+#else
+	grp = getgrgid(ctx->pwstore.pw_gid);
+#endif
+	if (grp != NULL)
+		cb(cbarg, STRING_REF("group"), grp->gr_name, -1);
+	cb(cbarg, STRING_REF("home"), ctx->pwstore.pw_dir, -1);
+	cb(cbarg, STRING_REF("status"), STRING_INFO(ctx->status));
 	return ESUCCESS;
 }
 
