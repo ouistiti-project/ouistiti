@@ -13,10 +13,12 @@ servers= ({
 			user = "test";
 			passwd = "test";
 			group = "user";
-			home = "%PWD%/tests/htdocs/private";
+			#home = "%PWD%/tests/htdocs/private";
+			home = "private";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
+			dochome = "%PWD%/tests/htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = "^private/*,.htaccess,.php";
 			options = "dirlisting,rest,home";

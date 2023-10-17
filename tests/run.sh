@@ -23,7 +23,17 @@ case $1 in
 		GCOV=1
 		;;
 	-V)
-		ENV="valgrind --leak-check=full --show-leak-kinds=all"
+		VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --log-file=/tmp/ouistiti.valgrind"
+		#VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --vgdb=yes"
+		VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --child-silent-after-fork=yes"
+		VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --trace-children=yes"
+		VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --track-origins=yes"
+		#VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --leak-check=full"
+		#VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --show-leak-kinds=all"
+		VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --show-error-list=yes"
+		VALGRIND_OPTIONS=$VALGRIND_OPTIONS" --run-libc-freeres=yes"
+		echo VALGRIND OPTIONS: $VALGRIND_OPTIONS
+		ENV="valgrind $VALGRIND_OPTIONS"
 		;;
 	-I)
 		INFO=1
@@ -97,31 +107,30 @@ start () {
 	ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
-	ARGUMENTS=$ARGUMENTS" -M ./src:./staging"
-	ARGUMENTS=$ARGUMENTS" -p ${TESTDIR}run.pid"
+	ARGUMENTS=$ARGUMENTS" -M ./staging:./src"
 	if [ -n "$INFO" ]; then
 		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
 		echo "******************************"
 		cat ${TESTDIR}conf/${CONFIG}
 	fi
-	${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS} -D
-	PID=$(cat ${TESTDIR}run.pid)
+	${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS} &
+	PID=$!
 	echo "${TARGET} started with pid ${PID}"
+	echo "config ${TESTDIR}conf/${CONFIG}"
 	sleep 1
 }
 
 stop () {
 	TARGET=$1
 
-	if [ -f ${TESTDIR}run.pid ]; then
-		${SRCDIR}${TARGET} -p ${TESTDIR}run.pid -K
+	if [ -n "$PID" ]; then
+		kill $PID
+		sleep 1
+		kill -9 $PID
 	else
 		killall $(echo $TARGET | ${AWK} '{print $1}')
-	fi
-	sleep 1
-	if [ -f ${TESTDIR}run.pid ]; then
+		sleep 1
 		killall -9 $(echo $TARGET | ${AWK} '{print $1}')
-		rm -f ${TESTDIR}run.pid
 	fi
 }
 

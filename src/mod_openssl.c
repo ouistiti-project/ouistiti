@@ -45,8 +45,6 @@
 #define HANDSHAKE 0x01
 #define RECV_COMPLETE 0x02
 
-static const char str_https[] = "https";
-
 typedef struct _mod_openssl_s _mod_openssl_t;
 
 typedef struct _mod_openssl_ctx_s
@@ -187,9 +185,12 @@ static int _tls_connect(void *vctx, const char *addr, int port)
 static void _tls_disconnect(void *vctx)
 {
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
+	if (ctx->ssl == NULL)
+		return;
 	dbg("tls: disconnect");
 	SSL_shutdown(ctx->ssl);
 	SSL_free(ctx->ssl);
+	ctx->ssl = NULL;
 	ctx->protocolops->disconnect(ctx->protocol);
 }
 
@@ -201,7 +202,7 @@ static void _tls_destroy(void *vctx)
 	free(ctx);
 }
 
-static int _tls_recv(void *vctx, char *data, int size)
+static int _tls_recv(void *vctx, char *data, size_t size)
 {
 	int ret;
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
@@ -239,17 +240,17 @@ static int _tls_recv(void *vctx, char *data, int size)
 	return ret;
 }
 
-static int _tls_send(void *vctx, const char *data, int size)
+static int _tls_send(void *vctx, const char *data, size_t size)
 {
 	int ret = 0;
 	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)vctx;
 
 	do {
 		ret = SSL_write(ctx->ssl, (unsigned char *)data, size);
-		tls_dbg("tls: send %d %.*s", ret, size, data);
+		tls_dbg("tls: send %d %.*s", ret, (int)size, data);
 		if (ret < 0)
 		{
-			warn("tls: send %d %.*s", ret, size, data);
+			warn("tls: send %d %.*s", ret, (int)size, data);
 			int error = SSL_get_error(ctx->ssl, ret);
 			if (error == SSL_ERROR_WANT_WRITE ||
 				error == SSL_ERROR_WANT_READ ||
@@ -305,14 +306,14 @@ static const httpclient_ops_t *tlsserver_ops = &(httpclient_ops_t)
 	.scheme = str_https,
 	.default_port = 443,
 	.type = HTTPCLIENT_TYPE_SECURE,
-	.create = _tlsserver_create,
-	.recvreq = _tls_recv,
-	.sendresp = _tls_send,
-	.wait = tls_wait,
-	.status = _tls_status,
-	.flush = _tls_flush,
-	.disconnect = _tls_disconnect,
-	.destroy = _tls_destroy,
+	.create = &_tlsserver_create,
+	.recvreq = &_tls_recv,
+	.sendresp = &_tls_send,
+	.wait = &tls_wait,
+	.status = &_tls_status,
+	.flush = &_tls_flush,
+	.disconnect = &_tls_disconnect,
+	.destroy = &_tls_destroy,
 };
 
 const module_t mod_tls =

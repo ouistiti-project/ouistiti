@@ -1,0 +1,32 @@
+HTTP/1.1 200 OK
+X-Test: test
+Content-Type: text/plain
+Content-Length: 694
+
+Hello world http hello=world
+CONTENT_LENGTH => 14 
+GATEWAY_INTERFACE => CGI/1.1
+PATH_INFO => 
+PATH_TRANSLATED => 
+SCRIPT_FILENAME => testpython
+SCRIPT_NAME => testpython
+SERVER_SOFTWARE => ouistiti/3.3
+SERVER_NAME => www.ouistiti.net
+SERVER_PROTOCOL => HTTP/1.1
+SERVER_ADDR => 127.0.0.1
+SERVER_PORT => 8080
+REQUEST_METHOD => GET
+REQUEST_SCHEME => http
+REQUEST_URI => /testpython.py.index
+CONTENT_TYPE => text/plain
+QUERY_STRING => hello=world
+HTTP_ACCEPT => 
+HTTP_ACCEPT_ENCODING => 
+HTTP_ACCEPT_LANGUAGE => 
+REMOTE_HOST => localhost
+REMOTE_ADDR => 127.0.0.1
+HTTP_COOKIE => 
+HTTP_HOST => 127.0.0.1
+HTTP_USER_AGENT => 
+HTTP_REFERER => 
+HTTP_ORIGIN => 

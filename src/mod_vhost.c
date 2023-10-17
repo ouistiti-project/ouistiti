@@ -60,17 +60,11 @@ struct mod_vhost_s
 
 typedef struct _mod_vhost_s _mod_vhost_t;
 
-typedef struct _module_s
-{
-	void *ctx;
-	module_t *ops;
-} _module_t;
-
 struct _mod_vhost_s
 {
 	mod_vhost_t	*config;
 	http_server_t *vserver;
-	_module_t *modules;
+	mod_t *modules;
 };
 
 static int _vhost_connector(void *arg, http_message_t *request, http_message_t *response)
@@ -85,8 +79,9 @@ static int _vhost_connector(void *arg, http_message_t *request, http_message_t *
 }
 
 #ifdef FILE_CONFIG
-static void *vhost_config(config_setting_t *iterator, server_t *server)
+static int vhost_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
+	int ret = ESUCCESS;
 	mod_vhost_t *vhost = NULL;
 
 #if LIBCONFIG_VER_MINOR < 5
@@ -94,26 +89,76 @@ static void *vhost_config(config_setting_t *iterator, server_t *server)
 #else
 	config_setting_t *config = config_setting_lookup(iterator, "vhost");
 #endif
-	if (config)
+	if (config && config_setting_is_list(config))
+	{
+			if (index >= config_setting_length(config))
+				return EREJECT;
+			config = config_setting_get_elem(config, index);
+			ret = ECONTINUE;
+	}
+	if (config && config_setting_is_group(config))
 	{
 		const char *hostname;
 		config_setting_lookup_string(config, "hostname", (const char **)&hostname);
 		if (hostname == NULL || hostname[0] == '\0')
 		{
 			err("vhost configuration without hostname");
-			return vhost;
+			return EREJECT;
 		}
 		vhost = calloc(1, sizeof(*vhost));
 		vhost->hostname = hostname;
 		vhost->server = server;
 		vhost->modulesconfig = config;
 	}
+	else
+		ret = EREJECT;
 
-	return vhost;
+	*modconfig = vhost;
+	return ret;
 }
 #else
 #define vhost_config(...) NULL
 #endif
+
+static mod_t *mod_vhost_loadmodule(_mod_vhost_t *vhost, const module_t *module)
+{
+	int ret = ECONTINUE;
+	void *config = NULL;
+	http_server_t *vserver = vhost->vserver;
+	config_setting_t *modconfig = vhost->config->modulesconfig;
+	server_t *server = vhost->config->server;
+	mod_t *first = NULL;
+
+	int i = 0;
+	while (ret == ECONTINUE)
+	{
+		if (module->configure != NULL && module->version == 0)
+		{
+			config = ((module_configure_v0_t)module->configure)(modconfig, server);
+			ret = ESUCCESS;
+		}
+		else if (module->configure != NULL && module->version == 0x01)
+		{
+			ret = module->configure(modconfig, server, i++, &config);
+		}
+		else
+			ret = ESUCCESS;
+		void *obj = NULL;
+		if (ret == ESUCCESS || ret == ECONTINUE)
+		{
+			obj = module->create(vserver, config);
+		}
+		if (obj)
+		{
+			mod_t *mod = calloc(1, sizeof(*mod));
+			mod->ops = module;
+			mod->obj = obj;
+			mod->next = first;
+			first = mod;
+		}
+	}
+	return first;
+}
 
 static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 {
@@ -126,16 +171,21 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod->config = config;
 
 	mod->vserver = httpserver_dup(server);
-	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_FILTER, str_vhost);
+	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_SERVER, str_vhost);
 	const module_list_t *iterator = ouistiti_modules(config->server);
 	while (iterator != NULL)
 	{
-		void *config = NULL;
-		if (iterator->module->configure != NULL)
-			config = iterator->module->configure(
-				(config_setting_t *)mod->config->modulesconfig,
-				mod->config->server);
-		iterator->module->create(mod->vserver, config);
+		if (strcmp(iterator->module->name, str_vhost))
+		{
+			mod_t *entry = mod_vhost_loadmodule(mod, iterator->module);
+			if (entry)
+			{
+				mod_t *last = entry;
+				while (last->next) last = last->next;
+				last->next = mod->modules;
+				mod->modules = entry;
+			}
+		}
 		iterator = iterator->next;
 	}
 
@@ -148,11 +198,21 @@ void mod_vhost_destroy(void *arg)
 {
 	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
 	httpserver_destroy(mod->vserver);
+	mod_t *module = mod->modules;
+	while (module)
+	{
+		mod_t *next = module->next;
+		if (module->ops->destroy)
+			module->ops->destroy(module->obj);
+		free(module);
+		module = next;
+	}
 	free(mod);
 }
 
 const module_t mod_vhost =
 {
+	.version = 0x01,
 	.name = str_vhost,
 	.configure = (module_configure_t)&vhost_config,
 	.create = (module_create_t)&mod_vhost_create,

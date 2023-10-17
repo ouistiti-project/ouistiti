@@ -81,8 +81,6 @@ struct _mod_upgrade_ctx_s
 	pid_t pid;
 };
 
-static const char str_connection[] = "Connection";
-static const char str_upgrade[] = "Upgrade";
 const char str_rhttp[] = "PTTH/1.0";
 
 static int default_upgrade_run(void *arg, int sock, http_message_t *request);
@@ -209,8 +207,8 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 		}
 		else if (ret == ECONTINUE)
 		{
-			httpmessage_addheader(response, str_connection, str_upgrade);
-			httpmessage_addheader(response, str_upgrade, mod->upgrade);
+			httpmessage_addheader(response, str_connection, STRING_REF(str_upgrade));
+			httpmessage_addheader(response, str_upgrade, mod->upgrade, -1);
 			/** disable Content-Type and Content-Length inside the headers **/
 			httpmessage_addcontent(response, "none", NULL, -1);
 			httpmessage_result(response, RESULT_101);

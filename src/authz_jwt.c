@@ -59,7 +59,7 @@ typedef struct authz_jwt_s authz_jwt_t;
 struct authz_jwt_s
 {
 	authz_jwt_config_t *config;
-	authsession_t token;
+	const char *token;
 };
 
 #ifdef FILE_CONFIG
@@ -70,23 +70,45 @@ void *authz_jwt_config(const config_setting_t *UNUSED(configauth))
 }
 #endif
 
-char *authz_generatejwtoken(const mod_auth_t *config, const authsession_t *info)
+size_t authz_generatejwtoken(const mod_auth_t *config, http_message_t *request, char **token)
 {
+#ifdef JWT_FORMATHEADER
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));
 	json_object_set(jheader, "typ", json_string("JWT"));
 	char *theader = json_dumps(jheader, 0);
+	size_t theaderlen = strlen(theader);
 	json_decref(jheader);
+#else
+	char theader[] = "{\"alg\": \"HS256\", \"typ\": \"JWT\"}";
+	size_t theaderlen = sizeof(theader) - 1;
+#endif
 
 	json_t *jtoken = json_object();
-	json_t *juser = json_string(info->user);
-	json_object_set(jtoken, "user", juser);
-	json_t *jhome = json_string(info->home);
-	json_object_set(jtoken, "home", jhome);
-	json_t *jstatus = json_string(info->status);
-	json_object_set(jtoken, "status", jstatus);
-	json_t *jroles = json_string(info->group);
-	json_object_set(jtoken, "roles", jroles);
+	const char *user = auth_info(request, STRING_REF("user"));
+	if (user)
+	{
+		json_t *juser = json_string(user);
+		json_object_set(jtoken, "user", juser);
+	}
+	const char *home = auth_info(request, STRING_REF("home"));
+	if (home)
+	{
+		json_t *jhome = json_string(home);
+		json_object_set(jtoken, "home", jhome);
+	}
+	const char *status = auth_info(request, STRING_REF("status"));
+	if (status)
+	{
+		json_t *jstatus = json_string(status);
+		json_object_set(jtoken, "status", jstatus);
+	}
+	const char *group = auth_info(request, STRING_REF("group"));
+	if (group)
+	{
+		json_t *jroles = json_string(group);
+		json_object_set(jtoken, "roles", jroles);
+	}
 #ifndef DEBUG
 	time_t now = time(NULL);
 #else
@@ -103,40 +125,47 @@ char *authz_generatejwtoken(const mod_auth_t *config, const authsession_t *info)
 #ifdef AUTH_OPENID
 	json_object_set(jtoken, "sub", juser);
 	json_object_set(jtoken, "preferred_username", juser);
-	json_object_set(jtoken, "aud", json_string("ouistiti"));
+	json_object_set(jtoken, "aud", json_string(str_servername));
 	json_object_set(jtoken, "iat", json_integer(now));
 	if (info->urlspace && info->urlspace[0] != '\0')
 		json_object_set(jtoken, "iss", json_string(info->urlspace));
 #endif
-	char *ttoken = json_dumps(jtoken, 0);
+	size_t ttokenlen = json_dumpb(jtoken, NULL, 0, 0);
+	if (ttokenlen == 0)
+		return 0;
+	char *ttoken = malloc(ttokenlen);
+	json_dumpb(jtoken, ttoken, ttokenlen, 0);
 	auth_dbg("jwt: encode %s", ttoken);
 	json_decref(jtoken);
 
-	int ret;
-	size_t length = (strlen(theader) + 1 + strlen(ttoken) + 1) * 3 / 2;
+	int ret = 0;
+	size_t length = (theaderlen + 1 + ttokenlen + 1) * 3 / 2;
 
-	char *token = calloc(2, length + 1);
-	char *offset = token;
+	*token = calloc(2, length + 1);
+	char *offset = *token;
 	length *= 2;
-	ret = base64_urlencoding->encode(theader, strlen(theader), offset, length);
+	ret = base64_urlencoding->encode(theader, theaderlen, offset, length);
 	offset += ret;
 	length -= ret;
+#ifdef JWT_FORMATHEADER
 	free(theader);
+#endif
 
 	*offset = '.';
 	offset++;
+	ret++;
 	length--;
 
-	ret = base64_urlencoding->encode(ttoken, strlen(ttoken), offset, length);
+	ret += base64_urlencoding->encode(ttoken, ttokenlen, offset, length);
 	free(ttoken);
-	warn("token %s", token);
+	warn("auth: jwttoken %s", *token);
 	/**
 	 * the signature is added inside mod_auth
 	 */
-	return token;
+	return ret;
 }
 
-json_t *jwt_decode_json(const char *id_token)
+static json_t *jwt_decode_json(const char *id_token)
 {
 	if (id_token == NULL)
 		return NULL;
@@ -227,46 +256,6 @@ static const char *_jwt_getuser(const json_t *jinfo)
 	return user;
 }
 
-int jwt_decode(const char *id_token, authsession_t *authsession)
-{
-	json_t *jinfo = jwt_decode_json(id_token);
-	if (jinfo != NULL)
-	{
-		if (_jwt_checkexpiration(jinfo, authsession) != ESUCCESS)
-			return EREJECT;
-
-		strncpy(authsession->user, _jwt_getuser(jinfo), USER_MAX);
-
-		const json_t *jhome = json_object_get(jinfo, "home");
-		if (jhome && json_is_string(jhome))
-		{
-			strncpy(authsession->home, json_string_value(jhome), PATH_MAX);
-		}
-
-		const json_t *jroles = json_object_get(jinfo, "roles");
-		if (jroles && json_is_string(jroles))
-		{
-			strncpy(authsession->group, json_string_value(jroles), FIELD_MAX);
-		}
-		else if (jroles && json_is_array(jroles))
-		{
-			strncpy(authsession->group, json_string_value(json_array_get(jroles, 0)), FIELD_MAX);
-		}
-		else
-		{
-			strncpy(authsession->group, "anonymous", FIELD_MAX);
-		}
-		const json_t *jstatus = json_object_get(jinfo, "status");
-		if (jstatus && json_is_string(jstatus))
-		{
-			strncpy(authsession->status, json_string_value(jstatus), FIELD_MAX);
-		}
-
-		json_decref(jinfo);
-	}
-	return ESUCCESS;
-}
-
 static void *authz_jwt_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_jwt_t *ctx = NULL;
@@ -278,12 +267,30 @@ static void *authz_jwt_create(http_server_t *UNUSED(server), void *arg)
 	return ctx;
 }
 
+static void *authz_jwt_setup(void *arg)
+{
+	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+
+	authz_jwt_t *cltctx = calloc(1, sizeof(*ctx));
+	return cltctx;
+}
+
+static void authz_jwt_cleanup(void *arg)
+{
+	free(arg);
+}
+
 static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
-	ctx->token.user[0] = '\0';
-	jwt_decode(token, &ctx->token);
-	if (ctx->token.user[0] != '\0')
-		return ctx->token.user;
+	json_t *jinfo = jwt_decode_json(token);
+	if (jinfo != NULL)
+	{
+		authsession_t authsession = {0};
+		if (_jwt_checkexpiration(jinfo, &authsession) != ESUCCESS)
+			return NULL;
+		ctx->token = token;
+		return _jwt_getuser(jinfo);
+	}
 	return NULL;
 }
 
@@ -293,20 +300,61 @@ static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const ch
 	return _authz_jwt_checktoken(ctx, token);
 }
 
-static int authz_jwt_setsession(void *arg, const char *UNUSED(user), authsession_t *authsession)
+static int authz_jwt_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	memcpy(authsession, &ctx->token, sizeof(*authsession));
+	const char *token = ctx->token;
+	json_t *jinfo = jwt_decode_json(token);
+	if (jinfo == NULL)
+		return EREJECT;
+
+	const json_t *jhome = json_object_get(jinfo, "home");
+	if (jhome && json_is_string(jhome))
+	{
+		cb(cbarg, STRING_REF("home"), json_string_value(jhome), -1);
+	}
+
+	const json_t *jroles = json_object_get(jinfo, "roles");
+	if (jroles && json_is_string(jroles))
+	{
+		cb(cbarg, STRING_REF("group"), json_string_value(jroles), -1);
+	}
+	else if (jroles && json_is_array(jroles))
+	{
+		cb(cbarg, STRING_REF("group"), json_string_value(json_array_get(jroles, 0)), -1);
+	}
+	else
+	{
+		cb(cbarg, STRING_REF("group"), STRING_REF(str_anonymous));
+	}
+	const json_t *jstatus = json_object_get(jinfo, "status");
+	if (jstatus && json_is_string(jstatus))
+	{
+		cb(cbarg, STRING_REF("status"), json_string_value(jstatus), -1);
+	}
+	cb(cbarg, STRING_REF("user"), _jwt_getuser(jinfo), -1);
+
+	const json_t *jexpire = json_object_get(jinfo, "exp");
+	if (jexpire && json_is_integer(jexpire))
+	{
+		time_t expire = json_integer_value(jexpire);
+		struct tm *tmp;
+		char expire_str[16] = {0};
+		tmp = localtime(&expire);
+		size_t length = strftime(expire_str, sizeof(expire_str), "%s", tmp);
+		if (length > 0)
+			cb(cbarg, STRING_REF("expire"), expire_str, length);
+	}
+
+	json_decref(jinfo);
+
 	return ESUCCESS;
 }
 
 #ifdef AUTH_TOKEN
 static int authz_jwt_join(void *arg, const char *user, const char *UNUSED(token), int expire)
 {
-	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
-	if (!strcmp(ctx->token.user, user) && (expire + time(NULL)) > ctx->token.expires)
-		return ESUCCESS;
-	return EREJECT;
+	return ESUCCESS;
 }
 #else
 #define authz_jwt_join NULL
@@ -330,6 +378,8 @@ static void authz_jwt_destroy(void *arg)
 authz_rules_t authz_jwt_rules =
 {
 	.create = &authz_jwt_create,
+	.setup = authz_jwt_setup,
+	.cleanup = authz_jwt_cleanup,
 	.check = &authz_jwt_check,
 	.passwd = NULL,
 	.setsession = &authz_jwt_setsession,

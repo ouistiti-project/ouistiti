@@ -1,4 +1,4 @@
-GCOV?=gcov
+GCOV?=gcov --relative-only
 LCOV?=lcov
 GENHTML?=genhtml
 TARGETGCOV:=$(TARGETPREFIX)$(GCOV)

@@ -44,7 +44,7 @@ jobs:
           git pull origin ${{ inputs.LIBHTTPSERVER_VERSION }}
       - name: sonar-scanner and build-wrapper
         id: sonarcloud
-        uses: SonarSource/sonarcloud-github-c-cpp@v1
+        uses: SonarSource/sonarcloud-github-c-cpp@v2
       - name: configure
         run: |
           make MBEDTLS=n $TLS=y prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n AUTHN_OAUTH2=n defconfig
@@ -65,6 +65,7 @@ jobs:
       - name: gcov
         run: |
           make DEBUG=y gcov
+          find . -name "*.gcov" -empty -delete
       - name: options
         id: options
         run: >

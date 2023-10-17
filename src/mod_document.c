@@ -64,9 +64,6 @@ extern int mod_send_sendfile(document_connector_t *private, http_message_t *resp
 #endif
 static int _mime_connector(void *arg, http_message_t *request, http_message_t *response);
 
-static const char str_put[] = "PUT";
-static const char str_delete[] = "DELETE";
-
 static const char str_document[] = "document";
 
 /**
@@ -90,85 +87,41 @@ void document_close(document_connector_t *private, http_message_t *request)
 	free(private);
 }
 
-static int document_checkname(const _mod_document_mod_t *mod, const char *uri)
-{
-	const mod_document_t *config = mod->config;
-
-	if (utils_searchexp(uri, config->deny, NULL) == ESUCCESS)
-	{
-		document_dbg("document: %s deny", uri);
-		return  EREJECT;
-	}
-	if (utils_searchexp(uri, config->allow, NULL) != ESUCCESS)
-	{
-		document_dbg("document: %s not allowed", uri);
-		return  EREJECT;
-	}
-	return ESUCCESS;
-}
-
-static int _document_docroot(_mod_document_mod_t *mod,
+#ifdef DOCUMENTHOME
+static int _document_dochome(_mod_document_mod_t *mod,
 		http_message_t *request, const char **uri)
 {
 	const mod_document_t *config = mod->config;
 	int fdroot = -1;
-	int i = 0;
-	while ((*uri)[i] == '/' && (*uri)[0] != '\0') i++;
 
-#ifdef DOCUMENTHOME
-	if ((*uri)[i] == '~')
-	{
-		i++;
-		const char *user = auth_info(request, "user");
-		const char *home = auth_info(request, "home");
-		if ((config->options & DOCUMENT_HOME) && (home != NULL))
-		{
-			fdroot = open(home, O_DIRECTORY);
-			if (fdroot != -1)
-			{
-				document_dbg("document: home directory is %s", home);
-			}
-		}
-		if ((fdroot == -1) && (home != NULL) && (mod->fdhome > 0))
-		{
-			while (home[0] == '/' && home[0] != '\0') home++;
-			fdroot = openat(mod->fdhome, home, O_DIRECTORY);
-			if (fdroot != -1)
-			{
-				document_dbg("document: root directory is %s/%s", mod->config->dochome, home);
-			}
-		}
-		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
-		{
-			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
-			if (fdroot != -1)
-			{
-				document_dbg("document: root directory is %s/%s", mod->config->dochome, user);
-			}
-		}
-		if ((fdroot == -1) && (user != NULL) && (mod->fdhome > 0))
-		{
-			mkdirat(mod->fdhome, user, 0640);
-			fdroot = openat(mod->fdhome, user, O_DIRECTORY);
-			if (fdroot != -1)
-			{
-				document_dbg("document: root directory is %s/%s", mod->config->dochome, user);
-			}
-		}
-		if (fdroot == -1)
-		{
-			err("document: user %s home directory not found from %s", user, getenv("PWD"));
-			fdroot = EREJECT;
-		}
-	}
-	while ((*uri)[i] == '/' && (*uri)[0] != '\0') i++;
-#endif
-	*uri += i;
+	while ((*uri)[0] == '/') (*uri)++;
+
+	const char *user = auth_info(request, STRING_REF("user"));
+	const char *home = auth_info(request, STRING_REF("home"));
+	while ((home[0] == '/' || home[0] == '.') && home[0] != '\0') home++;
+	if (home[0] == '\0')
+		home = user;
+	//check leading characters on user
+	while ((home[0] == '/' || home[0] == '.') && home[0] != '\0') home++;
+	mkdirat(mod->fdhome, home, 0640);
+	fdroot = openat(mod->fdhome, home, O_DIRECTORY);
 	if (fdroot == -1)
 	{
-		fdroot = mod->fdroot;
-		document_dbg("document: root directory is %s", mod->config->docroot);
+		err("document: folder error %s", strerror(errno));
 	}
+	else
+	{
+		document_dbg("document: home directory is %s", home);
+	}
+	return fdroot;
+}
+#endif
+
+static int _document_docroot(_mod_document_mod_t *mod,
+		http_message_t *request, const char **uri)
+{
+	int fdroot = mod->fdroot;
+	document_dbg("document: root directory is %s", mod->config->docroot);
 
 	return fdroot;
 }
@@ -185,16 +138,18 @@ static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const 
 		 * It should be "/"
 		 */
 		if (url[0] != '\0')
-			httpmessage_addheader(response, str_location, "/");
+			httpmessage_addheader(response, str_location, STRING_REF("/"));
 		else
-			httpmessage_addheader(response, str_location, "");
-		httpmessage_appendheader(response, str_location, url, "/", config->defaultpage, NULL);
+			httpmessage_addheader(response, str_location, STRING_REF(""));
+		httpmessage_appendheader(response, str_location, url, -1);
+		httpmessage_appendheader(response, str_location, STRING_REF("/"));
+		httpmessage_appendheader(response, str_location, config->defaultpage, -1);
 	}
 	return fdfile;
 }
 
 static int _document_getconnnectorget(_mod_document_mod_t *mod,
-		int fdroot, const char *url, const char **mime,
+		int fdroot, const char *url, int urllen, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
@@ -203,8 +158,7 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 	int fdfile = -1;
 	if (faccessat(fdroot, url, F_OK, 0) == -1)
 	{
-		int length = strlen(url);
-		if (url[0] != '\0' && url[length - 1] != '/')
+		if (url[0] != '\0' && url[urllen - 1] != '/')
 			return fdfile;
 	}
 	if (fstatat(fdroot, url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
@@ -260,11 +214,11 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 }
 
 static int _document_getconnnectorheader(_mod_document_mod_t *mod,
-		int fdroot, const char *url, const char **mime,
+		int fdroot, const char *url, int urllen, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
-	int fdfile = _document_getconnnectorget(mod, fdroot, url,
+	int fdfile = _document_getconnnectorget(mod, fdroot, url, urllen,
 				mime, request, response, connector);
 	*connector = NULL;
 	return fdfile;
@@ -282,9 +236,10 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		err("document: client should be uninitialized");
 		return EREJECT;
 	}
-	const char *uri = httpmessage_REQUEST(request,"uri");
+	const char *uri = NULL;
+	int urilen = httpmessage_REQUEST2(request,"uri", &uri);
 
-	if (document_checkname(mod, uri) == EREJECT)
+	if (htaccess_check(&mod->config->htaccess, uri, NULL) == EREJECT)
 	{
 		document_dbg("document: %s forbidden extension", uri);
 		/**
@@ -294,12 +249,27 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		 */
 		return  EREJECT;
 	}
-	int fdroot = _document_docroot(mod, request, &uri);
+	int fdroot = EREJECT;
+	while (uri[0] == '/')
+	{
+		uri++;
+		urilen--;
+	}
+#ifdef DOCUMENTHOME
+	if (uri[0] == '~' && mod->fdhome != -1)
+	{
+		uri++;
+		fdroot = _document_dochome(mod, request, &uri);
+	}
+	else
+#endif
+		fdroot = _document_docroot(mod, request, &uri);
 	if (fdroot == EREJECT)
 	{
 		httpmessage_result(response, RESULT_404);
 		return  ESUCCESS;
 	}
+	/// without dup otherwise two successive requests fail (test049)
 	fdroot = dup(fdroot);
 
 	int fdfile = -1;
@@ -310,19 +280,19 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #ifdef DOCUMENTREST
 	if ((config->options & DOCUMENT_REST) && !strcmp(method, str_put))
 	{
-		fdfile = _document_getconnnectorput(mod, fdroot, uri,
+		fdfile = _document_getconnnectorput(mod, fdroot, uri, urilen,
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
-	else if ((config->options & DOCUMENT_REST) && !strcmp(method, "POST"))
+	else if ((config->options & DOCUMENT_REST) && !strcmp(method, str_post))
 	{
-		fdfile = _document_getconnnectorpost(mod, fdroot, uri,
+		fdfile = _document_getconnnectorpost(mod, fdroot, uri,urilen,
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
 	else if ((config->options & DOCUMENT_REST) && !strcmp(method, str_delete))
 	{
-		fdfile = _document_getconnnectordelete(mod, fdroot, uri,
+		fdfile = _document_getconnnectordelete(mod, fdroot, uri, urilen,
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
@@ -330,12 +300,12 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #endif
 	if (!strcmp(method, str_get))
 	{
-		fdfile = _document_getconnnectorget(mod, fdroot, uri,
+		fdfile = _document_getconnnectorget(mod, fdroot, uri, urilen,
 					&mime, request, response, &connector);
 	}
 	else if (!strcmp(method, str_head))
 	{
-		fdfile = _document_getconnnectorheader(mod, fdroot, uri,
+		fdfile = _document_getconnnectorheader(mod, fdroot, uri, urilen,
 					&mime, request, response, &connector);
 	}
 	else
@@ -392,8 +362,8 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	if (config->options & DOCUMENT_RANGE)
 	{
 		char range[20];
-		snprintf(range, 20, "bytes %.9ld/*", (long)filestat.st_size);
-		httpmessage_addheader(response, "Content-Range", range);
+		int rangelen = snprintf(range, sizeof(range), "bytes %.9ld/*", (long)filestat.st_size);
+		httpmessage_addheader(response, "Content-Range", range, rangelen);
 	}
 #endif
 
@@ -524,8 +494,9 @@ static int _mime_connector(void *arg, http_message_t *request, http_message_t *r
 }
 
 #ifdef FILE_CONFIG
-static void *document_config(config_setting_t *iterator, server_t *server)
+static int document_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
+	int ret = EREJECT;
 	const char *entries[] = {
 		"document", "filestorage", "static_file"
 	};
@@ -553,8 +524,7 @@ static void *document_config(config_setting_t *iterator, server_t *server)
 		static_file = calloc(1, sizeof(*static_file));
 		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
 		config_setting_lookup_string(configstaticfile, "dochome", (const char **)&static_file->dochome);
-		config_setting_lookup_string(configstaticfile, "allow", (const char **)&static_file->allow);
-		config_setting_lookup_string(configstaticfile, "deny", (const char **)&static_file->deny);
+		htaccess_config(configstaticfile, &static_file->htaccess);
 		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
 
 		char *options = NULL;
@@ -593,8 +563,10 @@ static void *document_config(config_setting_t *iterator, server_t *server)
 
 		if (!strcmp(config_setting_name(configstaticfile), "filestorage"))
 			static_file->options |= DOCUMENT_REST;
+		ret = ESUCCESS;
 	}
-	return static_file;
+	*modconfig = (void *)static_file;
+	return ret;
 }
 #else
 static const mod_document_t g_document_config =
@@ -606,9 +578,10 @@ static const mod_document_t g_document_config =
 	.options = DOCUMENT_RANGE | DOCUMENT_DIRLISTING | DOCUMENT_REST,
 };
 
-static void *document_config(void *iterator, server_t *server)
+static int document_config(void *iterator, server_t *server, int index, void **config)
 {
-	return (void *)&g_document_config;
+	*config = (void *)&g_document_config;
+	return ESUCCESS;
 }
 #endif
 
@@ -632,9 +605,17 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 		document_dbg("document: root directory is %s", config->docroot);
 	}
 #ifdef DOCUMENTHOME
-	if (config->dochome != NULL)
+	if (config->options & DOCUMENT_HOME)
 	{
-		mod->fdhome = open(config->dochome, O_DIRECTORY);
+		if (config->dochome != NULL)
+		{
+			mod->fdhome = open(config->dochome, O_DIRECTORY);
+		}
+		else
+		{
+			mod->fdhome = mod->fdroot;
+			config->dochome = config->docroot;
+		}
 		if (mod->fdhome == -1)
 		{
 			err("document: dochome %s not found", config->dochome);
@@ -656,8 +637,8 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 #ifdef DOCUMENTREST
 	if (config->options & DOCUMENT_REST)
 	{
-		httpserver_addmethod(server, str_put, MESSAGE_PROTECTED | MESSAGE_ALLOW_CONTENT);
-		httpserver_addmethod(server, str_delete, MESSAGE_PROTECTED);
+		httpserver_addmethod(server, METHOD(str_put), MESSAGE_PROTECTED | MESSAGE_ALLOW_CONTENT);
+		httpserver_addmethod(server, METHOD(str_delete), MESSAGE_PROTECTED);
 	}
 #endif
 	return mod;
@@ -672,6 +653,7 @@ static void mod_document_destroy(void *data)
 
 const module_t mod_document =
 {
+	.version = 0x01,
 	.name = str_document,
 	.configure = (module_configure_t)&document_config,
 	.create = (module_create_t)&mod_document_create,

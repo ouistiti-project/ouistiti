@@ -1,6 +1,7 @@
 modules-$(MODULES)+=mod_document
 slib-$(STATIC)+=mod_document
 mod_document_SOURCES+=mod_document.c
+mod_document_SOURCES+=document_htaccess.c
 mod_document_CFLAGS+=-DSTATIC_FILE
 mod_document_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 mod_document_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)

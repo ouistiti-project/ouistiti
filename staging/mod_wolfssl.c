@@ -187,7 +187,7 @@ static void _mod_wolftls_freectx(void *vctx)
 	free(ctx);
 }
 
-static int _mod_wolftls_recv(void *vctx, char *data, int size)
+static int _mod_wolftls_recv(void *vctx, char *data, size_t size)
 {
 	int ret;
 	_mod_wolftls_ctx_t *ctx = (_mod_wolftls_ctx_t *)vctx;
@@ -214,7 +214,7 @@ warn("wolfssl err %d", err);
 	return ret;
 }
 
-static int _mod_wolftls_send(void *vctx, char *data, int size)
+static int _mod_wolftls_send(void *vctx, const char *data, size_t size)
 {
 	int ret;
 	_mod_wolftls_ctx_t *ctx = (_mod_wolftls_ctx_t *)vctx;

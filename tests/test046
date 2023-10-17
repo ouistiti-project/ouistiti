@@ -1,0 +1,4 @@
+DESC="test a bad auth configuration"
+CONFIG=test19.conf
+TESTCODE=401
+TESTREQUEST=test004_rq.txt

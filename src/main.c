@@ -70,23 +70,45 @@
 
 extern const char str_hostname[];
 
-const char *auth_info(http_message_t *request, const char *key)
-{
-	const authsession_t *info = NULL;
-	info = httpmessage_SESSION(request, "auth", NULL, 0);
-	const char *value = NULL;
+#define MAX_STRING 256
 
-	if (info == NULL)
-		return NULL;
-	if (!strcmp(key, "user"))
-		value = (const char *)info->user;
-	if (!strcmp(key, "group"))
-		value = (const char *)info->group;
-	if (!strcmp(key, "type"))
-		value = (const char *)info->type;
-	if (!strcmp(key, "home"))
-		value = (const char *)info->home;
-	return value;
+static size_t _string_len(string_t *str, const char *pointer)
+{
+	if (str->size == 0) str->size = MAX_STRING;
+	return strnlen(pointer, str->size);
+}
+
+int _string_store(string_t *str, const char *pointer, size_t length)
+{
+	str->data = pointer;
+	if (pointer && length == (size_t) -1)
+		str->length = _string_len(str, pointer);
+	else
+		str->length = length;
+	str->size = str->length + 1;
+	return ESUCCESS;
+}
+
+int _string_cmp(const string_t *str, const char *cmp, size_t length)
+{
+	if ((length != (size_t) -1) && (length != str->length))
+		return EREJECT;
+	return strncasecmp(str->data, cmp, str->length);
+}
+
+int _string_empty(const string_t *str)
+{
+	return ! (str->data != NULL && str->data[0] != '\0');
+}
+
+const char *auth_info(http_message_t *request, const char *key, size_t keylen)
+{
+	return httpclient_session(httpmessage_client(request), key, keylen, NULL, -1);
+}
+
+size_t auth_info2(http_message_t *request, const char *key, const char **value)
+{
+	return httpmessage_SESSION2(request, key, (void **)value);
 }
 
 int auth_setowner(const char *user)
@@ -119,18 +141,12 @@ int auth_setowner(const char *user)
 
 static module_list_t *g_modules = NULL;
 
-typedef struct mod_s
-{
-	void *obj;
-	const module_t *ops;
-} mod_t;
-
 #define MAX_MODULES 16
 struct server_s
 {
 	serverconfig_t *config;
 	http_server_t *server;
-	mod_t modules[MAX_MODULES + MAX_SERVERS];
+	mod_t *modules;
 
 	struct server_s *next;
 	unsigned int id;
@@ -242,7 +258,7 @@ void display_help(char * const *argv)
 }
 
 #undef BACKTRACE
-static server_t *first = NULL;
+static server_t *g_first = NULL;
 static char run = 0;
 static int g_default_port = 80;
 #ifdef HAVE_SIGACTION
@@ -288,13 +304,13 @@ int ouistiti_issecure(server_t *server)
 static int ouistiti_loadmodule(server_t *server, const module_t *module, configure_t configure, void *parser)
 {
 	int i = 0;
-	mod_t *mod = &server->modules[i];
+	mod_t *mod = server->modules;
 	warn("module %s regitering...", module->name);
-	while (i < MAX_MODULES && mod->obj != NULL)
+	for (;i < MAX_MODULES && mod != NULL; i++)
 	{
 		if (! strcmp(mod->ops->name, module->name))
 			warn(" already set");
-		mod = &server->modules[++i];
+		mod = mod->next;
 	}
 	if (i == MAX_MODULES)
 		return EREJECT;
@@ -308,17 +324,39 @@ static int ouistiti_loadmodule(server_t *server, const module_t *module, configu
 	{
 		warn(" old. Please check");
 	}
-	void *config = NULL;
-	if (module->configure != NULL)
-		config = module->configure(parser, server);
-	else if (configure != NULL)
-		config = configure(parser, module, server);
-#ifdef DEBUG
-	if (config != NULL) {dbg("main: %s configurated", module->name);}
-#endif
-	mod->obj = module->create(server->server, config);
-	mod->ops = module;
-	return (mod->obj != NULL)?ESUCCESS:EREJECT;
+	int ret = ECONTINUE;
+	i = 0;
+	while (ret == ECONTINUE)
+	{
+		void *config = NULL;
+		if (module->configure != NULL && module->version == 0x00)
+		{
+			config = ((module_configure_v0_t)module->configure)(parser, server);
+			ret = ESUCCESS;
+		}
+		else if (module->configure != NULL && module->version == 0x01)
+			ret = module->configure(parser, server, i++, &config);
+		else if (configure != NULL)
+			config = configure(parser, module, server);
+		else
+			ret = ESUCCESS;
+		void *obj = NULL;
+		// check to case if the configure is deprecated and returns handle
+		if (ret == ECONTINUE || ret == ESUCCESS)
+		{
+			obj = module->create(server->server, config);
+		}
+		if (obj)
+		{
+			mod = calloc(1, sizeof(*mod));
+			dbg("main: %s configurated", module->name);
+			mod->obj = obj;
+			mod->ops = module;
+			mod->next = server->modules;
+			server->modules = mod;
+		}
+	}
+	return ret;
 }
 
 static int ouistiti_setmodules(server_t *server, configure_t configure, void *parser)
@@ -333,7 +371,7 @@ static int ouistiti_setmodules(server_t *server, configure_t configure, void *pa
 	return 0;
 }
 
-void ouistiti_registermodule(const module_t *module)
+void ouistiti_registermodule(const module_t *module, void *dh)
 {
 	for (const module_list_t *iterator = g_modules; iterator != NULL; iterator = iterator->next)
 	{
@@ -346,6 +384,7 @@ void ouistiti_registermodule(const module_t *module)
 	module_list_t *new = calloc(1, sizeof(*new));
 	new->module = module;
 	new->next = g_modules;
+	new->dh = dh;
 	g_modules = new;
 }
 
@@ -359,6 +398,7 @@ static void __ouistiti_freemodule()
 	module_list_t *next;
 	for (module_list_t *iterator = g_modules; iterator != NULL; iterator = next)
 	{
+		ouistiti_finalizemodule(iterator->dh);
 		next = iterator->next;
 		free(iterator);
 	}
@@ -366,10 +406,10 @@ static void __ouistiti_freemodule()
 
 static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 {
-	if (first == NULL && id == -1)
+	if (g_first == NULL && id == -1)
 		id = 0;
 
-	if (first != NULL && first->id == MAX_SERVERS)
+	if (g_first != NULL && g_first->id == MAX_SERVERS)
 		return NULL;
 
 	if (config->server->port == 0)
@@ -383,10 +423,7 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 
 	server->server = httpserver;
 	server->config = config;
-	if (id == -1)
-		server->id = first->id + 1;
-	else
-		server->id = id;
+	server->id = id;
 	char *cwd = NULL;
 	if (config->root != NULL && config->root[0] != '\0' )
 	{
@@ -460,11 +497,15 @@ void main_destroy(server_t *first)
 	for (server_t *server = first; server != NULL; server = next)
 	{
 		next = server->next;
-		for (int j = 0; server->modules[j].obj; j++)
+		mod_t *mod = server->modules;
+		while (mod)
 		{
-			dbg("main: destroy %s", server->modules[j].ops->name);
-			if (server->modules[j].ops->destroy)
-				server->modules[j].ops->destroy(server->modules[j].obj);
+			mod_t *next = mod->next;
+			dbg("main: destroy %s", mod->ops->name);
+			if (mod->ops->destroy)
+				mod->ops->destroy(mod->obj);
+			free(mod);
+			mod = next;
 		}
 		httpserver_disconnect(server->server);
 		httpserver_destroy(server->server);
@@ -494,22 +535,6 @@ static server_t *ouistiti_loadservers(ouistiticonfig_t *ouistiticonfig, int serv
 		}
 	}
 	return first;
-}
-
-static int ouistiti_kill(const char *configfile, const char *pidfile)
-{
-	ouistiticonfig_t *ouistiticonfig = NULL;
-	if (pidfile == NULL)
-	{
-		ouistiticonfig = ouistiticonfig_create(configfile);
-		if (ouistiticonfig && ouistiticonfig->pidfile)
-			pidfile = ouistiticonfig->pidfile;
-	}
-	killdaemon(pidfile);
-	if (ouistiticonfig)
-		ouistiticonfig_destroy(ouistiticonfig);
-	main_destroy(first);
-	return 0;
 }
 
 #define DAEMONIZE 0x01
@@ -580,7 +605,19 @@ int main(int argc, char * const *argv)
 
 	if (mode & KILLDAEMON)
 	{
-		return ouistiti_kill(configfile, pidfile);
+		if (pidfile)
+			killdaemon(pidfile);
+		return 0;
+	}
+
+	if ((mode & DAEMONIZE) && daemonize(pidfile) == -1)
+	{
+		/**
+		 * if main is destroyed, it close the server socket here
+		 * and the true process is not able to receive any connection
+		 */
+		// main_destroy /( first /) /;
+		return 0;
 	}
 
 	if (workingdir != NULL && chdir(workingdir) != 0)
@@ -604,9 +641,6 @@ int main(int argc, char * const *argv)
 		return 1;
 	}
 
-	if (pidfile == NULL && ouistiticonfig->pidfile)
-		pidfile = ouistiticonfig->pidfile;
-
 	if (mode & CONFIGURATION)
 	{
 		display_configuration(configfile, pidfile);
@@ -619,22 +653,12 @@ int main(int argc, char * const *argv)
 		main_initat(rootfd, ouistiticonfig->init_d, 0);
 	}
 
-	if ((mode & DAEMONIZE) && daemonize(pidfile) == -1)
-	{
-		/**
-		 * if main is destroyed, it close the server socket here
-		 * and the true process is not able to receive any connection
-		 */
-		// main_destroy /( first /) /;
-		return 0;
-	}
-
 	if (ouistiticonfig == NULL)
 	{
 		return -1;
 	}
 
-	first = ouistiti_loadservers(ouistiticonfig, serverid);
+	g_first = ouistiti_loadservers(ouistiticonfig, serverid);
 
 #ifdef HAVE_SIGACTION
 	struct sigaction action;
@@ -665,10 +689,10 @@ int main(int argc, char * const *argv)
 	else
 		warn("%s run as %s", argv[0], ouistiticonfig->user);
 
-	main_run(first);
+	main_run(g_first);
 
 	killdaemon(pidfile);
-	main_destroy(first);
+	main_destroy(g_first);
 	if (ouistiticonfig->init_d != NULL)
 	{
 		int rootfd = AT_FDCWD;

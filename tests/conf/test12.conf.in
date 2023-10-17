@@ -17,7 +17,7 @@ servers= ({
 			dbname = "%PWD%/tests/conf/filter.db";
 			allow = "^/token$,^/trust/,^/index.html$";
 			superuser = "root";
-			configuri = "/filter/config";
+			configuri = "^/filter/config*";
 		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
@@ -26,6 +26,7 @@ servers= ({
 		};
 		redirect = {
 			links = ({
+				options = "query,temporary";
 				origin = "^/token";
 			});
 		};

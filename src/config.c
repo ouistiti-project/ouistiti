@@ -105,16 +105,19 @@ static serverconfig_t *config_server(config_setting_t *iterator, config_t *confi
 	config_setting_lookup_string(iterator, "version", &version);
 	if (version)
 	{
-		for (int i = 0; httpversion[i] != NULL; i++)
+		const char *version_test = NULL;
+		httpserver_version(0, &version_test);
+		for (int i = 0; version_test != NULL; i++)
 		{
-			if (!strcmp(version,  httpversion[i]))
+			if (!strcmp(version_test,  version))
 			{
 				config->server->version = i;
+				config->server->versionstr = version_test;
 				break;
 			}
+			httpserver_version(i + 1, &version_test);
 		}
 	}
-	config->server->versionstr = httpversion[config->server->version];
 	config_setting_lookup_string(iterator, "root", &config->root);
 	config->modulesconfig = iterator;
 	config->configfile = configfile;
@@ -195,8 +198,9 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 {
 	int ret;
 
-	gethostname(str_hostname, HOST_NAME_MAX);
-	strncat(str_hostname, ".local", sizeof(str_hostname) - HOST_NAME_MAX);
+	char hostname[HOST_NAME_MAX];
+	gethostname(hostname, HOST_NAME_MAX);
+	snprintf(str_hostname, sizeof(str_hostname), "%s.local", hostname);
 
 	if (access(filepath, R_OK))
 	{
@@ -230,7 +234,6 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 		else
 			err("log file error %s", strerror(errno));
 	}
-	config_lookup_string(configfile, "pid-file", (const char **)&ouistiticonfig->pidfile);
 	config_lookup_string(configfile, "init_d", (const char **)&ouistiticonfig->init_d);
 	const config_setting_t *configmimes = config_lookup(configfile, "mimetypes");
 	config_mimes(configmimes);

@@ -29,6 +29,7 @@ servers= ({
 				destination = "dirlisting/";
 				options = "temporary";
 			},{
+				options = "query";
 				origin = "token";
 			},{
 				origin = "empty";
