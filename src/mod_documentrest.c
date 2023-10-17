@@ -189,7 +189,7 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 	}
 	else
 	{
-		fdfile = openat(fdroot, url, O_WRONLY | O_CREAT | O_EXCL, 0644);
+		fdfile = openat(fdroot, url, O_WRONLY | O_CREAT | O_EXCL, 0640);
 		if (fdfile < 0)
 		{
 			restheader_connector(request, response, errno);
