@@ -78,6 +78,7 @@ jobs:
       - name: debuild
         run: |
           cd ouistiti
+          head -n 1 debian/changelog
           debuild -i -uc -us
       - name: binaries artifact
         uses: actions/upload-artifact@v3
