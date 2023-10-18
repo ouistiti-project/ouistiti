@@ -1,6 +1,5 @@
 /etc/ouistiti/*
-/srv/*
-/usr/lib/x86_64-linux-gnu/ouistiti/*
-/usr/libexec/ouistiti/*
+/srv/www/*
+/usr/lib/x86_64-linux-gnu/lib*
+/usr/lib/x86_64-linux-gnu/ouistiti/mod_*.so
 /usr/sbin/*
-/usr/share/ouistiti/*
