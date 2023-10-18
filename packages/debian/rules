@@ -6,7 +6,7 @@ SRCDIR := .
 
 MAKE_OPTIONS := package=ouistiti
 CONFIG_FILE := threadpool_defconfig
-CONFIG_OPTIONS := prefix=/usr sysconfdir=/etc/ouistiti
+CONFIG_OPTIONS := MJPEG=y WEBCOMMON=y prefix=/usr sysconfdir=/etc/ouistiti
 MAKE_OPTIONS := LIBHTTPSERVER_NAME=ouistiti
 %:
 	dh $@

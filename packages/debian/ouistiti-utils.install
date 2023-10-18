@@ -1,0 +1,4 @@
+/usr/libexec/ouistiti/*
+/usr/lib/x86_64-linux-gnu/ouistiti/authrpc.so
+/usr/lib/x86_64-linux-gnu/ouistiti/jsonsql.so
+/usr/share/ouistiti/*

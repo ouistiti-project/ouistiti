@@ -32,7 +32,7 @@ jobs:
           cp -r packages/debian /tmp/debian
       - name: source archive
         run: |
-          tar -C .. -czf ../${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz --exclude=packages --exclude=www --exclude=.git* --exclude=*sonarcloud* --exclude=.travis.yml ouistiti
+          tar -C .. -czf ../${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz --exclude=packages --exclude=.git* --exclude=*sonarcloud* --exclude=.travis.yml ouistiti
           mv ../${{env.PACKAGENAME}}_${{steps.version.outputs.VERSION}}.orig.tar.gz .
       - name: source artifact
         uses: actions/upload-artifact@v3

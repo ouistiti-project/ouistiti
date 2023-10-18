@@ -1,3 +1,9 @@
+ouistiti (3.4.0-1) stable;
+
+  * Quality Gate crossing
+
+ -- Marc Chalain <marc.chalain@gmail.com> Tue, 17 Oct 2023 14:10:11 +0200
+
 ouistiti (3.3.0-1) unstable; urgency=low
 
   * new modules: python, forward
