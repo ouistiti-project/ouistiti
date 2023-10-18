@@ -19,6 +19,7 @@ jobs:
       TLS: OPENSSL
       DEPENDENCIES: libjansson-dev libconfig-dev libssl-dev
       BUILD_WRAPPER_OUT_DIR: bw-output
+      LIBHTTPSERVER_VERSION: ${{ inputs.LIBHTTPSERVER_VERSION }}
       SONARCLOUD_OPTIONS: >
         -D sonar.host.url=https://sonarcloud.io
         -D sonar.organization=${{ vars.SONARCLOUD_ORGANIZATION }}
@@ -38,16 +39,19 @@ jobs:
         with:
           submodules: recursive
       - name: change libhttpserver version
-        if: inputs.LIBHTTPSERVER_VERSION != 'default'
+        if: github.event_name == 'workflow_dispatch' && 'default' != inputs.LIBHTTPSERVER_VERSION
         run: |
           cd libhttpserver
           git pull origin ${{ inputs.LIBHTTPSERVER_VERSION }}
+      - name: libhttpserver version
+        run: |
+          git log -1
       - name: sonar-scanner and build-wrapper
         id: sonarcloud
         uses: SonarSource/sonarcloud-github-c-cpp@v2
       - name: configure
         run: |
-          make MBEDTLS=n $TLS=y prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n AUTHN_OAUTH2=n defconfig
+          make MBEDTLS=n $TLS=y FILE_CONFIG=y prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n AUTHN_OAUTH2=n defconfig
       - name: version
         id: version
         run: |
