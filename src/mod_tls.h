@@ -36,7 +36,7 @@ extern "C"
 {
 #endif
 
-extern const char str_tls[];
+extern const char str_tls[4];
 
 typedef struct mod_tls_s mod_tls_t;
 struct mod_tls_s
