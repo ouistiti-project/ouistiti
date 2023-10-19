@@ -876,8 +876,9 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 	if (authorizationlen == 0)
 	{
 		*authorization = cookie_get(request, str_authorization);
-		authorizationlen = strlen(*authorization);
-		warn("auth: cookie get %s %p",str_authorization, authorization);
+		if (*authorization)
+			authorizationlen = strlen(*authorization);
+		auth_dbg("auth: cookie get %p", *authorization);
 	}
 
 	if (authorizationlen != 0 && strncmp(*authorization, mod->type.data, mod->type.length))
@@ -1292,7 +1293,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		httpclient_dropsession(ctx->clt);
 		ret = _authn_challenge(ctx, request, response);
 	}
-	else
+	else if (authorization != NULL)
 	{
 		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
 		{
