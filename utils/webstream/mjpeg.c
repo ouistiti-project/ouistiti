@@ -344,6 +344,7 @@ static int startstream(void *(*thread_run)(void *arg), Camera_t *camera, pthread
 #define MODE_UNIX 0x01
 #define MODE_OUISTITI 0x02
 #define MODE_DAEMON 0x04
+#define MODE_STREAM 0x08
 
 void help(char **argv)
 {
@@ -352,6 +353,8 @@ void help(char **argv)
 	fprintf(stderr, "\t-n <name>\tset the output socket name (default: %s)\n", DEFAULT_OUTPUT);
 	fprintf(stderr, "\t-m <num>\tset the maximum number of clients (default: 50)\n");
 	fprintf(stderr, "\t-u <name>\tset the user to run (default: current)\n");
+	fprintf(stderr, "\t-U \topen a Unix SEQPACKET socket to send images\n");
+	fprintf(stderr, "\t-S \topen a Unix STREAM socket to send images\n");
 	fprintf(stderr, "\t-D \tdaemonize the server\n");
 	fprintf(stderr, "\t-w \tstart streamer with specific ouistiti features\n");
 	fprintf(stderr, "\t-d <device> \tset the path to the video device (default: %s)\n", DEFAULT_INPUT);
@@ -372,7 +375,7 @@ int main(int argc, char *argv[])
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "hd:R:mn:u:f:UOD");
+		opt = getopt(argc, argv, "hd:R:mn:u:f:UODS");
 		switch (opt)
 		{
 			case 'h':
@@ -421,6 +424,11 @@ int main(int argc, char *argv[])
 			case 'D':
 				mode |= MODE_DAEMON;
 			break;
+			case 'S':
+				mode |= MODE_STREAM;
+				mode |= MODE_UNIX;
+				_write = _send;
+			break;
 			default:
 			break;
 		}
@@ -450,8 +458,11 @@ int main(int argc, char *argv[])
 	const char *ext = strrchr(output, '.');
 	if (ext != NULL)
 	{
-		if (!strcmp(ext, ".hd64"))
+		if (!strcmp(ext, ".h264"))
+		{
 			camera.defaultid = 0;
+			mode |= MODE_STREAM;
+		}
 		if (!strcmp(ext, ".jpg") || !strcmp(ext, ".jpeg"))
 			camera.defaultid = 2;
 		if (!strcmp(ext, ".mjpg") || !strcmp(ext, ".mjpeg"))
@@ -468,7 +479,11 @@ int main(int argc, char *argv[])
 		{
 			signal(SIGPIPE, SIG_IGN);
 			unlink(output);
-			int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+			int sock = -1;
+			if (mode & MODE_STREAM)
+				sock = socket(AF_UNIX, SOCK_STREAM, 0);
+			else
+				sock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 
 			if (sock == -1)
 			{
