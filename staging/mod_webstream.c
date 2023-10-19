@@ -53,7 +53,6 @@
 
 extern int ouistiti_websocket_run(void *arg, int sock, int wssock, http_message_t *request);
 
-#define DEBUG
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
@@ -129,9 +128,15 @@ static int _webstream_socket(_mod_webstream_ctx_t *ctx, int sock, const char *fi
 	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
 
 	if (config->options & WEBSTREAM_MULTIPART)
+	{
+		warn("webstream: multipart socket");
 		sock = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+	}
 	else
+	{
+		warn("webstream: stream socket");
 		sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	}
 	if (sock > 0)
 	{
 		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
