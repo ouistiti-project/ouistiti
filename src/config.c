@@ -267,12 +267,15 @@ void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
 {
 	if (logfd > 0)
 		close(logfd);
+	void *lastconfig = NULL;
 	for (int i = 0; i < MAX_SERVERS; i++)
 	{
 		if (ouistiticonfig->config[i] != NULL)
 		{
-			if (ouistiticonfig->config[i]->configfile != ouistiticonfig->configfile)
+			if ((ouistiticonfig->config[i]->configfile != ouistiticonfig->configfile) &&
+				(ouistiticonfig->config[i]->configfile != lastconfig))
 			{
+				lastconfig = ouistiticonfig->config[i]->configfile;
 				config_destroy((config_t *)ouistiticonfig->config[i]->configfile);
 				free(ouistiticonfig->config[i]->configfile);
 			}
