@@ -56,6 +56,7 @@
 #define OPTION_OUISTITI 0x01
 #define OPTION_TEST 0x02
 #define OPTION_DAEMON 0x04
+#define OPTION_STREAM 0x08
 
 typedef int (*server_t)(int sock);
 
@@ -258,6 +259,9 @@ int main(int argc, char **argv)
 			case 'D':
 				options |= OPTION_DAEMON;
 			break;
+			case 'S':
+				options |= OPTION_STREAM;
+			break;
 		}
 	} while(opt != -1);
 
@@ -282,7 +286,10 @@ int main(int argc, char **argv)
 			err("change owner to launch");
 	}
 
-	sock = socket(PF_UNIX, SOCK_STREAM, 0);
+	if (options & OPTION_STREAM)
+		sock = socket(PF_UNIX, SOCK_STREAM, 0);
+	else
+		sock = socket(PF_UNIX, SOCK_SEQPACKET, 0);
 	if (sock > 0)
 	{
 		struct sockaddr_un addr;
