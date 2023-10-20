@@ -4,7 +4,7 @@ thrift_GENERATED+=gen-cpp/Calculator.cpp
 thrift_GENERATED+=gen-cpp/tutorial_constants.cpp
 thrift_GENERATED+=gen-cpp/tutorial_types.cpp
 thrift_GENERATED+=gen-cpp/SharedService.cpp
-thrift_GENERATED+=gen-cpp/shared_constants.cpp
+thrift_GENERATED-$(THRIFT_OLD)+=gen-cpp/shared_constants.cpp
 thrift_GENERATED+=gen-cpp/shared_types.cpp
 thrift_LIBRARY+=thrift{0.13}
 thrift_CXXFLAGS+=-I$(objdir)gen-cpp/
@@ -34,14 +34,18 @@ $(objdir)gen-cpp/shared_types.cpp: shared.thrift $(objdir)gen-cpp/
 $(objdir)gen-cpp/shared_types.h: shared.thrift $(objdir)gen-cpp/
 	thrift -out $(@D) -gen cpp:templates $<
 
-data-y+=thrif.html
-thrift.html_GENERATED+=$(objdir)gen-js/Calculator.js
+HTDOCS=htdocs/websocket/
+data-y+=$(HTDOCS)thrift.html
+data-y+=$(HTDOCS)gen-js/Calculator.js
+data-y+=$(HTDOCS)gen-js/SharedService.js
+$(HTDOCS)gen-js/Calculator.js_GENERATED+=$(objdir)$(HTDOCS)gen-js/Calculator.js
+$(HTDOCS)gen-js/SharedService.js_GENERATED+=$(objdir)$(HTDOCS)gen-js/SharedService.js
 
-$(objdir)gen-js/:
+$(objdir)$(HTDOCS)gen-js/:
 	@mkdir -p $@
 
-$(objdir)gen-js/Calculator.js: tutorial.thrift $(objdir)gen-js/
+$(objdir)$(HTDOCS)gen-js/Calculator.js: tutorial.thrift $(objdir)$(HTDOCS)gen-js/
 	thrift -out $(@D) -gen js: $<
 
-$(objdir)gen-js/SharedService.js: shared.thrift $(objdir)gen-js/
+$(objdir)$(HTDOCS)gen-js/SharedService.js: shared.thrift $(objdir)$(HTDOCS)gen-js/
 	thrift -out $(@D) -gen js: $<

@@ -367,7 +367,7 @@ int main(int argc, char *argv[])
 	camera.defaultid = -1;
 	camera.ofd = -1;
 	const char *output = DEFAULT_OUTPUT;
-	char *root = "/var/run/webstream";
+	const char *root = "/var/run/webstream";
 	int maxclients = 50;
 	const char *username = NULL;
 	int mode = 0;

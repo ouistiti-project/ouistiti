@@ -396,6 +396,7 @@ int main(int argc, char **argv)
 							}
 							else if (length > 0)
 							{
+								buffer[length] = 0;
 								dbg("chat: receive from %d : %s", user->sock, buffer);
 								if (options & WS_MSG)
 									chat(user, buffer, length);

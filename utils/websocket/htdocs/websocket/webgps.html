@@ -2,9 +2,21 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
-		<!--script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 		<script type="text/javascript" language="javascript" src="js/jquery.min.js"></script>
 		<script language="javascript" type="text/javascript">
+function setwsuri(server)
+{
+	var uri = "";
+	if (location.protocol === "http:")
+		uri += "ws://";
+	else if (location.protocol === "https:")
+		uri += "wss://";
+	uri += location.hostname;
+	uri += "/";
+	uri += server;
+	return uri;
+}
 function writeMessage(text)
 {
 	var message = JSON.parse(text);
@@ -57,6 +69,7 @@ function onError(evt)
 }
 
 $(document).ready(function() {
+	$("#wsUri").val(setwsuri("gps"));
 	$("#connect").on("click", connect);
 	$("#disconnect").on("click", disconnect);
 });
