@@ -538,6 +538,7 @@ clean: default_action ;
 distclean: action:=_clean
 distclean: build:=$(action) -f $(makemore) file
 distclean: cleanconfig default_action
+	@$(call cmd,clean,$(CONFIG))
 	@$(call cmd,clean_dir,$(wildcard $(builddir)host))
 	@$(call cmd,clean_dir,$(filter-out $(srcdir),$(builddir)))
 	@$(call cmd,clean_dir,$(wildcard $(gitclone-target)))
@@ -926,7 +927,6 @@ $(pkgconfig-target): $(builddir)%.pc:$(builddir).%.pc.in
 menuconfig gconfig xconfig config:
 	$(EDITOR) $(CONFIG)
 
-configfiles+=$(wildcard $(CONFIG))
 configfiles+=$(wildcard $(CONFIGFILE))
 configfiles+=$(wildcard $(VERSIONFILE))
 configfiles+=$(wildcard $(TMPCONFIG))
@@ -966,6 +966,7 @@ defconfig: cleanconfig $(builddir) default_action ;
 # 2) relaunch with _defconfig target
 DEFCONFIGFILES:=$(notdir $(wildcard $(srcdir)configs/*))
 $(DEFCONFIGFILES): %_defconfig: cleanconfig $(builddir)
+	@$(call cmd,clean,$(CONFIG))
 	$(Q)$(MAKE) _defconfig DEFCONFIG=$(srcdir)configs/$*_defconfig TMPCONFIG=$(builddir).tmpconfig -f $(makemore) file=$(file)
 
 .PHONY: $(DEFCONFIGFILES)
