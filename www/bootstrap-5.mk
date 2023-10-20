@@ -1,10 +1,11 @@
 BOOTSTRAP_VERSION=5.0.2
-BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/bootstrap-5/css/bootstrap.min.css
-#BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/bootstrap-5/css/bootstrap.min.css.map
-BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/bootstrap-5/js/bootstrap.min.js
-BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/bootstrap-5/js/bootstrap.min.js.map
-BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/bootstrap-5/js/bootstrap.bundle.min.js
-BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/bootstrap-5/js/bootstrap.bundle.min.js.map
+#BOOTSTRAP_EXTRA=bootstrap-5/
+BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/$(BOOTSTRAP_EXTRA)css/bootstrap.min.css
+BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/$(BOOTSTRAP_EXTRA)/css/bootstrap.min.css.map
+BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/$(BOOTSTRAP_EXTRA)/js/bootstrap.min.js
+BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/$(BOOTSTRAP_EXTRA)/js/bootstrap.min.js.map
+BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/$(BOOTSTRAP_EXTRA)/js/bootstrap.bundle.min.js
+BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/$(BOOTSTRAP_EXTRA)/js/bootstrap.bundle.min.js.map
 data-y+=$(BOOTSTRAP_FILES)
 
 bootstrap-v$(BOOTSTRAP_VERSION).zip:

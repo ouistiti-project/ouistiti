@@ -52,52 +52,52 @@ public:
   void ping() override { cout << "ping()" << endl; }
 
   int32_t add(const int32_t n1, const int32_t n2) override {
-    cout << "add(" << n1 << ", " << n2 << ")" << endl;
-    return n1 + n2;
+	cout << "add(" << n1 << ", " << n2 << ")" << endl;
+	return n1 + n2;
   }
 
   int32_t calculate(const int32_t logid, const Work& work) override {
-    cout << "calculate(" << logid << ", " << work << ")" << endl;
-    int32_t val;
+	cout << "calculate(" << logid << ", " << work << ")" << endl;
+	int32_t val;
 
-    switch (work.op) {
-    case Operation::ADD:
-      val = work.num1 + work.num2;
-      break;
-    case Operation::SUBTRACT:
-      val = work.num1 - work.num2;
-      break;
-    case Operation::MULTIPLY:
-      val = work.num1 * work.num2;
-      break;
-    case Operation::DIVIDE:
-      if (work.num2 == 0) {
-        InvalidOperation io;
-        io.whatOp = work.op;
-        io.why = "Cannot divide by 0";
-        throw io;
-      }
-      val = work.num1 / work.num2;
-      break;
-    default:
-      InvalidOperation io;
-      io.whatOp = work.op;
-      io.why = "Invalid Operation";
-      throw io;
-    }
+	switch (work.op) {
+	case Operation::ADD:
+	  val = work.num1 + work.num2;
+	  break;
+	case Operation::SUBTRACT:
+	  val = work.num1 - work.num2;
+	  break;
+	case Operation::MULTIPLY:
+	  val = work.num1 * work.num2;
+	  break;
+	case Operation::DIVIDE:
+	  if (work.num2 == 0) {
+		InvalidOperation io;
+		io.whatOp = work.op;
+		io.why = "Cannot divide by 0";
+		throw io;
+	  }
+	  val = work.num1 / work.num2;
+	  break;
+	default:
+	  InvalidOperation io;
+	  io.whatOp = work.op;
+	  io.why = "Invalid Operation";
+	  throw io;
+	}
 
-    SharedStruct ss;
-    ss.key = logid;
-    ss.value = to_string(val);
+	SharedStruct ss;
+	ss.key = logid;
+	ss.value = to_string(val);
 
-    log[logid] = ss;
+	log[logid] = ss;
 
-    return val;
+	return val;
   }
 
   void getStruct(SharedStruct& ret, const int32_t logid) override {
-    cout << "getStruct(" << logid << ")" << endl;
-    ret = log[logid];
+	cout << "getStruct(" << logid << ")" << endl;
+	ret = log[logid];
   }
 
   void zip() override { cout << "zip()" << endl; }
@@ -117,74 +117,148 @@ class CalculatorCloneFactory : virtual public CalculatorIfFactory {
   ~CalculatorCloneFactory() override = default;
   CalculatorIf* getHandler(const ::apache::thrift::TConnectionInfo& connInfo) override
   {
-    std::shared_ptr<TSocket> sock = std::dynamic_pointer_cast<TSocket>(connInfo.transport);
-    cout << "Incoming connection\n";
-    cout << "\tSocketInfo: "  << sock->getSocketInfo() << "\n";
-    cout << "\tPeerHost: "    << sock->getPeerHost() << "\n";
-    cout << "\tPeerAddress: " << sock->getPeerAddress() << "\n";
-    cout << "\tPeerPort: "    << sock->getPeerPort() << "\n";
-    return new CalculatorHandler;
+	std::shared_ptr<TSocket> sock = std::dynamic_pointer_cast<TSocket>(connInfo.transport);
+	cout << "Incoming connection\n";
+	cout << "\tSocketInfo: "  << sock->getSocketInfo() << "\n";
+	cout << "\tPeerHost: "    << sock->getPeerHost() << "\n";
+	cout << "\tPeerAddress: " << sock->getPeerAddress() << "\n";
+	cout << "\tPeerPort: "    << sock->getPeerPort() << "\n";
+	return new CalculatorHandler;
   }
   void releaseHandler( ::shared::SharedServiceIf* handler) override {
-    delete handler;
+	delete handler;
   }
 };
 
-int main() {
-  // JS thrift needs JSON protocol
-  // Ouistiti uses unix socket
-  TThreadedServer server(
-    std::make_shared<CalculatorProcessorFactory>(std::make_shared<CalculatorCloneFactory>()),
-    std::make_shared<TServerSocket>("/tmp/thrift"), //port
-    std::make_shared<TBufferedTransportFactory>(),
-    std::make_shared<TJSONProtocolFactory>());
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <pwd.h>
 
-  /*
-  TThreadedServer server(
-    std::make_shared<CalculatorProcessorFactory>(std::make_shared<CalculatorCloneFactory>()),
-    std::make_shared<TServerSocket>(9090), //port
-    std::make_shared<TBufferedTransportFactory>(),
-    std::make_shared<TBinaryProtocolFactory>());
-  */
+#define OPTION_DAEMON 0x0001
 
-  /*
-  // if you don't need per-connection state, do the following instead
-  TThreadedServer server(
-    std::make_shared<CalculatorProcessor>(std::make_shared<CalculatorHandler>()),
-    std::make_shared<TServerSocket>(9090), //port
-    std::make_shared<TBufferedTransportFactory>(),
-    std::make_shared<TBinaryProtocolFactory>());
-  */
+int main(int argc, char *const *argv)
+{
+	const char *root = "/var/run/websocket";
+	const char *proto = basename(argv[0]);
+	int maxclients = 50;
+	const char *username = NULL;
+	int options = 0;
+	int opt;
 
-  /**
-   * Here are some alternate server types...
+	do
+	{
+		opt = getopt(argc, argv, "u:R:n:hD");
+		switch (opt)
+		{
+			case 'R':
+				root = optarg;
+			break;
+			case 'h':
+				//help(argv);
+				return -1;
+			break;
+			case 'n':
+				proto = optarg;
+			break;
+			case 'u':
+				username = optarg;
+			break;
+			case 'D':
+				options |= OPTION_DAEMON;
+			break;
+		}
+	} while(opt != -1);
 
-  // This server only allows one connection at a time, but spawns no threads
-  TSimpleServer server(
-    std::make_shared<CalculatorProcessor>(std::make_shared<CalculatorHandler>()),
-    std::make_shared<TServerSocket>(9090),
-    std::make_shared<TBufferedTransportFactory>(),
-    std::make_shared<TBinaryProtocolFactory>());
+	if (access(root, R_OK|W_OK|X_OK))
+	{
+		if (mkdir(root, 0777))
+		{
+			printf("access %s error %s\n", root, strerror(errno));
+			return -1;
+		}
+		if (chmod(root, 0777) == 0)
+			printf("directory rights granted\n");
+	}
+	if (chdir(root))
+		printf("change directory %s\n", root);
+	if (getuid() == 0 && username != NULL)
+	{
+		int ret = 0;
+		struct passwd *user = NULL;
+		user = getpwnam(username);
+		ret = setgid(user->pw_gid);
+		ret = setuid(user->pw_uid);
+		if (ret == -1)
+			printf("change owner to launch\n");
+		else
+			printf("change user as %s\n", username);
+	}
 
-  const int workerCount = 4;
+	if ((options & OPTION_DAEMON) && (fork() != 0))
+	{
+		printf("daemonize\n");
+		sched_yield();
+		return 0;
+	}
 
-  std::shared_ptr<ThreadManager> threadManager =
-    ThreadManager::newSimpleThreadManager(workerCount);
-  threadManager->threadFactory(
-    std::make_shared<ThreadFactory>());
-  threadManager->start();
+	// JS thrift needs JSON protocol
+	// Ouistiti uses unix socket
+	printf("proto %s\n", proto);
+	unlink(proto);
+	TThreadedServer server(
+		std::make_shared<CalculatorProcessorFactory>(std::make_shared<CalculatorCloneFactory>()),
+		std::make_shared<TServerSocket>(proto), //port
+		std::make_shared<TBufferedTransportFactory>(),
+		std::make_shared<TJSONProtocolFactory>());
 
-  // This server allows "workerCount" connection at a time, and reuses threads
-  TThreadPoolServer server(
-    std::make_shared<CalculatorProcessorFactory>(std::make_shared<CalculatorCloneFactory>()),
-    std::make_shared<TServerSocket>(9090),
-    std::make_shared<TBufferedTransportFactory>(),
-    std::make_shared<TBinaryProtocolFactory>(),
-    threadManager);
-  */
+	/*
+	TThreadedServer server(
+		std::make_shared<CalculatorProcessorFactory>(std::make_shared<CalculatorCloneFactory>()),
+		std::make_shared<TServerSocket>(9090), //port
+		std::make_shared<TBufferedTransportFactory>(),
+		std::make_shared<TBinaryProtocolFactory>());
+	*/
 
-  cout << "Starting the server..." << endl;
-  server.serve();
-  cout << "Done." << endl;
-  return 0;
+	/*
+	// if you don't need per-connection state, do the following instead
+	TThreadedServer server(
+		std::make_shared<CalculatorProcessor>(std::make_shared<CalculatorHandler>()),
+		std::make_shared<TServerSocket>(9090), //port
+		std::make_shared<TBufferedTransportFactory>(),
+		std::make_shared<TBinaryProtocolFactory>());
+	*/
+
+	/**
+	* Here are some alternate server types...
+
+	// This server only allows one connection at a time, but spawns no threads
+	TSimpleServer server(
+		std::make_shared<CalculatorProcessor>(std::make_shared<CalculatorHandler>()),
+		std::make_shared<TServerSocket>(9090),
+		std::make_shared<TBufferedTransportFactory>(),
+		std::make_shared<TBinaryProtocolFactory>());
+
+	const int workerCount = 4;
+
+	std::shared_ptr<ThreadManager> threadManager =
+		ThreadManager::newSimpleThreadManager(workerCount);
+	threadManager->threadFactory(
+	std::make_shared<ThreadFactory>());
+	threadManager->start();
+
+	// This server allows "workerCount" connection at a time, and reuses threads
+	TThreadPoolServer server(
+		std::make_shared<CalculatorProcessorFactory>(std::make_shared<CalculatorCloneFactory>()),
+		std::make_shared<TServerSocket>(9090),
+		std::make_shared<TBufferedTransportFactory>(),
+		std::make_shared<TBinaryProtocolFactory>(),
+		threadManager);
+	*/
+
+	cout << "Starting the server..." << endl;
+	server.serve();
+	cout << "Done." << endl;
+	return 0;
 }

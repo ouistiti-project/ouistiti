@@ -216,8 +216,8 @@ int main(int argc, char **argv)
 {
 	int ret = -1;
 	int sock;
-	char *root = "/var/run/webstream";
-	char *proto = basename(argv[0]);
+	const char *root = "/var/run/webstream";
+	const char *proto = basename(argv[0]);
 	int maxclients = 50;
 	const char *username = NULL;
 	int options = 0;
@@ -228,7 +228,7 @@ int main(int argc, char **argv)
 
 	do
 	{
-		opt = getopt(argc, argv, "u:R:m:hon:ts:D");
+		opt = getopt(argc, argv, "u:R:m:hon:ts:DS");
 		switch (opt)
 		{
 			case 'R':

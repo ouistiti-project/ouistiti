@@ -107,4 +107,6 @@ websocket_syslogd_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket c pthread
 
 websocket_syslogd_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
-subdir-$(TBRIFT)+=$(WS_SRC)thrift.mk
+subdir-$(THRIFT)+=$(WS_SRC)thrift.mk
+
+subdir-y+=$(WS_SRC)/htdocs.mk

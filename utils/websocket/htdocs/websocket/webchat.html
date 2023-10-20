@@ -16,10 +16,28 @@
 				width: 20%;
 				margin: 5px;
 			}
+			.private {
+				font-weight: bold;
+			}
+			.highlight {
+				font-weight: bold;
+			}
 		</style>
-		<!--script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
 		<script type="text/javascript" language="javascript" src="js/jquery.min.js"></script>
 		<script language="javascript" type="text/javascript">
+function setwsuri(server)
+{
+	var uri = "";
+	if (location.protocol === "http:")
+		uri += "ws://";
+	else if (location.protocol === "https:")
+		uri += "wss://";
+	uri += location.hostname;
+	uri += "/";
+	uri += server;
+	return uri;
+}
 var chat;
 var users = new Array();
 function writeToScreen(message)
@@ -46,6 +64,7 @@ function writeToScreen(message)
 	$("#output").append(div);
 }
 
+var g_privatemsg = undefined;
 function addUser(message)
 {
 	users[message.id] = message.data;
@@ -57,6 +76,16 @@ function addUser(message)
 	$("#users #"+message.id).on("click", function()
 	{
 		chat.whois(this.id);
+		if (g_privatemsg == undefined)
+		{
+			$(this).addClass("highlight");
+			g_privatemsg=this.id
+		}
+		else
+		{
+			$(this).removeClass("highlight");
+			g_privatemsg=undefined
+		}
 	});
 }
 
@@ -82,7 +111,8 @@ function disconnect()
 
 webchat = function(identity, ouistiti)
 {
-	this.ouistitiserver = ouistiti;
+	//this.ouistitiserver = ouistiti;
+	this.ouistitiserver = undefined;
 	this.color = "blue";
 	this.identity = identity;
 	this.id = identity;
@@ -101,17 +131,20 @@ webchat = function(identity, ouistiti)
 		
 		var _chat = this;
 		websocket = new WebSocket(this.uri);
-		websocket.onopen = function(evt) { onOpen.call(_chat, evt) };
-		websocket.onclose = function(evt) { onClose.call(_chat, evt) };
-		websocket.onmessage = function(evt) { onMessage.call(_chat, evt) };
-		websocket.onerror = function(evt) { onError.call(_chat, evt) };
+		//websocket.onopen = function(evt) { onOpen.call(_chat, evt) };
+		//websocket.onclose = function(evt) { onClose.call(_chat, evt) };
+		//websocket.onmessage = function(evt) { onMessage.call(_chat, evt) };
+		//websocket.onerror = function(evt) { onError.call(_chat, evt) };
+		websocket.onopen = this.onOpen.bind(this);
+		websocket.onclose = this.onClose.bind(this);
+		websocket.onmessage = this.onMessageSocket.bind(this);
+		websocket.onerror = this.onError.bind(this);
 	};
 
 	this.disconnect = function()
 	{
 		var msg = {type : "goodbye", id: this.id, data: {name: "goodbye", color: this.color}};
 		websocket.send(JSON.stringify(msg));
-		alert("quit");
 		websocket.close();
 	};
 
@@ -151,87 +184,88 @@ webchat = function(identity, ouistiti)
 			var msg = {type : "whois", id: this.id, data: id};
 			websocket.send(JSON.stringify(msg));
 		}
-	}
-function onOpen(evt)
-{
-	if (this.ouistitiserver)
-		websocket.send("WSHello "+this.identity);
-	else
-		this.hello();
-	if (typeof(this.onConnect) == "function")
-		this.onConnect();
-};
-function onClose(evt)
-{
-	if (typeof(this.onClose) == "function")
-		this.onClose();
-};
+	};
+	this.onOpen = function (evt)
+	{
+		if (this.ouistitiserver)
+			websocket.send("WSHello "+this.identity);
+		else
+			this.hello();
+		if (typeof(this.onConnect) == "function")
+			this.onConnect();
+	};
+	this.onClose = function (evt)
+	{
+		if (typeof(this.onClose) == "function")
+			this.onClose();
+	};
 
-function onMessage(evt)
-{
-	var data = evt.data;
-	if (this.ouistitiserver && data.substr(0, 10) == "WSWelcome ")
+	this.onMessageSocket = function (evt)
 	{
-		this.id = data.substr(10);
-		this.hello();
-	}
-	else if (this.ouistitiserver && data.substr(0, 5) == "WSIs ")
-	{
-		alert(data.substr(5));
-	}
-	else
-	{
-		//data = data.substr(0, data.length - 1);
-		msg = JSON.parse(data);
-		if (msg != undefined)
+		var data = evt.data;
+		if (this.ouistitiserver && data.substr(0, 10) == "WSWelcome ")
 		{
-			switch (msg.type)
+			this.id = data.substr(10);
+			this.hello();
+		}
+		else if (this.ouistitiserver && data.substr(0, 5) == "WSIs ")
+		{
+			alert(data.substr(5));
+		}
+		else
+		{
+			//data = data.substr(0, data.length - 1);
+			msg = JSON.parse(data);
+			if (msg != undefined)
 			{
-				case "hello":
-					if (typeof(this.onHello) == "function")
-						this.onHello(msg);
-					this.welcome();
-				break;
-				case "welcome":
-					if (typeof(this.onHello) == "function")
-						this.onHello(msg);
-				break;
-				case "message":
-					if (typeof(this.onMessage) == "function")
-						this.onMessage(msg);
-				break;
-				case "private":
-					if (typeof(this.onMessage) == "function")
-						this.onMessage(msg);
-				break;
-				case "goodbye":
-					if (typeof(this.onGoodbye) == "function")
-						this.onGoodbye(msg);
-				break;
-				case "whois":
-					if (this.id == message.data)
-					{
-						var msg = {type : "is", id: this.id, data: "tempo", private:message.id};
-						websocket.send(JSON.stringify(msg));
-					}
-				break;
-				case "is":
-					if (message.private == this.id)
-						alert(message.data);
-				break;
+				switch (msg.type)
+				{
+					case "hello":
+						if (typeof(this.onHello) == "function")
+							this.onHello(msg);
+						this.welcome();
+					break;
+					case "welcome":
+						if (typeof(this.onHello) == "function")
+							this.onHello(msg);
+					break;
+					case "message":
+						if (typeof(this.onMessage) == "function")
+							this.onMessage(msg);
+					break;
+					case "private":
+						if (typeof(this.onMessage) == "function")
+							this.onMessage(msg);
+					break;
+					case "goodbye":
+						if (typeof(this.onGoodbye) == "function")
+							this.onGoodbye(msg);
+					break;
+					case "whois":
+						if (this.id == msg.data)
+						{
+							var msg = {type : "is", id: this.id, data: this.identity, private:msg.id};
+							websocket.send(JSON.stringify(msg));
+						}
+					break;
+					case "is":
+						if (msg.private == this.id)
+							alert(msg.data);
+					break;
+				}
 			}
 		}
-	}
-};
+	};
 
-function onError(evt)
-{
-	websocket.close();
-};
+	this.onError = function (evt)
+	{
+		websocket.close();
+	};
 };
 
 $(document).ready(function()
 {
+	$("#wsUri").val(setwsuri("chat"));
 	$("#disconnect").on("click", disconnect);
 	$("#connect").on("click", connect);
 	$("#input").prop("readonly", true);
@@ -265,7 +299,8 @@ $(document).ready(function()
 			}
 			var keyCode = e.keyCode || e.which;
 			if (keyCode == '13'){
-				chat.send($(this).val());
+				chat.color = $("#color").val();
+				chat.send($(this).val(), g_privatemsg);
 				$("#input").val("");
 			}
 		});
@@ -275,8 +310,10 @@ $(document).ready(function()
 	</head>
 	<body>
 		<title>WebChat</title>
+		<p>The server should run as:</p>
+		<p><i>sudo /usr/libexec/ouistiti/websocket_chat -R /srv/www/websocket/ -n chat -u www-data</i></p>
 		<form>
-			<input type="hidden" id="wsUri" value="127.0.0.1/chat" />
+			<input type="hidden" id="wsUri" value="" />
 			<input type="text" id="nickname" value="myname" />
 			<input type="color" id="color" value="blue" />
 			<input type="button" id="connect" value="Connect" />

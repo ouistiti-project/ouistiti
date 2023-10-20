@@ -3,6 +3,18 @@
 	<head>
 		<meta charset="utf-8" />
 		<script language="javascript" type="text/javascript">
+function setwsuri(server)
+{
+	var uri = "";
+	if (location.protocol === "http:")
+		uri += "ws://";
+	else if (location.protocol === "https:")
+		uri += "wss://";
+	uri += location.hostname;
+	uri += "/";
+	uri += server;
+	return uri;
+}
 class JsonRPC
 {
 	constructor(method)
@@ -175,16 +187,8 @@ onLoad = function()
 	_input = document.getElementById("confirm");
 	_input.setAttribute("readonly", true);
 
-	var uri = "";
-	if (location.protocol === "http:")
-		uri += "ws://";
-	else if (location.protocol === "https:")
-		uri += "wss://";
-	uri += location.hostname;
-	uri += ":"+location.port;
-	uri += "/auth";
 	var _wsUri = document.getElementById("wsUri");
-	_wsUri.value = uri;
+	_wsUri.value = setwsuri("auth");
 
 	var _connect = document.getElementById("connect");
 	_connect.onclick = connect;
