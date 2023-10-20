@@ -2,9 +2,21 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
-		<!--script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script-->
+		<script type="text/javascript" language="javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 		<script type="text/javascript" language="javascript" src="js/jquery.min.js"></script>
 		<script language="javascript" type="text/javascript">
+function setwsuri(server)
+{
+	var uri = "";
+	if (location.protocol === "http:")
+		uri += "ws://";
+	else if (location.protocol === "https:")
+		uri += "wss://";
+	uri += location.hostname;
+	uri += "/";
+	uri += server;
+	return uri;
+}
 function writeToScreen(message)
 {
 	$("#output").append("<p>"+message+"</p>");
@@ -50,6 +62,7 @@ function onError(evt)
 }
 
 $(document).ready(function() {
+	$("wsUri").val(setwsuri("echo"));
 	$("#connect").on("click", connect);
 	$("#disconnect").on("click", disconnect);
 	$("#input").prop("readonly", true);
@@ -69,8 +82,10 @@ $(document).ready(function() {
 	</head>
 	<body>
 		<title>WebSocket Test</title>
+		<p>The server should run as:</p>
+		<p><i>sudo /usr/libexec/ouistiti/websocket_echo -R /srv/www/websocket/ -n echo -u www-data</i></p>
 		<form>
-			<input type="text" id="wsUri" value="ws://127.0.0.1/echo" />
+			<input type="text" id="wsUri" value="" />
 			<input type="button" id="connect" value="Connect" />
 			<input type="button" id="disconnect" value="Disconnect" />
 			<input type="text" id="input" />
