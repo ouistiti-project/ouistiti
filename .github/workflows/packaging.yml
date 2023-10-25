@@ -83,5 +83,5 @@ jobs:
       - name: binaries artifact
         uses: actions/upload-artifact@v3
         with:
-          name: packages
+          name: debian
           path: ${{env.PACKAGENAME}}*.deb

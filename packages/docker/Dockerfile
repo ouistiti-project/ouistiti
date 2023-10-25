@@ -7,9 +7,6 @@ RUN apt update && apt install -y \
  libjansson4 \
  libsqlite3-0
 
-COPY libouistiti_latest_amd64.deb /tmp
-RUN dpkg -i /tmp/libouistiti_latest_amd64.deb
-
 COPY ouistiti_latest_amd64.deb /tmp
 RUN dpkg -i /tmp/ouistiti_latest_amd64.deb
 
