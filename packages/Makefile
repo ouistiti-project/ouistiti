@@ -10,6 +10,10 @@ UID=$(shell id -u)
 debian: FORCE
 	@dpkg-buildpackage --no-sign
 
+debian-docker: FORCE
+	@docker build -t ouistiti-debian --build-arg=BRANCH=v3.4 debian/
+	@docker run -v .:/mnt ouistiti-debian
+
 $(RPMDIR)/rpmbuild/SOURCES:
 	@mkdir -p $@
 

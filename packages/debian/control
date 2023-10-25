@@ -2,10 +2,11 @@ Source: ouistiti
 Section: universe/web
 Priority: extra
 Build-Depends: debhelper (>=9),
-               libconfig-dev,
-               libjansson-dev,
+               libconfig-dev (>=9.2),
+               libjansson-dev (>=4.12),
                libsqlite3-dev,
-               libssl-dev
+               libssl-dev (>=3.0.0),
+               libpython3-dev (>=3.8)
 Standards-Version: 4.0.0
 Description: lightweight and fast HTTP server
 Maintainer: Marc Chalain <marc.chalain@gmail.com>
