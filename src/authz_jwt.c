@@ -48,8 +48,6 @@
 #include "mod_auth.h"
 #include "authz_jwt.h"
 
-#define HASH_MAX_SIZE 32
-
 #define auth_dbg(...)
 
 //#define FILE_MMAP

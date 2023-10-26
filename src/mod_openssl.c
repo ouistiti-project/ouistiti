@@ -64,13 +64,10 @@ struct _mod_openssl_s
 	SSL_CTX *openssl_ctx;
 };
 
-static http_server_config_t mod_openssl_config;
 static const httpclient_ops_t *tlsserver_ops;
 
 void *mod_openssl_create(http_server_t *server, mod_tls_t *modconfig)
 {
-	int ret;
-	int is_set_pemkey = 0;
 	_mod_openssl_t *mod = NULL;
 
 	if (!modconfig)
@@ -137,7 +134,9 @@ void mod_openssl_destroy(void *arg)
 void mod_tls_destroy(void *arg) __attribute__ ((weak, alias ("mod_openssl_destroy")));
 
 static void *_tlsserver_create(void *arg, http_client_t *clt);
+#ifdef TLS_CONNECT
 static int _tls_connect(void *vctx, const char *addr, int port);
+#endif
 static void _tls_disconnect(void *vctx);
 static void _tls_destroy(void *vctx);
 
@@ -145,7 +144,6 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 {
 	_mod_openssl_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_openssl_t *mod = (_mod_openssl_t *)arg;
-	void *protocolconfig;
 	ctx->clt = clt;
 	ctx->mod = mod;
 	ctx->protocolops = mod->protocolops;
@@ -173,6 +171,7 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 	return ctx;
 }
 
+#ifdef TLS_CONNECT
 static int _tls_connect(void *vctx, const char *addr, int port)
 {
 	int ret = ESUCCESS;
@@ -181,6 +180,7 @@ static int _tls_connect(void *vctx, const char *addr, int port)
 	ret = ctx->protocolops->connect(ctx->protocol, addr, port);
 	return ret;
 }
+#endif
 
 static void _tls_disconnect(void *vctx)
 {

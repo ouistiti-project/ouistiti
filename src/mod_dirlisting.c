@@ -240,7 +240,6 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 {
 	int ret = EREJECT;
 	document_connector_t *private = httpmessage_private(request, NULL);
-	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
 
 	if (private->ents == NULL)
 	{

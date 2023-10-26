@@ -91,7 +91,6 @@ void document_close(document_connector_t *private, http_message_t *request)
 static int _document_dochome(_mod_document_mod_t *mod,
 		http_message_t *request, const char **uri)
 {
-	const mod_document_t *config = mod->config;
 	int fdroot = -1;
 
 	while ((*uri)[0] == '/') (*uri)++;

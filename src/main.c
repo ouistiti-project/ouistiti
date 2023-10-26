@@ -671,8 +671,10 @@ int main(int argc, char * const *argv)
 	sigaction(SIGSEGV, &action, NULL);
 #endif
 
+#if 0
 	struct sigaction unaction;
 	unaction.sa_handler = SIG_IGN;
+#endif
 	sigaction(SIGPIPE, &action, NULL);
 #else
 	signal(SIGTERM, handler);
