@@ -203,10 +203,10 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 		int i = 0;
 		if (sqlite3_column_type(statement, i) == SQLITE_TEXT)
 		{
-			const char *value = NULL;
+			const unsigned char *value = NULL;
 			value = sqlite3_column_text(statement, i);
 			userfilter_dbg("=> %s", value);
-			if (!ctx->cmp(ctx, value, user, group, home, uri))
+			if (!ctx->cmp(ctx, (const char *)value, user, group, home, uri))
 			{
 				ret = ESUCCESS;
 				break;
@@ -326,26 +326,26 @@ static int _jsonifyrule(_mod_userfilter_t *ctx, int64_t id, http_message_t *resp
 			continue;
 		}
 		int i = 0;
-		const char *field;
+		const unsigned char *field;
 		httpmessage_appendcontent(response, "{\"method\":\"", -1);
 		field = sqlite3_column_text(statement, i);
 		if (field)
-			httpmessage_appendcontent(response, field, -1);
+			httpmessage_appendcontent(response, (const char *)field, -1);
 		httpmessage_appendcontent(response, "\",\"role\":\"", -1);
 		i++;
 		field = sqlite3_column_text(statement, i);
 		if (field)
-			httpmessage_appendcontent(response, field, -1);
+			httpmessage_appendcontent(response, (const char *)field, -1);
 		httpmessage_appendcontent(response, "\",\"pathexp\":\"", -1);
 		i++;
 		field = sqlite3_column_text(statement, i);
 		if (field)
-			httpmessage_appendcontent(response, field, -1);
+			httpmessage_appendcontent(response, (const char *)field, -1);
 		httpmessage_appendcontent(response, "\",\"id\":\"", -1);
 		i++;
 		field = sqlite3_column_text(statement, i);
 		if (field)
-			httpmessage_appendcontent(response, field, -1);
+			httpmessage_appendcontent(response, (const char *)field, -1);
 		httpmessage_appendcontent(response, "\"}", -1);
 		ret = ECONTINUE;
 		break;

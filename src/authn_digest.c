@@ -241,7 +241,7 @@ static char *authn_digest_digest(const hash_t * hash, const char *a1, size_t a1l
 {
 	if (a1 && a2)
 	{
-		char digest[32];
+		unsigned char digest[32];
 		void *ctx;
 
 		ctx = hash->init();
@@ -267,6 +267,11 @@ static char *authn_digest_digest(const hash_t * hash, const char *a1, size_t a1l
 		hash->update(ctx, a2, a2len);
 		hash->finish(ctx, digest);
 		char *result = NULL;
+#ifdef AUTH_DEBUG
+		for (int i = 0; i < sizeof(digest); i++)
+			fprintf(stderr, "%X", digest[i]);
+		fprintf(stderr,"\n");
+#endif
 		utils_stringify(digest, hash->size, &result);
 		return result;
 	}
@@ -277,7 +282,7 @@ static size_t authn_digest_a1(const hash_t * hash, const char *user, size_t user
 {
 	if (passwd[0] != '$')
 	{
-		char A1[32];
+		unsigned char A1[32];
 		void *ctx;
 
 		ctx = hash->init();
@@ -309,7 +314,7 @@ static size_t authn_digest_a1(const hash_t * hash, const char *user, size_t user
 			passwd += 1;
 			if (decode)
 			{
-				char b64passwd[64] = {0};
+				unsigned char b64passwd[64] = {0};
 				passwdlen -= passwd - fullpasswd;
 				int len = base64->decode(passwd, passwdlen, b64passwd, 64);
 				return utils_stringify(b64passwd, len, a1);
@@ -323,7 +328,7 @@ static size_t authn_digest_a1(const hash_t * hash, const char *user, size_t user
 
 static size_t authn_digest_a2(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen, char **a2)
 {
-	char A2[32];
+	unsigned char A2[32];
 	void *ctx;
 
 	ctx = hash->init();
@@ -338,14 +343,12 @@ static size_t authn_digest_a2(const hash_t * hash, const char *method, size_t me
 	hash->finish(ctx, A2);
 	return utils_stringify(A2, hash->size, a2);
 }
-static struct authn_digest_computing_s authn_digest_md5_computing =
+static struct authn_digest_computing_s *authn_digest_computing = &(struct authn_digest_computing_s)
 {
 	.digest = authn_digest_digest,
 	.a1 = authn_digest_a1,
 	.a2 = authn_digest_a2,
 };
-
-static struct authn_digest_computing_s *authn_digest_computing = &authn_digest_md5_computing;
 
 struct checkuri_s
 {
@@ -366,7 +369,7 @@ static int authn_digest_checkuri(void *data, const char *uri, size_t urilen)
 		{
 			info->value = uri;
 			info->length = urilen;
-			auth_dbg("uri %.*s", info->length, info->value);
+			auth_dbg("uri %.*s", (int)info->length, info->value);
 			return ESUCCESS;
 		}
 		warn("try connection on %s with authorization on %s", info->url, uri);
@@ -426,7 +429,7 @@ static int authn_digest_checkrealm(void *data, const char *value, size_t length)
 	{
 		info->value = value;
 		info->length = length;
-		auth_dbg("realm %.*s", length, value);
+		auth_dbg("realm %.*s", (int)length, value);
 		return ESUCCESS;
 	}
 	warn("auth: realm is unset or bad");
@@ -442,7 +445,7 @@ static int authn_digest_checknonce(void *data, const char *value, size_t length)
 	{
 		info->value = value;
 		info->length = length;
-		auth_dbg("nonce %.*s", length, value);
+		auth_dbg("nonce %.*s", (int)length, value);
 		return ESUCCESS;
 	}
 	warn("auth: nonce is unset or bad");
@@ -460,7 +463,7 @@ static int authn_digest_checkopaque(void *data, const char *value, size_t length
 	{
 		info->value = value;
 		info->length = length;
-		auth_dbg("opaque %.*s", length, value);
+		auth_dbg("opaque %.*s", (int)length, value);
 		return ESUCCESS;
 	}
 	warn("auth: opaque is unset");
@@ -475,7 +478,7 @@ static int authn_digest_checkcnonce(void *data, const char *value, size_t length
 	{
 		info->value = value;
 		info->length = length;
-		auth_dbg("cnonce %.*s", length, value);
+		auth_dbg("cnonce %.*s", (int)length, value);
 		return ESUCCESS;
 	}
 	warn("auth: cnonce is unset");
@@ -490,7 +493,7 @@ static int authn_digest_checkqop(void *data, const char *value, size_t length)
 	{
 		info->value = value;
 		info->length = length;
-		auth_dbg("qop %.*s", length, value);
+		auth_dbg("qop %.*s", (int)length, value);
 		return ESUCCESS;
 	}
 	warn("auth: qop is unset");
@@ -509,7 +512,7 @@ static int authn_digest_checknc(void *data, const char *value, size_t length)
 		{
 			info->value = value;
 			info->length = length;
-			auth_dbg("nc %.*s", length, value);
+			auth_dbg("nc %.*s", (int)length, value);
 			return ESUCCESS;
 		}
 		mod->stale = 0;
@@ -527,7 +530,7 @@ static int authn_digest_checkresponse(void *data, const char *value, size_t leng
 	{
 		info->value = value;
 		info->length = length;
-		auth_dbg("response %.*s", length, value);
+		auth_dbg("response %.*s", (int)length, value);
 		return ESUCCESS;
 	}
 	warn("auth: response is unset");
@@ -556,7 +559,7 @@ static int authn_digest_checkuser(void *data, const char *user, size_t length)
 		{
 			info->value = user;
 			info->length = length;
-			auth_dbg("user %.*s", length, user);
+			auth_dbg("user %.*s", (int)length, user);
 			return ESUCCESS;
 		}
 		warn("auth: user %s is unknown", user);
@@ -602,11 +605,13 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 						user.value, user.length,
 						realm.value, realm.length,
 						user.passwd, user.passwdlen, &a1);
+		auth_dbg("a1:\n\t%.*s\n", (int)a1len, a1);
 		char *a2 = NULL;
 		size_t a2len = authn_digest_computing->a2(algorithm.hash,
 						method, methodlen,
 						url.value, url.length,
 						NULL, 0, &a2);
+		auth_dbg("a2:\n\t%.*s\n", (int)a2len, a2);
 		char *digest = authn_digest_computing->digest(algorithm.hash,
 						a1, a1len,
 						nonce.value, nonce.length,
@@ -615,7 +620,7 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 						qop.value, qop.length,
 						a2, a2len);
 
-		auth_dbg("Digest:\n\t%.*s\n\t%s", response.length, response.value, digest);
+		auth_dbg("Digest:\n\t%.*s\n\t%s", (int)response.length, response.value, digest);
 		if (mod->user != NULL)
 			free(mod->user);
 		if (digest && !strncmp(digest, response.value, response.length))

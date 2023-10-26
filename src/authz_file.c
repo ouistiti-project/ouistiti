@@ -137,7 +137,6 @@ static int _authz_file_parsestring(char *string, int length,
 		endline = string + length;
 
 	string_t *setters[4] = {puser, ppasswd, pgroup, phome};
-	int current = 0;
 
 	puser->data = string;
 	for (int current = 0; current < (sizeof(setters) / sizeof(string_t*)) - 1; current++)

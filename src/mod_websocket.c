@@ -65,8 +65,6 @@ int default_websocket_run(void *arg, int socket, int wssock, http_message_t *req
 extern int ouistiti_websocket_run(void *arg, int socket, int wssock, http_message_t *request);
 #endif
 
-static int _mod_websocket_socket(const char *filepath);
-
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif

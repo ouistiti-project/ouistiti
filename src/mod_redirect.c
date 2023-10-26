@@ -102,7 +102,6 @@ static int redirect_mode(const char *mode)
 static mod_redirect_link_t *redirect_linkconfig(config_setting_t *iterator)
 {
 	mod_redirect_link_t *link = NULL;
-	const char *origin = NULL;
 	char *mode = NULL;
 	int options = 0;
 
@@ -245,7 +244,6 @@ static int _mod_redirect_connectorlinkquery(_mod_redirect_t *mod, http_message_t
 		redirect = strstr(search, "redirect_uri=");
 	if (redirect != NULL)
 	{
-		int result = mod->result;
 		redirect += 13;
 		char *end = strchr(redirect, '&');
 		int length = searchlen - (redirect - search);

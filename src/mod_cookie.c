@@ -268,8 +268,10 @@ int cookie_set(http_message_t *response, const char *key, const char *value, ...
 	ret = httpmessage_appendheader(response, str_SetCookie, STRING_REF(path));
 
 	if (domain != NULL && strncmp(domain, "local", 5))
+	{
 		ret = httpmessage_appendheader(response, str_SetCookie, STRING_REF("; Domain=."));
 		ret = httpmessage_appendheader(response, str_SetCookie, domain, domainlen);
+	}
 	return ret;
 }
 

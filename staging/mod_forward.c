@@ -104,10 +104,7 @@ static mod_forward_link_t *redirect_linkconfig(config_setting_t *iterator)
 {
 	mod_forward_link_t *link = NULL;
 	const char *origin = NULL;
-	char *mode = NULL;
-	int options = 0;
 
-	static char origin_error[5];
 	config_setting_t *originset = config_setting_lookup(iterator, "origin");
 	origin = config_setting_get_string(originset);
 
@@ -202,13 +199,12 @@ static void mod_forward_destroy(void *arg)
 
 static mod_forward_ctx_t * _mod_forward_connectorlink(mod_forward_t *mod, http_message_t *request,
 									http_message_t *response, mod_forward_link_t *link,
-									const char *uri)
+									const char *uri, size_t urilen)
 {
 	mod_forward_ctx_t *ctx = NULL;
 	const char *path_info = NULL;
 	if (utils_searchexp(uri, link->origin, &path_info) == ESUCCESS)
 	{
-		int length = strlen(uri);
 		ctx = calloc(1, sizeof(*ctx));
 
 		ctx->request = httpmessage_create();
@@ -242,7 +238,8 @@ static int _forward_start(mod_forward_t *mod, http_message_t *request, http_mess
 {
 	const mod_forward_config_t *config = mod->config;
 	int ret = EREJECT;
-	const char *uri = httpmessage_REQUEST(request,"uri");
+	const char *uri = NULL;
+	size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
 
 	if (uri)
 	{
@@ -250,7 +247,7 @@ static int _forward_start(mod_forward_t *mod, http_message_t *request, http_mess
 		mod_forward_ctx_t *ctx = NULL;
 		while (link != NULL)
 		{
-			ctx = _mod_forward_connectorlink(mod, request, response, link, uri);
+			ctx = _mod_forward_connectorlink(mod, request, response, link, uri, urilen);
 			if (ctx != NULL)
 			{
 				ret = EINCOMPLETE;

@@ -162,37 +162,6 @@ static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 	return ctx;
 }
 
-static void *authmngt_sqlite_create(http_server_t *UNUSED(server), void *arg)
-{
-	authz_sqlite_t *ctx = NULL;
-	const authz_sqlite_config_t *config = (const authz_sqlite_config_t *)arg;
-	int ret;
-	sqlite3 *db;
-
-	if (access(config->dbname, R_OK))
-	{
-		_authz_sqlite_createdb(config->dbname);
-	}
-
-	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL);
-	if (ret != SQLITE_OK)
-	{
-		err("authmngt: database not found %s", config->dbname);
-		return NULL;
-	}
-	/** empty the session table */
-	sqlite3_stmt *statement;
-	const char *sql = "delete from session;";
-	sqlite3_prepare_v2(db, sql, -1, &statement, NULL);
-
-	sqlite3_step(statement);
-	sqlite3_finalize(statement);
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->db = db;
-	ctx->config = config;
-	return ctx;
-}
-
 static void *authz_sqlite_setup(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -227,10 +196,10 @@ static void *authz_sqlite_setup(void *arg)
 						"inner join status on status.id=users.statusid " \
 						"where users.name=@NAME;"
 
-static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field, int fieldlen)
+static const unsigned char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field, int fieldlen)
 {
 	int ret;
-	const char *value = NULL;
+	const unsigned char *value = NULL;
 
 	size_t size = sizeof(SEARCH_QUERY) + fieldlen;
 	char *sql = sqlite3_malloc(size);
@@ -261,19 +230,19 @@ static const char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, ch
 
 static int _authz_sqlite_storeuser(const authz_sqlite_t *UNUSED(ctx), sqlite3_stmt *statement, storeinfo_t callback, void *cbarg)
 {
-	const char *field;
+	const unsigned char *field;
 	int i = 0;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, STRING_REF("user"), field, -1);
+	callback(cbarg, STRING_REF("user"), (const char *)field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, STRING_REF("group"), field, -1);
+	callback(cbarg, STRING_REF("group"), (const char *)field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, STRING_REF("status"), field, -1);
+	callback(cbarg, STRING_REF("status"), (const char *)field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, STRING_REF("home"), field, -1);
+	callback(cbarg, STRING_REF("home"), (const char *)field, -1);
 	i++;
 
 	return ESUCCESS;
@@ -370,7 +339,7 @@ static int authz_sqlite_passwd(void *arg, const char *user, const char **passwd)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	*passwd = authz_sqlite_search(ctx, user, STRING_REF("passwd"));
+	*passwd = (const char *)authz_sqlite_search(ctx, user, STRING_REF("passwd"));
 	if (*passwd)
 		return strlen(*passwd);
 	return 0;
@@ -380,7 +349,7 @@ static int authz_sqlite_passwd(void *arg, const char *user, const char **passwd)
 static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *token, int expirable)
 {
 	int ret;
-	const char *value = NULL;
+	const unsigned char *value = NULL;
 	const char *sql[] = {
 		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire is null;",
 		"select users.name from session inner join users on users.id = session.userid where session.token=@TOKEN and session.expire > strftime('%s','now');",
@@ -407,7 +376,7 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 	}
 
 	sqlite3_finalize(statement);
-	return value;
+	return (const char *)value;
 }
 #endif
 
@@ -498,75 +467,6 @@ int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
 	}
 	sqlite3_finalize(statement);
 	return userid;
-}
-
-static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char *field, int group)
-{
-	int ret;
-	const char *sql[] = {
-		"update users set name=@FIELD where id=@USERID",
-		"update users set groupid=@FIELDID where id=@USERID",
-		"update users set statusid=@FIELDID where id=@USERID",
-		"update users set passwd=@FIELD where id=@USERID",
-		"update users set home=@FIELD where id=@USERID",
-		NULL,
-	};
-
-	if (sql[group] == NULL)
-		return EREJECT;
-
-	sqlite3_stmt *statement; /// use a specific statement because name may come from ctx->statement
-	ret = sqlite3_prepare_v2(ctx->db, sql[group], -1, &statement, NULL);
-	if (ret != SQLITE_OK) {
-		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
-		sqlite3_finalize(statement);
-		return EREJECT;
-	}
-
-	int fieldid = authz_sqlite_getid(ctx, field, group);
-
-	int index;
-	index = sqlite3_bind_parameter_index(statement, "@USERID");
-	if (index > 0)
-		ret = sqlite3_bind_int(statement, index, userid);
-	if (ret != SQLITE_OK) {
-		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
-		sqlite3_finalize(statement);
-		return EREJECT;
-	}
-
-	index = sqlite3_bind_parameter_index(statement, "@FIELD");
-	if (index > 0)
-		ret = sqlite3_bind_text(statement, index, field, -1, SQLITE_STATIC);
-	if (ret != SQLITE_OK) {
-		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
-		sqlite3_finalize(statement);
-		return EREJECT;
-	}
-
-	index = sqlite3_bind_parameter_index(statement, "@FIELDID");
-	if (index > 0)
-	{
-		if (fieldid >= 0)
-			ret = sqlite3_bind_int(statement, index, fieldid);
-		else
-			ret = SQLITE_ABORT;
-	}
-	if (ret != SQLITE_OK) {
-		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
-		sqlite3_finalize(statement);
-		return EREJECT;
-	}
-
-	ret = sqlite3_step(statement);
-	sqlite3_finalize(statement);
-	if (ret == SQLITE_DONE)
-	{
-		auth_dbg("auth: change %d to %s", group, field);
-		return ESUCCESS;
-	}
-	err("auth: changing error on %d", group);
-	return EREJECT;
 }
 
 static int authz_sqlite_userid(authz_sqlite_t *ctx, const char *name)
