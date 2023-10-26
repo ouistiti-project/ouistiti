@@ -690,8 +690,8 @@ mod_userfilter_t g_userfilter_config =
 static void *userfilter_config(void *iterator, server_t *server)
 {
 	/// test that db not existing and configurable
-	if (access(dbname, R_OK) &&
-		mod_userfilter_createdb(g_userfilter_config.dname,
+	if (access(g_userfilter_config.dbname, R_OK) &&
+		mod_userfilter_createdb(g_userfilter_config.dbname,
 					str_superuser,
 					g_userfilter_config.configuri) != ESUCCESS)
 	{
