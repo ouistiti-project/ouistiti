@@ -10,8 +10,8 @@ fi
 case "$1" in
 	start)
                 echo ${PATH}${SERVICE} -n reverse ${OPTIONS} -D
-                ${PATH}${SERVICE} -n reverse ${OPTIONS} -D
-                ${PATH}${SERVICE} -n dummy ${OPTIONS} -D
+                ${PATH}${SERVICE} -n reverse ${OPTIONS} -D -S
+                ${PATH}${SERVICE} -n dummy ${OPTIONS} -D -S
 		;;
 	stop)
 		killall ${SERVICE}
