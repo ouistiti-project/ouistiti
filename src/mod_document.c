@@ -493,78 +493,93 @@ static int _mime_connector(void *arg, http_message_t *request, http_message_t *r
 }
 
 #ifdef FILE_CONFIG
+static int document_configpart(config_setting_t *config, server_t *server, int index, void **modconfig)
+{
+	int ret = ESUCCESS;
+	mod_document_t * static_file = NULL;
+
+	static_file = calloc(1, sizeof(*static_file));
+	config_setting_lookup_string(config, "docroot", (const char **)&static_file->docroot);
+	config_setting_lookup_string(config, "dochome", (const char **)&static_file->dochome);
+	htaccess_config(config, &static_file->htaccess);
+	config_setting_lookup_string(config, "defaultpage", (const char **)&static_file->defaultpage);
+
+	char *options = NULL;
+	config_setting_lookup_string(config, "options", (const char **)&options);
+#ifdef DIRLISTING
+	if (utils_searchexp("dirlisting", options, NULL) == ESUCCESS)
+		static_file->options |= DOCUMENT_DIRLISTING;
+#endif
+#ifdef SENDFILE
+	if (utils_searchexp("sendfile", options, NULL) == ESUCCESS)
+	{
+		if (!ouistiti_issecure(server))
+			static_file->options |= DOCUMENT_SENDFILE;
+		else
+			warn("sendfile configuration is not allowed with tls");
+	}
+#endif
+#ifdef RANGEREQUEST
+	if (utils_searchexp("range", options, NULL) == ESUCCESS)
+	{
+		static_file->options |= DOCUMENT_RANGE;
+	}
+#endif
+#ifdef DOCUMENTREST
+	if (utils_searchexp("rest", options, NULL) == ESUCCESS)
+	{
+		static_file->options |= DOCUMENT_REST;
+	}
+#endif
+#ifdef DOCUMENTHOME
+	if (utils_searchexp("home", options, NULL) == ESUCCESS)
+	{
+		static_file->options |= DOCUMENT_HOME;
+	}
+#endif
+
+	if (!strcmp(config_setting_name(config), "filestorage"))
+		static_file->options |= DOCUMENT_REST;
+	*modconfig = (void *)static_file;
+	return ret;
+}
+
+#if LIBCONFIG_VER_MINOR < 5
+#define CONFIG_SETTING_LOOKUP(iterator, entry) config_setting_get_member(iterator, entry);
+#else
+#define CONFIG_SETTING_LOOKUP(iterator, entry) config_setting_lookup(iterator, entry);
+#endif
+
 static int document_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
-	int ret = EREJECT;
+	int ret = ESUCCESS;
 	const char *entries[] = {
 		"document", "filestorage", "static_file"
 	};
-	mod_document_t * static_file = NULL;
-#if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configstaticfile = config_setting_get_member(iterator, entries[0]);
-#else
-	config_setting_t *configstaticfile = config_setting_lookup(iterator, entries[0]);
-#endif
-	if (configstaticfile == NULL)
-#if LIBCONFIG_VER_MINOR < 5
-		configstaticfile = config_setting_get_member(iterator, entries[1]);
-#else
-		configstaticfile = config_setting_lookup(iterator, entries[1]);
-#endif
-	if (configstaticfile == NULL)
-#if LIBCONFIG_VER_MINOR < 5
-		configstaticfile = config_setting_get_member(iterator, entries[2]);
-#else
-		configstaticfile = config_setting_lookup(iterator, entries[2]);
-#endif
 
-	if (configstaticfile)
+	config_setting_t *config = NULL;
+
+	config = CONFIG_SETTING_LOOKUP(iterator, entries[0]);
+	if (config == NULL)
+		config = CONFIG_SETTING_LOOKUP(iterator, entries[1]);
+	if (config == NULL)
+		config = CONFIG_SETTING_LOOKUP(iterator, entries[2]);
+
+	if (config && config_setting_is_list(config))
 	{
-		static_file = calloc(1, sizeof(*static_file));
-		config_setting_lookup_string(configstaticfile, "docroot", (const char **)&static_file->docroot);
-		config_setting_lookup_string(configstaticfile, "dochome", (const char **)&static_file->dochome);
-		htaccess_config(configstaticfile, &static_file->htaccess);
-		config_setting_lookup_string(configstaticfile, "defaultpage", (const char **)&static_file->defaultpage);
-
-		char *options = NULL;
-		config_setting_lookup_string(configstaticfile, "options", (const char **)&options);
-#ifdef DIRLISTING
-		if (utils_searchexp("dirlisting", options, NULL) == ESUCCESS)
-			static_file->options |= DOCUMENT_DIRLISTING;
-#endif
-#ifdef SENDFILE
-		if (utils_searchexp("sendfile", options, NULL) == ESUCCESS)
-		{
-			if (!ouistiti_issecure(server))
-				static_file->options |= DOCUMENT_SENDFILE;
-			else
-				warn("sendfile configuration is not allowed with tls");
-		}
-#endif
-#ifdef RANGEREQUEST
-		if (utils_searchexp("range", options, NULL) == ESUCCESS)
-		{
-			static_file->options |= DOCUMENT_RANGE;
-		}
-#endif
-#ifdef DOCUMENTREST
-		if (utils_searchexp("rest", options, NULL) == ESUCCESS)
-		{
-			static_file->options |= DOCUMENT_REST;
-		}
-#endif
-#ifdef DOCUMENTHOME
-		if (utils_searchexp("home", options, NULL) == ESUCCESS)
-		{
-			static_file->options |= DOCUMENT_HOME;
-		}
-#endif
-
-		if (!strcmp(config_setting_name(configstaticfile), "filestorage"))
-			static_file->options |= DOCUMENT_REST;
-		ret = ESUCCESS;
+		if (index >= config_setting_length(config))
+			return EREJECT;
+		config = config_setting_get_elem(config, index);
+		ret = ECONTINUE;
 	}
-	*modconfig = (void *)static_file;
+	if (config && config_setting_is_group(config))
+	{
+		if (document_configpart(config, server, index, modconfig) != ESUCCESS)
+			ret = EREJECT;
+	}
+	else
+		ret = EREJECT;
+
 	return ret;
 }
 #else
