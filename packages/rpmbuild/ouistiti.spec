@@ -1,6 +1,6 @@
 Name:           ouistiti
-Version:        3.1
-Release:        2
+Version:        3.4.0
+Release:        0
 Summary:        HTTP server
 Group:          Application/Network
 License:        MIT
@@ -10,20 +10,32 @@ Source:         https://github.com/ouistiti-project/ouistiti/archive/refs/tags/o
 Prefix:         %{_prefix}
 Packager:       Marc Chalain <marc.chalain@gmail.com>
 BuildRoot:      %{_tmppath}/ouistiti
-Requires:	libouistiti libconfig mbedtls sqlite jansson
-BuildRequires:	libouistiti-devel libconfig-devel mbedtls-devel sqlite-devel jansson-devel
+Requires:	libconfig openssl sqlite jansson
+BuildRequires:	libconfig-devel openssl-devel sqlite-devel jansson-devel
+
+%package devel
+Version:        %{version}
+Summary:	Development files for ouistiti Webserver
+Group:          Application/Development
+Requires:       ouistiti
 
 %package utils
 Version:        %{version}
-Summary:	Utils for ouistiti HTTP server
+Summary:	Utils for ouistiti Webserver
 Group:          Application/Network
-Requires:       libouistiti
+Requires:       ouistiti
 
 %description
 Small HTTP server for Embed System
 
+%description devel
+Development files for ouistiti Webserver
+
 %description utils
-Small utilities for websocket with ouistiti HTTP server
+Small utilities running with ouistiti HTTP server.
+This offers:
+ - websocket server: chat, echo, gps
+ - sebstream server: mjpeg from camera
 
 %global debug_package %{nil}
 
@@ -32,16 +44,18 @@ Small utilities for websocket with ouistiti HTTP server
 rm -f .config
 
 %build
-CFLAGS="$RPM_OPT_FLAGS" make prefix=/usr sysconfdir=/etc/ouistiti libdir=/usr/lib64 pkglibdir=/usr/lib64/ouistiti STATIC=n TINYSVCMDNS=n fullforked_defconfig
-CFLAGS="$RPM_OPT_FLAGS" make LIBHTTPSERVER_NAME=ouistiti
+cd ouistiti-%{version}
+CFLAGS="$RPM_OPT_FLAGS" make prefix=/usr sysconfdir=/etc/ouistiti libdir=/usr/lib64 pkglibdir=/usr/lib64/ouistiti MJPEG=y WEBCOMMON=y threadpool_defconfig
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-CFLAGS="$RPM_OPT_FLAGS" make package=ouistiti DESTDIR=$RPM_BUILD_ROOT install
+cd ouistiti-%{version}
+CFLAGS="$RPM_OPT_FLAGS" make DESTDIR=$RPM_BUILD_ROOT install
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-CFLAGS="$RPM_OPT_FLAGS" make package=ouistiti clean
+cd ouistiti-%{version}
+CFLAGS="$RPM_OPT_FLAGS" make clean
 
 %files
 %defattr(-,root,root)
@@ -49,6 +63,12 @@ CFLAGS="$RPM_OPT_FLAGS" make package=ouistiti clean
 %{_sbindir}/ouistiti
 %{_libdir}/ouistiti/mod_*.so
 %{_sysconfdir}/ouistiti/*
+/srv/www/*
+
+%files devel
+%defattr(-,root,root)
+%doc README.md LICENSE
+%{_includedir}/ouistiti/*
 
 %files utils
 %defattr(-,root,root)
@@ -56,6 +76,7 @@ CFLAGS="$RPM_OPT_FLAGS" make package=ouistiti clean
 %{_libexecdir}/ouistiti/*
 %{_libdir}/ouistiti/authrpc.so
 %{_libdir}/ouistiti/jsonsql.so
+%{_datadir}/ouistiti/*
 
 %changelog
 
