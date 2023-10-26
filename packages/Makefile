@@ -14,6 +14,10 @@ debian-docker: FORCE
 	@docker build -t ouistiti-debian --build-arg=BRANCH=v3.4 debian/
 	@docker run -v .:/mnt ouistiti-debian
 
+rpm-docker: FORCE
+	@docker build -t ouistiti-rpm --build-arg=BRANCH=v3.4 rpmbuild/
+	@docker run -v .:/mnt ouistiti-rpm
+
 $(RPMDIR)/rpmbuild/SOURCES:
 	@mkdir -p $@
 
