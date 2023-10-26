@@ -117,7 +117,7 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 	return ret;
 }
 #else
-#define vhost_config(...) NULL
+void vhost_config(void *modconfig, server_t *server, int index, void *config);
 #endif
 
 static mod_t *mod_vhost_loadmodule(_mod_vhost_t *vhost, const module_t *module)
@@ -125,7 +125,7 @@ static mod_t *mod_vhost_loadmodule(_mod_vhost_t *vhost, const module_t *module)
 	int ret = ECONTINUE;
 	void *config = NULL;
 	http_server_t *vserver = vhost->vserver;
-	config_setting_t *modconfig = vhost->config->modulesconfig;
+	void *modconfig = vhost->config->modulesconfig;
 	server_t *server = vhost->config->server;
 	mod_t *first = NULL;
 

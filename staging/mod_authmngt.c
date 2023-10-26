@@ -147,7 +147,7 @@ static void *mod_authmngt_config(config_setting_t *iterator, server_t *UNUSED(se
 #else
 static const mod_authmngt_t g_authmngt_config =
 {
-	.mngt = &(mod_authz_t){
+	.mngt = &(authmngt_t){
 		.config = &(authz_sqlite_config_t){
 			.dbname = "/etc/ouistiti/auth.db",
 		},

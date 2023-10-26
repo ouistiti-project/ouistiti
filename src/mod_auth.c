@@ -488,12 +488,10 @@ static const mod_auth_t g_auth_config =
 		.name = "sqlite",
 	},
 	.authn = &(mod_authn_t){
-		.config = &(authn_basic_config_t){
-			.realm = NULL,
-		},
 		.type = AUTHN_BASIC_E,
 		.name = "Basic",
 	},
+	.realm = NULL,
 };
 
 static int auth_config(void *iterator, server_t *server, int index, void **config)

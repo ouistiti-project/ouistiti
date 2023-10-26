@@ -587,8 +587,10 @@ static const mod_document_t g_document_config =
 {
 	.docroot = "/srv/www/htdocs",
 	.defaultpage = "index.html",
-	.allow = ".html,.htm,.css,.js,.txt",
-	.deny = ".htaccess,.php",
+	.htaccess = {
+		.allow = ".html,.htm,.css,.js,.txt",
+		.denyfirst = ".htaccess,.php",
+	},
 	.options = DOCUMENT_RANGE | DOCUMENT_DIRLISTING | DOCUMENT_REST,
 };
 

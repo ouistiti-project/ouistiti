@@ -44,7 +44,7 @@
 #include "ouistiti/log.h"
 #include "ouistiti.h"
 
-char str_hostname[HOST_NAME_MAX + 7];
+extern char str_hostname[HOST_NAME_MAX + 7];
 
 static char *logfile = NULL;
 static int logfd = 0;

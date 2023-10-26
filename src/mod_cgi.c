@@ -116,8 +116,10 @@ static int cgi_config(config_setting_t *iterator, server_t *server, int index, v
 static const mod_cgi_config_t g_cgi_config =
 {
 	.docroot = "/srv/www""/cig-bin",
-	.deny = "*",
-	.allow = "*.cgi*",
+	.htaccess = {
+		.denylast = "*",
+		.allow = "*.cgi*",
+	},
 };
 
 static int cgi_config(void *iterator, server_t *server, int index, void **config)

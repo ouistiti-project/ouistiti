@@ -39,6 +39,7 @@
 
 const char str_wildcard[] = "*";
 
+#ifdef FILE_CONFIG
 int htaccess_config(config_setting_t *setting, htaccess_t *htaccess)
 {
 	const char *allow = NULL;;
@@ -57,6 +58,7 @@ int htaccess_config(config_setting_t *setting, htaccess_t *htaccess)
 		_string_store(&htaccess->denylast, deny, -1);
 	return ESUCCESS;
 }
+#endif
 
 int htaccess_check(const htaccess_t *htaccess, const char *uri, const char **path_info)
 {
