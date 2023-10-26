@@ -149,10 +149,20 @@ static void *python_config(void *iterator, server_t *server)
 
 static PyObject *_mod_python_modulize(const char *uri, size_t urilen)
 {
+	python_dbg("python: modulize %.*s", (int)urilen, uri);
 	PyObject *script_name = PyUnicode_DecodeFSDefaultAndSize(uri, urilen);
-	//PyObject *pymodule = PyImport_Import(script_name);
-	PyObject *pymodule = PyImport_ImportModuleLevelObject(script_name, NULL, NULL, NULL, 0);
+	PyObject *script2_name = PyUnicode_Replace(script_name, PyUnicode_FromString(".py"), PyUnicode_FromString(""), -1);
 	Py_DECREF(script_name);
+	PyObject *module_name = PyUnicode_Replace(script2_name, PyUnicode_FromString("/"), PyUnicode_FromString("."), -1);
+	Py_DECREF(script2_name);
+	//PyObject *pymodule = PyImport_Import(module_name);
+	PyObject *pymodule = PyImport_ImportModuleLevelObject(module_name, NULL, NULL, NULL, 0);
+	Py_DECREF(module_name);
+	if (pymodule == NULL)
+	{
+		err("python: unable to modulize %.*s", (int)urilen, uri);
+		PyErr_Print();
+	}
 	return pymodule;
 }
 
@@ -239,6 +249,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 			dbg("python: %s forbidden extension", uri);
 			return EREJECT;
 		}
+		python_dbg("python: new uri %s", function);
 		if (function == uri)
 		{
 			// path_info must not be the first caracter of uri
@@ -265,19 +276,6 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		{
 			function++;
 		}
-		const char *ext = strstr(uri, ".py");
-		if (ext != NULL)
-			urilen = ext - uri;
-		if (uri[urilen - 1] == '/')
-			urilen--;
-
-		char *iterator = (char *)uri;
-		while (*iterator != '\0')
-		{
-			if (*iterator == '/')
-				*iterator = '.';
-			iterator++;
-		}
 
 		python_dbg("python: new uri %.*s", (int)urilen, uri);
 		python_dbg("python: function %s", function);
@@ -301,12 +299,11 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		{
 			pyfunc = PyObject_GetAttrString(pymodule, function);
 		}
-		else
-			warn("python: unable to modulize %.*s", (int)urilen, uri);
 		if (!pyfunc || !PyCallable_Check(pyfunc))
 		{
 			httpmessage_result(response, RESULT_403);
-			warn("python: unable to instanciate %s", function);
+			err("python: unable to instanciate %s", function);
+			PyErr_Print();
 			return ESUCCESS;
 		}
 
@@ -363,7 +360,7 @@ static int _python_request(mod_python_ctx_t *ctx, http_message_t *request)
 			PyUnicode_AppendAndDel(&ctx->pycontent, pychunk);
 		}
 	}
-	if (inputlen != EINCOMPLETE || rest == 0)
+	if (inputlen != EINCOMPLETE && rest == 0)
 	{
 		ctx->state = STATE_INFINISH;
 	}
@@ -401,6 +398,7 @@ static int _python_responseheader(mod_python_ctx_t *ctx, http_message_t *respons
 	{
 		httpmessage_result(response, RESULT_500);
 		warn("python: script bad syntax HttpRequest not available");
+		PyErr_Print();
 		return ESUCCESS;
 	}
 	PyObject *pyrequest = PyObject_CallObject(pyrequestclass, NULL);
@@ -409,6 +407,7 @@ static int _python_responseheader(mod_python_ctx_t *ctx, http_message_t *respons
 	{
 		httpmessage_result(response, RESULT_500);
 		warn("python: script bad syntax HttpRequest not available");
+		PyErr_Print();
 		return ESUCCESS;
 	}
 	PyObject_SetAttrString(pyrequest, "META", ctx->pyenv);
@@ -428,6 +427,7 @@ static int _python_responseheader(mod_python_ctx_t *ctx, http_message_t *respons
 	{
 		httpmessage_result(response, RESULT_500);
 		warn("python: script bad syntax HttpResponse not available");
+		PyErr_Print();
 		return ESUCCESS;
 	}
 	ctx->pyresult = PyObject_CallFunctionObjArgs(ctx->pyfunc, pyrequest, NULL);
@@ -567,9 +567,11 @@ static int _python_connector(void *arg, http_message_t *request, http_message_t 
 		}
 		break;
 		case STATE_END:
+			if (ctx->pycontent)
+				Py_DECREF(ctx->pycontent);
+			if (ctx->pyresult)
+				Py_DECREF(ctx->pyresult);
 			_python_freectx(ctx);
-			Py_DECREF(ctx->pycontent);
-			Py_DECREF(ctx->pyresult);
 			httpmessage_private(request, NULL);
 			ret = ESUCCESS;
 		break;
