@@ -68,7 +68,7 @@
 
 #include "mod_auth.h"
 
-extern const char str_hostname[];
+char str_hostname[HOST_NAME_MAX + 7];
 
 #define MAX_STRING 256
 
@@ -446,13 +446,12 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 static ouistiticonfig_t g_ouistiti_config =
 {
 	.user = "www-data",
-	.pidfile = "/var/run/ouistiti.pid",
 	.init_d = SYSCONFDIR"/init.d",
-	.servers = {
+	.config = {
 		&(serverconfig_t){
 			.server = &(http_server_config_t){
 				.port = 0,
-				.chunksize = DEFAULT_CHUNKSIZE,
+				.chunksize = HTTPMESSAGE_CHUNKSIZE,
 				.maxclients = DEFAULT_MAXCLIENTS,
 				.version = HTTP11,
 			}
@@ -469,6 +468,9 @@ static void *_config_modules(void *data, const char *name, server_t *server)
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 {
 	return &g_ouistiti_config;
+}
+void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig)
+{
 }
 #endif
 
