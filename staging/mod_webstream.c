@@ -462,7 +462,6 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 {
 	pid_t pid;
 	_mod_webstream_t *mod = ctx->mod;
-	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 
 	_webstream_main_t info = {.modctx = ctx};
 	info.ctx = httpclient_context(ctx->clt);
