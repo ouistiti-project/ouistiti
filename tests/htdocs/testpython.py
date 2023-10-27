@@ -9,6 +9,8 @@ def index(request):
     for meta in request.META:
         if meta != "DOCUMENT_ROOT":
             message += meta + " => "+ request.META[meta] + '\n'
+    message += '\n'
+    message += request.body
     response = HttpResponse(bytes(message , 'utf-8'), content_type="text/plain")
     response["Content-Length"] = len(response.content)
     print(len(response.content))
