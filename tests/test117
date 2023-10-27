@@ -1,0 +1,7 @@
+if [ "$PYTHON" != "y" ]; then
+	echo "Python module disabled"
+	DISABLED=1
+fi
+DESC="test a request on Python script"
+CONFIG=test3.conf
+TESTCODE=200
