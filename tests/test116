@@ -1,0 +1,3 @@
+DESC="test a request on simple CGI script"
+CONFIG=test3.conf
+TESTCODE=200
