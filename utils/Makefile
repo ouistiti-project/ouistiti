@@ -36,4 +36,4 @@ data-y+=certificate.mk
 data-y+=certificate.sh
 data-y+=ca.conf
 
-
+subdir-y+=samples.mk
