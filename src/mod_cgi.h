@@ -54,7 +54,7 @@ typedef struct mod_cgi_config_s
 	const char **env;
 	int nbenvs;
 	int chunksize;
-	int timeout;
+	struct timeval timeout;
 	int options;
 } mod_cgi_config_t;
 

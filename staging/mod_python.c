@@ -197,8 +197,6 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 	mod->config = modconfig;
 	mod->server = server;
 	mod->rootfd = rootfd;
-	if (modconfig->timeout == 0)
-		modconfig->timeout = 3;
 
 	mod_cgi_config_script_t *script = modconfig->scripts;
 	while (script)
