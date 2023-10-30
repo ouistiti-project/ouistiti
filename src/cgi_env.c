@@ -515,6 +515,11 @@ int cgienv_config(config_setting_t *configserver, config_setting_t *config, serv
 		cgi->options |= CGI_OPTION_TLS;
 	cgi->chunksize = HTTPMESSAGE_CHUNKSIZE;
 	config_setting_lookup_int(configserver, "chunksize", &cgi->chunksize);
+	double timeout = 3.0;
+	config_setting_lookup_float(configserver, "timeout", &timeout);
+	cgi->timeout.tv_sec = (int) timeout;
+	cgi->timeout.tv_usec = (int) ((timeout - cgi->timeout.tv_sec) * 1000000);
+	
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *envs = config_setting_get_member(config, "env");
 #else
