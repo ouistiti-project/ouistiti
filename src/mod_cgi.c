@@ -147,8 +147,6 @@ static void *mod_cgi_create(http_server_t *server, mod_cgi_config_t *modconfig)
 	mod->rootfd = rootfd;
 	mod->config = modconfig;
 	mod->server = server;
-	if (modconfig->timeout == 0)
-		modconfig->timeout = 3;
 
 	httpserver_addconnector(server, _cgi_connector, mod, CONNECTOR_DOCUMENT, str_cgi);
 
@@ -338,6 +336,7 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 
 static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 {
+	_mod_cgi_t *mod = ctx->mod;
 	int ret = ECONTINUE;
 	const char *input = NULL;
 	int inputlen;
@@ -399,11 +398,10 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 	int ret = ECONTINUE;
 	int sret;
 	fd_set rfds;
-	struct timeval timeout = { config->timeout,0 };
 
 	FD_ZERO(&rfds);
 	FD_SET(ctx->fromcgi[0], &rfds);
-	sret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &timeout);
+	sret = select(ctx->fromcgi[0] + 1, &rfds, NULL, NULL, &mod->config->timeout);
 	if (sret > 0 && FD_ISSET(ctx->fromcgi[0], &rfds))
 	{
 		int size = config->chunksize;

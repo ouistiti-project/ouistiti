@@ -1,4 +1,4 @@
-data-y+=htdocs/webput.html
-data-y+=htdocs/postfile.html
-data-y+=cgi-bin/echo.cgi
-data-y+=py-bin/file.py
+data-y+=samples/htdocs/webput.html
+data-y+=samples/htdocs/postfile.html
+data-y+=samples/cgi-bin/echo.cgi
+data-y+=samples/py-bin/file.py
