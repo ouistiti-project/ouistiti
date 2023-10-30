@@ -68,14 +68,17 @@ struct mod_cgi_ctx_s
 {
 	enum
 	{
-		STATE_SETUP,
-		STATE_START,
-		STATE_INFINISH,
-		STATE_HEADERCOMPLETE,
-		STATE_CONTENTCOMPLETE,
-		STATE_OUTFINISH,
-		STATE_END,
-		STATE_MASK = 0x00FF,
+		STATE_SETUP = 0,
+		STATE_INSTART = 0x0001,
+		STATE_INRUNNING = 0x0002,
+		STATE_INFINISH = 0x0003,
+		STATE_INMASK = 0x000F,
+		STATE_OUTSTART = 0x0010,
+		STATE_HEADERCOMPLETE = 0x0020,
+		STATE_CONTENTCOMPLETE = 0x0030,
+		STATE_OUTFINISH = 0x0040,
+		STATE_OUTMASK = 0x00F0,
+		STATE_END = 0x00FF,
 		STATE_SHUTDOWN = 0x0100,
 	} state;
 	_mod_cgi_t *mod;
@@ -247,6 +250,16 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 	return pid;
 }
 
+static int _cgi_changestate(mod_cgi_ctx_t *ctx, int state)
+{
+	if (state < STATE_INMASK)
+		state |= (ctx->state & STATE_OUTMASK);
+	else
+		state |= (ctx->state & STATE_INMASK);
+	ctx->state = state;
+	return state;
+}
+
 static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *response)
 {
 	const mod_cgi_config_t *config = mod->config;
@@ -325,7 +338,7 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request, http_message_t *
 		dbg("cgi: run %s", uri);
 		ctx->mod = mod;
 		ctx->pid = _mod_cgi_fork(ctx, request);
-		ctx->state = STATE_START;
+		ctx->state = STATE_INSTART;
 		ctx->chunk = malloc(config->chunksize + 1);
 		httpmessage_private(request, ctx);
 		close(scriptfd);
@@ -347,21 +360,28 @@ static int _cgi_request(mod_cgi_ctx_t *ctx, http_message_t *request)
 	{
 		int len;
 #ifdef DEBUG
-		static int length = 0;
+		static size_t length = 0;
 		length += inputlen;
-		cgi_dbg("cgi: %d input %s", length,input);
+		cgi_dbg("cgi: %lu/%lu input %s", length, rest, input);
 #endif
-		len = write(ctx->tocgi[1], input, inputlen);
+		fd_set wfds;
+		FD_ZERO(&wfds);
+		FD_SET(ctx->tocgi[1], &wfds);
+
+		ret = select(ctx->tocgi[1] + 1, NULL, &wfds, NULL, &mod->config->timeout);
+		if (ret == 1)
+			len = write(ctx->tocgi[1], input, inputlen);
+		else
+			len = 0;
+		cgi_dbg("cgi: wrote %d %d", len, inputlen);
 		if (inputlen != len)
+		{
+			//_cgi_changestate(ctx, STATE_INFINISH);
 			ret = EREJECT;
+		}
 	}
 	else if (inputlen != EINCOMPLETE)
-		ctx->state = STATE_INFINISH;
-	if (ctx->state == STATE_INFINISH)
-	{
-		close(ctx->tocgi[1]);
-		ctx->tocgi[1] = -1;
-	}
+		_cgi_changestate(ctx, STATE_INFINISH);
 	return ret;
 }
 
@@ -371,7 +391,7 @@ static int _cgi_parseresponse(mod_cgi_ctx_t *ctx, http_message_t *response, char
 
 	ret = httpmessage_parsecgi(response, chunk, &rest);
 	cgi_dbg("cgi: parse %d data %d\n%s#", ret, rest, chunk);
-	if (ret == ECONTINUE && ctx->state < STATE_HEADERCOMPLETE)
+	if (ret == ECONTINUE && (ctx->state & STATE_OUTMASK) < STATE_HEADERCOMPLETE)
 	{
 #if defined(RESULT_302)
 		/**
@@ -381,11 +401,11 @@ static int _cgi_parseresponse(mod_cgi_ctx_t *ctx, http_message_t *response, char
 		if (location != NULL && location[0] != '\0')
 			httpmessage_result(response, RESULT_302);
 #endif
-		ctx->state = STATE_HEADERCOMPLETE;
+		_cgi_changestate(ctx, STATE_HEADERCOMPLETE);
 	}
 	if (ret == ESUCCESS)
 	{
-		ctx->state = STATE_CONTENTCOMPLETE;
+		_cgi_changestate(ctx, STATE_CONTENTCOMPLETE);
 		//parse_cgi is complete but not this module
 	}
 	return ret;
@@ -409,12 +429,12 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 		if (size < 0)
 		{
 			err("cgi: read %s", strerror(errno));
-			ctx->state = STATE_CONTENTCOMPLETE;
+			_cgi_changestate(ctx, STATE_OUTFINISH);
 		}
 		else if (size < 1)
 		{
 			dbg("cgi: died");
-			ctx->state = STATE_CONTENTCOMPLETE;
+			_cgi_changestate(ctx, STATE_OUTFINISH);
 		}
 		else
 		{
@@ -435,7 +455,7 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 	}
 	else
 	{
-		ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
+		_cgi_changestate(ctx, STATE_OUTFINISH);
 		kill(ctx->pid, SIGTERM);
 		dbg("cgi: complete");
 		ret = ECONTINUE;
@@ -456,50 +476,59 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		ctx = httpmessage_private(request, NULL);
 		_cgi_request(ctx, request);
 	}
-	else if (ctx->tocgi[1] > 0 && ctx->state == STATE_START)
+	else
 	{
-		_cgi_request(ctx, request);
-		/**
-		 * Read the request. The connector is still EINCOMPLETE
-		 */
-	}
-	/**
-	 * when the request is complete the module must check the CGI immedialty
-	 * otherwise the client will wait more data from request
-	 */
-	if ((ctx->state & STATE_MASK) >= STATE_INFINISH && (ctx->state & STATE_MASK) < STATE_CONTENTCOMPLETE)
-	{
-		do
+
+		int instate = (ctx->state & STATE_INMASK);
+		if (ctx->tocgi[1] > 0 && instate >= STATE_INSTART && instate < STATE_INFINISH)
 		{
-			ret = _cgi_response(ctx, response);
-		} while(ret == EINCOMPLETE);
+			_cgi_request(ctx, request);
+			_cgi_changestate(ctx, STATE_OUTSTART);
+			/**
+			 * Read the request. The connector is still EINCOMPLETE
+			 */
+		}
+		else if (instate == STATE_INFINISH)
+		{
+			close(ctx->tocgi[1]);
+			ctx->tocgi[1] = -1;
+		}
 		/**
-		 * the request is completed to not wait more data the module
-		 * must returns ECONTINUE or ESUCCESS now
+		 * when the request is complete the module must check the CGI immedialty
+		 * otherwise the client will wait more data from request
 		 */
-		ret = ECONTINUE;
-	}
-	else if ((ctx->state & STATE_MASK) == STATE_CONTENTCOMPLETE)
-	{
-		close(ctx->fromcgi[0]);
-		ret = httpmessage_parsecgi(response, NULL, 0);
-		ret = ECONTINUE;
-		ctx->state = STATE_OUTFINISH | STATE_SHUTDOWN;
-	}
-	else if ((ctx->state & STATE_MASK) == STATE_OUTFINISH)
-	{
-		size_t length;
-		ret = httpmessage_content(response, NULL, &length);
-		cgi_dbg("content len %d %llu", ret, length);
-		if (ret == 0)
-			ctx->state = STATE_END | STATE_SHUTDOWN;
-		ret = ECONTINUE;
-	}
-	else if ((ctx->state & STATE_MASK) == STATE_END)
-	{
-		_cgi_freectx(ctx);
-		httpmessage_private(request, NULL);
-		ret = ESUCCESS;
+		int outstate = (ctx->state & STATE_OUTMASK);
+		if (outstate >= STATE_OUTSTART && outstate < STATE_CONTENTCOMPLETE)
+		{
+			do
+			{
+				ret = _cgi_response(ctx, response);
+			} while(ret == EINCOMPLETE);
+			/**
+			 * the request is completed to not wait more data the module
+			 * must returns ECONTINUE or ESUCCESS now
+			 */
+			ret = ECONTINUE;
+		}
+		else if (outstate == STATE_CONTENTCOMPLETE)
+		{
+			ret = httpmessage_parsecgi(response, NULL, 0);
+			ret = ECONTINUE;
+			_cgi_changestate(ctx, STATE_OUTFINISH);
+		}
+		else if (outstate == STATE_OUTFINISH)
+		{
+			close(ctx->fromcgi[0]);
+			if (instate == STATE_INFINISH)
+				ctx->state = STATE_END;
+			ret = ECONTINUE;
+		}
+		else if (ctx->state == STATE_END)
+		{
+			_cgi_freectx(ctx);
+			httpmessage_private(request, NULL);
+			ret = ESUCCESS;
+		}
 	}
 	/* this mod returns EINCOMPLETE
 	 * because it needs to wait the end
