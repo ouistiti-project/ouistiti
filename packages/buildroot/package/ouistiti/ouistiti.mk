@@ -4,14 +4,16 @@
 #
 ################################################################################
 
-OUISTITI_VERSION = 3.2.1
-OUISTITI_SITE = $(call github,ouistiti-project,ouistiti,ouistiti-$(OUISTITI_VERSION))
+OUISTITI_VERSION = 3.4.0
+#OUISTITI_SITE = $(call github,ouistiti-project,ouistiti,ouistiti-$(OUISTITI_VERSION))
+OUISTITI_SITE = https://github.com/ouistiti-project/ouistiti.git
+OUISTITI_SITE_METHOD = git
 OUISTITI_LICENSE = MIT
 OUISTITI_LICENSE_FILES = LICENSE
-OUISTITI_DEPENDENCIES += libouistiti
 OUISTITI_DEPENDENCIES += libconfig
 OUISTITI_MAKE=$(MAKE1)
 OUISTITI_INSTALL_STAGING = YES
+OUISTITI_GIT_SUBMODULES = YES
 
 #OUISTITI_USERS += www-data
 define OUISTITI_USERS

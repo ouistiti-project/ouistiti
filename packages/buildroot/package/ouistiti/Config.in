@@ -2,7 +2,6 @@ menuconfig BR2_PACKAGE_OUISTITI
 	bool "ouistiti: Embedded webserver and websocket gateway"
 	depends on BR2_USE_MMU
 	select BR2_PACKAGE_LIBCONFIG
-	select BR2_PACKAGE_LIBOUISTITI
 	help
 	  ouistiti small, fast and secure webserver.
 	  It is dedicated to configure and manage embedded devices.
