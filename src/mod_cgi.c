@@ -252,7 +252,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request)
 
 static int _cgi_changestate(mod_cgi_ctx_t *ctx, int state)
 {
-	if (state < STATE_INMASK)
+	if (state <= STATE_INMASK)
 		state |= (ctx->state & STATE_OUTMASK);
 	else
 		state |= (ctx->state & STATE_INMASK);
@@ -475,6 +475,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 			return ret;
 		ctx = httpmessage_private(request, NULL);
 		_cgi_request(ctx, request);
+		_cgi_changestate(ctx, STATE_OUTSTART);
 	}
 	else
 	{
@@ -483,15 +484,16 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		if (ctx->tocgi[1] > 0 && instate >= STATE_INSTART && instate < STATE_INFINISH)
 		{
 			_cgi_request(ctx, request);
-			_cgi_changestate(ctx, STATE_OUTSTART);
 			/**
 			 * Read the request. The connector is still EINCOMPLETE
 			 */
 		}
 		else if (instate == STATE_INFINISH)
 		{
-			close(ctx->tocgi[1]);
+			if (ctx->tocgi[1] > 0)
+				close(ctx->tocgi[1]);
 			ctx->tocgi[1] = -1;
+			_cgi_changestate(ctx, STATE_INMASK);
 		}
 		/**
 		 * when the request is complete the module must check the CGI immedialty
@@ -519,7 +521,7 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 		else if (outstate == STATE_OUTFINISH)
 		{
 			close(ctx->fromcgi[0]);
-			if (instate == STATE_INFINISH)
+			if (instate == STATE_INMASK)
 				ctx->state = STATE_END;
 			ret = ECONTINUE;
 		}
