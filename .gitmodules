@@ -1,3 +1,4 @@
 [submodule "libhttpserver"]
 	path = libhttpserver
 	url = https://github.com/ouistiti-project/libhttpserver.git
+	branch = v3.4
