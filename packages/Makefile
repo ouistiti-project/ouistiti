@@ -5,17 +5,18 @@ version=$(shell grep '^version[?,:, ]*=' ../Makefile | awk 'BEGIN{FS="="}{print 
 RPMDIR?=$(HOME)
 UID=$(shell id -u)
 
+DOCKER_ARG?=--no-cache
 .PHONY: FORCE
 
 debian: FORCE
 	@dpkg-buildpackage --no-sign
 
 debian-docker: FORCE
-	@docker build -t ouistiti-debian --build-arg=BRANCH=v3.4 debian/
+	@docker build -t ouistiti-debian $(DOCKER_ARG) debian/
 	@docker run -v .:/mnt ouistiti-debian
 
 rpm-docker: FORCE
-	@docker build -t ouistiti-rpm --build-arg=BRANCH=v3.4 rpmbuild/
+	@docker build -t ouistiti-rpm $(DOCKER_ARG) rpmbuild/
 	@docker run -v .:/mnt ouistiti-rpm
 
 $(RPMDIR)/rpmbuild/SOURCES:
