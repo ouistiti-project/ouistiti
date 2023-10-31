@@ -3,6 +3,7 @@ FROM ubuntu:22.04
 ENV VERSION=3.4.0
 ENV PACKAGE=ouistiti
 ARG BRANCH=${PACKAGE}-${VERSION}
+ARG DEBIANDIR=${PACKAGE}/packages
 
 RUN apt update
 ENV TZ=Europe/London
@@ -27,8 +28,13 @@ RUN apt update && apt install -y \
 RUN git clone https://github.com/ouistiti-project/ouistiti -b ${BRANCH} && \
 	cd ${PACKAGE} && \
 	git submodule init && git submodule update && \
-	tar -C .. -czf ../${PACKAGE}_${VERSION}.orig.tar.gz --exclude=packages --exclude=.git* --exclude=*sonarcloud* --exclude=.travis.yml ${PACKAGE} && \
-	tar -C packages -czf ../debian.tar.gz debian
+	tar -C .. -czf ../${PACKAGE}_${VERSION}.orig.tar.gz --exclude=packages --exclude=.git* --exclude=*sonarcloud* --exclude=.travis.yml ${PACKAGE}
+
+RUN mkdir /tmp/debian
+
+ADD . /tmp/debian/
+
+RUN tar -C ${DEBIANDIR} -czf ../debian.tar.gz debian
 
 RUN rm -rf ${PACKAGE} && \
 	tar -xf ${PACKAGE}_${VERSION}.orig.tar.gz && \

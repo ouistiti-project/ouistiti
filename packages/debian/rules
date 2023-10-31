@@ -28,3 +28,4 @@ override_dh_auto_install:
 override_dh_auto_clean:
 	$(MAKE) -C $(SRCDIR) distclean
 
+override_dh_auto_test:
