@@ -67,6 +67,7 @@
 #include "authz_unix.h"
 #include "authz_sqlite.h"
 #include "authz_jwt.h"
+#include "authz_totp.h"
 
 #define auth_dbg(...)
 
@@ -167,6 +168,11 @@ authz_rules_t *authz_rules[] = {
 #endif
 #ifdef AUTHZ_JWT
 	&authz_jwt_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHZ_TOTP
+	&authz_totp_rules,
 #else
 	NULL,
 #endif
@@ -358,6 +364,13 @@ struct _authz_s *authz_list[] =
 		.config = &authz_jwt_config,
 		.type = AUTHZ_JWT_E,
 		.name = STRING_DCL("jwt"),
+	},
+#endif
+#ifdef AUTHZ_TOTP
+	&(struct _authz_s){
+		.config = &authz_totp_config,
+		.type = AUTHZ_TOTP_E,
+		.name = STRING_DCL("totp"),
 	},
 #endif
 };
