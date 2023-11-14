@@ -41,6 +41,7 @@
 
 #define MAXNONCE 64
 
+typedef struct authn_digest_config_s authn_digest_config_t;
 typedef struct authn_digest_s authn_digest_t;
 struct authn_digest_s
 {
@@ -52,6 +53,11 @@ struct authn_digest_s
 	char *user;
 	int stale;
 	int encode;
+};
+
+struct authn_digest_config_s
+{
+	string_t opaque;
 };
 
 #ifdef FILE_CONFIG

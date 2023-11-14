@@ -38,6 +38,15 @@
 
 #define auth_dbg(...)
 
+typedef struct authz_simple_config_s authz_simple_config_t;
+struct authz_simple_config_s
+{
+	string_t user;
+	string_t passwd;
+	string_t group;
+	string_t home;
+};
+
 typedef authz_simple_config_t authz_simple_t;
 
 #ifdef FILE_CONFIG
