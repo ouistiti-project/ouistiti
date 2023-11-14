@@ -44,18 +44,6 @@ typedef struct mod_auth_s mod_auth_t;
 #define USER_MAX 64
 #define FIELD_MAX 32
 #define TOKEN_MAX 123
-typedef struct authsession_s
-{
-	int expires;
-	char type[FIELD_MAX + 1];
-	char user[USER_MAX + 1];
-	char group[FIELD_MAX + 1];
-	char home[PATH_MAX + 1];
-	char passwd[TOKEN_MAX + 1];
-	char urlspace[PATH_MAX + 1];
-	char token[TOKEN_MAX + 1];
-	char status[FIELD_MAX + 1];
-} authsession_t;
 
 typedef struct authz_simple_config_s authz_simple_config_t;
 struct authz_simple_config_s
