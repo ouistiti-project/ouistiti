@@ -205,7 +205,7 @@ static json_t *jwt_decode_json(const char *id_token)
 	return jpayload;
 }
 
-static int _jwt_checkexpiration(json_t *jinfo, authsession_t *authsession)
+static int _jwt_checkexpiration(json_t *jinfo)
 {
 	const json_t *jexpire = json_object_get(jinfo, "exp");
 	if (jexpire && json_is_integer(jexpire))
@@ -216,9 +216,7 @@ static int _jwt_checkexpiration(json_t *jinfo, authsession_t *authsession)
 #else
 		time_t now = 0;
 #endif
-		if (expire > now)
-			authsession->expires = expire;
-		else
+		if (expire <= now)
 		{
 			warn("auth: jwt expired");
 #ifndef DEBUG
@@ -283,8 +281,7 @@ static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 	json_t *jinfo = jwt_decode_json(token);
 	if (jinfo != NULL)
 	{
-		authsession_t authsession = {0};
-		if (_jwt_checkexpiration(jinfo, &authsession) != ESUCCESS)
+		if (_jwt_checkexpiration(jinfo) != ESUCCESS)
 			return NULL;
 		ctx->token = token;
 		return _jwt_getuser(jinfo);
@@ -356,15 +353,6 @@ static int authz_jwt_join(void *arg, const char *user, const char *UNUSED(token)
 }
 #else
 #define authz_jwt_join NULL
-#endif
-
-#ifdef AUTHN_OAUTH2
-static int authz_jwt_adduser(void *arg, authsession_t *newuser)
-{
-	authz_jwt_t *ctx = (authz_jwt_t *)arg;
-	memcpy(&ctx->token, newuser, sizeof(ctx->token));
-	return ESUCCESS;
-}
 #endif
 
 static void authz_jwt_destroy(void *arg)
