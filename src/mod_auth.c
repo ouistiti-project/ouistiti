@@ -387,9 +387,18 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 {
 	int ret = EREJECT;
 	const struct _authz_s *authz = NULL;
+	const char *name = NULL;
+	ret = config_setting_lookup_string(configauth, "authz", &name);
+	if (ret == CONFIG_FALSE)
+		name = NULL;
 	for (int i = 0; i < (sizeof(authz_list) / sizeof(*authz_list)); i++)
 	{
-		if (authz_list[i]->config != NULL)
+		if (name != NULL)
+		{
+			if (! _string_cmp(&authz_list[i]->name, name, -1))
+				mod->config = authz_list[i]->config(configauth);
+		}
+		else if (authz_list[i]->config != NULL)
 			mod->config = authz_list[i]->config(configauth);
 		if (mod->config != NULL)
 		{
