@@ -53,6 +53,12 @@
 //#define FILE_MMAP
 #define MAXLENGTH 255
 
+typedef struct authz_jwt_config_s authz_jwt_config_t;
+struct authz_jwt_config_s
+{
+	const char *none;
+};
+
 typedef struct authz_jwt_s authz_jwt_t;
 struct authz_jwt_s
 {

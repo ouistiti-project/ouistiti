@@ -67,6 +67,12 @@
 
 #ifdef HAVE_PWD
 
+typedef struct authz_file_config_s authz_file_config_t;
+struct authz_file_config_s
+{
+	const char *path;
+};
+
 typedef struct authz_unix_s authz_unix_t;
 struct authz_unix_s
 {

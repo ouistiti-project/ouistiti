@@ -51,6 +51,12 @@
 #define SQLITE3_CHECK(...)
 #endif
 
+typedef struct authz_sqlite_config_s authz_sqlite_config_t;
+struct authz_sqlite_config_s
+{
+	const char *dbname;
+};
+
 #ifdef FILE_CONFIG
 #include <libconfig.h>
 void *authz_sqlite_config(const config_setting_t *configauth);

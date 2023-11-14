@@ -49,6 +49,7 @@
 //#define FILE_MMAP
 #define MAXLENGTH 255
 
+typedef struct authz_file_config_s authz_file_config_t;
 typedef struct authz_file_s authz_file_t;
 struct authz_file_s
 {
@@ -63,6 +64,11 @@ struct authz_file_s
 	int map_size;
 	int fd;
 #endif
+};
+
+struct authz_file_config_s
+{
+	const char *path;
 };
 
 #ifdef FILE_CONFIG

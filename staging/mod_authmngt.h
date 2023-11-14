@@ -37,6 +37,22 @@ extern "C"
 {
 #endif
 
+#define USER_MAX 64
+#define FIELD_MAX 32
+#define TOKEN_MAX 123
+typedef struct authsession_s
+{
+       int expires;
+       char type[FIELD_MAX + 1];
+       char user[USER_MAX + 1];
+       char group[FIELD_MAX + 1];
+       char home[PATH_MAX + 1];
+       char passwd[TOKEN_MAX + 1];
+       char urlspace[PATH_MAX + 1];
+       char token[TOKEN_MAX + 1];
+       char status[FIELD_MAX + 1];
+} authsession_t;
+
 typedef int (*authmngt_userlist_t)(void*arg, int nfields, char** values,char** keys);
 
 typedef void *(*authmngt_rule_create_t)(http_server_t *server, void *config);
