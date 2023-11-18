@@ -191,12 +191,12 @@ size_t env_remoteport(const mod_cgi_config_t *UNUSED(config), http_message_t *re
 
 size_t env_authuser(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return auth_info2(request, ("user"), value);
+	return auth_info2(request, (str_user), value);
 }
 
 size_t env_authgroup(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return auth_info2(request, ("group"), value);
+	return auth_info2(request, (str_group), value);
 }
 
 size_t env_authtype(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)

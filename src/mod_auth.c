@@ -928,12 +928,12 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 	{
 		cookie_set(response, str_authorization, authorization, NULL);
 	}
-	const char *user = auth_info(response, STRING_REF("user"));
+	const char *user = auth_info(response, STRING_REF(str_user));
 	cookie_set(response, str_xuser, user, NULL);
-	const char *group = auth_info(response, STRING_REF("group"));
+	const char *group = auth_info(response, STRING_REF(str_group));
 	if (group && group[0] != '\0')
 		cookie_set(response, str_xgroup, group, NULL);
-	const char *home = auth_info(response, STRING_REF("home"));
+	const char *home = auth_info(response, STRING_REF(str_home));
 	if (home && home[0] != '\0')
 		cookie_set(response, str_xhome, "~/", NULL);
 	return ESUCCESS;
@@ -960,17 +960,17 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		httpmessage_addheader(response, str_authorization, authorization, -1);
 	}
 	const char *user = NULL;
-	size_t userlen = auth_info2(response, "user", &user);
+	size_t userlen = auth_info2(response, str_user, &user);
 	httpmessage_addheader(response, str_xuser, user, userlen);
 	httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xuser));
 	const char *group = NULL;
-	size_t grouplen = auth_info2(response, "group", &group);
+	size_t grouplen = auth_info2(response, str_group, &group);
 	if (group && grouplen > 0)
 	{
 		httpmessage_addheader(response, str_xgroup, group, grouplen);
 		httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xgroup));
 	}
-	const char *home = auth_info(response, STRING_REF("home"));
+	const char *home = auth_info(response, STRING_REF(str_home));
 	if (home && home[0] != '\0')
 	{
 		httpmessage_addheader(response, str_xhome, STRING_REF("~/"));
@@ -1222,7 +1222,7 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 
 	if (mod->authz->type & AUTHZ_CHOWN_E)
 	{
-		const char *user = auth_info(request, STRING_REF("user"));
+		const char *user = auth_info(request, STRING_REF(str_user));
 		auth_setowner(user);
 	}
 	if (ttoken)

@@ -237,9 +237,9 @@ static int authz_totp_setsession(void *arg, const char *user, auth_saveinfo_t cb
 	authz_totp_t *ctx = (authz_totp_t *)arg;
 	const authz_totp_config_t *config = ctx->config;
 
-	cb(cbarg, STRING_REF("user"), user, -1);
-	cb(cbarg, STRING_REF("group"), STRING_REF("users"));
-	cb(cbarg, STRING_REF("status"), STRING_REF(str_status_activated));
+	cb(cbarg, STRING_REF(str_user), user, -1);
+	cb(cbarg, STRING_REF(str_group), STRING_REF("users"));
+	cb(cbarg, STRING_REF(str_status), STRING_REF(str_status_activated));
 	const char *service = NULL;
 	httpserver_INFO2(ctx->server, "service", &service);
 	char url[1024];

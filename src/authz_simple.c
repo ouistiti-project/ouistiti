@@ -55,7 +55,7 @@ void *authz_simple_config(const config_setting_t *configauth)
 	authz_simple_config_t *authz_config = NULL;
 
 	const char *user = NULL;
-	config_setting_lookup_string(configauth, "user", &user);
+	config_setting_lookup_string(configauth, str_user, &user);
 	if (user == NULL || user[0] == '0')
 		return NULL;
 
@@ -68,12 +68,12 @@ void *authz_simple_config(const config_setting_t *configauth)
 		_string_store(&authz_config->passwd, passwd, -1);
 
 	const char *group = NULL;
-	config_setting_lookup_string(configauth, "group", &group);
+	config_setting_lookup_string(configauth, str_group, &group);
 	if (group != NULL && group[0] != '0')
 		_string_store(&authz_config->group, group, -1);
 
 	const char *home = NULL;
-	config_setting_lookup_string(configauth, "home", &home);
+	config_setting_lookup_string(configauth, str_home, &home);
 	if (home != NULL && home[0] != '0')
 		_string_store(&authz_config->home, home, -1);
 
@@ -114,12 +114,12 @@ static int authz_simple_setsession(void *arg, const char *user, auth_saveinfo_t 
 {
 	const authz_simple_t *config = (const authz_simple_t *)arg;
 
-	cb(cbarg, STRING_REF("user"), config->user.data, config->user.length);
+	cb(cbarg, STRING_REF(str_user), config->user.data, config->user.length);
 	if (!_string_empty(&config->group))
-		cb(cbarg, STRING_REF("group"), config->group.data, config->group.length);
+		cb(cbarg, STRING_REF(str_group), config->group.data, config->group.length);
 	if (!_string_empty(&config->home))
-		cb(cbarg, STRING_REF("home"), config->home.data, config->home.length);
-	cb(cbarg, STRING_REF("status"), STRING_REF(str_status_activated));
+		cb(cbarg, STRING_REF(str_home), config->home.data, config->home.length);
+	cb(cbarg, STRING_REF(str_status), STRING_REF(str_status_activated));
 	return ESUCCESS;
 }
 
