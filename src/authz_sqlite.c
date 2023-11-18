@@ -233,16 +233,16 @@ static int _authz_sqlite_storeuser(const authz_sqlite_t *UNUSED(ctx), sqlite3_st
 	const unsigned char *field;
 	int i = 0;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, STRING_REF("user"), (const char *)field, -1);
+	callback(cbarg, STRING_REF(str_user), (const char *)field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, STRING_REF("group"), (const char *)field, -1);
+	callback(cbarg, STRING_REF(str_group), (const char *)field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, STRING_REF("status"), (const char *)field, -1);
+	callback(cbarg, STRING_REF(str_status), (const char *)field, -1);
 	i++;
 	field = sqlite3_column_text(statement, i);
-	callback(cbarg, STRING_REF("home"), (const char *)field, -1);
+	callback(cbarg, STRING_REF(str_home), (const char *)field, -1);
 	i++;
 
 	return ESUCCESS;
