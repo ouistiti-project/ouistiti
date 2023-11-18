@@ -1,0 +1,10 @@
+HTTP/1.1 307 Temporary Redirect
+Connection: Close
+
+ 307 Temporary Redirect
+HTTP/1.1 500 Internal Server Error
+Content-Type: text/plain
+Content-Length: 28
+Connection: Close
+
+ 500 Internal Server Error
