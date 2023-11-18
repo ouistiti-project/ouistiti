@@ -99,6 +99,7 @@ void ouistiti_registermodule(const module_t *module, void *dh);
 const module_list_t *ouistiti_modules(server_t *server);
 int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);
+serverconfig_t *ouistiti_serverconfig(server_t *server);
 
 typedef struct string_s string_t;
 struct string_s
