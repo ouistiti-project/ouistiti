@@ -848,10 +848,12 @@ int authn_checksignature(const char *key, size_t keylen,
 		const char *sign, size_t signlen)
 {
 	char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
-	if (_authn_signtoken(key, keylen, data, datalen,b64signature, sizeof(b64signature)) > 0 &&
-		(!strncmp(b64signature, sign, signlen)))
-		return ESUCCESS;
-	return EREJECT;
+	size_t len =_authn_signtoken(key, keylen, data, datalen, b64signature, sizeof(b64signature));
+	if (len == (size_t)-1)
+		return EREJECT;
+	if (strncmp(b64signature, sign, signlen))
+		return EREJECT;
+	return ESUCCESS;
 }
 
 static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *token, size_t tokenlen, const char *sign, size_t signlen, const char **user)
