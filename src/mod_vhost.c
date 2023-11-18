@@ -78,6 +78,20 @@ static int _vhost_connector(void *arg, http_message_t *request, http_message_t *
 	return httpserver_reloadclient(mod->vserver, httpmessage_client(request));
 }
 
+static int _vhost_vconnector(void *arg, http_message_t *request, http_message_t *response)
+{
+	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
+
+	const char *vhost = httpmessage_REQUEST(request, "host");
+	if (vhost == NULL || strcmp(vhost, mod->config->vserver.hostname))
+	{
+		err("vhost: accesss to another host on the same client");
+		httpmessage_result(response, RESULT_500);
+		return ESUCCESS;
+	}
+	return EREJECT;
+}
+
 #ifdef FILE_CONFIG
 static int vhost_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
@@ -174,6 +188,7 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 
 	mod->vserver = httpserver_dup(server, &config->vserver);
 	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_SERVER, str_vhost);
+	httpserver_addconnector(mod->vserver, _vhost_vconnector, mod, CONNECTOR_SERVER, str_vhost);
 	const module_list_t *iterator = ouistiti_modules(config->server);
 	while (iterator != NULL)
 	{
