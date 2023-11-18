@@ -1,6 +1,6 @@
 PUT /filter/config HTTP/1.1
-HOST: 127.0.0.1
-Authorization: Basic cm9vdDpyb290
+HOST: www.ouistiti.local
+Authorization: Bearer eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogInJvb3QiLCAiaG9tZSI6ICIvaG9tZS9yb290IiwgInN0YXR1cyI6ICJhY3RpdmF0ZWQiLCAicm9sZXMiOiAicm9vdCIsICJleHAiOiAxODAwfQ.-A3wP5zOYUU0GdHDwkDKxJp24cbTLEdIjpq-YQPVtiw
 Origin: http://localhost
 Content-Type: application/x-www-form-urlencoded
 Content-Length: 45
