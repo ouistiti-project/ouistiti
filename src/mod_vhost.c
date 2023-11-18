@@ -53,7 +53,7 @@ static const char str_vhost[] = "vhost";
 struct mod_vhost_s
 {
 	/** @param name of the server */
-	const char *hostname;
+	http_server_config_t vserver;
 	server_t *server;
 	void *modulesconfig;
 };
@@ -72,9 +72,9 @@ static int _vhost_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
 
 	const char *vhost = httpmessage_REQUEST(request, "host");
-	if (vhost == NULL || strcmp(vhost, mod->config->hostname))
+	if (vhost == NULL || strcmp(vhost, mod->config->vserver.hostname))
 		return EREJECT;
-
+	warn("vhost: connection on %s", mod->config->vserver.hostname);
 	return httpserver_reloadclient(mod->vserver, httpmessage_client(request));
 }
 
@@ -98,7 +98,7 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 	}
 	if (config && config_setting_is_group(config))
 	{
-		const char *hostname;
+		char *hostname;
 		config_setting_lookup_string(config, "hostname", (const char **)&hostname);
 		if (hostname == NULL || hostname[0] == '\0')
 		{
@@ -106,8 +106,10 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 			return EREJECT;
 		}
 		vhost = calloc(1, sizeof(*vhost));
-		vhost->hostname = hostname;
 		vhost->server = server;
+		memcpy(&vhost->vserver, ouistiti_serverconfig(server), sizeof(vhost->vserver));
+		vhost->vserver.hostname = hostname;
+		config_setting_lookup_string(config, "service", (const char **)&vhost->vserver.service);
 		vhost->modulesconfig = config;
 	}
 	else
@@ -170,7 +172,7 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 
-	mod->vserver = httpserver_dup(server);
+	mod->vserver = httpserver_dup(server, &config->vserver);
 	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_SERVER, str_vhost);
 	const module_list_t *iterator = ouistiti_modules(config->server);
 	while (iterator != NULL)
@@ -189,7 +191,7 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 		iterator = iterator->next;
 	}
 
-	dbg("create vhost for %s", config->hostname);
+	dbg("create vhost for %s", config->vserver.hostname);
 
 	return mod;
 }
