@@ -1,4 +1,4 @@
-if [ "$AUHTMNGT" != "y" ]; then
+if [ "$AUTHZ_MANAGER" != "y" ]; then
 	echo "authmngt module disabled"
 	DISABLED=1
 fi

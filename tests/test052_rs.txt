@@ -1,6 +1,6 @@
 HTTP/1.1 302 Found
 Referrer-Policy: origin-when-cross-origin
-WWW-Authenticate: Basic realm="auth.ouistiti.net"
-Location: /trust/signin.html
+WWW-Authenticate: Bearer realm="www.ouistiti.local"
+Location: http://auth.ouistiti.local:8080/token?redirect_uri=http://www.ouistiti.local:8080/index.html
 Cache-Control: no-cache
 

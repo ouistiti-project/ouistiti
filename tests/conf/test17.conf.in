@@ -1,11 +1,10 @@
 user="%USER%";
 log-file="%LOGFILE%";
 servers= ({
-		hostname = "ouistiti.local";
+		hostname = "www.ouistiti.local";
 		port = 8443;
 		keepalivetimeout = 5;
 		version="HTTP11";
-		unlock_groups = "users";
 		auth = {
 			realm = "www.ouistiti.net";
 			type = "Basic";
@@ -26,6 +25,18 @@ servers= ({
 			keyfile = "%PWD%/tests/conf/ouistiti_srv.key";
 			cachain = "%PWD%/tests/conf/ouistiti_ca.crt";
 			dhmfile = "%PWD%/tests/conf/ouistiti_dhparam.key";
+		};
+	},{
+		
+		hostname = "www.ouistiti.local";
+		port = 8080;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		redirect = {
+			options = "hsts";
+		};
+		clientfilter = {
+			deny = "192.168.123.125";
 		};
 	});
 

@@ -140,11 +140,11 @@ static unsigned long totp_generator(const hash_t *hash, const char* key, size_t 
 {
 	long t0 = 0;
 	long x = period;
-//#ifndef DEBUG
+#ifndef DEBUG
 	long t = (time(NULL) - t0 ) / x;
-//#else
-//	time_t t = 56666053;
-//#endif
+#else
+	time_t t = 56666053;
+#endif
 	return hotp_generator(hash, key, keylen, modulus, t);
 }
 
