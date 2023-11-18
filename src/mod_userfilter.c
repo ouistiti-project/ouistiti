@@ -721,6 +721,8 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	mod->config = config;
 	mod->cmp = &_exp_cmp;
 	mod->db = db;
+	httpserver_addmethod(server, METHOD(str_put), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
+	httpserver_addmethod(server, METHOD(str_delete), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
 	httpserver_addconnector(server, userfilter_connector, mod, \
 			CONNECTOR_DOCFILTER, str_userfilter);
 	if (config->configuri != NULL)
