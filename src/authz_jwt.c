@@ -142,7 +142,7 @@ size_t authz_generatejwtoken(const mod_auth_t *config, http_message_t *request, 
 	auth_dbg("jwt: encode %.*s", ttokenlen, ttoken);
 	json_decref(jtoken);
 
-	int ret = 0;
+	size_t ret = 0;
 	size_t length = (theaderlen + 1 + ttokenlen + 1) * 3 / 2;
 
 	*token = calloc(2, length + 1);
