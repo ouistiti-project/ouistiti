@@ -838,14 +838,14 @@ static size_t _authn_signtoken(const char *key, size_t keylen,
 		{
 			hash_macsha256->update(ctx, data, datalen);
 			char signature[HASH_MAX_SIZE];
-			length = hash_macsha256->finish(ctx, signature);
-			if (b64signaturelen < length)
+			size_t signlen = hash_macsha256->finish(ctx, signature);
+			if (b64signaturelen < signlen)
 			{
 				err("auth: signature buffer too small");
 				return -1;
 			}
-			length = base64_urlencoding->encode(signature, length, b64signature, b64signaturelen);
-			auth_dbg("auth: signature %s / %.*s", b64signature, (int)signlen, sign);
+			length = base64_urlencoding->encode(signature, signlen, b64signature, b64signaturelen);
+			auth_dbg("auth: signature %s / %.*s", b64signature, (int)signlen, signature);
 		}
 	}
 	return length;
@@ -1361,6 +1361,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				authz->rules->join(authz->ctx, user, authorization, mod->config->expire);
 			}
 		}
+		dbg("auth: type %s", (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0));
 		const char *status = auth_info(request, STRING_REF("status"));
 		if (status && !strcmp(status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
 		{
@@ -1379,6 +1380,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			ret = EREJECT;
 		}
 		_auth_prepareresponse(ctx, request, response, authorization, token);
+	}
+	else
+	{
+		dbg("auth: accepted without authorization (unprotect files, shortcut,...)");
 	}
 	/**
 	 * As the setup, the authz may need to cleanup between each message
