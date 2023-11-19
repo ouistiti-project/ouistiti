@@ -1325,11 +1325,13 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret == ECONTINUE)
 	{
+		const char *tuser = NULL;
 		size_t authorizationlen = _authn_getauthorization(ctx, request, &authorization);
 		auth_dbg("auth: getauthorization %d", ret);
 		if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
-			_authn_checkauthorization( ctx, authz, authorization, authorizationlen, request, &user) == ESUCCESS)
+			_authn_checkauthorization( ctx, authz, authorization, authorizationlen, request, &tuser) == ESUCCESS)
 		{
+			user = tuser;
 			ret = EREJECT;
 		}
 		auth_dbg("auth: checkauthorization %d", ret);
@@ -1337,6 +1339,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret == ECONTINUE)
 	{
+		/// any authorization doesn't satisfy the authentication
+		authorization = NULL;
 		ret = _authn_checkuri(config, request, response);
 		auth_dbg("auth: checkuri %d", ret);
 	}
@@ -1385,7 +1389,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			}
 		}
 		dbg("auth: type %s", (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0));
-		const char *status = auth_info(request, STRING_REF("status"));
+		const char *user = auth_info(request, STRING_REF(str_user));
+		const char *status = auth_info(request, STRING_REF(str_status));
 		if (status && !strcmp(status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
 		{
 			warn("auth: user \"%s\" accepted from %p to change password", user, ctx->clt);
