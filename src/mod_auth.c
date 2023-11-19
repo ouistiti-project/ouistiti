@@ -428,60 +428,68 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 	return ret;
 }
 
-static int auth_config(config_setting_t *iterator, server_t *server, int index, void **config)
+static int auth_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
-	int ret = EREJECT;
+	int conf_ret = ESUCCESS;
 	mod_auth_t *auth = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	const config_setting_t *configauth = config_setting_get_member(iterator, "auth");
+	const config_setting_t *config = config_setting_get_member(iterator, "auth");
 #else
-	const config_setting_t *configauth = config_setting_lookup(iterator, "auth");
+	const config_setting_t *config = config_setting_lookup(iterator, "auth");
 #endif
-	if (configauth)
+	if (config && config_setting_is_list(config))
 	{
+			if (index >= config_setting_length(config))
+				return EREJECT;
+			config = config_setting_get_elem(config, index);
+			conf_ret = ECONTINUE;
+	}
+	if (config)
+	{
+		int ret = ESUCCESS;
 		auth = calloc(1, sizeof(*auth));
 		/**
 		 * signin URI allowed to access to the signin page
 		 */
-		ret = config_setting_lookup_string(configauth, "signin", &auth->redirect.data);
+		ret = config_setting_lookup_string(config, "signin", &auth->redirect.data);
 		if (ret == CONFIG_FALSE)
-			ret = config_setting_lookup_string(configauth, "token_ep", &auth->redirect.data);
+			ret = config_setting_lookup_string(config, "token_ep", &auth->redirect.data);
 		if (ret != CONFIG_FALSE)
 			auth->redirect.length = strlen(auth->redirect.data);
 
-		config_setting_lookup_string(configauth, "protect", &auth->protect);
-		config_setting_lookup_string(configauth, "unprotect", &auth->unprotect);
+		config_setting_lookup_string(config, "protect", &auth->protect);
+		config_setting_lookup_string(config, "unprotect", &auth->unprotect);
 
 		/**
 		 * secret is the secret used during the token generation. (see authz_jwt.c)
 		 */
-		if (config_setting_lookup_string(configauth, "secret", &auth->secret.data) != CONFIG_FALSE)
+		if (config_setting_lookup_string(config, "secret", &auth->secret.data) != CONFIG_FALSE)
 			auth->secret.length = strlen(auth->secret.data);
 
 		const char *mode = NULL;
-		config_setting_lookup_string(configauth, "options", &mode);
+		config_setting_lookup_string(config, "options", &mode);
 		if (ouistiti_issecure(server))
 			auth->authz.type |= AUTHZ_TLS_E;
 		if (mode != NULL)
 		{
 			authz_optionscb(auth, mode);
 		}
-		config_setting_lookup_int(configauth, "expire", &auth->expire);
+		config_setting_lookup_int(config, "expire", &auth->expire);
 
 		const char *realm = NULL;
-		if (config_setting_lookup_string(configauth, "realm", &realm) == CONFIG_FALSE)
+		if (config_setting_lookup_string(config, "realm", &realm) == CONFIG_FALSE)
 			if (config_setting_lookup_string(iterator, "hostname", &realm) == CONFIG_FALSE)
 				realm = str_servername;
 		_string_store(&auth->realm, realm, -1);
 
-		ret = authz_config(configauth, &auth->authz);
+		ret = authz_config(config, &auth->authz);
 		if (ret == EREJECT)
 		{
 			err("config: authz is not set");
 			auth->authn.type = AUTHN_FORBIDDEN_E;
 		}
 
-		ret = authn_config(configauth, &auth->authn);
+		ret = authn_config(config, &auth->authn);
 		if (ret == EREJECT)
 		{
 			err("config: authn type is not set");
@@ -493,11 +501,11 @@ static int auth_config(config_setting_t *iterator, server_t *server, int index, 
 			err("auth: to enable the token, set the \"secret\" into configuration");
 			auth->authn.type = AUTHN_FORBIDDEN_E;
 		}
-		/// auth is alway ESUCCESS to block every request on bad configuration
-		ret = ESUCCESS;
 	}
-	*config = (void *)auth;
-	return ret;
+	else
+		conf_ret = EREJECT;
+	*modconfig = (void *)auth;
+	return conf_ret;
 }
 #else
 static const mod_auth_t g_auth_config =
