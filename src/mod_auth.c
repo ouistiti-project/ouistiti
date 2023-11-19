@@ -875,10 +875,17 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	if (ret == ESUCCESS)
 	{
 		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
+#ifdef AUTHZ_JWT
+		if (*user == NULL)
+		{
+			*user = authz_jwt_get(token, str_user);
+		}
+#else
 		if (*user == NULL)
 		{
 			*user = str_anonymous;
 		}
+#endif
 		ret = ESUCCESS;
 	}
 	else

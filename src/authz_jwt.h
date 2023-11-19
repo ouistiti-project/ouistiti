@@ -39,5 +39,6 @@ void *authz_jwt_config(const config_setting_t *configauth);
 extern authz_rules_t authz_jwt_rules;
 
 size_t authz_generatejwtoken(const mod_auth_t *mod, http_message_t *request, char **token);
+const char *authz_jwt_get(const char *id_token, const char *key);
 
 #endif
