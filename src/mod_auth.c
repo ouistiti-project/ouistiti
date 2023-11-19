@@ -1349,6 +1349,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				return _authn_challenge(ctx, request, response);
 			}
 #endif
+			httpclient_appendsession(ctx->clt, "authtype", "+", 1);
+			httpclient_appendsession(ctx->clt, "authtype", STRING_INFO(mod->type));
 		}
 		else
 		{
