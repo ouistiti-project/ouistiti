@@ -33,6 +33,8 @@
     With this solution each server may has its own authentication type.
     After the checking of the password is done by a library linked to the
     mod_auth library.
+
+    https://www.iana.org/assignments/http-authschemes/http-authschemes.xhtml
  */
 #include <stdlib.h>
 #include <string.h>
@@ -488,6 +490,10 @@ static int auth_config(config_setting_t *iterator, server_t *server, int index, 
 			err("config: authz is not set");
 			auth->authn.type = AUTHN_FORBIDDEN_E;
 		}
+		const char *issuer = NULL;
+		if (config_setting_lookup_string(config, "issuer", &issuer) == CONFIG_FALSE)
+				issuer = auth->authz.name.data;
+		_string_store(&auth->issuer, issuer, -1);
 
 		ret = authn_config(config, &auth->authn);
 		if (ret == EREJECT)
@@ -779,9 +785,10 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 #ifndef AUTHZ_JWT
 static size_t authz_generatetoken(const mod_auth_t *config, http_message_t *UNUSED(request), char **token)
 {
-	size_t tokenlen = (((24 + 1 + sizeof(time_t)) * 1.5) + 1) + 1;
-	*token = calloc(1, tokenlen);
-	char _nonce[(24 + 1 + sizeof(time_t))];
+	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
+	size_t tokenlen = _noncelen + (_noncelen + 2) / 3;
+	*token = calloc(1, tokenlen + 1);
+	char *_nonce = calloc(1, _noncelen + 1);
 	int i;
 	for (i = 0; i < (24 / sizeof(int)); i++)
 	{
@@ -793,7 +800,13 @@ static size_t authz_generatetoken(const mod_auth_t *config, http_message_t *UNUS
 		expire = 60 * 30;
 	expire += time(NULL);
 	memcpy(&_nonce[25], &expire, sizeof(time_t));
-	tokenlen = base64_urlencoding->encode(_nonce, 24, *token, tokenlen);
+	if (config->issuer.data != NULL)
+	{
+		_nonce[25 + sizeof(time_t)] = '.';
+		memcpy(&_nonce[25 + sizeof(time_t) + 1], onfig->issuer.data, onfig->issuer.length);
+	}
+	tokenlen = base64_urlencoding->encode(_nonce, _noncelen, *token, tokenlen);
+	free(_nonce);
 	return tokenlen;
 }
 #endif
@@ -1107,14 +1120,17 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	}
 	if (ret == ECONTINUE)
 	{
+		/// reset the Cookie to remove it on the client
 		if (mod->authn->type & AUTHN_COOKIE_E)
 			cookie_set(response, "X-Auth-Token", "", ";Max-Age=0", NULL);
 
 		ret = ESUCCESS;
-		auth_dbg("auth challenge failed");
+		auth_dbg("auth: challenge failed");
 		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 		if (X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL)
 		{
+			/// request from XMLHttpRequest was coming from JS script.
+			/// The page tried an authentication and want to stay on top.
 			httpmessage_result(response, RESULT_403);
 		}
 		else if (config->redirect.data)
@@ -1349,12 +1365,19 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				return _authn_challenge(ctx, request, response);
 			}
 #endif
-			httpclient_appendsession(ctx->clt, "authtype", "+", 1);
-			httpclient_appendsession(ctx->clt, "authtype", STRING_INFO(mod->type));
+			const char *tauthtype = (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0);
+			if (!strcmp(tauthtype, mod->type.data))
+			{
+				httpclient_appendsession(ctx->clt, "authtype", "+", 1);
+				httpclient_appendsession(ctx->clt, "authtype", STRING_INFO(mod->type));
+			}
+			httpclient_appendsession(ctx->clt, "issuer", "+", 1);
+			httpclient_appendsession(ctx->clt, "issuer", STRING_INFO(config->issuer));
 		}
 		else
 		{
 			authz->rules->setsession(authz->ctx, user, auth_saveinfo, ctx->clt);
+			httpclient_session(ctx->clt, STRING_REF("issuer"), STRING_INFO(config->issuer));
 			httpclient_session(ctx->clt, STRING_REF("authtype"), STRING_INFO(mod->type));
 			if (authz->rules->join)
 			{

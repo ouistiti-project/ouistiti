@@ -160,6 +160,7 @@ struct mod_auth_s
 	string_t secret;
 	string_t redirect;
 	string_t realm;
+	string_t issuer;
 	const char *protect;
 	const char *unprotect;
 	int expire;

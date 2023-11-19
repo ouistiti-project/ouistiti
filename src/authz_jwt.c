@@ -126,13 +126,14 @@ size_t authz_generatejwtoken(const mod_auth_t *config, http_message_t *request, 
 	else
 		jexpire = json_integer((30 * 60) + now);
 	json_object_set(jtoken, "exp", jexpire);
+	const char *issuer = auth_info(request, STRING_REF("issuer"));
+	if (issuer)
+		json_object_set(jtoken, "iss", json_string(issuer));
 #ifdef AUTH_OPENID
 	json_object_set(jtoken, "sub", juser);
 	json_object_set(jtoken, "preferred_username", juser);
 	json_object_set(jtoken, "aud", json_string(str_servername));
 	json_object_set(jtoken, "iat", json_integer(now));
-	if (info->urlspace && info->urlspace[0] != '\0')
-		json_object_set(jtoken, "iss", json_string(info->urlspace));
 #endif
 	size_t ttokenlen = json_dumpb(jtoken, NULL, 0, 0);
 	if (ttokenlen == 0)
