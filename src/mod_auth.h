@@ -159,6 +159,7 @@ struct mod_auth_s
 	string_t algo;
 	string_t secret;
 	string_t redirect;
+	string_t token_ep;
 	string_t realm;
 	string_t issuer;
 	const char *protect;

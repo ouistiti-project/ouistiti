@@ -458,6 +458,9 @@ static int auth_config(config_setting_t *iterator, server_t *server, int index, 
 			ret = config_setting_lookup_string(config, "token_ep", &auth->redirect.data);
 		if (ret != CONFIG_FALSE)
 			auth->redirect.length = strlen(auth->redirect.data);
+		ret = config_setting_lookup_string(config, "token_ep", &auth->token_ep.data);
+		if (ret != CONFIG_FALSE)
+			auth->token_ep.length = strlen(auth->token_ep.data);
 
 		config_setting_lookup_string(config, "protect", &auth->protect);
 		config_setting_lookup_string(config, "unprotect", &auth->unprotect);
