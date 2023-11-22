@@ -1,0 +1,28 @@
+user="%USER%";
+log-file="%LOGFILE%";
+servers= ({
+		hostname = "www.ouistiti.net";
+		addr="127.0.0.1";
+		port = 8080;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		auth = {
+			type="wwwform";
+			user="foo";
+			passwd="bar";
+			token_ep = "/token";
+		};
+		document = {
+			docroot = "%PWD%/tests/htdocs";
+			allow = ".html,.htm,.css,.js,.txt,*";
+			deny = ".htaccess,.php";
+		};
+		redirect = {
+			links = ({
+				options = "query,temporary";
+				origin = "^/token";
+			});
+		};
+	});
+
+

@@ -1,0 +1,3 @@
+DESC="test a request POST www-form authentication (simple credential storage)"
+CONFIG=test21.conf
+TESTCODE=307
