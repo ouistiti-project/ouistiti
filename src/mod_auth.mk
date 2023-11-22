@@ -21,6 +21,8 @@ mod_auth_SOURCES-$(AUTHN_OAUTH2)+=authn_oauth2.c
 mod_auth_LIBRARY-$(AUTHN_OAUTH2)+=jansson
 endif
 
+mod_auth_SOURCES-y+=authn_wwwform.c
+
 mod_auth_SOURCES-$(AUTHZ_SIMPLE)+=authz_simple.c
 
 mod_auth_SOURCES-$(AUTHZ_FILE)+=authz_file.c
