@@ -888,10 +888,16 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	if (ret == ESUCCESS)
 	{
 		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
+		ret = ESUCCESS;
 #ifdef AUTHZ_JWT
+		const char *issuer = NULL;
+		const char *tuser = NULL;
+		authz_jwt_getinfo(token, &tuser, &issuer);
+		if (issuer && strstr(issuer, mod->config->issuer.data) == NULL)
+			ret = EREJECT;
 		if (*user == NULL)
 		{
-			*user = authz_jwt_get(token, str_user);
+			*user = tuser;
 		}
 #else
 		if (*user == NULL)
@@ -899,7 +905,6 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 			*user = str_anonymous;
 		}
 #endif
-		ret = ESUCCESS;
 	}
 	else
 	{
@@ -1306,6 +1311,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				ret = EREJECT;
 				auth_dbg("auth: checktoken %d", ret);
 			}
+			else
+				token = NULL;
 		}
 	}
 #endif
@@ -1369,12 +1376,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				return _authn_challenge(ctx, request, response);
 			}
 #endif
-			const char *tauthtype = (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0);
-			if (!strcmp(tauthtype, mod->type.data))
-			{
-				httpclient_appendsession(ctx->clt, "authtype", "+", 1);
-				httpclient_appendsession(ctx->clt, "authtype", STRING_INFO(mod->type));
-			}
 			httpclient_appendsession(ctx->clt, "issuer", "+", 1);
 			httpclient_appendsession(ctx->clt, "issuer", STRING_INFO(config->issuer));
 		}
@@ -1382,7 +1383,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		{
 			authz->rules->setsession(authz->ctx, user, auth_saveinfo, ctx->clt);
 			httpclient_session(ctx->clt, STRING_REF("issuer"), STRING_INFO(config->issuer));
-			httpclient_session(ctx->clt, STRING_REF("authtype"), STRING_INFO(mod->type));
 			if (authz->rules->join)
 			{
 				authz->rules->join(authz->ctx, user, authorization, mod->config->expire);

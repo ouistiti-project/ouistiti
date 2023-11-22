@@ -267,12 +267,22 @@ const char *authz_jwt_get(const char *id_token, const char *key)
 {
 	const json_t *jinfo = jwt_decode_json(id_token);
 	if (jinfo == NULL)
-		return 0;
+		return NULL;
 	if (!strcmp(key, str_user))
 		return _jwt_getuser(jinfo);
 	if (!strcmp(key, "issuer"))
 		return _jwt_get(jinfo, "iss");
 	return _jwt_get(jinfo, key);
+}
+
+int authz_jwt_getinfo(const char *id_token, const char **user, const char **issuer)
+{
+	const json_t *jinfo = jwt_decode_json(id_token);
+	if (jinfo == NULL)
+		return -1;
+	*user = _jwt_getuser(jinfo);
+	*issuer = _jwt_get(jinfo, "iss");
+	return 0;
 }
 
 static void *authz_jwt_create(http_server_t *UNUSED(server), void *arg)
