@@ -107,6 +107,7 @@ typedef void *(*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockad
 typedef void (*authn_rule_cleanup_t)(void *arg);
 typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);
 typedef const char *(*authn_rule_check_t)(void *arg, authz_t *authz, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen);
+typedef const char *(*authn_rule_checkrequest_t)(void *arg, authz_t *authz, http_message_t *request);
 typedef void (*authn_rule_destroy_t)(void *arg);
 typedef struct authn_rules_s authn_rules_t;
 struct authn_rules_s
@@ -116,6 +117,7 @@ struct authn_rules_s
 	authn_rule_cleanup_t cleanup;
 	authn_rule_challenge_t challenge;
 	authn_rule_check_t check;
+	authn_rule_checkrequest_t checkrequest;
 	authn_rule_destroy_t destroy;
 };
 typedef enum
