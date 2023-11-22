@@ -64,6 +64,9 @@
 #ifdef AUTHN_OAUTH2
 #include "authn_oauth2.h"
 #endif
+#ifdef AUTHN_WWWFORM
+#include "authn_wwwform.h"
+#endif
 #include "authz_simple.h"
 #include "authz_file.h"
 #include "authz_unix.h"
@@ -141,6 +144,11 @@ authn_rules_t *authn_rules[] = {
 #endif
 #ifdef AUTHN_OAUTH2
 	&authn_oauth2_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHN_WWWFORM
+	&authn_wwwform_rules,
 #else
 	NULL,
 #endif
@@ -279,6 +287,13 @@ struct _authn_s *authn_list[] =
 		.config = &authn_none_config,
 		.type = AUTHN_NONE_E,
 		.name = STRING_DCL("None"),
+	},
+#endif
+#ifdef AUTHN_WWWFORM
+	&(struct _authn_s){
+		.config = &authn_wwwform_config,
+		.type = AUTHN_WWWFORM_E,
+		.name = STRING_DCL("wwwform"),
 	},
 #endif
 };
