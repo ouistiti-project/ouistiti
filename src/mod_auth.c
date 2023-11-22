@@ -1066,6 +1066,10 @@ static int _authn_check(_mod_auth_ctx_t *ctx, authz_t *authz, http_message_t *re
 		if (authorizationlen > 0)
 			tuser = _authn_checkauthorization( ctx, authn, authz, *authorization, authorizationlen, request);
 	}
+	else if (authn->rules->checkrequest)
+	{
+		tuser = authn->rules->checkrequest(authn->ctx, authz, request);
+	}
 	if (tuser != NULL)
 	{
 		*user = tuser;
