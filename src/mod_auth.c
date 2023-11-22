@@ -1016,8 +1016,8 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 	return ESUCCESS;
 }
 
-static int _authn_checkauthorization(_mod_auth_ctx_t *ctx, authz_t *authz,
-		const char *authorization, size_t authorizationlen, http_message_t *request, const char **user)
+static const char * _authn_checkauthorization(_mod_auth_ctx_t *ctx, authn_t *authn, authz_t *authz,
+		const char *authorization, size_t authorizationlen, http_message_t *request)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
@@ -1047,18 +1047,32 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx, authz_t *authz,
 	 */
 	if (config->redirect.data)
 		method = str_head;
+	return authn->rules->check(authn->ctx, authz, method, methodlen, uri, urilen, authentication, authorizationlen);
+}
+
+static int _authn_check(_mod_auth_ctx_t *ctx, authz_t *authz, http_message_t *request, const char **authorization, const char **user)
+{
+	_mod_auth_t *mod = ctx->mod;
+	int ret = ECONTINUE;
+	const char *tuser = NULL;
+
 	/// authn may use setup for initialize some data, and the ctx change with client
 	authn_t *authn = mod->authn;
 	if (ctx->authn.ctx)
 		authn = &ctx->authn;
-	*user = authn->rules->check(authn->ctx, authz, method, methodlen, uri, urilen, authentication, authorizationlen);
-	if (*user != NULL)
+	if (authn->rules->check)
 	{
-		ret = ESUCCESS;
+		size_t authorizationlen = _authn_getauthorization(ctx, request, authorization);
+		if (authorizationlen > 0)
+			tuser = _authn_checkauthorization( ctx, authn, authz, *authorization, authorizationlen, request);
+	}
+	if (tuser != NULL)
+	{
+		*user = tuser;
+		ret = EREJECT;
 	}
 	return ret;
 }
-
 static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response)
 {
 	int ret = ESUCCESS;
@@ -1349,15 +1363,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret == ECONTINUE)
 	{
-		const char *tuser = NULL;
-		size_t authorizationlen = _authn_getauthorization(ctx, request, &authorization);
-		auth_dbg("auth: getauthorization %d", ret);
-		if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
-			_authn_checkauthorization( ctx, authz, authorization, authorizationlen, request, &tuser) == ESUCCESS)
-		{
-			user = tuser;
-			ret = EREJECT;
-		}
+		ret = _authn_check(ctx, authz, request, &authorization, &user);
 		auth_dbg("auth: checkauthorization %d", ret);
 	}
 	if (ret == EREJECT)
