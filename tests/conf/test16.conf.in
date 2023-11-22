@@ -18,12 +18,12 @@ servers= ({
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html";
 			},{
-				type = "Bearer";
+				type = "Basic";
 				authz = "totp";
 				options = "token,cookie";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
-				signin = "/trust/signin.html";
+				signin = "/trust/signin_totp.html";
 			});
 			redirect = {
 				links = ({

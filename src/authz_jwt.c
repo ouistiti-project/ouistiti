@@ -270,6 +270,8 @@ const char *authz_jwt_get(const char *id_token, const char *key)
 		return 0;
 	if (!strcmp(key, str_user))
 		return _jwt_getuser(jinfo);
+	if (!strcmp(key, "issuer"))
+		return _jwt_get(jinfo, "iss");
 	return _jwt_get(jinfo, key);
 }
 
