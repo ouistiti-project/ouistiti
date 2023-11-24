@@ -56,7 +56,10 @@ void *authn_wwwform_config(const config_setting_t *configauth)
 static void *authn_wwwform_create(const authn_t *authn, void *arg)
 {
 	if (authn->config->token_ep.length == 0)
+	{
+		err("auth: token_ep must be defined in configuration file");
 		return NULL;
+	}
 	authn_wwwform_t *mod = calloc(1, sizeof(*mod));
 	mod->authn = authn;
 	return mod;
@@ -87,8 +90,11 @@ static const char *authn_wwwform_checkrequest(void *arg, authz_t *authz, http_me
 	size_t content_typelen = httpmessage_REQUEST2(request, "content_type", &content_type);
 	if (! strncmp(content_type, str_form_urlencoded, content_typelen))
 	{
-		const char *username = httpmessage_parameter(request, "username");;
-		const char *password = httpmessage_parameter(request, "password");;
+		const char *username = NULL;
+		httpmessage_parameter(request, "username", &username);
+		const char *password = NULL;
+		httpmessage_parameter(request, "password", &password);
+		auth_dbg("auth: www-form-urlencoding %s %s", username, password);
 		if (username && password)
 			user = authz->rules->check(authz->ctx, username, password, NULL);
 	}
