@@ -1,5 +1,5 @@
-HTTP/1.1 307 Temporary Redirect
+HTTP/1.1 302 Found
 Location: /index.html
-Content-Length: 25
+Content-Length: 12
 
- 307 Temporary Redirect
+ 302 Found

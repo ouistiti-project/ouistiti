@@ -10,6 +10,7 @@ servers= ({
 			type="wwwform";
 			user="foo";
 			passwd="bar";
+			signin = "/signin.html";
 			token_ep = "/token";
 		};
 		document = {
@@ -19,7 +20,7 @@ servers= ({
 		};
 		redirect = {
 			links = ({
-				options = "query,temporary";
+				options = "query";
 				origin = "^/token";
 			});
 		};
