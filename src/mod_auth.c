@@ -1213,6 +1213,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 				 * reject to manage the request and another module
 				 * should send response to the request.
 				 */
+				warn("auth: accept redirection on challenge");
 				httpmessage_result(response, RESULT_200);
 				ret = EREJECT;
 			}
@@ -1348,7 +1349,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		size_t tokenlen = 0;
 		authorization = _authn_gettoken(ctx, request, &token, &tokenlen);
-		auth_dbg("auth: gettoken %d", ret);
+		auth_dbg("auth: gettoken %s", token);
 		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
 					token != NULL)
 		{
@@ -1413,7 +1414,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
 		{
-			dbg("auth: session already open");
+			auth_dbg("auth: session already open");
 			const char *expire_str = auth_info(request, STRING_REF("expire"));
 			int expire = 0;
 			if (expire_str)
@@ -1433,6 +1434,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else
 		{
+			auth_dbg("auth: ser the session");
 			authz->rules->setsession(authz->ctx, user, auth_saveinfo, ctx->clt);
 			httpclient_session(ctx->clt, STRING_REF("issuer"), STRING_INFO(config->issuer));
 			if (authz->rules->join)
