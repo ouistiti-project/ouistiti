@@ -1128,9 +1128,16 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	}
 	if (ret == ECONTINUE)
 	{
-		/// reset the Cookie to remove it on the client
+		/// In MFA usage, the second step may set a challenge but the
+		/// cookie contains information for the first step and we should to keep it
+		/// In normal usage the challenge is set before any Cookie creation.
+		/// If the token is present and we have a challenge, the cookie is bad.
+		/// But it is not dangerous to keep it, because we send a new challenge.
+#if 0
+		/// ---reset the Cookie to remove it on the client---
 		if (mod->authn->type & AUTHN_COOKIE_E)
 			cookie_set(response, "X-Auth-Token", "", ";Max-Age=0", NULL);
+#endif
 
 		ret = ESUCCESS;
 		auth_dbg("auth: challenge failed");
