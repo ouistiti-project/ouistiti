@@ -1222,6 +1222,13 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 		httpmessage_result(response, RESULT_403);
 		ret = ESUCCESS;
 	}
+	protect = utils_searchexp(uri, config->token_ep.data, NULL);
+	if (protect == ESUCCESS)
+	{
+		auth_dbg("protected uri %s", config->token_ep.data);
+		httpmessage_result(response, RESULT_403);
+		ret = ESUCCESS;
+	}
 	return ret;
 }
 
@@ -1431,7 +1438,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else
 	{
-		dbg("auth: accepted without authorization (unprotect files, shortcut,...)");
+		warn("auth: accepted without authorization (unprotect files, shortcut,...)");
 	}
 	/**
 	 * As the setup, the authz may need to cleanup between each message
