@@ -1353,6 +1353,16 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		auth_dbg("auth: checkauthorization %d", ret);
 	}
+	if (ret == EREJECT)
+	{
+		const char *sessionuser = NULL;
+		auth_info2(request, str_user, &sessionuser);
+		if (sessionuser && strcmp(user, sessionuser))
+		{
+			httpmessage_result(response, RESULT_500);
+			ret = ESUCCESS;
+		}
+	}
 
 	if (ret == ECONTINUE)
 	{
