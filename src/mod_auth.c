@@ -1065,17 +1065,23 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
+	httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
 	httpmessage_addheader(response, str_location, config->redirect.data, config->redirect.length);
 
 	const char *uri = NULL;
 	int urilen = httpmessage_REQUEST2(request, "uri", &uri);
 	const char *query = NULL;
 	int querylen = httpmessage_REQUEST2(request, "query", &query);
-	if (utils_searchexp(query, "noredirect", NULL) != ESUCCESS &&
-			utils_searchexp(uri, config->protect, NULL) != ESUCCESS)
+	if (utils_searchexp(query, "noredirect", NULL) == ESUCCESS)
+		return ret;
+
+	if (config->authn.type & AUTHN_REDIRECT_E)
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
-		httpmessage_appendheader(response, str_location, STRING_REF("?redirect_uri="));
+		if (strchr(config->redirect.data, '?'))
+			httpmessage_appendheader(response, str_location, STRING_REF("&redirect_uri="));
+		else
+			httpmessage_appendheader(response, str_location, STRING_REF("?redirect_uri="));
 		const char *scheme = NULL;
 		size_t schemelen = httpserver_INFO2(server, "scheme", &scheme);
 		httpmessage_appendheader(response, str_location, scheme, schemelen);
@@ -1095,14 +1101,15 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 			httpmessage_appendheader(response, str_location, port, portlen);
 		}
 		httpmessage_appendheader(response, str_location, uri, urilen);
-		if (query && query[0] != '\0')
-		{
-			httpmessage_appendheader(response, str_location, STRING_REF("?"));
-			httpmessage_appendheader(response, str_location, query, querylen);
-		}
 	}
-
-	httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
+	if (query && query[0] != '\0')
+	{
+		if (strchr(config->redirect.data, '?'))
+			httpmessage_appendheader(response, str_location, STRING_REF("&"));
+		else
+			httpmessage_appendheader(response, str_location, STRING_REF("?"));
+		httpmessage_appendheader(response, str_location, query, querylen);
+	}
 
 	ret = ESUCCESS;
 
@@ -1176,17 +1183,10 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 				httpmessage_result(response, RESULT_200);
 				ret = EREJECT;
 			}
-			else if (config->authn.type & AUTHN_REDIRECT_E)
+			else
 			{
 				ret = auth_redirect_uri(ctx, request, response);
 				httpmessage_result(response, RESULT_302);
-			}
-			else
-			{
-				httpmessage_addheader(response, str_location, config->redirect.data, config->redirect.length);
-				httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
-				httpmessage_result(response, RESULT_302);
-				ret = ESUCCESS;
 			}
 		}
 		else
