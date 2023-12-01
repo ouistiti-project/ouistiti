@@ -732,7 +732,7 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 		const string_t *realm, const string_t *passwd)
 {
 	int ret = EREJECT;
-	auth_dbg("auth: check %s %s", passwd->data, checkpasswd);
+	auth_dbg("auth: %s check %s %s", user->data, passwd->data, checkpasswd);
 	if (checkpasswd[0] == '$')
 	{
 		const hash_t *hash = NULL;
@@ -898,7 +898,7 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 		authz_jwt_getinfo(token, &tuser, &issuer);
 		if (issuer && strstr(issuer, mod->config->issuer.data) == NULL)
 			ret = EREJECT;
-		if (*user == NULL)
+		if (tuser && (*user == NULL || strcmp(tuser, *user)))
 		{
 			*user = tuser;
 		}
