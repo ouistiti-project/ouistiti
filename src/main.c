@@ -295,6 +295,11 @@ http_server_t *ouistiti_httpserver(server_t *server)
 	return server->server;
 }
 
+serverconfig_t *ouistiti_serverconfig(server_t *server)
+{
+	return server->config;
+}
+
 int ouistiti_issecure(server_t *server)
 {
 	const char *secure = httpserver_INFO(server->server, "secure");
