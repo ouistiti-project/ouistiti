@@ -486,7 +486,7 @@ static int _userfilter_get(_mod_userfilter_t *ctx, http_message_t *response)
 	int ret = EREJECT;
 	if (ctx->line == 0)
 	{
-		httpmessage_addcontent(response, str_text_json, NULL, -1);
+		httpmessage_addcontent(response, str_mime_textjson, NULL, -1);
 		httpmessage_appendcontent(response, "[", -1);
 	}
 	else
