@@ -1,3 +1,7 @@
+if [ "$AUTHZ_MANAGER" != "y" ]; then
+	echo "authmngt module disabled"
+	DISABLED=1
+fi
 DESC="Authorization on auth manager as root"
 PREPARE="rm -f ${TESTDIR}/conf/passwd.db"
 CONFIG=test12.conf

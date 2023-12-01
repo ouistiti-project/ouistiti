@@ -67,6 +67,7 @@
 #include "authz_unix.h"
 #include "authz_sqlite.h"
 #include "authz_jwt.h"
+#include "authz_totp.h"
 
 #define auth_dbg(...)
 
@@ -167,6 +168,11 @@ authz_rules_t *authz_rules[] = {
 #endif
 #ifdef AUTHZ_JWT
 	&authz_jwt_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHZ_TOTP
+	&authz_totp_rules,
 #else
 	NULL,
 #endif
@@ -360,6 +366,13 @@ struct _authz_s *authz_list[] =
 		.name = STRING_DCL("jwt"),
 	},
 #endif
+#ifdef AUTHZ_TOTP
+	&(struct _authz_s){
+		.config = &authz_totp_config,
+		.type = AUTHZ_TOTP_E,
+		.name = STRING_DCL("totp"),
+	},
+#endif
 };
 
 static void authz_optionscb(void *arg, const char *option)
@@ -387,9 +400,18 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 {
 	int ret = EREJECT;
 	const struct _authz_s *authz = NULL;
+	const char *name = NULL;
+	ret = config_setting_lookup_string(configauth, "authz", &name);
+	if (ret == CONFIG_FALSE)
+		name = NULL;
 	for (int i = 0; i < (sizeof(authz_list) / sizeof(*authz_list)); i++)
 	{
-		if (authz_list[i]->config != NULL)
+		if (name != NULL)
+		{
+			if (! _string_cmp(&authz_list[i]->name, name, -1))
+				mod->config = authz_list[i]->config(configauth);
+		}
+		else if (authz_list[i]->config != NULL)
 			mod->config = authz_list[i]->config(configauth);
 		if (mod->config != NULL)
 		{
@@ -826,10 +848,12 @@ int authn_checksignature(const char *key, size_t keylen,
 		const char *sign, size_t signlen)
 {
 	char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
-	if (_authn_signtoken(key, keylen, data, datalen,b64signature, sizeof(b64signature)) > 0 &&
-		(!strncmp(b64signature, sign, signlen)))
-		return ESUCCESS;
-	return EREJECT;
+	size_t len =_authn_signtoken(key, keylen, data, datalen, b64signature, sizeof(b64signature));
+	if (len == (size_t)-1)
+		return EREJECT;
+	if (strncmp(b64signature, sign, signlen))
+		return EREJECT;
+	return ESUCCESS;
 }
 
 static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *token, size_t tokenlen, const char *sign, size_t signlen, const char **user)
@@ -906,12 +930,12 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 	{
 		cookie_set(response, str_authorization, authorization, NULL);
 	}
-	const char *user = auth_info(response, STRING_REF("user"));
+	const char *user = auth_info(response, STRING_REF(str_user));
 	cookie_set(response, str_xuser, user, NULL);
-	const char *group = auth_info(response, STRING_REF("group"));
+	const char *group = auth_info(response, STRING_REF(str_group));
 	if (group && group[0] != '\0')
 		cookie_set(response, str_xgroup, group, NULL);
-	const char *home = auth_info(response, STRING_REF("home"));
+	const char *home = auth_info(response, STRING_REF(str_home));
 	if (home && home[0] != '\0')
 		cookie_set(response, str_xhome, "~/", NULL);
 	return ESUCCESS;
@@ -938,17 +962,17 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 		httpmessage_addheader(response, str_authorization, authorization, -1);
 	}
 	const char *user = NULL;
-	size_t userlen = auth_info2(response, "user", &user);
+	size_t userlen = auth_info2(response, str_user, &user);
 	httpmessage_addheader(response, str_xuser, user, userlen);
 	httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xuser));
 	const char *group = NULL;
-	size_t grouplen = auth_info2(response, "group", &group);
+	size_t grouplen = auth_info2(response, str_group, &group);
 	if (group && grouplen > 0)
 	{
 		httpmessage_addheader(response, str_xgroup, group, grouplen);
 		httpmessage_addheader(response, "Access-Control-Expose-Headers", STRING_REF(str_xgroup));
 	}
-	const char *home = auth_info(response, STRING_REF("home"));
+	const char *home = auth_info(response, STRING_REF(str_home));
 	if (home && home[0] != '\0')
 	{
 		httpmessage_addheader(response, str_xhome, STRING_REF("~/"));
@@ -1200,7 +1224,7 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 
 	if (mod->authz->type & AUTHZ_CHOWN_E)
 	{
-		const char *user = auth_info(request, STRING_REF("user"));
+		const char *user = auth_info(request, STRING_REF(str_user));
 		auth_setowner(user);
 	}
 	if (ttoken)

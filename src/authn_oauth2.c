@@ -51,6 +51,8 @@ static const char *str_authresp = "/auth/resp";
 static const char *str_oauth2 = "oauth2";
 static const char *str_auth = "auth";
 
+typedef struct authn_oauth2_config_s authn_oauth2_config_t;
+
 typedef struct authn_oauth2_s authn_oauth2_t;
 struct authn_oauth2_s
 {
@@ -74,6 +76,16 @@ struct _json_load_s
 	http_message_t *request;
 	http_message_t *response;
 	const char *content;
+};
+
+struct authn_oauth2_config_s
+{
+	string_t client_id;
+	string_t client_passwd;
+	string_t discovery;
+	string_t auth_ep;
+	string_t token_ep;
+	string_t iss;
 };
 
 #ifdef FILE_CONFIG

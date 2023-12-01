@@ -44,45 +44,6 @@ typedef struct mod_auth_s mod_auth_t;
 #define USER_MAX 64
 #define FIELD_MAX 32
 #define TOKEN_MAX 123
-typedef struct authsession_s
-{
-	int expires;
-	char type[FIELD_MAX + 1];
-	char user[USER_MAX + 1];
-	char group[FIELD_MAX + 1];
-	char home[PATH_MAX + 1];
-	char passwd[TOKEN_MAX + 1];
-	char urlspace[PATH_MAX + 1];
-	char token[TOKEN_MAX + 1];
-	char status[FIELD_MAX + 1];
-} authsession_t;
-
-typedef struct authz_simple_config_s authz_simple_config_t;
-struct authz_simple_config_s
-{
-	string_t user;
-	string_t passwd;
-	string_t group;
-	string_t home;
-};
-
-typedef struct authz_file_config_s authz_file_config_t;
-struct authz_file_config_s
-{
-	const char *path;
-};
-
-typedef struct authz_sqlite_config_s authz_sqlite_config_t;
-struct authz_sqlite_config_s
-{
-	const char *dbname;
-};
-
-typedef struct authz_jwt_config_s authz_jwt_config_t;
-struct authz_jwt_config_s
-{
-	const char *none;
-};
 
 typedef int (*auth_saveinfo_t)(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen);
 
@@ -113,6 +74,7 @@ typedef enum
 	AUTHZ_UNIX_E,
 	AUTHZ_SQLITE_E,
 	AUTHZ_JWT_E,
+	AUTHZ_TOTP_E,
 	AUTHZ_TYPE_MASK = 0x0F,
 	AUTHZ_HOME_E = 0x10,
 	AUTHZ_TOKEN_E = 0x80,
@@ -138,29 +100,6 @@ struct mod_authz_s
 	string_t name;
 };
 typedef struct mod_authz_s mod_authz_t;
-
-typedef struct authn_none_config_s authn_none_config_t;
-struct authn_none_config_s
-{
-	string_t user;
-};
-
-typedef struct authn_digest_config_s authn_digest_config_t;
-struct authn_digest_config_s
-{
-	string_t opaque;
-};
-
-typedef struct authn_oauth2_config_s authn_oauth2_config_t;
-struct authn_oauth2_config_s
-{
-	string_t client_id;
-	string_t client_passwd;
-	string_t discovery;
-	string_t auth_ep;
-	string_t token_ep;
-	string_t iss;
-};
 
 typedef struct authn_s authn_t;
 typedef void *(*authn_rule_create_t)(const authn_t *authn, void *config);
