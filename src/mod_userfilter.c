@@ -401,30 +401,25 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	return ret;
 }
 
-static int64_t _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield)
+static int64_t _parsequery(_mod_userfilter_t *ctx, http_message_t *request, int ifield)
 {
 	string_t fields[] = {
-		{STRING_REF("method=")},
-		{STRING_REF("role=")},
+		{STRING_REF("method")},
+		{STRING_REF("role")},
 	};
 
 	if (ifield >= sizeof(fields) / sizeof(string_t))
 		return EREJECT;
 
-	const char *value = strstr(query, fields[ifield].data);
+	const char *value = NULL;
+	size_t length = httpmessage_parameter(request, fields[ifield].data, &value);
 
 	if (value == NULL)
 	{
 		err("userfilter: %.*s empty", (int)fields[ifield].length - 1, fields[ifield].data);
 		return EREJECT;
 	}
-	else
-		value += fields[ifield].length;
 
-	int length = -1;
-	const char *end = strchr(value, '&');
-	if (end != NULL)
-		length = end - value;
 	int64_t id = _search_field(ctx, ifield, value, length);
 	if (id == EREJECT)
 		id = _insert_field(ctx, ifield, value, length);
@@ -433,20 +428,16 @@ static int64_t _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield
 	return id;
 }
 
-static int _userfilter_append(_mod_userfilter_t *ctx, const char *query, http_message_t *response)
+static int _userfilter_append(_mod_userfilter_t *ctx, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	int64_t methodid = _parsequery(ctx, query, 0);
-	int64_t roleid = _parsequery(ctx, query, 1);
-	const char *exp = strstr(query, "pathexp=");
-	if (exp != NULL && methodid != EREJECT && roleid != EREJECT)
+	int64_t methodid = _parsequery(ctx, request, 0);
+	int64_t roleid = _parsequery(ctx, request, 1);
+	const char *value = NULL;
+	size_t length = httpmessage_parameter(request, "pathexp", &value);
+	if (length > 0 && methodid != EREJECT && roleid != EREJECT)
 	{
-		exp += 8;
-		size_t elength = -1;
-		const char *end = strchr(exp, '&');
-		if (end != NULL)
-			elength = end - exp;
-		char *decode = utils_urldecode(exp, elength);
+		char *decode = utils_urldecode(value, length);
 		if (decode != NULL)
 			ret = _insert_rule(ctx, methodid, roleid, decode, -1);
 		free(decode);
@@ -458,7 +449,7 @@ static int _userfilter_append(_mod_userfilter_t *ctx, const char *query, http_me
 	}
 	else
 	{
-		warn("userfilter: insert %s", query);
+		warn("userfilter: insert %s", value);
 #if defined RESULT_204
 		httpmessage_result(response, RESULT_204);
 #endif
@@ -526,10 +517,9 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 		userfilter_dbg("userfilter: filter configuration %s", uri);
 		userfilter_dbg("userfilter: rest %s", rest);
 		const char *method = httpmessage_REQUEST(request, "method");
-		const char *query = httpmessage_REQUEST(request, "query");
-		if (!strcmp(method, str_put) && query != NULL)
+		if (!strcmp(method, str_put))
 		{
-			ret = _userfilter_append(ctx, query, response);
+			ret = _userfilter_append(ctx, request, response);
 		}
 		else if (!strcmp(method, str_delete) && rest != NULL)
 		{

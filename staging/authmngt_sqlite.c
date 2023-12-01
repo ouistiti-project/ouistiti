@@ -137,7 +137,7 @@ static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char 
 			ret = SQLITE_ABORT;
 	}
 	if (ret != SQLITE_OK) {
-		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
+		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sqlite3_expanded_sql(statement), sqlite3_errmsg(ctx->db));
 		sqlite3_finalize(statement);
 		return EREJECT;
 	}

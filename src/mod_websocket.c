@@ -229,8 +229,6 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	}
 	else if (mod->config->links)
 	{
-		const char *query = NULL;
-		httpmessage_REQUEST2(request, "query", &query);
 		_ws_link_t *it = NULL;
 		for (it = mod->config->links;it; it = it->next)
 		{
