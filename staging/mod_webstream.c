@@ -49,6 +49,7 @@
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
+#include "mod_document.h"
 #include "mod_webstream.h"
 
 extern int ouistiti_websocket_run(void *arg, int sock, int wssock, http_message_t *request);
@@ -61,6 +62,8 @@ extern int ouistiti_websocket_run(void *arg, int sock, int wssock, http_message_
 #define dbg(...)
 #endif
 
+#define webstream_dbg(...)
+
 #define WEBSTREAM_REALTIME        0x01
 #define WEBSTREAM_TLS             0x02
 #define WEBSTREAM_MULTIPART       0x04
@@ -72,8 +75,7 @@ typedef struct mod_webstream_s mod_webstream_t;
 struct mod_webstream_s
 {
 	char *docroot;
-	char *allow;
-	char *deny;
+	htaccess_t htaccess;
 	int options;
 	int fps;
 };
@@ -105,18 +107,6 @@ struct _mod_webstream_ctx_s
 static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request);
 
 static const char str_webstream[] = "webstream";
-
-static int _checkname(_mod_webstream_ctx_t *ctx, const char *pathname)
-{
-	_mod_webstream_t *mod = ctx->mod;
-	mod_webstream_t *config = (mod_webstream_t *)mod->config;
-	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
-		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	return ESUCCESS;
-}
 
 static int _webstream_socket(_mod_webstream_ctx_t *ctx, int sock, const char *filepath)
 {
@@ -186,10 +176,12 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 
 	if (ctx->client == 0)
 	{
+		const char *path_info = NULL;
 		const char *uri = httpmessage_REQUEST(request, "uri");
-		if (_checkname(ctx, uri) != ESUCCESS)
+		if (htaccess_check(&mod->config->htaccess, uri, &path_info) != ESUCCESS)
 		{
-			return ret;
+			warn("webstream: %s forbidden", uri);
+			return EREJECT;
 		}
 
 		while (*uri == '/' && *uri != '\0') uri++;
@@ -311,8 +303,7 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 		char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
 		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
-		config_setting_lookup_string(configws, "deny", (const char **)&conf->deny);
-		config_setting_lookup_string(configws, "allow", (const char **)&conf->allow);
+		htaccess_config(configws, &conf->htaccess);
 		config_setting_lookup_int(configws, "fps", (int *)&conf->fps);
 		config_setting_lookup_string(configws, "options", (const char **)&mode);
 		if (utils_searchexp("direct", mode, NULL) == ESUCCESS && ouistiti_issecure(server))
@@ -398,7 +389,9 @@ static void *_webstream_main(void *arg)
 			int length;
 			ret = ioctl(client, FIONREAD, &length);
 			if (length == 0)
+			{
 				end = 1;
+			}
 			else if (config->options & WEBSTREAM_MULTIPART)
 			{
 				char buffer[256];
@@ -438,6 +431,7 @@ static void *_webstream_main(void *arg)
 							continue;
 						if (outlength == EREJECT)
 						{
+							err("webstream: send error %s", strerror(errno));
 							end = 1;
 							break;
 						}
