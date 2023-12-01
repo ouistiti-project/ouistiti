@@ -277,7 +277,12 @@ int authz_sqlite_getuser_byName(authz_sqlite_t *ctx, const char * user, storeinf
 		sqlite3_finalize(statement);
 		return ret;
 	}
-	err("auth: setsession error %s", sqlite3_errmsg(ctx->db));
+	if (ret == SQLITE_DONE)
+		err("auth: setsession error %s", sqlite3_errmsg(ctx->db));
+	else
+	{
+		dbg("auth: user %s not found in database", user);
+	}
 	sqlite3_finalize(statement);
 	return EREJECT;
 }
@@ -510,7 +515,7 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 
 	if (userid == EREJECT)
 	{
-		err("authz associatie unknown user %s", user);
+		err("auth: impossible to join user \"%s\" at the DB", user);
 		return EREJECT;
 	}
 	authz_sqlite_unjoin(ctx, userid, token);

@@ -126,13 +126,14 @@ size_t authz_generatejwtoken(const mod_auth_t *config, http_message_t *request, 
 	else
 		jexpire = json_integer((30 * 60) + now);
 	json_object_set(jtoken, "exp", jexpire);
+	const char *issuer = auth_info(request, STRING_REF("issuer"));
+	if (issuer)
+		json_object_set(jtoken, "iss", json_string(issuer));
 #ifdef AUTH_OPENID
 	json_object_set(jtoken, "sub", juser);
 	json_object_set(jtoken, "preferred_username", juser);
 	json_object_set(jtoken, "aud", json_string(str_servername));
 	json_object_set(jtoken, "iat", json_integer(now));
-	if (info->urlspace && info->urlspace[0] != '\0')
-		json_object_set(jtoken, "iss", json_string(info->urlspace));
 #endif
 	size_t ttokenlen = json_dumpb(jtoken, NULL, 0, 0);
 	if (ttokenlen == 0)
@@ -240,22 +241,48 @@ static int _jwt_checkexpiration(json_t *jinfo)
 	return ESUCCESS;
 }
 
+static const char *_jwt_get(const json_t *jinfo, const char *key)
+{
+	const char *value = NULL;
+	const json_t *jvalue = json_object_get(jinfo, key);
+	if (jvalue && json_is_string(jvalue))
+		value = json_string_value(jvalue);
+	return value;
+}
+
 static const char *_jwt_getuser(const json_t *jinfo)
 {
 	const char *user = NULL;
-	const json_t *juser = json_object_get(jinfo, "preferred_username");
-	if (juser && json_is_string(juser))
-		user = json_string_value(juser);
-	juser = json_object_get(jinfo, "username");
-	if (juser && json_is_string(juser))
-		user = json_string_value(juser);
-	juser = json_object_get(jinfo, str_user);
-	if (juser && json_is_string(juser))
-		user = json_string_value(juser);
-
+	user = _jwt_get(jinfo, "preferred_username");
+	if (user == NULL)
+		user = _jwt_get(jinfo, "username");
+	if (user == NULL)
+		user = _jwt_get(jinfo, str_user);
 	if (user == NULL || user[0] == '\0')
 		user = str_anonymous;
 	return user;
+}
+
+const char *authz_jwt_get(const char *id_token, const char *key)
+{
+	const json_t *jinfo = jwt_decode_json(id_token);
+	if (jinfo == NULL)
+		return NULL;
+	if (!strcmp(key, str_user))
+		return _jwt_getuser(jinfo);
+	if (!strcmp(key, "issuer"))
+		return _jwt_get(jinfo, "iss");
+	return _jwt_get(jinfo, key);
+}
+
+int authz_jwt_getinfo(const char *id_token, const char **user, const char **issuer)
+{
+	const json_t *jinfo = jwt_decode_json(id_token);
+	if (jinfo == NULL)
+		return -1;
+	*user = _jwt_getuser(jinfo);
+	*issuer = _jwt_get(jinfo, "iss");
+	return 0;
 }
 
 static void *authz_jwt_create(http_server_t *UNUSED(server), void *arg)
