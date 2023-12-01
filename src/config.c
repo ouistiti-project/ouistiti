@@ -220,7 +220,7 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 	ouistiticonfig_t *ouistiticonfig = calloc(1, sizeof(*ouistiticonfig));
 	ouistiticonfig->configfile = configfile;
 
-	config_lookup_string(configfile, "user", (const char **)&ouistiticonfig->user);
+	config_lookup_string(configfile, str_user, (const char **)&ouistiticonfig->user);
 	config_lookup_string(configfile, "log-file", (const char **)&logfile);
 	if (logfile != NULL && logfile[0] != '\0')
 	{

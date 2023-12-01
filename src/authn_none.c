@@ -45,6 +45,12 @@
 
 #define auth_dbg(...)
 
+typedef struct authn_none_config_s authn_none_config_t;
+struct authn_none_config_s
+{
+	string_t user;
+};
+
 typedef struct authn_none_s authn_none_t;
 struct authn_none_s
 {
@@ -59,7 +65,7 @@ void *authn_none_config(const config_setting_t *configauth)
 	authn_none_config_t *authn_config = NULL;
 	const char *user = NULL;
 
-	config_setting_lookup_string(configauth, "user", &user);
+	config_setting_lookup_string(configauth, str_user, &user);
 	if (user != NULL)
 	{
 		authn_config = calloc(1, sizeof(*authn_config));

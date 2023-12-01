@@ -281,6 +281,9 @@ static int _insert_rule(_mod_userfilter_t *ctx, int64_t methodid, int64_t roleid
 	{
 		ret = ESUCCESS;
 	}
+	else
+		err("userfilter: error on %s", sqlite3_expanded_sql(statement));
+
 	sqlite3_finalize(statement);
 	return ret;
 }
@@ -363,7 +366,7 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	int ret = ESUCCESS;
 	const char *uri = httpmessage_REQUEST(request,"uri");
 	const char *method = httpmessage_REQUEST(request, "method");
-	const char *user = auth_info(request, STRING_REF("user"));
+	const char *user = auth_info(request, STRING_REF(str_user));
 	if (user == NULL)
 		user = str_anonymous;
 
@@ -376,8 +379,8 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 		ret = EREJECT;
 	}
 	else if (_request(ctx, method, user,
-				auth_info(request, STRING_REF("group")),
-				auth_info(request, STRING_REF("home")),
+				auth_info(request, STRING_REF(str_group)),
+				auth_info(request, STRING_REF(str_home)),
 				uri) == 0)
 	{
 		ret = EREJECT;
@@ -411,7 +414,10 @@ static int64_t _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield
 	const char *value = strstr(query, fields[ifield].data);
 
 	if (value == NULL)
+	{
+		err("userfilter: %.*s empty", (int)fields[ifield].length - 1, fields[ifield].data);
 		return EREJECT;
+	}
 	else
 		value += fields[ifield].length;
 
@@ -422,6 +428,8 @@ static int64_t _parsequery(_mod_userfilter_t *ctx, const char *query, int ifield
 	int64_t id = _search_field(ctx, ifield, value, length);
 	if (id == EREJECT)
 		id = _insert_field(ctx, ifield, value, length);
+	if (id == EREJECT)
+		err("userfilter: %.*s %s refused", (int)fields[ifield].length - 1, fields[ifield].data, value);
 	return id;
 }
 
@@ -444,7 +452,10 @@ static int _userfilter_append(_mod_userfilter_t *ctx, const char *query, http_me
 		free(decode);
 	}
 	if (ret != ESUCCESS)
+	{
+		err("userfilter: insert in db: %s", sqlite3_errmsg(ctx->db));
 		httpmessage_result(response, RESULT_400);
+	}
 	else
 	{
 		warn("userfilter: insert %s", query);
@@ -465,7 +476,10 @@ static int _userfilter_remove(_mod_userfilter_t *ctx, const char *rest, http_mes
 		ret = _delete_rule(ctx, id);
 	}
 	if (ret != ESUCCESS)
+	{
+		err("userfilter: delete in db: %s", sqlite3_errmsg(ctx->db));
 		httpmessage_result(response, RESULT_400);
+	}
 	else
 	{
 		warn("userfilter: delete %s", rest);
@@ -532,6 +546,7 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 		}
 		else
 		{
+			warn("userfilter: reject method %s", method);
 #if defined RESULT_405
 			httpmessage_result(response, RESULT_405);
 #else
@@ -721,6 +736,8 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	mod->config = config;
 	mod->cmp = &_exp_cmp;
 	mod->db = db;
+	httpserver_addmethod(server, METHOD(str_put), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
+	httpserver_addmethod(server, METHOD(str_delete), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
 	httpserver_addconnector(server, userfilter_connector, mod, \
 			CONNECTOR_DOCFILTER, str_userfilter);
 	if (config->configuri != NULL)

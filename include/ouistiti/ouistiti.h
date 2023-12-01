@@ -162,6 +162,10 @@ extern const char str_boundary[6];
 
 extern const char str_token[6];
 extern const char str_anonymous[10];
+extern const char str_user[5];
+extern const char str_group[6];
+extern const char str_home[5];
+extern const char str_status[7];
 
 extern const char str_status_approving[10];
 extern const char str_status_reapproving[12];

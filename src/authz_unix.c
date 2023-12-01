@@ -67,6 +67,12 @@
 
 #ifdef HAVE_PWD
 
+typedef struct authz_file_config_s authz_file_config_t;
+struct authz_file_config_s
+{
+	const char *path;
+};
+
 typedef struct authz_unix_s authz_unix_t;
 struct authz_unix_s
 {
@@ -214,7 +220,7 @@ static int authz_unix_setsession(void *arg, const char *user, auth_saveinfo_t cb
 {
 	const authz_unix_t *ctx = (const authz_unix_t *)arg;
 
-	cb(cbarg, STRING_REF("user"), ctx->pwstore.pw_name, -1);
+	cb(cbarg, STRING_REF(str_user), ctx->pwstore.pw_name, -1);
 
 	struct group *grp = NULL;
 	struct group grpstorage;
@@ -225,9 +231,9 @@ static int authz_unix_setsession(void *arg, const char *user, auth_saveinfo_t cb
 	grp = getgrgid(ctx->pwstore.pw_gid);
 #endif
 	if (grp != NULL)
-		cb(cbarg, STRING_REF("group"), grp->gr_name, -1);
-	cb(cbarg, STRING_REF("home"), ctx->pwstore.pw_dir, -1);
-	cb(cbarg, STRING_REF("status"), STRING_INFO(ctx->status));
+		cb(cbarg, STRING_REF(str_group), grp->gr_name, -1);
+	cb(cbarg, STRING_REF(str_home), ctx->pwstore.pw_dir, -1);
+	cb(cbarg, STRING_REF(str_status), STRING_INFO(ctx->status));
 	return ESUCCESS;
 }
 

@@ -66,6 +66,10 @@ const char str_boundary[] = "FRAME";
 
 const char str_token[] = "token";
 const char str_anonymous[] = "anonymous";
+const char str_user[] = "user";
+const char str_group[] = "group";
+const char str_home[] = "home";
+const char str_status[] = "status";
 
 const char str_status_approving[] = "approving";
 const char str_status_reapproving[] = "reapproving";

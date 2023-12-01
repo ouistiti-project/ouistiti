@@ -1,5 +1,5 @@
 PUT /auth/mngt HTTP/1.1
-HOST: 127.0.0.1
+HOST: auth.ouistiti.local
 Authorization: Basic cm9vdDpyb290
 Accept: text/json
 Origin: http://ouistiti.net
