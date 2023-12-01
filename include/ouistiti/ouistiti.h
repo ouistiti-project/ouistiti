@@ -156,7 +156,6 @@ extern const char *str_expires[8];
 
 extern const char str_form_urlencoded[34];
 extern const char str_multipart_replace[26];
-extern const char str_text_json[10];
 
 extern const char str_boundary[6];
 
@@ -177,5 +176,18 @@ extern const char str_status_repudiated[11];
  */
 extern const char str_contenttype[13];
 extern const char str_contentlength[15];
+
+/**
+ * strings defined in libouiutils
+ */
+extern const char str_mime_location[9];
+extern const char str_mime_textplain[11];
+extern const char str_mime_texthtml[10];
+extern const char str_mime_textcss[9];
+extern const char str_mime_textjson[10];
+extern const char str_mime_imagepng[10];
+extern const char str_mime_imagejpeg[11];
+extern const char str_mime_applicationjavascript[23];
+extern const char str_mime_applicationoctetstream[24];
 
 #endif

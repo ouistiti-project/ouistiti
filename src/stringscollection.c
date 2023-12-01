@@ -60,7 +60,6 @@ const char str_state[] = "session_state";
 const char str_expires[] = "expires";
 
 const char str_multipart_replace[] = "multipart/x-mixed-replace";
-const char str_text_json[] = "text/json";
 
 const char str_boundary[] = "FRAME";
 
