@@ -51,6 +51,8 @@
 #define dbg(...)
 #endif
 
+#define redirect_dbg(...)
+
 #ifndef RESULT_204
 #define RESULT_204 204
 #endif
@@ -234,27 +236,6 @@ void mod_redirect_destroy(void *arg)
 	free(mod);
 }
 
-static int _mod_redirect_connectorlinkquery(_mod_redirect_t *mod, http_message_t *request,
-									http_message_t *response, mod_redirect_link_t *link,
-									const char *search, size_t searchlen)
-{
-	char *redirect = NULL;
-
-	if (search)
-		redirect = strstr(search, "redirect_uri=");
-	if (redirect != NULL)
-	{
-		redirect += 13;
-		char *end = strchr(redirect, '&');
-		int length = searchlen - (redirect - search);
-		if (end != NULL)
-			length = end - redirect;
-		httpmessage_addheader(response, str_location, redirect, length);
-		return ESUCCESS;
-	}
-	return ECONTINUE;
-}
-
 static int _mod_redirect_connector404(_mod_redirect_t *mod, http_message_t *request,
 									http_message_t *response, mod_redirect_link_t *link,
 									const char *uri, size_t urilen)
@@ -325,13 +306,21 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 			{
 				httpmessage_appendheader(response, str_location, path_info, -1);
 			}
+			redirect_dbg("redirect: Location from destination %s", link->destination);
 			ret = ESUCCESS;
 		}
 		else if (link->options & REDIRECT_QUERY)
 		{
-			const char *search = NULL;
-			size_t searchlen = httpmessage_REQUEST2(request, "query", &search);
-			ret =_mod_redirect_connectorlinkquery(mod, request, response, link, search, searchlen);
+			const char *redirect = NULL;
+			size_t length = httpmessage_parameter(request, "redirect_uri", &redirect);
+			char *decode = utils_urldecode(redirect, length);
+			if (decode != NULL)
+			{
+				redirect_dbg("redirect: Location from query %s", decode);
+				httpmessage_addheader(response, str_location, decode, strlen(decode));
+				free(decode);
+			}
+			ret = ESUCCESS;
 		}
 		if (ret == ESUCCESS)
 		{

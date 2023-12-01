@@ -64,6 +64,9 @@
 #ifdef AUTHN_OAUTH2
 #include "authn_oauth2.h"
 #endif
+#ifdef AUTHN_WWWFORM
+#include "authn_wwwform.h"
+#endif
 #include "authz_simple.h"
 #include "authz_file.h"
 #include "authz_unix.h"
@@ -141,6 +144,11 @@ authn_rules_t *authn_rules[] = {
 #endif
 #ifdef AUTHN_OAUTH2
 	&authn_oauth2_rules,
+#else
+	NULL,
+#endif
+#ifdef AUTHN_WWWFORM
+	&authn_wwwform_rules,
 #else
 	NULL,
 #endif
@@ -279,6 +287,13 @@ struct _authn_s *authn_list[] =
 		.config = &authn_none_config,
 		.type = AUTHN_NONE_E,
 		.name = STRING_DCL("None"),
+	},
+#endif
+#ifdef AUTHN_WWWFORM
+	&(struct _authn_s){
+		.config = &authn_wwwform_config,
+		.type = AUTHN_WWWFORM_E,
+		.name = STRING_DCL("wwwform"),
 	},
 #endif
 };
@@ -1016,8 +1031,8 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 	return ESUCCESS;
 }
 
-static int _authn_checkauthorization(_mod_auth_ctx_t *ctx, authz_t *authz,
-		const char *authorization, size_t authorizationlen, http_message_t *request, const char **user)
+static const char * _authn_checkauthorization(_mod_auth_ctx_t *ctx, authn_t *authn, authz_t *authz,
+		const char *authorization, size_t authorizationlen, http_message_t *request)
 {
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
@@ -1047,35 +1062,59 @@ static int _authn_checkauthorization(_mod_auth_ctx_t *ctx, authz_t *authz,
 	 */
 	if (config->redirect.data)
 		method = str_head;
+	return authn->rules->check(authn->ctx, authz, method, methodlen, uri, urilen, authentication, authorizationlen);
+}
+
+static int _authn_check(_mod_auth_ctx_t *ctx, authz_t *authz, http_message_t *request, const char **authorization, const char **user)
+{
+	_mod_auth_t *mod = ctx->mod;
+	int ret = ECONTINUE;
+	const char *tuser = NULL;
+
 	/// authn may use setup for initialize some data, and the ctx change with client
 	authn_t *authn = mod->authn;
 	if (ctx->authn.ctx)
 		authn = &ctx->authn;
-	*user = authn->rules->check(authn->ctx, authz, method, methodlen, uri, urilen, authentication, authorizationlen);
-	if (*user != NULL)
+	if (authn->rules->check)
 	{
-		ret = ESUCCESS;
+		size_t authorizationlen = _authn_getauthorization(ctx, request, authorization);
+		if (authorizationlen > 0)
+			tuser = _authn_checkauthorization( ctx, authn, authz, *authorization, authorizationlen, request);
+	}
+	else if (authn->rules->checkrequest)
+	{
+		tuser = authn->rules->checkrequest(authn->ctx, authz, request);
+	}
+	if (tuser != NULL)
+	{
+		*user = tuser;
+		ret = EREJECT;
 	}
 	return ret;
 }
-
 static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response)
 {
 	int ret = ESUCCESS;
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
+	httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
 	httpmessage_addheader(response, str_location, config->redirect.data, config->redirect.length);
 
 	const char *uri = NULL;
 	int urilen = httpmessage_REQUEST2(request, "uri", &uri);
 	const char *query = NULL;
 	int querylen = httpmessage_REQUEST2(request, "query", &query);
-	if (utils_searchexp(query, "noredirect", NULL) != ESUCCESS &&
-			utils_searchexp(uri, config->protect, NULL) != ESUCCESS)
+	if (utils_searchexp(query, "noredirect", NULL) == ESUCCESS)
+		return ret;
+
+	if (config->authn.type & AUTHN_REDIRECT_E)
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
-		httpmessage_appendheader(response, str_location, STRING_REF("?redirect_uri="));
+		if (strchr(config->redirect.data, '?'))
+			httpmessage_appendheader(response, str_location, STRING_REF("&redirect_uri="));
+		else
+			httpmessage_appendheader(response, str_location, STRING_REF("?redirect_uri="));
 		const char *scheme = NULL;
 		size_t schemelen = httpserver_INFO2(server, "scheme", &scheme);
 		httpmessage_appendheader(response, str_location, scheme, schemelen);
@@ -1095,14 +1134,15 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 			httpmessage_appendheader(response, str_location, port, portlen);
 		}
 		httpmessage_appendheader(response, str_location, uri, urilen);
-		if (query && query[0] != '\0')
-		{
-			httpmessage_appendheader(response, str_location, STRING_REF("?"));
-			httpmessage_appendheader(response, str_location, query, querylen);
-		}
 	}
-
-	httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
+	if (query && query[0] != '\0')
+	{
+		if (strchr(config->redirect.data, '?'))
+			httpmessage_appendheader(response, str_location, STRING_REF("&"));
+		else
+			httpmessage_appendheader(response, str_location, STRING_REF("?"));
+		httpmessage_appendheader(response, str_location, query, querylen);
+	}
 
 	ret = ESUCCESS;
 
@@ -1173,20 +1213,14 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 				 * reject to manage the request and another module
 				 * should send response to the request.
 				 */
+				warn("auth: accept redirection on challenge");
 				httpmessage_result(response, RESULT_200);
 				ret = EREJECT;
 			}
-			else if (config->authn.type & AUTHN_REDIRECT_E)
+			else
 			{
 				ret = auth_redirect_uri(ctx, request, response);
 				httpmessage_result(response, RESULT_302);
-			}
-			else
-			{
-				httpmessage_addheader(response, str_location, config->redirect.data, config->redirect.length);
-				httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
-				httpmessage_result(response, RESULT_302);
-				ret = ESUCCESS;
 			}
 		}
 		else
@@ -1315,7 +1349,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		size_t tokenlen = 0;
 		authorization = _authn_gettoken(ctx, request, &token, &tokenlen);
-		auth_dbg("auth: gettoken %d", ret);
+		auth_dbg("auth: gettoken %s", token);
 		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
 					token != NULL)
 		{
@@ -1349,15 +1383,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	if (ret == ECONTINUE)
 	{
-		const char *tuser = NULL;
-		size_t authorizationlen = _authn_getauthorization(ctx, request, &authorization);
-		auth_dbg("auth: getauthorization %d", ret);
-		if (ret != ESUCCESS && mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
-			_authn_checkauthorization( ctx, authz, authorization, authorizationlen, request, &tuser) == ESUCCESS)
-		{
-			user = tuser;
-			ret = EREJECT;
-		}
+		ret = _authn_check(ctx, authz, request, &authorization, &user);
 		auth_dbg("auth: checkauthorization %d", ret);
 	}
 	if (ret == EREJECT)
@@ -1388,7 +1414,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
 		{
-			dbg("auth: session already open");
+			auth_dbg("auth: session already open");
 			const char *expire_str = auth_info(request, STRING_REF("expire"));
 			int expire = 0;
 			if (expire_str)
@@ -1408,6 +1434,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else
 		{
+			auth_dbg("auth: ser the session");
 			authz->rules->setsession(authz->ctx, user, auth_saveinfo, ctx->clt);
 			httpclient_session(ctx->clt, STRING_REF("issuer"), STRING_INFO(config->issuer));
 			if (authz->rules->join)

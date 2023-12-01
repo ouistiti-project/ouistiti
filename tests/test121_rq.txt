@@ -1,0 +1,6 @@
+POST /token?redirect_uri=/index.html HTTP/1.1
+HOST: 127.0.0.1
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 27
+
+username=foo&password=bar

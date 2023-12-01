@@ -284,48 +284,40 @@ static int _authmngt_checkrights(_mod_authmngt_t *mod, const char *user, http_me
 	return mod->isuser;
 }
 
-static int _authmngt_parsegroup(const char *query, authsession_t *session)
+static int _authmngt_parsegroup(http_message_t *request, authsession_t *session)
 {
 	int ret = EREJECT;
-	const char *group = strstr(query, "group=");
-	if (group != NULL)
+	const char *group = NULL;
+	size_t length = httpmessage_parameter(request, str_group, &group);
+	if (length > 0)
 	{
-		size_t length = FIELD_MAX;
-		group += 6;
-		const char *end = strchr(group, '&');
-		if (end != NULL && (end - group) < FIELD_MAX)
-			length = end - group;
 		strncpy(session->group, group, length);
 		ret = ESUCCESS;
 	}
 	return ret;
 }
 
-static int _authmngt_parsehome(const char *query, authsession_t *session)
+static int _authmngt_parsehome(http_message_t *request, authsession_t *session)
 {
 	int ret = EREJECT;
-	const char *home = strstr(query, "home=");
-	if (home != NULL)
+	const char *home = NULL;
+	size_t length = httpmessage_parameter(request, str_home, &home);
+	if (length > 0)
 	{
-		size_t length = PATH_MAX;
-		home += 5;
-		const char *end = strchr(home, '&');
-		if (end != NULL && (end - home) < PATH_MAX)
-			length = end - home;
 		strncpy(session->home, home, length);
 		ret = ESUCCESS;
 	}
 	return ret;
 }
 
-static int _authmngt_parsepasswd(const char *query, authsession_t *session)
+static int _authmngt_parsepasswd(http_message_t *request, authsession_t *session)
 {
 	int ret = EREJECT;
-	const char *passwd = strstr(query, "passwd=");
-	if (passwd != NULL)
+	const char *passwd = NULL;
+	size_t length = httpmessage_parameter(request, "passwd", &passwd);
+	if (length > 0)
 	{
-		passwd += 7;
-		char *decode = utils_urldecode(passwd, -1);
+		char *decode = utils_urldecode(passwd, length);
 		if (decode != NULL)
 		{
 			strncpy(session->passwd, decode, TOKEN_MAX);
@@ -336,17 +328,13 @@ static int _authmngt_parsepasswd(const char *query, authsession_t *session)
 	return ret;
 }
 
-static int _authmngt_parsestatus(const char *query, authsession_t *session)
+static int _authmngt_parsestatus(http_message_t *request, authsession_t *session)
 {
 	int ret = EREJECT;
-	const char *status = strstr(query, "status=");
-	if (status != NULL)
+	const char *status = NULL;
+	size_t length = httpmessage_parameter(request, str_status, &status);
+	if (length > 0)
 	{
-		size_t length = FIELD_MAX;
-		status += 7;
-		const char *end = strchr(status, '&');
-		if (end != NULL && (end - status) < FIELD_MAX)
-			length = end - status;
 		strncpy(session->status, status, length);
 		ret = ESUCCESS;
 	}
@@ -356,12 +344,10 @@ static int _authmngt_parsestatus(const char *query, authsession_t *session)
 static int _authmngt_parsesession(_mod_authmngt_t *mod, const char *user, http_message_t *request, authsession_t *session)
 {
 	int ret = ESUCCESS;
-	const char *query = httpmessage_REQUEST(request, "query");
 
 	if (user == NULL)
 	{
-		user = strstr(query, "user=");
-		user += 5;
+		httpmessage_parameter(request, str_user, &user);
 	}
 	if (user != NULL)
 	{
@@ -376,22 +362,22 @@ static int _authmngt_parsesession(_mod_authmngt_t *mod, const char *user, http_m
 		return EREJECT;
 
 	if (ret == ESUCCESS &&
-		_authmngt_parsegroup(query, session) == ESUCCESS &&
+		_authmngt_parsegroup(request, session) == ESUCCESS &&
 		!mod->isroot)
 		ret = EREJECT;
 
 	if (ret == ESUCCESS &&
-		_authmngt_parsehome(query, session) == ESUCCESS &&
+		_authmngt_parsehome(request, session) == ESUCCESS &&
 		!mod->isroot)
 		ret = EREJECT;
 
 	if (ret == ESUCCESS &&
-		_authmngt_parsestatus(query, session) == ESUCCESS &&
+		_authmngt_parsestatus(request, session) == ESUCCESS &&
 		!mod->isroot)
 		ret = EREJECT;
 
 	if (ret == ESUCCESS &&
-		_authmngt_parsepasswd(query, session) == ESUCCESS &&
+		_authmngt_parsepasswd(request, session) == ESUCCESS &&
 		!mod->isuser)
 		ret = EREJECT;
 
@@ -427,7 +413,7 @@ static int _authmngt_userresponse(_mod_authmngt_t *mod, authsession_t *info, htt
 	int ret = EREJECT;
 	const char *http_accept = httpmessage_REQUEST(request, "Accept");
 
-	if (strstr(http_accept, "text/json") != NULL)
+	if (http_accept && strstr(http_accept, "text/json") != NULL)
 	{
 		httpmessage_addcontent(response, "text/json", "", -1);
 		ret = authmngt_jsonifyuser(mod, response, info);
