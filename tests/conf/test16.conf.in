@@ -1,21 +1,71 @@
 user="%USER%";
 log-file="%LOGFILE%";
 servers= ({
-		hostname = "ouistiti.local";
+		hostname = "www.ouistiti.local";
+		addr="127.0.0.1";
 		port = 8080;
+		service = "main";
 		keepalivetimeout = 5;
 		version="HTTP11";
+		vhost =({
+			hostname = "auth.ouistiti.local";
+			service = "ouistitiauth";
+			auth = ({
+				type = "Basic";
+				dbname="%PWD%/tests/conf/passwd.db";
+				options = "token,cookie";
+				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
+				unprotect = "^/trust/*";
+				signin = "/trust/signin.html";
+			},{
+				type = "Basic";
+				authz = "totp";
+				options = "token,cookie";
+				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
+				unprotect = "^/trust/*";
+				signin = "/trust/signin_totp.html";
+			});
+			redirect = {
+				links = ({
+					options = "query,temporary";
+					origin = "^/token";
+				});
+			};
+			document = {
+				docroot = "%PWD%/tests/htdocs";
+				allow = "signin.html,.css,.js,";
+				deny = ".htaccess,.php";
+			};
+			cors = {
+				origin = "localhost,ouistiti";
+			};
+		});
+		auth = {
+			type="Bearer";
+			authz = "jwt";
+			options = "token,cookie";
+			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
+			signin = "http://auth.ouistiti.local:8080/token";
+		};
+		userfilter = {
+			dbname = "%PWD%/tests/conf/filter.db";
+			allow = "^/token$,^/trust/,^/index.html$";
+			superuser = "root";
+			configuri = "^/filter/config*";
+		};
 		document = {
 			docroot = "%PWD%/tests/htdocs";
-			allow = ".html,.*htm*,.css,.js,.txt,*";
-			deny = ".htaccess,.cgi,.php";
-			options = "dirlisting,range,rest";
+			allow = ".html,.htm,.css,.js,.txt,*";
+			deny = ".htaccess,.php";
 		};
 		redirect = {
-			options = "hsts";
+			links = ({
+				options = "error";
+				origin = 401;
+			});
 		};
-		clientfilter = {
-			deny = "192.168.123.125";
+		cors = {
+			origin = "localhost,ouistiti";
 		};
 	});
 
