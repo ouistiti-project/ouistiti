@@ -1,0 +1,8 @@
+HTTP/1.1 302 Found
+WWW-Authenticate: x-www-form-urlencoded
+Location: /signin.html?redirect_uri=/index.html&username=foo&password=baz
+Content-Type: text/plain
+Content-Length: 12
+Connection: Close
+
+ 302 Found
