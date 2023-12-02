@@ -255,6 +255,8 @@ static const char *_jwt_getuser(const json_t *jinfo)
 	const char *user = NULL;
 	user = _jwt_get(jinfo, "preferred_username");
 	if (user == NULL)
+		user = _jwt_get(jinfo, "name");
+	if (user == NULL)
 		user = _jwt_get(jinfo, "username");
 	if (user == NULL)
 		user = _jwt_get(jinfo, str_user);
@@ -263,6 +265,8 @@ static const char *_jwt_getuser(const json_t *jinfo)
 	return user;
 }
 
+#if 0
+/// unused function
 const char *authz_jwt_get(const char *id_token, const char *key)
 {
 	const json_t *jinfo = jwt_decode_json(id_token);
@@ -274,6 +278,7 @@ const char *authz_jwt_get(const char *id_token, const char *key)
 		return _jwt_get(jinfo, "iss");
 	return _jwt_get(jinfo, key);
 }
+#endif
 
 int authz_jwt_getinfo(const char *id_token, const char **user, const char **issuer)
 {
