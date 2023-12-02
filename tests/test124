@@ -1,0 +1,3 @@
+DESC="authentication on bad configuration server"
+CONFIG=test16.conf
+TESTCODE=401

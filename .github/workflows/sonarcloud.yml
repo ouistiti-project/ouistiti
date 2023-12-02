@@ -51,7 +51,8 @@ jobs:
         uses: SonarSource/sonarcloud-github-c-cpp@v2
       - name: configure
         run: |
-          make MBEDTLS=n $TLS=y FILE_CONFIG=y prefix=/usr sysconfdir=/etc/ouistiti TINYSVCMDNS=n AUTHN_OAUTH2=n defconfig
+          cat configs/sonarcloud_defconfig
+          make prefix=/usr sysconfdir=/etc/ouistiti sonarcloud_defconfig
       - name: version
         id: version
         run: |

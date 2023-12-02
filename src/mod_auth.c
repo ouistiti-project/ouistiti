@@ -402,8 +402,6 @@ static void authz_optionscb(void *arg, const char *option)
 		auth->authz.type |= AUTHZ_TOKEN_E;
 	if (utils_searchexp("chown", option, NULL) == ESUCCESS)
 		auth->authz.type |= AUTHZ_CHOWN_E;
-	if (utils_searchexp("management", option, NULL) == ESUCCESS)
-		auth->authz.type |= AUTHZ_MNGT_E;
 
 	if (utils_searchexp("cookie", option, NULL) == ESUCCESS)
 		auth->authn.type |= AUTHN_COOKIE_E;
@@ -906,13 +904,15 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	if (ret == ESUCCESS)
 	{
 		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
-		ret = ESUCCESS;
 #ifdef AUTHZ_JWT
 		const char *issuer = NULL;
 		const char *tuser = NULL;
 		authz_jwt_getinfo(token, &tuser, &issuer);
 		if (issuer && strstr(issuer, mod->config->issuer.data) == NULL)
+		{
+			warn("auth: token with bad issuer");
 			ret = EREJECT;
+		}
 		if (tuser && (*user == NULL || strcmp(tuser, *user)))
 		{
 			*user = tuser;
@@ -1360,10 +1360,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			if (authn_checktoken( ctx, authz, token, tokenlen - authorizationlen - 1, authorization, authorizationlen, &user) == ESUCCESS)
 			{
 				ret = EREJECT;
-				auth_dbg("auth: checktoken %d", ret);
 			}
 			else
 				token = NULL;
+			auth_dbg("auth: checktoken %d", ret);
 		}
 	}
 #endif
@@ -1445,9 +1445,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		dbg("auth: type %s", (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0));
 		const char *user = auth_info(request, STRING_REF(str_user));
 		const char *status = auth_info(request, STRING_REF(str_status));
-		if (status && !strcmp(status, str_status_reapproving) && mod->authz->type & AUTHZ_MNGT_E)
+		if (status && !strcmp(status, str_status_reapproving))
 		{
 			warn("auth: user \"%s\" accepted from %p to change password", user, ctx->clt);
+			httpclient_session(ctx->clt, STRING_REF(str_group), STRING_REF(str_status_reapproving));
 			ret = EREJECT;
 		}
 		else if (status && strcmp(status, str_status_activated) != 0)
