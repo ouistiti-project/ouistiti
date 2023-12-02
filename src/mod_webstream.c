@@ -295,18 +295,25 @@ static int webstream_config(config_setting_t *iterator, server_t *server, int in
 	int conf_ret = ESUCCESS;
 	mod_webstream_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	config_setting_t *configws = config_setting_get_member(iterator, "webstream");
+	config_setting_t *config = config_setting_get_member(iterator, "webstream");
 #else
-	config_setting_t *configws = config_setting_lookup(iterator, "webstream");
+	config_setting_t *config = config_setting_lookup(iterator, "webstream");
 #endif
-	if (configws)
+	if (config && config_setting_is_list(config))
+	{
+			if (index >= config_setting_length(config))
+				return EREJECT;
+			config = config_setting_get_elem(config, index);
+			conf_ret = ECONTINUE;
+	}
+	if (config)
 	{
 		char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
-		config_setting_lookup_string(configws, "docroot", (const char **)&conf->docroot);
-		htaccess_config(configws, &conf->htaccess);
-		config_setting_lookup_int(configws, "fps", (int *)&conf->fps);
-		config_setting_lookup_string(configws, "options", (const char **)&mode);
+		config_setting_lookup_string(config, "docroot", (const char **)&conf->docroot);
+		htaccess_config(config, &conf->htaccess);
+		config_setting_lookup_int(config, "fps", (int *)&conf->fps);
+		config_setting_lookup_string(config, "options", (const char **)&mode);
 		if (utils_searchexp("direct", mode, NULL) == ESUCCESS && ouistiti_issecure(server))
 			conf->options |= WEBSTREAM_REALTIME;
 		if (utils_searchexp("multipart", mode, NULL) == ESUCCESS)
