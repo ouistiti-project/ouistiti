@@ -1,3 +1,7 @@
+if [ "$AUTHZ_TOTP" != "y" ]; then
+	echo "totp must be enable"
+	DISABLED=1
+fi
 DESC="2FA: authentication with 2 factors"
 CONFIG=test16.conf
 TESTCODE=200

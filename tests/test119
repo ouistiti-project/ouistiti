@@ -1,3 +1,7 @@
+if [ "$VHOST" != "y" ]; then
+	echo "vhost module disabled"
+	DISABLED=1
+fi
 DESC="Vhost: requests for 2 host on the same client"
 CONFIG=test12.conf
 TESTREQUEST=test053_rq.txt

@@ -32,6 +32,9 @@ totp_LDFLAGS+=$(LIBHTTPSERVER_LDFLAGS)
 totp_CFLAGS+=$(LIBHTTPSERVER_CFLAGS)
 totp_CFLAGS-$(DEBUG)+=-g -DDEBUG
 totp_LIBS+=ouihash
+totp_LIBRARY-$(MBEDTLS)+=mbedcrypto
+totp_LIBRARY-$(OPENSSL)+=libcrypto
+totp_LIBS-$(OPENSSL)+=crypto
 
 sysconf-${FILE_CONFIG}+=ouistiti.conf
 sysconf-${FILE_CONFIG}+=ouistiti.d/default.conf

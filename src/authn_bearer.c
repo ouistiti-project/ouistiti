@@ -95,7 +95,11 @@ static const char *authn_bearer_check(void *arg, authz_t *authz, const char *met
 		{
 			user = authz->rules->check(authz->ctx, NULL, NULL, string);
 		}
+		else
+			err("auth: bearer token with bad signature");
 	}
+	else
+		err("auth: bearer unsigned token");
 	return user;
 }
 
