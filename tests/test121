@@ -1,3 +1,7 @@
+if [ "$AUTHN_WWWFORM" != "y" ]; then
+	echo "auth from POST www-form request disabled"
+	DISABLED=1
+fi
 DESC="test a request POST www-form authentication (simple credential storage)"
 CONFIG=test21.conf
 TESTCODE=302
