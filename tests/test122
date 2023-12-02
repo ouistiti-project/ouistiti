@@ -1,0 +1,3 @@
+DESC="test userfilter reapproving user"
+CONFIG=test12.conf
+TESTCODE=403
