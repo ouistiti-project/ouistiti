@@ -906,13 +906,15 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	if (ret == ESUCCESS)
 	{
 		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
-		ret = ESUCCESS;
 #ifdef AUTHZ_JWT
 		const char *issuer = NULL;
 		const char *tuser = NULL;
 		authz_jwt_getinfo(token, &tuser, &issuer);
 		if (issuer && strstr(issuer, mod->config->issuer.data) == NULL)
+		{
+			warn("auth: token with bad issuer");
 			ret = EREJECT;
+		}
 		if (tuser && (*user == NULL || strcmp(tuser, *user)))
 		{
 			*user = tuser;
@@ -1360,10 +1362,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			if (authn_checktoken( ctx, authz, token, tokenlen - authorizationlen - 1, authorization, authorizationlen, &user) == ESUCCESS)
 			{
 				ret = EREJECT;
-				auth_dbg("auth: checktoken %d", ret);
 			}
 			else
 				token = NULL;
+			auth_dbg("auth: checktoken %d", ret);
 		}
 	}
 #endif
