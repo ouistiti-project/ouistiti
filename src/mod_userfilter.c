@@ -573,6 +573,7 @@ static int mod_userfilter_createdb(const char *dbname, const char *superuser, co
 #ifdef DEBUG
 		"insert into roles (id, name) values(3, \"users\");",
 #endif
+		"insert into roles (id, name) values(4, \"reapproving\");",
 		"create table rules (\"exp\" TEXT NOT NULL, \"methodid\" INTEGER NOT NULL,\"roleid\" INTEGER NOT NULL, FOREIGN KEY (methodid) REFERENCES methods(id) ON UPDATE SET NULL, FOREIGN KEY (roleid) REFERENCES roles(id) ON UPDATE SET NULL);",
 		/// set rights for superuser role
 		"insert into rules (exp,methodid,roleid) values(\"^/*\",(select id from methods where name=\"GET\"),0);",
@@ -585,6 +586,8 @@ static int mod_userfilter_createdb(const char *dbname, const char *superuser, co
 		"insert into rules (exp,methodid,roleid) values(\"^/auth/mngt*\",(select id from methods where name=\"DELETE\"),0);",
 		"insert into rules (exp,methodid,roleid) values(\"^/%g/%u/*\",(select id from methods where name=\"GET\"),3);",
 		"insert into rules (exp,methodid,roleid) values(\"^/trust/*\",(select id from methods where name=\"GET\"),1);",
+		"insert into rules (exp,methodid,roleid) values(\"^/signup*\",(select id from methods where name=\"GET\"),4);",
+		"insert into rules (exp,methodid,roleid) values(\"^/private/*\",(select id from methods where name=\"GET\"),3);",
 #endif
 		NULL,
 	};
