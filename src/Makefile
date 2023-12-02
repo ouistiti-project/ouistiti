@@ -100,3 +100,4 @@ subdir-$(CORS)+=mod_cors.mk
 subdir-$(WEBSOCKET)+=mod_websocket.mk
 subdir-$(USERFILTER)+=mod_userfilter.mk
 subdir-$(VHOST)+=mod_vhost.mk
+subdir-$(WEBSTREAM)+=mod_webstream.mk

@@ -115,7 +115,7 @@ static int _webstream_socket(_mod_webstream_ctx_t *ctx, int sock, const char *fi
 	struct sockaddr_un addr;
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, filepath, sizeof(addr.sun_path) - 1);
+	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", filepath);
 
 	if (config->options & WEBSTREAM_MULTIPART)
 	{
@@ -158,7 +158,7 @@ char *mkrndstr(size_t length)
 			int key;
 			for (int n = 0;n < length;n++)
 			{
-				key = rand() % l;
+				key = random() % l;
 				randomString[n] = charset[key];
 			}
 			randomString[length] = '\0';
@@ -348,6 +348,7 @@ static void *mod_webstream_create(http_server_t *server, mod_webstream_t *config
 	mod->config = config;
 	mod->fdroot = fdroot;
 	httpserver_addmod(server, _mod_webstream_getctx, _mod_webstream_freectx, mod, str_webstream);
+	srandom(time(NULL));
 	return mod;
 }
 
