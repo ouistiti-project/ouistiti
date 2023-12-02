@@ -1,0 +1,5 @@
+GET /signup.html HTTP/1.1
+HOST: badauth.ouistiti.local
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJyb2xlIjoidXNlcnMiLCJzdGF0dXMiOiJyZWFwcHJvdmluZyIsImlzcyI6InNxbGl0ZSt0b3RwIiwiZXhwIjoxMjM0NTY3ODl9.rtn7735SmfMnTIezQrYZYx1dQof6TqizKgKS_UoFIb8
+Origin: http://localhost
+
