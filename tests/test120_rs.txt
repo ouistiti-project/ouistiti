@@ -16,17 +16,17 @@ Connection: Close
 		signin
 	</body>
 </html>
-HTTP/1.1 307 Temporary Redirect
+HTTP/1.1 302 Found
 Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogIi9ob21lL2ZvbyIsICJzdGF0dXMiOiAiYWN0aXZhdGVkIiwgInJvbGVzIjogInVzZXJzIiwgImV4cCI6IDE4MDAsICJpc3MiOiAic3FsaXRlIn0.s3ceCBoZG55hnZ-1AKRSt-YncJGvWW1TchZJAqBV2HM; SameSite=strict; Path=/; Domain=.ouistiti.local
 Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/; Domain=.ouistiti.local
 Set-Cookie: X-Remote-Group=users; SameSite=strict; Path=/; Domain=.ouistiti.local
 Set-Cookie: X-Remote-Home=~/; SameSite=strict; Path=/; Domain=.ouistiti.local
-Location: /index.html
+Location: /trust/signin_totp.html?redirect_uri=/index.html
 Content-Type: text/plain
-Content-Length: 25
+Content-Length: 12
 Connection: Close
 
- 307 Temporary Redirect
+ 302 Found
 HTTP/1.1 200 OK
 Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogIi9ob21lL2ZvbyIsICJzdGF0dXMiOiAiYWN0aXZhdGVkIiwgInJvbGVzIjogInVzZXJzIiwgImF1dGhfdHlwZSI6ICJCYXNpYyIsICJleHAiOiAxODAwLCAiaXNzIjogInNxbGl0ZSJ9.Jyedn8kHUH5_DZ97ya1iBrssDvHmqdHcih7Mswp80RM; SameSite=strict; Path=/; Domain=.ouistiti.local
 Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/; Domain=.ouistiti.local
