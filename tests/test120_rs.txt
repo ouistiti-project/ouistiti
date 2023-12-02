@@ -1,6 +1,5 @@
 HTTP/1.1 302 Found
 WWW-Authenticate: Basic realm="auth.ouistiti.local"
-Set-Cookie: X-Auth-Token=;Max-Age=0; SameSite=strict; Path=/; Domain=.ouistiti.local
 Location: /trust/signin.html
 Content-Type: text/plain
 Content-Length: 12
