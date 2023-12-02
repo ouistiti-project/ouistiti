@@ -290,8 +290,9 @@ static void _mod_webstream_freectx(void *arg)
 
 #ifdef FILE_CONFIG
 
-static void *webstream_config(config_setting_t *iterator, server_t *server)
+static int webstream_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
+	int conf_ret = ESUCCESS;
 	mod_webstream_t *conf = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *configws = config_setting_get_member(iterator, "webstream");
@@ -313,7 +314,10 @@ static void *webstream_config(config_setting_t *iterator, server_t *server)
 		if (utils_searchexp("date", mode, NULL) == ESUCCESS)
 			conf->options |= WEBSTREAM_MULTIPART_DATE;
 	}
-	return conf;
+	else
+		conf_ret = EREJECT;
+	*modconfig = (void*)conf;
+	return conf_ret;
 }
 #else
 static const mod_webstream_t g_webstream_config =
@@ -472,6 +476,7 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 
 const module_t mod_webstream =
 {
+	.version = 0x01,
 	.name = str_webstream,
 	.configure = (module_configure_t)&webstream_config,
 	.create = (module_create_t)&mod_webstream_create,
