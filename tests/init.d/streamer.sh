@@ -12,9 +12,10 @@ case "$1" in
                 echo ${PATH}${SERVICE} -n reverse ${OPTIONS} -D
                 ${PATH}${SERVICE} -n reverse ${OPTIONS} -D -S
                 ${PATH}${SERVICE} -n dummy ${OPTIONS} -D -S
+                ${PATH}${SERVICE} -n dummy2 ${OPTIONS} -D -S
 		;;
 	stop)
-		killall ${SERVICE}
+		/usr/bin/killall ${SERVICE}
 		;;
 	*)
 		echo "Usage: $0 {start|stop}"

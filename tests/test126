@@ -1,0 +1,8 @@
+if [ "$WEBSTREAM" != "y" ]; then
+	echo "webstream module disabled"
+	DISABLED=1
+fi
+DESC="open webstream socket"
+#PREPARE_ASYNC="./utils/streamer -R /tmp -n dummy2 -u $USER -s 10 -t"
+CONFIG=test5.conf
+TESTCODE=200
