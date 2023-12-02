@@ -80,7 +80,6 @@ typedef enum
 	AUTHZ_TOKEN_E = 0x80,
 	AUTHZ_CHOWN_E = 0x100,
 	AUTHZ_TLS_E = 0x200,
-	AUTHZ_MNGT_E = 0x400,
 } authz_type_t;
 typedef struct authz_s authz_t;
 typedef size_t (*generatetoken_t)(const mod_auth_t *mod, http_message_t *info, char **token);
