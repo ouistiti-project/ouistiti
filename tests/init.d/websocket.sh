@@ -13,7 +13,7 @@ case "$1" in
 		${PATH}${SERVICE} -n echo ${OPTIONS} -D
 		;;
 	stop)
-		killall ${SERVICE}
+		/usr/bin/killall ${SERVICE}
 		;;
 	*)
 		echo "Usage: $0 {start|stop}"
