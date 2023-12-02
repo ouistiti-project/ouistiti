@@ -1,0 +1,3 @@
+DESC="Auth Basic from totp: good password"
+CONFIG=test12.conf
+TESTCODE=307
