@@ -384,6 +384,7 @@ static void *_webstream_main(void *arg)
 	_mod_webstream_t *mod = info->modctx->mod;
 	mod_webstream_t *config = (mod_webstream_t *)mod->config;
 	int client = info->modctx->client;
+	int socket = info->modctx->socket;
 	int end = 0;
 	unsigned int waittime = WEBSTREAM_DEFAULT_WAITTIME;
 	if (mod->config->fps > 0)
@@ -392,10 +393,17 @@ static void *_webstream_main(void *arg)
 	while (!end)
 	{
 		fd_set rdfs;
-		int maxfd = client;
+		int maxfd = (client > socket)? client:socket;
 		FD_ZERO(&rdfs);
 		FD_SET(client, &rdfs);
+		FD_SET(socket, &rdfs);
 		int ret = select(maxfd + 1, &rdfs, NULL, NULL, NULL);
+		if (ret > 0 && FD_ISSET(socket, &rdfs))
+		{
+			/// no date should arrive from webclient,
+			/// the event comes from the socket closing
+			end = 1;
+		}
 		if (ret > 0 && FD_ISSET(client, &rdfs))
 		{
 			int length;
@@ -477,8 +485,10 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, http_message_t *request)
 	if ((pid = fork()) == 0)
 	{
 		_webstream_main(&info);
+		warn("websocket: process died");
 		exit(0);
 	}
+	close(ctx->client);
 	return pid;
 }
 
