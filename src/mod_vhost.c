@@ -112,7 +112,7 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 	}
 	if (config && config_setting_is_group(config))
 	{
-		char *hostname;
+		char *hostname = NULL;
 		config_setting_lookup_string(config, "hostname", (const char **)&hostname);
 		if (hostname == NULL || hostname[0] == '\0')
 		{
@@ -125,6 +125,7 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 		vhost->vserver.hostname = hostname;
 		config_setting_lookup_string(config, "service", (const char **)&vhost->vserver.service);
 		vhost->modulesconfig = config;
+		warn("vhostname %s %s", hostname, vhost->vserver.service);
 	}
 	else
 		ret = EREJECT;
