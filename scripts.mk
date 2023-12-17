@@ -681,11 +681,11 @@ $(hostobjdir)%.o:%.cpp $(file)
 $(lib-static-target): $(objdir)lib%$(slib-ext:%=.%): $$(addprefix $(objdir),$$(%-objs)) $(file)
 	@$(call cmd,ld_slib)
 
-$(lib-dynamic-target): CFLAGS+=-fPIC
+$(lib-dynamic-target): INTERN_CFLAGS+=-fPIC
 $(lib-dynamic-target): $(objdir)lib%$(dlib-ext:%=.%): $$(addprefix $(objdir),$$(%-objs)) $(file)
 	@$(call cmd,ld_dlib)
 
-$(modules-target): CFLAGS+=-fPIC
+$(modules-target): INTERN_CFLAGS+=-fPIC
 $(modules-target): $(objdir)%$(dlib-ext:%=.%): $$(addprefix $(objdir),$$(%-objs)) $(file)
 	@$(call cmd,ld_dlib)
 
