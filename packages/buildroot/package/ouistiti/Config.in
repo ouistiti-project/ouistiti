@@ -87,6 +87,12 @@ comment "JWT support: enable Jansson library"
 	depends on BR2_PACKAGE_OUISTITI_AUTH
 	depends on !BR2_PACKAGE_JANSSON
 
+config BR2_PACKAGE_OUISTITI_AUTH_TOTP
+	bool "auth: Timed based One Time Password"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
+	help
+	  Check a totp password depending on the user name
+
 config BR2_PACKAGE_OUISTITI_AUTH_BASIC
 	bool "auth: Basic authentication"
 	depends on BR2_PACKAGE_OUISTITI_AUTH
@@ -116,6 +122,13 @@ config BR2_PACKAGE_OUISTITI_AUTH_OAUTH2
 comment "oAuth2 authentication: enable Auth JWT"
 	depends on BR2_PACKAGE_OUISTITI_AUTH
 	depends on !BR2_PACKAGE_OUISTITI_AUTH_JWT
+
+config BR2_PACKAGE_OUISTITI_AUTH_WWWFORM
+	bool "auth: POST www-form-urlencoded authentication"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
+	help
+	  Check username password from a POST request
+	  with username and query inside the query.
 
 config BR2_PACKAGE_OUISTITI_USERFILTER
 	bool "Users filter"
