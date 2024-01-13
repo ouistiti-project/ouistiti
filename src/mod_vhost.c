@@ -140,6 +140,7 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 	{
 		const char *filepath = config_setting_get_string(config);
 		struct stat filestat;
+		warn("vhost: file %s", filepath);
 		int ret = stat(filepath, &filestat);
 		if (!ret && S_ISREG(filestat.st_mode))
 		{
@@ -151,6 +152,10 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 		if (ret == CONFIG_TRUE)
 		{
 			config = config_lookup(configfile, "servers");
+			if (config && config_setting_is_list(config))
+			{
+				config = config_setting_get_elem(config, 0);
+			}
 		}
 		if (ret == CONFIG_TRUE && config == NULL)
 		{
