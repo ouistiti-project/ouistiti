@@ -1,0 +1,14 @@
+servers= ({
+		hostname = "myvhost3";
+		websocket = {
+			docroot = "/tmp";
+			allow = "echo";
+			deny = "*";
+			denylast = true;
+			links = ({
+				origin = "echo2";
+				destination = "echo";
+				type = "unix";
+			});
+		};
+	});
