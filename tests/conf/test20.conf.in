@@ -39,7 +39,7 @@ servers= ({
                                 deny = ".htaccess,.cgi,*.php";
                                 options = "dirlisting,range";
 			};
-		});
+		},"%PWD%/tests/conf/config.d/test20.vhost");
 	});
 
 
