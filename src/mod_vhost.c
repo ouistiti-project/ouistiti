@@ -60,6 +60,7 @@ struct mod_vhost_s
 	serverconfig_t serverconfig;
 	server_t *server;
 	void *modulesconfig;
+	const char *root;
 };
 
 typedef struct _mod_vhost_s _mod_vhost_t;
@@ -113,6 +114,7 @@ static mod_vhost_t *_vhost_config(config_setting_t *config, server_t *server, co
 //	memcpy(&vhost->vserver, ouistiti_serverconfig(server), sizeof(vhost->vserver));
 	vhost->vserver.hostname = hostname;
 	config_setting_lookup_string(config, "service", (const char **)&vhost->vserver.service);
+	config_setting_lookup_string(config, "root", (const char **)&vhost->root);
 	vhost->modulesconfig = config;
 	warn("vhostname %s %s", hostname, vhost->vserver.service);
 	return vhost;
@@ -233,6 +235,15 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod->vserver = httpserver_dup(server, &config->vserver);
 	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_SERVER, str_vhost);
 	httpserver_addconnector(mod->vserver, _vhost_vconnector, mod, CONNECTOR_SERVER, str_vhost);
+
+	char *cwd = NULL;
+	if (config->root != NULL && config->root[0] != '\0' )
+	{
+		warn("vhost: change directory %s", config->root);
+		cwd = getcwd(NULL, 0);
+		if (chdir(config->root))
+			err("vhost: change directory error !");
+	}
 	const module_list_t *iterator = ouistiti_modules(config->server);
 	while (iterator != NULL)
 	{
@@ -248,6 +259,13 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 			}
 		}
 		iterator = iterator->next;
+	}
+	if (cwd != NULL)
+	{
+		warn("vhost: change directory %s", cwd);
+		if (chdir(cwd))
+			err("main: change directory error !");
+		free(cwd);
 	}
 
 	dbg("create vhost for %s", config->vserver.hostname);
