@@ -112,6 +112,8 @@ PYTHON=n
 #support of request forwarding
 #   depends on HTTPCLIENT_FEATURES
 FORWARD=n
+#support of response's signature rfc9421
+SIGNATURE=n
 
 CERTIFICATE=n
 
