@@ -352,7 +352,7 @@ static int _ws_configlink(config_setting_t *setting, mod_websocket_t *conf)
 {
 	if (!config_setting_is_group(setting))
 		return EREJECT;
-	
+
 	_ws_link_t *link = calloc(1, sizeof(*link));
 	config_setting_lookup_string(setting, "origin", &link->origin.data);
 	link->origin.length = strlen(link->origin.data);
