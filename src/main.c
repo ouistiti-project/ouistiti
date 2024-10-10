@@ -421,7 +421,10 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 		config->server->port = g_default_port;
 	http_server_t *httpserver = httpserver_create(config->server);
 	if (httpserver == NULL)
+	{
+		err("main: server  not created");
 		return NULL;
+	}
 
 	server_t *server = NULL;
 	server = calloc(1, sizeof(*server));
@@ -660,11 +663,6 @@ int main(int argc, char * const *argv)
 		main_initat(rootfd, ouistiticonfig->init_d, 0);
 	}
 
-	if (ouistiticonfig == NULL)
-	{
-		return -1;
-	}
-
 	g_first = ouistiti_loadservers(ouistiticonfig, serverid);
 
 #ifdef HAVE_SIGACTION
@@ -693,7 +691,7 @@ int main(int argc, char * const *argv)
 	signal(SIGPIPE, SIG_IGN);
 #endif
 
-	if (auth_setowner(ouistiticonfig->user) == EREJECT)
+	if (ouistiticonfig->user == NULL || auth_setowner(ouistiticonfig->user) == EREJECT)
 		err("Error: user %s not found", ouistiticonfig->user);
 	else
 		warn("%s run as %s", argv[0], ouistiticonfig->user);
