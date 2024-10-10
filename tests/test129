@@ -1,0 +1,5 @@
+DESC="Document: test a request on a vhost service"
+CONFIG=test20.conf
+TESTREQUEST=test104_rq.txt
+TESTRESPONSE=test104_rs.txt
+TESTCODE=200
