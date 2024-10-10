@@ -1,0 +1,3 @@
+DESC="Vhost: test a request on service with bad hostname"
+CONFIG=test20.conf
+TESTCODE=404
