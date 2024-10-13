@@ -206,7 +206,7 @@ static const hash_t *_mod_findhash(const char *name, int nameid)
 	{
 		hash = hash_list[i];
 		if (hash != NULL &&
-			((name != NULL && !strcmp(name, hash->name)) ||
+			((name != NULL && !strcasecmp(name, hash->name)) ||
 				(nameid == hash->nameid)))
 			break;
 	}
