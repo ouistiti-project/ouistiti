@@ -28,6 +28,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #ifdef MODULES
 #include <dlfcn.h>
@@ -54,8 +57,10 @@ struct mod_vhost_s
 {
 	/** @param name of the server */
 	http_server_config_t vserver;
+	serverconfig_t serverconfig;
 	server_t *server;
 	void *modulesconfig;
+	const char *root;
 };
 
 typedef struct _mod_vhost_s _mod_vhost_t;
@@ -93,10 +98,33 @@ static int _vhost_vconnector(void *arg, http_message_t *request, http_message_t 
 }
 
 #ifdef FILE_CONFIG
+static mod_vhost_t *_vhost_config(config_setting_t *config, server_t *server, config_t *configfile)
+{
+	mod_vhost_t *vhost = NULL;
+
+	char *hostname = NULL;
+	config_setting_lookup_string(config, "hostname", (const char **)&hostname);
+	if (hostname == NULL || hostname[0] == '\0')
+	{
+		err("vhost configuration without hostname");
+		return NULL;
+	}
+	vhost = calloc(1, sizeof(*vhost));
+	vhost->server = server;
+//	memcpy(&vhost->vserver, ouistiti_serverconfig(server), sizeof(vhost->vserver));
+	vhost->vserver.hostname = hostname;
+	config_setting_lookup_string(config, "service", (const char **)&vhost->vserver.service);
+	config_setting_lookup_string(config, "root", (const char **)&vhost->root);
+	vhost->modulesconfig = config;
+	warn("vhostname %s %s", hostname, vhost->vserver.service);
+	return vhost;
+}
+
 static int vhost_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
 	int ret = ESUCCESS;
 	mod_vhost_t *vhost = NULL;
+	config_t *configfile = NULL;
 
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *config = config_setting_get_member(iterator, "vhost");
@@ -110,22 +138,39 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 			config = config_setting_get_elem(config, index);
 			ret = ECONTINUE;
 	}
+	if (config && config_setting_type(config) ==  CONFIG_TYPE_STRING)
+	{
+		const char *filepath = config_setting_get_string(config);
+		struct stat filestat;
+		warn("vhost: file %s", filepath);
+		int ret = stat(filepath, &filestat);
+		if (!ret && S_ISREG(filestat.st_mode))
+		{
+			configfile = calloc(1, sizeof(*configfile));
+			ret = config_read_file(configfile, filepath);
+		}
+		else
+			ret = -1;
+		if (ret == CONFIG_TRUE)
+		{
+			config = config_lookup(configfile, "servers");
+			if (config && config_setting_is_list(config))
+			{
+				config = config_setting_get_elem(config, 0);
+			}
+		}
+		if (ret == CONFIG_TRUE && config == NULL)
+		{
+			config = config_lookup(configfile, "server");
+		}
+		if (ret == CONFIG_TRUE && config == NULL)
+		{
+			config = config_lookup(configfile, "vhost");
+		}
+	}
 	if (config && config_setting_is_group(config))
 	{
-		char *hostname = NULL;
-		config_setting_lookup_string(config, "hostname", (const char **)&hostname);
-		if (hostname == NULL || hostname[0] == '\0')
-		{
-			err("vhost configuration without hostname");
-			return EREJECT;
-		}
-		vhost = calloc(1, sizeof(*vhost));
-		vhost->server = server;
-		memcpy(&vhost->vserver, ouistiti_serverconfig(server), sizeof(vhost->vserver));
-		vhost->vserver.hostname = hostname;
-		config_setting_lookup_string(config, "service", (const char **)&vhost->vserver.service);
-		vhost->modulesconfig = config;
-		warn("vhostname %s %s", hostname, vhost->vserver.service);
+		vhost = _vhost_config(config, server, configfile);
 	}
 	else
 		ret = EREJECT;
@@ -190,6 +235,15 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	mod->vserver = httpserver_dup(server, &config->vserver);
 	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_SERVER, str_vhost);
 	httpserver_addconnector(mod->vserver, _vhost_vconnector, mod, CONNECTOR_SERVER, str_vhost);
+
+	char *cwd = NULL;
+	if (config->root != NULL && config->root[0] != '\0' )
+	{
+		warn("vhost: change directory %s", config->root);
+		cwd = getcwd(NULL, 0);
+		if (chdir(config->root))
+			err("vhost: change directory error !");
+	}
 	const module_list_t *iterator = ouistiti_modules(config->server);
 	while (iterator != NULL)
 	{
@@ -205,6 +259,13 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 			}
 		}
 		iterator = iterator->next;
+	}
+	if (cwd != NULL)
+	{
+		warn("vhost: change directory %s", cwd);
+		if (chdir(cwd))
+			err("main: change directory error !");
+		free(cwd);
 	}
 
 	dbg("create vhost for %s", config->vserver.hostname);

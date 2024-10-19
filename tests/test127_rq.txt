@@ -1,0 +1,8 @@
+GET /echolink HTTP/1.1
+HOST: myvhost3
+Connection: Upgrade,Keep-Alive
+Upgrade: websocket
+Sec-WebSocket-Protocol: echo
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+
+Åhello

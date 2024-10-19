@@ -58,6 +58,16 @@ int ouistiti_initmodules(const char *pkglib)
 	struct dirent **namelist = NULL;
 	char cwd[PATH_MAX];
 	snprintf(cwd, PATH_MAX, "%s", pkglib);
+	/**
+	 * LD_BIND_NOW flag may break the modules loading
+	 * but it is impossible to remove it to have a LAZY loading.
+	 * unsetenv is useless in this case
+	 */
+	const char * ldnow = getenv("LD_BIND_NOW");
+	if (ldnow)
+	{
+		err("modules loading NOW enabled");
+	}
 	char *it_r;
 	char *iterator = strtok_r(cwd, ":", &it_r);
 	while (iterator != NULL)
@@ -78,7 +88,14 @@ int ouistiti_initmodules(const char *pkglib)
 			/**
 			 * the path must contain a /
 			 */
-			void *dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+			void *dh = dlopen(path, RTLD_NOLOAD);
+
+			/**
+			 * the library is already loaded
+			 */
+			if (dh != NULL)
+				continue;
+			dh = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
 
 			if (dh != NULL)
 			{
@@ -86,14 +103,17 @@ int ouistiti_initmodules(const char *pkglib)
 				 * module may declare "mod_info" symbol
 				 * or module may use the library constructor function
 				 * to register its "mod_info". But this method should
-				 * not be use, because the library needs to be uses 
+				 * not be use, because the library needs to be uses
 				 * to call the constructor.
 				 */
 				module_t *module = dlsym(dh, "mod_info");
 				if (module)
 					ouistiti_registermodule(module, dh);
 				else
+				{
 					err("%s not a module", path);
+					dlclose(dh);
+				}
 			}
 			else
 			{
