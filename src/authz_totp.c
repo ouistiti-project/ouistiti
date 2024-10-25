@@ -68,7 +68,7 @@ typedef struct authz_totp_s authz_totp_t;
 struct authz_totp_s
 {
 	authz_totp_config_t *config;
-	char _userkey[HASH_MAX_SIZE];
+	char _userkey[HASH_MAX_SIZE + 1];
 	string_t userkey;
 	char passwd[OTP_MAXDIGITS + 1];
 	http_server_t *server;
@@ -104,8 +104,7 @@ static void *authz_totp_create(http_server_t *server, void *arg)
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
 	ctx->server = server;
-	ctx->userkey.data = ctx->_userkey;
-	ctx->userkey.length = HASH_MAX_SIZE;
+	_string_store(&ctx->userkey, STRING_REF(ctx->_userkey));
 	return ctx;
 }
 
@@ -176,9 +175,11 @@ static int authz_totp_generateK(const authz_totp_config_t *config, string_t *use
 	hash_macsha256->update(hmac, user->data, user->length);
 	hash_macsha256->update(hmac, config->key.data, config->key.length);
 
-	if (output->length < HASH_MAX_SIZE)
+	if (output->size < HASH_MAX_SIZE)
 		return EREJECT;
-	output->length = hash_macsha256->finish(hmac, (char *)output->data);
+	char value[HASH_MAX_SIZE];
+	size_t length = hash_macsha256->finish(hmac, value);
+	_string_cpy(output, value, length);
 	return ESUCCESS;
 }
 
@@ -245,7 +246,8 @@ static int authz_totp_setsession(void *arg, const char *user, auth_saveinfo_t cb
 	char url[1024];
 	if (ctx->userkey.data[0] == '\0')
 	{
-		string_t userstr = {.data = user, .length = strlen(user)};
+		string_t userstr = {.data = user, .length = (size_t) -1};
+		_string_store(&userstr, user, -1);
 		authz_totp_generateK(config, &userstr, &ctx->userkey);
 	}
 	size_t urllen = otp_url(ctx->userkey.data, ctx->userkey.length, user, "test", config->hash, config->digits, url);
