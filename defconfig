@@ -112,6 +112,8 @@ PYTHON=n
 #support of request forwarding
 #   depends on HTTPCLIENT_FEATURES
 FORWARD=n
+#support date field
+DATE=y
 
 CERTIFICATE=n
 
@@ -122,4 +124,3 @@ WEBCOMMON=n
 JQUERY=y
 BOOTSTRAP=y
 GLYPHICONS=y
-MJPEG=y
