@@ -114,6 +114,8 @@ PYTHON=n
 FORWARD=n
 #support date field
 DATE=y
+#support of response's signature rfc9421
+SIGNATURE=n
 
 CERTIFICATE=n
 
