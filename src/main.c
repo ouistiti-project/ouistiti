@@ -112,6 +112,11 @@ int _string_cpy(string_t *str, const char *source, size_t length)
 	return str->length;
 }
 
+const char *_string_toc(const string_t *str)
+{
+	return str->data;
+}
+
 const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 {
 	return httpclient_session(httpmessage_client(request), key, keylen, NULL, -1);

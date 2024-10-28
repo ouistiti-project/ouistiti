@@ -57,8 +57,8 @@ struct mod_vhost_s
 {
 	/** @param name of the server */
 	http_server_config_t vserver;
-	size_t vhostlength;
-	size_t servicelength;
+	string_t vhost;
+	string_t vservice;
 	serverconfig_t serverconfig;
 	server_t *server;
 	void *modulesconfig;
@@ -82,9 +82,7 @@ static int _vhost_connector(void *arg, http_message_t *request, http_message_t *
 	size_t vhostlength = httpmessage_REQUEST2(request, "host", &vhost);
 	if (vhost != NULL)
 	{
-		if (mod->config->vserver.hostname &&
-			!strncmp(vhost, mod->config->vserver.hostname, mod->config->vhostlength) &&
-			((vhostlength == mod->config->vhostlength) || (vhost[mod->config->vhostlength] == '.')))
+		if (mod->config->vserver.hostname && !_string_cmp(&mod->config->vhost, vhost, vhostlength))
 		{
 			warn("vhost: connection on %s", mod->config->vserver.hostname);
 			httpserver_reloadclient(mod->vserver, httpmessage_client(request));
@@ -93,8 +91,7 @@ static int _vhost_connector(void *arg, http_message_t *request, http_message_t *
 		const char *dot = strchr(vhost, '.');
 		if (dot != NULL && mod->config->vserver.hostname == NULL &&
 			mod->config->vserver.service &&
-			!strncmp(vhost, mod->config->vserver.service, dot - vhost) &&
-			mod->config->servicelength == (dot - vhost))
+			!_string_cmp(&mod->config->vservice, vhost, dot - vhost))
 		{
 			warn("vhost: connection on %s", mod->config->vserver.service);
 			httpserver_reloadclient(mod->vserver, httpmessage_client(request));
@@ -113,14 +110,10 @@ static int _vhost_vconnector(void *arg, http_message_t *request, http_message_t 
 	if (vhost != NULL)
 	{
 		const char *dot = strchr(vhost, '.');
-		if (mod->config->vserver.hostname &&
-			!strncmp(vhost, mod->config->vserver.hostname, mod->config->vhostlength) &&
-			((vhostlength == mod->config->vhostlength) || (vhost[mod->config->vhostlength] == '.')))
+		if (mod->config->vserver.hostname && !_string_cmp(&mod->config->vhost, vhost, vhostlength))
 			return EREJECT;
-		else if (dot != NULL && mod->config->vserver.hostname == NULL &&
-			mod->config->vserver.service &&
-			!strncmp(vhost, mod->config->vserver.service, dot - vhost) &&
-			mod->config->servicelength == (dot - vhost))
+		else if (dot != NULL && mod->config->vserver.hostname == NULL && mod->config->vserver.service &&
+			!_string_cmp(&mod->config->vservice, vhost, dot - vhost))
 			return EREJECT;
 	}
 	err("vhost: accesss to another host on the same client");
@@ -148,10 +141,10 @@ static mod_vhost_t *_vhost_config(config_setting_t *config, server_t *server, co
 //	memcpy(&vhost->vserver, ouistiti_serverconfig(server), sizeof(vhost->vserver));
 	vhost->vserver.hostname = hostname;
 	if (hostname)
-		vhost->vhostlength = strlen(hostname);
+		_string_store(&vhost->vhost, hostname, -1);
 	vhost->vserver.service = service;
 	if (service)
-		vhost->servicelength = strlen(vhost->vserver.service);
+		_string_store(&vhost->vservice, service, -1);
 	config_setting_lookup_string(config, "root", (const char **)&vhost->root);
 	vhost->modulesconfig = config;
 	warn("vhostname %s %s", hostname, vhost->vserver.service);

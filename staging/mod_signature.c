@@ -56,27 +56,27 @@ struct mod_signature_s
 typedef struct signature_element_s signature_element_t;
 struct signature_element_s
 {
-	const char *component;
-	const char *field;
+	string_t component;
+	string_t field;
 };
 
 static signature_element_t _default_elemts[] =
 {
 	{
-		.component = "content-type",
-		.field = "Content-Type",
+		.component = STRING_DCL("content-type"),
+		.field = STRING_DCL("Content-Type"),
 	},
 	{
-		.component = "content-length",
-		.field = "Content-Length",
+		.component = STRING_DCL("content-length"),
+		.field = STRING_DCL("Content-Length"),
 	},
 	{
-		.component = "content-digest",
-		.field = "Content-Digest",
+		.component = STRING_DCL("content-digest"),
+		.field = STRING_DCL("Content-Digest"),
 	},
 	{
-		.component = "@status",
-		.field = "status",
+		.component = STRING_DCL("@status"),
+		.field = STRING_DCL("status"),
 	},
 };
 
@@ -178,14 +178,13 @@ static int _signature_connectorcomplete(void *arg, http_message_t *request, http
 		if (mod->fields & (1<<i))
 		{
 			signature_element_t *elemt = &_default_elemts[i];
-			const char *component = NULL;
 			const char *field = NULL;
 			int len;
-			len = snprintf(inputoffset, 24, "\"%.20s\" ", elemt->component);
+			len = snprintf(inputoffset, 24, "\"%.20s\" ", _string_toc(&elemt->component));
 			inputoffset += len;
-			len = httpmessage_REQUEST2(response, elemt->field, &field);
+			len = httpmessage_REQUEST2(response, _string_toc(&elemt->field), &field);
 			hash->update(hashctx, "\"", 1);
-			hash->update(hashctx, elemt->component, -1);
+			hash->update(hashctx, _string_toc(&elemt->component), _string_length(&elemt->component));
 			hash->update(hashctx, "\": ", 3);
 			hash->update(hashctx, field, len);
 			hash->update(hashctx, "\n", 1);
@@ -210,8 +209,8 @@ static int _signature_connectorcomplete(void *arg, http_message_t *request, http
 	time_t t = time(NULL);
 	unsigned char tstr[24];
 	int tlen = snprintf(tstr, 24, "%.23d", t);
-	httpmessage_appendheader(responyyse, str_signature, tstr, tlen);
-	httpmessage_appendheader(responyyse, str_signature, ";alg=", 5);
+	httpmessage_appendheader(response, str_signature, tstr, tlen);
+	httpmessage_appendheader(response, str_signature, ";alg=", 5);
 	httpmessage_appendheader(response, str_signature, mod->hash->name, -1);
 	dbg("signature: connector ready");
 	return ESUCCESS;
@@ -222,7 +221,7 @@ static int _signature_add_component(mod_signature_t *signature, const char *comp
 	int ret = -1;
 	for (int i = 0; i < sizeof(_default_elemts)/ sizeof(*_default_elemts); i++)
 	{
-		if (! strcmp(_default_elemts[i].component, component))
+		if (! _string_cmp(&_default_elemts[i].component, component, -1))
 		{
 			signature->fields |= (1 << i);
 			break;

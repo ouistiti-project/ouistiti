@@ -116,6 +116,7 @@ int _string_store(string_t *str, const char *pointer, size_t length);
 int _string_cmp(const string_t *str, const char *cmp, size_t length);
 int _string_cpy(string_t *str, const char *source, size_t length);
 int _string_empty(const string_t *str);
+const char *_string_toc(const string_t *str);
 size_t _string_length(const string_t *str);
 
 extern const char str_servername[9];

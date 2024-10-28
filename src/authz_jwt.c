@@ -212,7 +212,7 @@ static json_t *jwt_decode_json(const char *id_token)
 	return jpayload;
 }
 
-static int _jwt_checkexpiration(json_t *jinfo)
+static int _jwt_checkexpiration(const json_t *jinfo)
 {
 	const json_t *jexpire = json_object_get(jinfo, "exp");
 	if (jexpire && json_is_integer(jexpire))

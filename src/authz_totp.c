@@ -108,11 +108,13 @@ static void *authz_totp_create(http_server_t *server, void *arg)
 	return ctx;
 }
 
-static unsigned long hotp_generator(const hash_t *hash, const char* key, size_t keylen, unsigned long modulus, uint64_t counter)
+static uint32_t hotp_generator(const hash_t *hash, const char* key, size_t keylen, unsigned long modulus, uint64_t counter)
 {
 	uint64_t t = counter;
 	char T[17] = {0};
-//	int Tlen = snprintf(T, 17, "%.016X", (unsigned int)t);
+#if 0
+	int Tlen = snprintf(T, 17, "%.016X", (unsigned int)t);
+#endif
 	for (int i = sizeof(t) - 1; i >= 0; i--)
 	{
 		if ( t == 0) break;
@@ -135,11 +137,11 @@ static unsigned long hotp_generator(const hash_t *hash, const char* key, size_t 
 	return otp;
 }
 
-static unsigned long totp_generator(const hash_t *hash, const char* key, size_t keylen, unsigned long modulus, int period)
+static uint32_t totp_generator(const hash_t *hash, const char* key, size_t keylen, unsigned long modulus, int period)
 {
+#ifndef DEBUG
 	long t0 = 0;
 	long x = period;
-#ifndef DEBUG
 	long t = (time(NULL) - t0 ) / x;
 #else
 	time_t t = 56666053;
@@ -147,7 +149,7 @@ static unsigned long totp_generator(const hash_t *hash, const char* key, size_t 
 	return hotp_generator(hash, key, keylen, modulus, t);
 }
 
-size_t otp_url(const unsigned char* key, unsigned int keylen, const char *user, const char *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL])
+size_t otp_url(const unsigned char* key, size_t keylen, const char *user, const char *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL])
 {
 	void *base32state = base32->encoder.init();
 	char *keyb32 = malloc((int)keylen * 2);
@@ -169,7 +171,7 @@ size_t otp_url(const unsigned char* key, unsigned int keylen, const char *user, 
 	return length;
 }
 
-static int authz_totp_generateK(const authz_totp_config_t *config, string_t *user, string_t *output)
+static int authz_totp_generateK(const authz_totp_config_t *config, const string_t *user, string_t *output)
 {
 	void *hmac = hash_macsha256->initkey(config->key.data, config->key.length);
 	hash_macsha256->update(hmac, user->data, user->length);
