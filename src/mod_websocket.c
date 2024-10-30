@@ -59,10 +59,10 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/websocket.h"
 
-typedef int (*mod_websocket_run_t)(void *arg, int socket, int wssock, http_message_t *request);
-int default_websocket_run(void *arg, int socket, int wssock, http_message_t *request);
+typedef int (*mod_websocket_run_t)(void *arg, int socket, int wssock, http_client_t *clt);
+int default_websocket_run(void *arg, int socket, int wssock, http_client_t *clt);
 #ifdef WEBSOCKET_RT
-extern int ouistiti_websocket_run(void *arg, int socket, int wssock, http_message_t *request);
+extern int ouistiti_websocket_run(void *arg, int socket, int wssock, http_client_t *clt);
 #endif
 
 #ifndef MSG_NOSIGNAL
@@ -306,7 +306,7 @@ static int websocket_connector(void *arg, http_message_t *request, http_message_
 	}
 	else if (ctx->socket > 0 && ctx->fdfile > 0)
 	{
-		ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, ctx->fdfile, request);
+		ctx->pid = ctx->mod->run(ctx->mod->runarg, ctx->socket, ctx->fdfile, httpmessage_client(request));
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -803,11 +803,10 @@ static websocket_t _wsdefaul_config =
 	.onping = websocket_pong,
 	.type = WS_TEXT,
 };
-int default_websocket_run(void *arg, int sock, int wssock, http_message_t *request)
+int default_websocket_run(void *arg, int sock, int wssock, http_client_t *clt)
 {
 	pid_t pid = -1;
 	_websocket_main_t info = {.client = sock, .server = wssock, .type = _wsdefaul_config.type};
-	http_client_t *clt = httpmessage_client(request);
 	info.ctx = httpclient_context(clt);
 	info.recvreq = httpclient_addreceiver(clt, NULL, NULL);
 	info.sendresp = httpclient_addsender(clt, NULL, NULL);
