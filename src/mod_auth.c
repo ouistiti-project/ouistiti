@@ -481,7 +481,7 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	config_setting_lookup_int(config, "expire", &auth->expire);
 
 	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_FALSE)
-		_string_store(&auth->realm, STRING_REF(hostname));
+		_string_store(&auth->realm, hostname, -1);
 	else
 		_string_store(&auth->realm, data, -1);
 
