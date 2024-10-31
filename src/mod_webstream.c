@@ -168,7 +168,36 @@ char *mkrndstr(size_t length)
 
 	return randomString;
 }
-// TODO: refactor
+
+static int _webstream_start(_mod_webstream_ctx_t *ctx, const mod_webstream_t *config, http_message_t *response, const char *uri)
+{
+	ctx->socket = httpmessage_lock(response);
+	ctx->mime = utils_getmime(uri);
+	if (config->options & WEBSTREAM_MULTIPART)
+	{
+		ctx->boundary = mkrndstr(16);
+		char mime[256];
+		mime[255] = 0;
+		snprintf(mime, 255, "%s; boundary=%s", str_multipart_replace, ctx->boundary);
+		httpmessage_addcontent(response, mime, NULL, -1);
+	}
+	else
+		httpmessage_addcontent(response, ctx->mime, NULL, -1);
+
+	if (fchdir(ctx->mod->fdroot) == -1)
+		warn("webstream: impossible to change directory");
+	int wssock;
+	wssock = _webstream_socket(ctx, ctx->socket, uri);
+#ifdef WEBSOCKET_RT
+	if (config->options & WEBSTREAM_REALTIME)
+	{
+		if (ouistiti_websocket_run(ctx, ctx->socket, wssock, httpmessage_client(response)) == ESUCCESS)
+			wssock = 0;
+	}
+#endif
+	return wssock;
+}
+
 static int _webstream_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
@@ -178,6 +207,7 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 
 	if (ctx->client == 0)
 	{
+		/// first call of the conenctor
 		const char *path_info = NULL;
 		const char *uri = httpmessage_REQUEST(request, "uri");
 		if (htaccess_check(&mod->config->htaccess, uri, &path_info) != ESUCCESS)
@@ -196,48 +226,17 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 		fstat(fdfile, &filestat);
 		close(fdfile);
 
-		if (S_ISSOCK(filestat.st_mode))
+		if (S_ISSOCK(filestat.st_mode) &&
+			(ctx->client = _webstream_start(ctx, config, response, uri)) > 0)
 		{
 			ctx->socket = httpmessage_lock(response);
-			ctx->mime = utils_getmime(uri);
-			if (config->options & WEBSTREAM_MULTIPART)
-			{
-				ctx->boundary = mkrndstr(16);
-				char mime[256];
-				mime[255] = 0;
-				snprintf(mime, 255, "%s; boundary=%s", str_multipart_replace, ctx->boundary);
-				httpmessage_addcontent(response, mime, NULL, -1);
-			}
-			else
-				httpmessage_addcontent(response, ctx->mime, NULL, -1);
-
-			if (fchdir(ctx->mod->fdroot) == -1)
-				warn("webstream: impossible to change directory");
-			int wssock;
-			wssock = _webstream_socket(ctx, ctx->socket, uri);
-#ifdef WEBSOCKET_RT
-			if (config->options & WEBSTREAM_REALTIME)
-			{
-				if (ouistiti_websocket_run(ctx, ctx->socket, wssock, request) == ESUCCESS)
-					wssock = 0;
-			}
-#endif
-
-
-			if (wssock > 0)
-			{
-				ctx->client = wssock;
-				ret = ECONTINUE;
-			}
+			ret = ECONTINUE;
 		}
-
-		if (ctx->client <= 0)
+		else
 		{
 			httpmessage_result(response, RESULT_400);
 			ret = ESUCCESS;
 		}
-		else
-			ctx->socket = httpmessage_lock(response);
 	}
 	else
 	{
@@ -381,69 +380,81 @@ struct _webstream_main_s
 	void *ctx;
 };
 
-static int _webstream_getdata(_webstream_main_t *info, int multipart)
+static int _webstream_sendpartheader(_webstream_main_t *info, size_t length, int date)
+{
+	char buffer[256] = {0};
+	int ret;
+	ret = snprintf(buffer, 255, "\r\n--%s\r\n", info->modctx->boundary);
+	if (ret > 0)
+		info->sendresp(info->ctx, buffer, ret);
+	ret = snprintf(buffer, 255, "%s: %s\r\n", str_contenttype, info->modctx->mime);
+	if (ret > 0)
+		info->sendresp(info->ctx, buffer, ret);
+	ret = snprintf(buffer, 255, "%s: %lu\r\n", str_contentlength, length);
+	if (ret > 0)
+		info->sendresp(info->ctx, buffer, ret);
+
+	if (date)
+	{
+		time_t t;
+		struct tm *tmp, tmp_r;
+
+		t = time(NULL);
+		tmp = gmtime_r(&t, &tmp_r);
+		char buf[26];
+		asctime_r(&tmp_r, buf);
+		ret = snprintf(buffer, 255, "%s: %s\r\n", str_date, buf);
+		if (ret > 0)
+			info->sendresp(info->ctx, buffer, ret);
+	}
+	if (info->sendresp(info->ctx, "\r\n", 2) != 2)
+	{
+		err("webstream: send error %s", strerror(errno));
+		return EREJECT;
+	}
+	return ESUCCESS;
+}
+
+static int _webstream_transferdata(_webstream_main_t *info, int multipart)
 {
 	int end = 0;
 	int client = info->modctx->client;
 	int length;
 	ioctl(client, FIONREAD, &length);
-	if (length == 0)
+	if ((length == 0) ||
+		(multipart && _webstream_sendpartheader(info, length, multipart & WEBSTREAM_MULTIPART_DATE) != ESUCCESS))
 	{
 		end = 1;
-	}
-	else if (multipart)
-	{
-		char buffer[256] = {0};
-		int ret;
-		ret = snprintf(buffer, 255, "\r\n--%s\r\n", info->modctx->boundary);
-		if (ret > 0)
-			info->sendresp(info->ctx, buffer, ret);
-		ret = snprintf(buffer, 255, "%s: %s\r\n", str_contenttype, info->modctx->mime);
-		if (ret > 0)
-			info->sendresp(info->ctx, buffer, ret);
-		ret = snprintf(buffer, 255, "%s: %d\r\n", str_contentlength, length);
-		if (ret > 0)
-			info->sendresp(info->ctx, buffer, ret);
-
-		if (multipart & WEBSTREAM_MULTIPART_DATE)
-		{
-			time_t t;
-			struct tm *tmp, tmp_r;
-
-			t = time(NULL);
-			tmp = gmtime_r(&t, &tmp_r);
-			char buf[26];
-			asctime_r(&tmp_r, buf);
-			ret = snprintf(buffer, 255, "%s: %s\r\n", str_date, buf);
-			if (ret > 0)
-				info->sendresp(info->ctx, buffer, ret);
-		}
-		info->sendresp(info->ctx, "\r\n", 2);
 	}
 	while (length > 0)
 	{
 		char *buffer;
 		buffer = calloc(1, length);
 		ssize_t ret = recv(client, buffer, length, MSG_NOSIGNAL);
-		if (ret > 0)
+		if (ret <= 0)
 		{
-			/// ret is always <= length
-			length -= ret;
-			ssize_t size = 0;
-			while (size < ret)
+			err("webstream: end stream %s", strerror(errno));
+			free(buffer);
+			end = 1;
+			break;
+		}
+		/// ret is always <= length
+		length -= ret;
+		ssize_t size = 0;
+		while (size < ret)
+		{
+			int outlength = 0;
+			outlength = info->sendresp(info->ctx, buffer, ret);
+			if (outlength == EINCOMPLETE)
+				continue;
+			if (outlength == EREJECT)
 			{
-				int outlength = 0;
-				outlength = info->sendresp(info->ctx, buffer, ret);
-				if (outlength == EINCOMPLETE)
-					continue;
-				if (outlength == EREJECT)
-				{
-					err("webstream: send error %s", strerror(errno));
-					end = 1;
-					break;
-				}
-				size += outlength;
+				err("webstream: send error %s", strerror(errno));
+				free(buffer);
+				end = 1;
+				break;
 			}
+			size += outlength;
 		}
 		free(buffer);
 	}
@@ -458,9 +469,9 @@ static void *_webstream_main(void *arg)
 	int client = info->modctx->client;
 	int socket = info->modctx->socket;
 	int end = 0;
-	unsigned int waittime = WEBSTREAM_DEFAULT_WAITTIME;
+	struct timespec waittime = { .tv_sec = 0, .tv_nsec = (WEBSTREAM_DEFAULT_WAITTIME * 1000),};
 	if (mod->config->fps > 0)
-		waittime = 1000000 / mod->config->fps;
+		waittime.tv_nsec = 1000000000 / mod->config->fps;
 
 	while (!end)
 	{
@@ -479,10 +490,10 @@ static void *_webstream_main(void *arg)
 		}
 		if (ret > 0 && FD_ISSET(client, &rdfs))
 		{
-			end = _webstream_getdata(info, config->options & (WEBSTREAM_MULTIPART | WEBSTREAM_MULTIPART_DATE));
+			end = _webstream_transferdata(info, config->options & (WEBSTREAM_MULTIPART | WEBSTREAM_MULTIPART_DATE));
 			if (config->options & WEBSTREAM_MULTIPART)
 			{
-				usleep(waittime);
+				nanosleep(&waittime, NULL);
 			}
 			ret--;
 		}
