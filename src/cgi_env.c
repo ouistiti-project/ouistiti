@@ -531,13 +531,13 @@ unsigned char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *req
 int cgienv_config(config_setting_t *configserver, config_setting_t *config, server_t *server, mod_cgi_config_t **modconfig, cgi_configscript_t configscript)
 {
 	mod_cgi_config_t *cgi = calloc(1, sizeof(*cgi));
-	if (config_setting_lookup_string(config, "docroot", (const char **)&cgi->docroot.data) == CONFIG_FALSE)
+	const char *root = NULL;
+	if (config_setting_lookup_string(config, "docroot", &root) == CONFIG_FALSE)
 	{
 		free(cgi);
 		return EREJECT;
 	}
-
-	cgi->docroot.length = strlen(cgi->docroot.data);
+	_string_store(&cgi->docroot, root, -1);
 	htaccess_config(config, &cgi->htaccess);
 	if (configscript)
 	{

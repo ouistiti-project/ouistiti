@@ -354,12 +354,13 @@ static int _ws_configlink(config_setting_t *setting, mod_websocket_t *conf)
 		return EREJECT;
 
 	_ws_link_t *link = calloc(1, sizeof(*link));
-	config_setting_lookup_string(setting, "origin", &link->origin.data);
-	link->origin.length = strlen(link->origin.data);
-	config_setting_lookup_string(setting, "destination", &link->destination.data);
+	const char *data = NULL;
+	config_setting_lookup_string(setting, "origin", &data);
+	_string_store(&link->origin, data, -1);
+	config_setting_lookup_string(setting, "destination", &data);
+	_string_store(&link->destination, data, -1);
 	config_setting_lookup_string(setting, "port", &link->info);
 	config_setting_lookup_string(setting, "baud", &link->info);
-	link->destination.length = strlen(link->destination.data);
 	const char *type;
 	config_setting_lookup_string(setting, "type", &type);
 	if (!strcmp(type, "tcp"))

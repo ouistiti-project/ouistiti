@@ -451,14 +451,15 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	/**
 	 * signin URI allowed to access to the signin page
 	 */
-	ret = config_setting_lookup_string(config, "signin", &auth->redirect.data);
+	const char *data = NULL;
+	ret = config_setting_lookup_string(config, "signin", &data);
 	if (ret == CONFIG_FALSE)
-		ret = config_setting_lookup_string(config, "token_ep", &auth->redirect.data);
+		ret = config_setting_lookup_string(config, "token_ep", &data);
 	if (ret != CONFIG_FALSE)
-		auth->redirect.length = strlen(auth->redirect.data);
-	ret = config_setting_lookup_string(config, "token_ep", &auth->token_ep.data);
+		_string_store(&auth->redirect, data, -1);
+	ret = config_setting_lookup_string(config, "token_ep", &data);
 	if (ret != CONFIG_FALSE)
-		auth->token_ep.length = strlen(auth->token_ep.data);
+		_string_store(&auth->token_ep, data, -1);
 
 	config_setting_lookup_string(config, "protect", &auth->protect);
 	config_setting_lookup_string(config, "unprotect", &auth->unprotect);
@@ -466,8 +467,8 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	/**
 	 * secret is the secret used during the token generation. (see authz_jwt.c)
 	 */
-	if (config_setting_lookup_string(config, "secret", &auth->secret.data) != CONFIG_FALSE)
-		auth->secret.length = strlen(auth->secret.data);
+	if (config_setting_lookup_string(config, "secret", &data) != CONFIG_FALSE)
+		_string_store(&auth->secret, data, -1);
 
 	const char *mode = NULL;
 	config_setting_lookup_string(config, "options", &mode);
@@ -479,10 +480,10 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	}
 	config_setting_lookup_int(config, "expire", &auth->expire);
 
-	const char *realm = NULL;
-	if (config_setting_lookup_string(config, "realm", &realm) == CONFIG_FALSE)
-		realm = hostname;
-	_string_store(&auth->realm, realm, -1);
+	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_FALSE)
+		_string_store(&auth->realm, STRING_REF(hostname));
+	else
+		_string_store(&auth->realm, data, -1);
 
 	ret = authz_config(config, &auth->authz);
 	if (ret == EREJECT)
@@ -490,10 +491,10 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 		err("config: authz is not set");
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
-	const char *issuer = NULL;
-	if (config_setting_lookup_string(config, "issuer", &issuer) == CONFIG_FALSE)
-			issuer = auth->authz.name.data;
-	_string_store(&auth->issuer, issuer, -1);
+	if (config_setting_lookup_string(config, "issuer", &data) == CONFIG_FALSE)
+		_string_store(&auth->issuer, STRING_INFO(auth->authz.name));
+	else
+		_string_store(&auth->issuer, data, -1);
 
 	ret = authn_config(config, &auth->authn);
 	if (ret == EREJECT)
