@@ -9,6 +9,9 @@ MAXCHUNKS_URI=2
 HTTPMESSAGE_CHUNKSIZE=128
 HTTPCLIENT_FEATURES=y
 
+#define string API value
+STRING_MAXLENGTH=HTTPMESSAGE_CHUNKSIZE*MAXCHUNKS_URI
+
 #select FILE_CONFIG to use a configuration file
 #or modify src/config.h
 FILE_CONFIG=y
@@ -111,6 +114,10 @@ USERFILTER=y
 PYTHON=y
 #support of request forwarding
 FORWARD=y
+#support date field
+DATE=y
+#support of response's signature rfc9421
+SIGNATURE=y
 
 CERTIFICATE=n
 
