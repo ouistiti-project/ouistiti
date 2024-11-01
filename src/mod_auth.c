@@ -920,7 +920,7 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 		authz_jwt_getinfo(token, &tuser, &issuer);
 		if (issuer && strstr(issuer, mod->config->issuer.data) == NULL)
 		{
-			warn("auth: token with bad issuer");
+			warn("auth: token with bad issuer: %s", issuer);
 			ret = EREJECT;
 		}
 		if (tuser && (*user == NULL || strcmp(tuser, *user)))
