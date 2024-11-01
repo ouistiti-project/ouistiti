@@ -450,7 +450,6 @@ static int _webstream_transferdata(_webstream_main_t *info, int multipart)
 			if (outlength == EREJECT)
 			{
 				err("webstream: send error %s", strerror(errno));
-				free(buffer);
 				end = 1;
 				break;
 			}
