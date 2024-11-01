@@ -258,6 +258,8 @@ static int _tls_send(void *vctx, const char *data, size_t size)
 			{
 				err("tls: send error(%d) WANT_DATA", error);
 				ret = EINCOMPLETE;
+				struct timespec waittime = {.tv_sec=0, .tv_nsec=20000000};
+				nanosleep(&waittime, NULL);
 				sched_yield();
 			}
 			else
