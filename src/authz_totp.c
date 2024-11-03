@@ -226,12 +226,14 @@ static int _authz_totp_checkpasswd(authz_totp_t *ctx, const char *user, const ch
 	return ret;
 }
 
-static const char *authz_totp_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))
+static const char *authz_totp_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	authz_totp_t *ctx = (authz_totp_t *)arg;
 
 	if (user != NULL && passwd != NULL && _authz_totp_checkpasswd(ctx, user, passwd))
 		return user;
+	if (token != NULL)
+		return authz_checktoken(NULL, token);
 	return NULL;
 }
 

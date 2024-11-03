@@ -835,6 +835,26 @@ static size_t authz_generatetoken(const mod_auth_t *config, http_message_t *UNUS
 	free(_nonce);
 	return tokenlen;
 }
+
+const char *authz_checktoken(void *authz, const char *token)
+{
+	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
+	char *_nonce = calloc(1, _noncelen + 1);
+	size_t tokenlen = _noncelen + (_noncelen + 2) / 3;
+	tokenlen = strnlen(token, tokenlen);
+	_noncelen = base64_urlencoding->decode(token, tokenlen, _nonce, _noncelen);
+	time_t expire;
+	memcpy(&expire, &_nonce[25], sizeof(time_t));
+	free(_nonce);
+	if (expire < time(NULL))
+		return EREJECT;
+	return ESUCCESS;
+}
+#else
+const char *authz_checktoken(void *authz, const char *token)
+{
+	return _authz_jwt_checktoken(authz, token);
+}
 #endif
 
 #ifdef AUTH_TOKEN
@@ -914,7 +934,14 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	if (ret == ESUCCESS)
 	{
 		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
+		if (*user == NULL)
+		{
+			ret = EREJECT;
+		}
+	}
 #ifdef AUTHZ_JWT
+	if (ret == ESUCCESS)
+	{
 		const char *issuer = NULL;
 		const char *tuser = NULL;
 		authz_jwt_getinfo(token, &tuser, &issuer);
@@ -927,13 +954,8 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 		{
 			*user = tuser;
 		}
-#else
-		if (*user == NULL)
-		{
-			*user = str_anonymous;
-		}
-#endif
 	}
+#endif
 	else
 	{
 		err("auth: token with bad signature %.*s", (int)signlen, sign);

@@ -207,12 +207,14 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 	return ret;
 }
 
-static const char *authz_unix_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))
+static const char *authz_unix_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
 
 	if (user != NULL && passwd != NULL && _authz_unix_checkpasswd(ctx, user, passwd))
 		return user;
+	if (token != NULL)
+		return authz_checktoken(NULL, token);
 	return NULL;
 }
 

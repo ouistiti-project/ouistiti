@@ -314,7 +314,7 @@ static void authz_jwt_cleanup(void *arg)
 	free(arg);
 }
 
-static const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
+const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
 	json_t *jinfo = jwt_decode_json(token);
 	if (jinfo != NULL)
