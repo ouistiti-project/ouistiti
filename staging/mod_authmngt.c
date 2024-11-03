@@ -471,10 +471,10 @@ static int _authmngt_getconnector(_mod_authmngt_t *mod, const char *user, http_m
 	}
 	else
 	{
-		httpclient_shutdown(httpmessage_client(request));
+		httpmessage_result(response, RESULT_403);
 		ret = ESUCCESS;
 	}
-	
+
 	return ret;
 }
 
