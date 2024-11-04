@@ -170,45 +170,47 @@ size_t authz_generatejwtoken(const mod_auth_t *config, http_message_t *request, 
 	return ret;
 }
 
-static json_t *jwt_decode_json(const char *id_token)
+static json_t *jwt_decode_json(const char *id_token, int header)
 {
 	if (id_token == NULL)
 		return NULL;
 	const char *b64header = id_token;
-	const char *b64payload = strchr(b64header, '.');
-	long b64payloadlength = 0;
-	const char *b64signature = strrchr(b64header, '.');
 	int length = 0;
 	json_error_t error;
 	char data[1024] = {0};
+	json_t *jpayload = NULL;
 
-	if (b64payload != NULL)
+	const char *b64payload = strchr(b64header, '.');
+	long b64payloadlength = 0;
+	const char *b64signature = strrchr(b64header, '.');
+	if (b64payload == NULL)
+		return NULL;
+
+	b64payload++;
+	b64payloadlength = b64signature - b64payload;
+
+	if (header)
 	{
-		b64payload++;
-#if 0
+#ifdef AUTHZ_JWT_CHECKHEADER
 		long b64headerlength = 0;
 		b64headerlength = b64payload - b64header;
 		length = base64_urlencoding->decode(b64header, b64headerlength, data, 1024);
-		auth_dbg("id_token header %s", data);
-		json_t *jheader = json_loadb(data, length, 0, &error);
-		if (jheader != NULL)
+		dbg("id_token header %s", data);
+		jpayload = json_loadb(data, length, 0, &error);
+		if (jpayload == NULL)
 		{
-			json_decref(jheader);
-		}
-		else
-		{
-			err("oAuth2 id token error %s", error.text);
+			err("jwt: token error %s", error.text);
 		}
 #endif
-		b64payloadlength = b64signature - b64payload;
 	}
-
-	json_t *jpayload = NULL;
-	length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
-	auth_dbg("jwt: decode %s", data);
-	jpayload = json_loadb(data, length, 0, &error);
-	if (jpayload == NULL)
-		err("jwt: decode error %s", error.text);
+	else
+	{
+		length = base64_urlencoding->decode(b64payload, b64payloadlength, data, 1024);
+		auth_dbg("jwt: decode %s", data);
+		jpayload = json_loadb(data, length, 0, &error);
+		if (jpayload == NULL)
+			err("jwt: decode error %s", error.text);
+	}
 	return jpayload;
 }
 
@@ -269,7 +271,7 @@ static const char *_jwt_getuser(const json_t *jinfo)
 /// unused function
 const char *authz_jwt_get(const char *id_token, const char *key)
 {
-	const json_t *jinfo = jwt_decode_json(id_token);
+	const json_t *jinfo = jwt_decode_json(id_token, 0);
 	if (jinfo == NULL)
 		return NULL;
 	if (!strcmp(key, str_user))
@@ -282,7 +284,7 @@ const char *authz_jwt_get(const char *id_token, const char *key)
 
 int authz_jwt_getinfo(const char *id_token, const char **user, const char **issuer)
 {
-	const json_t *jinfo = jwt_decode_json(id_token);
+	const json_t *jinfo = jwt_decode_json(id_token, 0);
 	if (jinfo == NULL)
 		return -1;
 	*user = _jwt_getuser(jinfo);
@@ -316,14 +318,43 @@ static void authz_jwt_cleanup(void *arg)
 
 const char *_authz_jwt_checktoken(authz_jwt_t *ctx, const char *token)
 {
-	json_t *jinfo = jwt_decode_json(token);
+	json_t *jinfo;
+#ifdef AUTHZ_JWT_CHECKHEADER
+	jinfo = jwt_decode_json(token, 1);
+	if (jinfo != NULL)
+	{
+		const json_t *jtype = json_object_get(jinfo, "typ");
+		if (jtype == NULL || !json_is_string(jtype) || strncmp(json_string_value(jtype), "JWT", 3))
+		{
+			err("auth: token is not jwt");
+			json_decref(jinfo);
+			return NULL;
+		}
+		const json_t *jalg = json_object_get(jinfo, "alg");
+		if (jalg == NULL || !json_is_string(jalg) || strncmp(json_string_value(jalg), "HS256", 3))
+		{
+			err("auth: jwt support only Hmac sha256");
+			json_decref(jinfo);
+			return NULL;
+		}
+	}
+	else
+		return NULL;
+#endif
+	jinfo = jwt_decode_json(token, 0);
 	if (jinfo != NULL)
 	{
 		if (_jwt_checkexpiration(jinfo) != ESUCCESS)
+		{
+			err("auth: token expired");
+			json_decref(jinfo);
 			return NULL;
-		ctx->token = token;
+		}
+		if (ctx)
+			ctx->token = token;
 		return _jwt_getuser(jinfo);
 	}
+	json_decref(jinfo);
 	return NULL;
 }
 
@@ -337,7 +368,7 @@ static int authz_jwt_setsession(void *arg, const char *user, auth_saveinfo_t cb,
 {
 	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
 	const char *token = ctx->token;
-	json_t *jinfo = jwt_decode_json(token);
+	json_t *jinfo = jwt_decode_json(token, 0);
 	if (jinfo == NULL)
 		return EREJECT;
 
