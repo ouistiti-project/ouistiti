@@ -418,6 +418,8 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 #ifdef AUTH_TOKEN
 	if (token != NULL)
 	{
+		if (authz_checktoken(NULL, token) == NULL)
+			return NULL;
 		/** check expirable token */
 		user = _authz_sqlite_checktoken(ctx, token, 1);
 		if (user == NULL)
