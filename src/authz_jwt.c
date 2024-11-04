@@ -223,16 +223,12 @@ static int _jwt_checkexpiration(const json_t *jinfo)
 #ifndef DEBUG
 		time_t now = time(NULL);
 #else
-		time_t now = 0;
+		time_t now = 1800; // 30 * 60 (set by default
 #endif
-		if (expire <= now)
+		if (expire < now)
 		{
-			warn("auth: jwt expired");
-#ifndef DEBUG
+			err("auth: jwt expired");
 			return EREJECT;
-#else
-			err("auth: DEBUG is unsecure please rebuild as release");
-#endif
 		}
 	}
 	else
