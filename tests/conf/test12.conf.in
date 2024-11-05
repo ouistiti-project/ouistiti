@@ -57,6 +57,13 @@ servers= ({
 			cors = {
 				origin = "localhost,ouistiti";
 			};
+		},{
+			hostname = "badauth.ouistiti.local";
+			auth = {
+				type="Bearer";
+				authz = "jwt";
+				options = "token,cookie";
+			};
 		});
 		auth = {
 			type="Bearer";
