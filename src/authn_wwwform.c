@@ -89,7 +89,7 @@ static const char *authn_wwwform_checkrequest(void *arg, authz_t *authz, http_me
 		return NULL;
 
 	const char *content_type = NULL;
-	size_t content_typelen = httpmessage_REQUEST2(request, "content_type", &content_type);
+	size_t content_typelen = httpmessage_REQUEST2(request, str_contenttype, &content_type);
 	if (! strncmp(content_type, str_form_urlencoded, content_typelen))
 	{
 		const char *username = NULL;
