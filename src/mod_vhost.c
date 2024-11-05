@@ -280,21 +280,20 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 			return NULL;
 		}
 	}
-	const module_list_t *iterator = ouistiti_modules(config->server);
-	while (iterator != NULL)
+
+	for (const module_list_t *iterator = ouistiti_modules(config->server);
+		iterator != NULL; iterator = iterator->next)
 	{
-		if (strcmp(iterator->module->name, str_vhost))
+		if (!strcmp(iterator->module->name, str_vhost))
+			continue;
+		mod_t *entry = mod_vhost_loadmodule(mod, iterator->module);
+		if (entry)
 		{
-			mod_t *entry = mod_vhost_loadmodule(mod, iterator->module);
-			if (entry)
-			{
-				mod_t *last = entry;
-				while (last->next) last = last->next;
-				last->next = mod->modules;
-				mod->modules = entry;
-			}
+			mod_t *last = entry;
+			while (last->next) last = last->next;
+			last->next = mod->modules;
+			mod->modules = entry;
 		}
-		iterator = iterator->next;
 	}
 	if (cwd != NULL)
 	{
