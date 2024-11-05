@@ -10,6 +10,7 @@ servers= ({
 			type="Bearer";
 			options = "token,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
+			issuer = "sqlite";
 			token_ep = "https://auth.ouistiti.net:8080/token";
 		};
 		document = {
