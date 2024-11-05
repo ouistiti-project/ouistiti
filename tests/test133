@@ -1,0 +1,3 @@
+DESC="lib: test message without version"
+CONFIG=test16.conf
+TESTCODE=400
