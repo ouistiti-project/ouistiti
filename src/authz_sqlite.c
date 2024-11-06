@@ -337,10 +337,13 @@ int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback,
 	return EREJECT;
 }
 
-static int authz_sqlite_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
+static int authz_sqlite_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-	return authz_sqlite_getuser_byName(ctx, user, cb, cbarg);
+	int ret = authz_sqlite_getuser_byName(ctx, user, cb, cbarg);
+	if (ret == ESUCCESS && token)
+		cb(cbarg, STRING_REF(str_token), token, -1);
+	return ret;
 }
 
 static int authz_sqlite_passwd(void *arg, const char *user, const char **passwd)
@@ -418,8 +421,6 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 #ifdef AUTH_TOKEN
 	if (token != NULL)
 	{
-		if (authz_checktoken(NULL, token) == NULL)
-			return NULL;
 		/** check expirable token */
 		user = _authz_sqlite_checktoken(ctx, token, 1);
 		if (user == NULL)
