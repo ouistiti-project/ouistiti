@@ -27,7 +27,6 @@
  *****************************************************************************/
 const char str_servername[9] = "ouistiti";
 
-const char str_http[5] = "http";
 const char str_https[6] = "https";
 
 /// defined into libouistiti
