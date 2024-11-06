@@ -348,7 +348,7 @@ static void *mod_webstream_create(http_server_t *server, mod_webstream_t *config
 	int fdroot = open(string_toc(&config->docroot), O_DIRECTORY);
 	if (fdroot == -1)
 	{
-		err("webstream: docroot %s not found", config->docroot);
+		err("webstream: docroot %s not found", config->docroot.data);
 		return NULL;
 	}
 
