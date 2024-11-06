@@ -104,6 +104,10 @@ start () {
 	TARGET=$1
 	CONFIG=$2
 
+	ARGUMENTS=""
+	if [ "$VTHREAD" != "y" ]; then
+		ARGUMENTS=" -s 1"
+	fi
 	#ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
@@ -113,6 +117,7 @@ start () {
 		echo "******************************"
 		cat ${TESTDIR}conf/${CONFIG}
 	fi
+	echo "${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS}"
 	${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS} &
 	PID=$!
 	echo "${TARGET} started with pid ${PID}"
