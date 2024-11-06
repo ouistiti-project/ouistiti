@@ -47,7 +47,6 @@ const char str_xuser[] = "X-Remote-User";
 const char str_xgroup[] = "X-Remote-Group";
 const char str_xhome[] = "X-Remote-Home";
 const char str_upgrade_insec_req[] = "Upgrade-Insecure-Requests";
-const char str_connection[] = "Connection";
 const char str_upgrade[] = "Upgrade";
 const char str_websocket[] = "websocket";
 const char str_sec_ws_protocol[] = "Sec-WebSocket-Protocol";
