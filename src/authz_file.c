@@ -226,9 +226,9 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const ch
 	if (checkpasswd != NULL)
 	{
 		string_t userstr = {0};
-		_string_store(&userstr, user, -1);
+		string_store(&userstr, user, -1);
 		string_t passwdstr = {0};
-		_string_store(&passwdstr, passwd, -1);
+		string_store(&passwdstr, passwd, -1);
 		if (authz_checkpasswd(checkpasswd, &userstr, NULL,  &passwdstr) == ESUCCESS)
 			return 1;
 	}

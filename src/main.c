@@ -72,36 +72,36 @@ char str_hostname[HOST_NAME_MAX + 7];
 
 #define MAX_STRING 256
 
-size_t _string_length(const string_t *str)
+size_t string_length(const string_t *str)
 {
 	if (str->data && str->length == (size_t) -1)
 		((string_t*)str)->length = strnlen(str->data, MAX_STRING);
 	return str->length;
 }
 
-int _string_store(string_t *str, const char *pointer, size_t length)
+int string_store(string_t *str, const char *pointer, size_t length)
 {
 	str->data = pointer;
 	/// set length and check if value is -1
 	str->length = length;
-	str->length = _string_length(str);
+	str->length = string_length(str);
 	str->size = str->length + 1;
 	return ESUCCESS;
 }
 
-int _string_cmp(const string_t *str, const char *cmp, size_t length)
+int string_cmp(const string_t *str, const char *cmp, size_t length)
 {
 	if ((length != (size_t) -1) && (length != str->length))
 		return EREJECT;
 	return strncasecmp(str->data, cmp, str->length);
 }
 
-int _string_empty(const string_t *str)
+int string_empty(const string_t *str)
 {
 	return ! (str->data != NULL && str->data[0] != '\0');
 }
 
-int _string_cpy(string_t *str, const char *source, size_t length)
+int string_cpy(string_t *str, const char *source, size_t length)
 {
 	if (str->data == NULL)
 		return EREJECT;
@@ -112,7 +112,7 @@ int _string_cpy(string_t *str, const char *source, size_t length)
 	return str->length;
 }
 
-const char *_string_toc(const string_t *str)
+const char *string_toc(const string_t *str)
 {
 	return str->data;
 }

@@ -312,7 +312,7 @@ static int webstream_config(config_setting_t *iterator, server_t *server, int in
 		const char *string = NULL;
 		conf = calloc(1, sizeof(*conf));
 		config_setting_lookup_string(config, "docroot", &string);
-		_string_store(&conf->docroot, string, -1);
+		string_store(&conf->docroot, string, -1);
 		htaccess_config(config, &conf->htaccess);
 		config_setting_lookup_int(config, "fps", &conf->fps);
 		config_setting_lookup_string(config, "options", &string);
@@ -345,7 +345,7 @@ static void *mod_webstream_create(http_server_t *server, mod_webstream_t *config
 	if (config == NULL)
 		return NULL;
 
-	int fdroot = open(_string_toc(&config->docroot), O_DIRECTORY);
+	int fdroot = open(string_toc(&config->docroot), O_DIRECTORY);
 	if (fdroot == -1)
 	{
 		err("webstream: docroot %s not found", config->docroot);

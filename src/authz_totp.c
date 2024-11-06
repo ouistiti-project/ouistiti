@@ -104,7 +104,7 @@ static void *authz_totp_create(http_server_t *server, void *arg)
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
 	ctx->server = server;
-	_string_store(&ctx->userkey, STRING_REF(ctx->_userkey));
+	string_store(&ctx->userkey, STRING_REF(ctx->_userkey));
 	return ctx;
 }
 
@@ -181,7 +181,7 @@ static int authz_totp_generateK(const authz_totp_config_t *config, const string_
 		return EREJECT;
 	char value[HASH_MAX_SIZE];
 	size_t length = hash_macsha256->finish(hmac, value);
-	_string_cpy(output, value, length);
+	string_cpy(output, value, length);
 	return ESUCCESS;
 }
 
@@ -202,7 +202,7 @@ static int authz_totp_passwd(void *arg, const char *user, const char **passwd)
 {
 	authz_totp_t *ctx = (authz_totp_t *)arg;
 	string_t userstr = {0};
-	_string_store(&userstr, user, -1);
+	string_store(&userstr, user, -1);
 	return _authz_totp_passwdstr(ctx, &userstr, passwd);
 }
 
@@ -212,12 +212,12 @@ static int _authz_totp_checkpasswd(authz_totp_t *ctx, const char *user, const ch
 
 	const char *checkpasswd = NULL;
 	string_t userstr = {0};
-	_string_store(&userstr, user, -1);
+	string_store(&userstr, user, -1);
 	_authz_totp_passwdstr(ctx, &userstr, &checkpasswd);
 	if (checkpasswd != NULL)
 	{
 		string_t passwdstr = {0};
-		_string_store(&passwdstr, passwd, -1);
+		string_store(&passwdstr, passwd, -1);
 		if (authz_checkpasswd(checkpasswd, &userstr, NULL,  &passwdstr) == ESUCCESS)
 			return 1;
 	}
@@ -251,7 +251,7 @@ static int authz_totp_setsession(void *arg, const char *user, const char *token,
 	if (ctx->userkey.data[0] == '\0')
 	{
 		string_t userstr = {.data = user, .length = (size_t) -1};
-		_string_store(&userstr, user, -1);
+		string_store(&userstr, user, -1);
 		authz_totp_generateK(config, &userstr, &ctx->userkey);
 	}
 	size_t urllen = otp_url(STRING_INFO(ctx->userkey), user, "test", config->hash, config->digits, url);

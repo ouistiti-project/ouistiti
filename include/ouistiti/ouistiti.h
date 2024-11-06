@@ -112,12 +112,12 @@ struct string_s
 #define STRING_REF(string) string, sizeof(string)-1
 #define STRING_INFO(string) string.data, string.length
 #define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
-int _string_store(string_t *str, const char *pointer, size_t length);
-int _string_cmp(const string_t *str, const char *cmp, size_t length);
-int _string_cpy(string_t *str, const char *source, size_t length);
-int _string_empty(const string_t *str);
-const char *_string_toc(const string_t *str);
-size_t _string_length(const string_t *str);
+int string_store(string_t *str, const char *pointer, size_t length);
+int string_cmp(const string_t *str, const char *cmp, size_t length);
+int string_cpy(string_t *str, const char *source, size_t length);
+int string_empty(const string_t *str);
+const char *string_toc(const string_t *str);
+size_t string_length(const string_t *str);
 
 extern const char str_servername[9];
 

@@ -69,7 +69,7 @@ void *authz_jwt_config(const config_setting_t *configauth)
 	int ret = config_setting_lookup_string(configauth, "issuer", &issuer);
 	if (ret == CONFIG_TRUE)
 	{
-		_string_store(&authz_config->issuer, issuer, -1);
+		string_store(&authz_config->issuer, issuer, -1);
 	}
 	return authz_config;
 }
@@ -311,7 +311,7 @@ static int _authn_jwt_checktoken(const authz_token_config_t *config, const char 
 			return EREJECT;
 		}
 		const char *issuer = _jwt_get(jinfo, "iss");
-		if (issuer && _string_cmp(&config->issuer, issuer, -1))
+		if (issuer && string_cmp(&config->issuer, issuer, -1))
 		{
 			err("auth: token with bad issuer: %s", issuer);
 			return EREJECT;

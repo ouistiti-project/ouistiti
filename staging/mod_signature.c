@@ -112,7 +112,7 @@ void *mod_signature_create(http_server_t *server, mod_signature_t *config)
 	mod->config = config;
 	mod->fields = config->fields;
 	mod->hash = hash_macsha256;
-	_string_store(&mod->key, config->key.data, config->key.length);
+	string_store(&mod->key, config->key.data, config->key.length);
 	httpserver_addmod(server, _mod_signature_getctx, _mod_signature_freectx, mod, str_signature);
 	return mod;
 }
@@ -180,11 +180,11 @@ static int _signature_connectorcomplete(void *arg, http_message_t *request, http
 			signature_element_t *elemt = &_default_elemts[i];
 			const char *field = NULL;
 			int len;
-			len = snprintf(inputoffset, 24, "\"%.20s\" ", _string_toc(&elemt->component));
+			len = snprintf(inputoffset, 24, "\"%.20s\" ", string_toc(&elemt->component));
 			inputoffset += len;
-			len = httpmessage_REQUEST2(response, _string_toc(&elemt->field), &field);
+			len = httpmessage_REQUEST2(response, string_toc(&elemt->field), &field);
 			hash->update(hashctx, "\"", 1);
-			hash->update(hashctx, _string_toc(&elemt->component), _string_length(&elemt->component));
+			hash->update(hashctx, string_toc(&elemt->component), string_length(&elemt->component));
 			hash->update(hashctx, "\": ", 3);
 			hash->update(hashctx, field, len);
 			hash->update(hashctx, "\n", 1);
@@ -221,7 +221,7 @@ static int _signature_add_component(mod_signature_t *signature, const char *comp
 	int ret = -1;
 	for (int i = 0; i < sizeof(_default_elemts)/ sizeof(*_default_elemts); i++)
 	{
-		if (! _string_cmp(&_default_elemts[i].component, component, -1))
+		if (! string_cmp(&_default_elemts[i].component, component, -1))
 		{
 			signature->fields |= (1 << i);
 			break;

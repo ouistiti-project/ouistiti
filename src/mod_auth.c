@@ -320,7 +320,7 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 	if (authn != NULL)
 	{
 		mod->type |= authn->type;
-		_string_store(&mod->name, authn->name.data, authn->name.length);
+		string_store(&mod->name, authn->name.data, authn->name.length);
 
 		/**
 		 * algorithm allow to change secret algorithm used during authentication default is md5. (see authn_digest.c)
@@ -419,7 +419,7 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 	{
 		if (name != NULL)
 		{
-			if (! _string_cmp(&authz_list[i]->name, name, -1))
+			if (! string_cmp(&authz_list[i]->name, name, -1))
 				mod->config = authz_list[i]->config(configauth);
 		}
 		else if (authz_list[i]->config != NULL)
@@ -433,7 +433,7 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 	if (authz != NULL)
 	{
 		mod->type |= authz->type;
-		_string_store(&mod->name, authz->name.data, authz->name.length);
+		string_store(&mod->name, authz->name.data, authz->name.length);
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -452,10 +452,10 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	if (ret == CONFIG_FALSE)
 		ret = config_setting_lookup_string(config, "token_ep", &data);
 	if (ret != CONFIG_FALSE)
-		_string_store(&auth->redirect, data, -1);
+		string_store(&auth->redirect, data, -1);
 	ret = config_setting_lookup_string(config, "token_ep", &data);
 	if (ret != CONFIG_FALSE)
-		_string_store(&auth->token_ep, data, -1);
+		string_store(&auth->token_ep, data, -1);
 
 	config_setting_lookup_string(config, "protect", &auth->protect);
 	config_setting_lookup_string(config, "unprotect", &auth->unprotect);
@@ -464,7 +464,7 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	 * secret is the secret used during the token generation. (see authz_jwt.c)
 	 */
 	if (config_setting_lookup_string(config, "secret", &data) != CONFIG_FALSE)
-		_string_store(&auth->token.secret, data, -1);
+		string_store(&auth->token.secret, data, -1);
 	const char *mode = NULL;
 	config_setting_lookup_string(config, "options", &mode);
 	if (ouistiti_issecure(server))
@@ -476,9 +476,9 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	config_setting_lookup_int(config, "expire", &auth->token.expire);
 
 	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_FALSE)
-		_string_store(&auth->realm, hostname, -1);
+		string_store(&auth->realm, hostname, -1);
 	else
-		_string_store(&auth->realm, data, -1);
+		string_store(&auth->realm, data, -1);
 
 	ret = authz_config(config, &auth->authz);
 	if (ret == EREJECT)
@@ -487,9 +487,9 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
 	if (config_setting_lookup_string(config, "issuer", &data) == CONFIG_FALSE)
-		_string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
+		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
 	else
-		_string_store(&auth->token.issuer, data, -1);
+		string_store(&auth->token.issuer, data, -1);
 
 	ret = authn_config(config, &auth->authn);
 	if (ret == EREJECT)
@@ -572,7 +572,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 
 	mod->authz = calloc(1, sizeof(*mod->authz));
 	mod->authz->type = config->authz.type;
-	_string_store(&mod->authz->name,config->authz.name.data,config->authz.name.length);
+	string_store(&mod->authz->name,config->authz.name.data,config->authz.name.length);
 
 	mod->authz->rules = authz_rules[config->authz.type & AUTHZ_TYPE_MASK];
 	if (mod->authz->rules == NULL)
@@ -607,7 +607,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 	if (mod->authn->ctx)
 	{
-		_string_store(&mod->type, config->authn.name.data, config->authn.name.length);
+		string_store(&mod->type, config->authn.name.data, config->authn.name.length);
 		httpserver_addmod(server, _mod_auth_getctx, _mod_auth_freectx, mod, str_auth);
 	}
 	else
@@ -756,7 +756,7 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 		{
 			checkrealm += 6;
 			checkrealmlen = strpbrk(checkrealm, ";$") - checkrealm - 1;
-			if (_string_empty(realm) || _string_cmp(realm, checkrealm, checkrealmlen))
+			if (string_empty(realm) || string_cmp(realm, checkrealm, checkrealmlen))
 				return ret;
 		}
 		else
@@ -780,7 +780,7 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 		else
 			err("auth: %.3s not supported change password encryption", checkpasswd);
 	}
-	else if (!_string_cmp(passwd, checkpasswd, -1))
+	else if (!string_cmp(passwd, checkpasswd, -1))
 	{
 		ret = ESUCCESS;
 	}

@@ -356,9 +356,9 @@ static int _ws_configlink(config_setting_t *setting, mod_websocket_t *conf)
 	_ws_link_t *link = calloc(1, sizeof(*link));
 	const char *data = NULL;
 	config_setting_lookup_string(setting, "origin", &data);
-	_string_store(&link->origin, data, -1);
+	string_store(&link->origin, data, -1);
 	config_setting_lookup_string(setting, "destination", &data);
-	_string_store(&link->destination, data, -1);
+	string_store(&link->destination, data, -1);
 	config_setting_lookup_string(setting, "port", &link->info);
 	config_setting_lookup_string(setting, "baud", &link->info);
 	const char *type;

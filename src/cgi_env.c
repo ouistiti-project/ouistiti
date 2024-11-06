@@ -537,7 +537,7 @@ int cgienv_config(config_setting_t *configserver, config_setting_t *config, serv
 		free(cgi);
 		return EREJECT;
 	}
-	_string_store(&cgi->docroot, root, -1);
+	string_store(&cgi->docroot, root, -1);
 	htaccess_config(config, &cgi->htaccess);
 	if (configscript)
 	{
@@ -564,7 +564,7 @@ int cgienv_config(config_setting_t *configserver, config_setting_t *config, serv
 	config_setting_lookup_float(configserver, "timeout", &timeout);
 	cgi->timeout.tv_sec = (int) timeout;
 	cgi->timeout.tv_usec = (int) ((timeout - cgi->timeout.tv_sec) * 1000000);
-	
+
 #if LIBCONFIG_VER_MINOR < 5
 	config_setting_t *envs = config_setting_get_member(config, "env");
 #else
