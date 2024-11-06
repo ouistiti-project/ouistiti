@@ -208,7 +208,7 @@ static int _signature_connectorcomplete(void *arg, http_message_t *request, http
 	httpmessage_appendheader(response, str_signature, ";created=", 9);
 	time_t t = time(NULL);
 	unsigned char tstr[24];
-	int tlen = snprintf(tstr, 24, "%.23d", t);
+	int tlen = snprintf(tstr, 24, "%.23ld", t);
 	httpmessage_appendheader(response, str_signature, tstr, tlen);
 	httpmessage_appendheader(response, str_signature, ";alg=", 5);
 	httpmessage_appendheader(response, str_signature, mod->hash->name, -1);
