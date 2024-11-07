@@ -86,19 +86,26 @@ int string_store(string_t *str, const char *pointer, size_t length)
 	str->length = length;
 	str->length = string_length(str);
 	str->size = str->length + 1;
+	if (str->data == NULL)
+	{
+		str->length = 0;
+		str->size = 0;
+	}
 	return ESUCCESS;
 }
 
 int string_cmp(const string_t *str, const char *cmp, size_t length)
 {
+	if (cmp == NULL)
+		return -1;
 	if ((length != (size_t) -1) && (length != str->length))
-		return EREJECT;
+		return (length - str->length);
 	return strncasecmp(str->data, cmp, str->length);
 }
 
 int string_empty(const string_t *str)
 {
-	return ! (str->data != NULL && str->data[0] != '\0');
+	return ! (str->data != NULL && str->data[0] != '\0' && str->length > 0);
 }
 
 int string_cpy(string_t *str, const char *source, size_t length)
