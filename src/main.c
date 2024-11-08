@@ -570,6 +570,27 @@ static server_t *ouistiti_loadservers(ouistiticonfig_t *ouistiticonfig, int serv
 	return first;
 }
 
+static char *g_logfile = NULL;
+static int g_logfd = 0;
+int ouistiti_setlogfile(const char *logfile)
+{
+	if (g_logfile != NULL)
+		logfile = g_logfile;
+	if (logfile != NULL && logfile[0] != '\0' && logfile[0] != '-')
+	{
+		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00644);
+		if (g_logfd > 0)
+		{
+			dup2(g_logfd, 1);
+			dup2(g_logfd, 2);
+			close(g_logfd);
+		}
+		else
+			err("log file error %s", strerror(errno));
+	}
+	return (g_logfd > 0);
+}
+
 #define DAEMONIZE 0x01
 #define KILLDAEMON 0x02
 #define CONFIGURATION 0x04
@@ -594,7 +615,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:P:hDKCVM:W:");
+		opt = getopt(argc, argv, "s:f:p:P:hDKCVM:W:L:");
 		switch (opt)
 		{
 			case 's':
@@ -629,6 +650,9 @@ int main(int argc, char * const *argv)
 			break;
 			case 'W':
 				 workingdir = optarg;
+			break;
+			case 'L':
+				 g_logfile = optarg;
 			break;
 			default:
 			break;
@@ -730,5 +754,7 @@ int main(int argc, char * const *argv)
 	}
 	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
+	if (g_logfd > 0)
+		close(g_logfd);
 	return 0;
 }
