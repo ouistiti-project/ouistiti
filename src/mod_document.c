@@ -444,7 +444,7 @@ static int mod_send_read(document_connector_t *private, http_message_t *response
 	int ret = 0;
 	int size;
 	int chunksize;
-	char content[CONTENTCHUNK];
+	char content[CONTENTCHUNK + 1];
 
 	/**
 	 * check the size for the range support
