@@ -50,6 +50,7 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/hash.h"
 #include "ouistiti/log.h"
+#include "mod_cookie.h"
 #include "mod_auth.h"
 #include "authn_none.h"
 #ifdef AUTHN_BASIC
@@ -946,6 +947,12 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 	 * is sended info header
 	 */
 	authorizationlen = httpmessage_REQUEST2(request, str_authorization, authorization);
+	if (authorizationlen != 0 && string_cmp(&mod->type, *authorization, -1))
+	{
+		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, *authorization, (int)mod->type.length, mod->type.data);
+		*authorization = NULL;
+		authorizationlen = 0;
+	}
 	/**
 	 * to send the authorization header only once, the "cookie"
 	 * option of the server store the authorization inside cookie.
@@ -953,17 +960,13 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 	 */
 	if (authorizationlen == 0)
 	{
-		*authorization = cookie_get(request, str_authorization);
-		if (*authorization)
-			authorizationlen = strlen(*authorization);
+		string_t cookie = {0};
+		if (cookie_get2(request, str_authorization, &cookie) == ESUCCESS)
+		{
+			authorizationlen = string_length(&cookie);
+			*authorization = string_toc(&cookie);
+		}
 		auth_dbg("auth: cookie get %p", *authorization);
-	}
-
-	if (authorizationlen != 0 && strncmp(*authorization, mod->type.data, mod->type.length))
-	{
-		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, *authorization, (int)mod->type.length, mod->type.data);
-		*authorization = NULL;
-		authorizationlen = 0;
 	}
 	return authorizationlen;
 }
