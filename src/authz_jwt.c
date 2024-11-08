@@ -428,6 +428,7 @@ static int authz_jwt_join(void *arg, const char *user, const char *UNUSED(token)
 static void authz_jwt_destroy(void *arg)
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+	free(ctx->config);
 	free(ctx);
 }
 

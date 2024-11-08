@@ -68,7 +68,7 @@ extern authz_rules_t authz_sqlite_rules;
 typedef struct authz_sqlite_s authz_sqlite_t;
 struct authz_sqlite_s
 {
-	const authz_sqlite_config_t *config;
+	authz_sqlite_config_t *config;
 	int ref;
 	sqlite3 *db;
 	sqlite3 *dbjoin;

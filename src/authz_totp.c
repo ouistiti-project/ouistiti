@@ -263,7 +263,7 @@ static int authz_totp_setsession(void *arg, const char *user, const char *token,
 static void authz_totp_destroy(void *arg)
 {
 	authz_totp_t *ctx = (authz_totp_t *)arg;
-
+	free(ctx->config);
 	free(ctx);
 }
 
