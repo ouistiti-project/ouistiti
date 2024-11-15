@@ -1152,13 +1152,12 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	if (utils_searchexp(query, "noredirect", NULL) == ESUCCESS)
 		return ret;
 
-	const char *redirect_uri = NULL;
-	size_t redirect_urilen = httpmessage_parameter(request, "redirect_uri", &redirect_uri);
+	// if redirect_uri is present, the next one must not be added
 	char sep = '?';
 	if (strchr(config->redirect.data, sep))
 		sep = '&';
 	if ((config->authn.type & AUTHN_REDIRECT_E) &&
-		(redirect_urilen == 0))
+		(utils_searchexp(query, "redirect_uri", NULL) != ESUCCESS))
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
 		httpmessage_appendheader(response, str_location, &sep, 1);
