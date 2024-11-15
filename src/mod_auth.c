@@ -974,7 +974,8 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 	if (authorizationlen == 0)
 	{
 		string_t cookie = {0};
-		if (cookie_get2(request, str_authorization, &cookie) == ESUCCESS)
+		string_t tauthorization = STRING_DCL(str_authorization);
+		if (cookie_get2(request, &tauthorization, &cookie) == ESUCCESS)
 		{
 			authorizationlen = string_length(&cookie);
 			*authorization = string_toc(&cookie);
@@ -985,53 +986,72 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 }
 
 static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
-			const char *authorization,
-			const char *token, int tokenlen, const char *sign, int signlen,
+			const string_t *authorization,
+			const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
+	string_t tsecure = STRING_DCL("; Secure");
+	string_t tpoint = STRING_DCL(".");
+	string_t tsamesitelax = STRING_DCL("; Samesite=Lax");
 	_mod_auth_t *mod = ctx->mod;
-	if (mod->authz->type & AUTHZ_TOKEN_E && sign == NULL)
+	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
-		cookie_set(response, str_xtoken, token, NULL);
+		string_t txtoken = STRING_DCL(str_xtoken);
+		if (string_empty(sign))
+			cookie_set(response, &txtoken, token, &tsecure, &tsamesitelax, NULL);
+		else
+			cookie_set(response, &txtoken, token, &tpoint, sign, &tsecure, &tsamesitelax, NULL);
 	}
-	else if (mod->authz->type & AUTHZ_TOKEN_E && sign != NULL)
+	else if (!string_empty(authorization))
 	{
-		cookie_set(response, str_xtoken, token, ".", sign, NULL);
+		string_t tauthorization = STRING_DCL(str_authorization);
+		cookie_set(response, &tauthorization, authorization, &tsecure, &tsamesitelax, NULL);
 	}
-	else if (authorization != NULL)
+	const char *user = NULL;
+	size_t userlen = auth_info2(response, str_user, &user);
+	string_t tuser = {0};
+	string_store(&tuser, user, userlen);
+	string_t txuser = STRING_DCL(str_xuser);
+	cookie_set(response, &txuser, &tuser, NULL);
+
+	const char *group = NULL;
+	size_t grouplen = auth_info2(response, str_group, &group);
+	string_t tgroup = {0};
+	string_store(&tgroup, group, grouplen);
+	if (!string_empty(&tgroup))
 	{
-		cookie_set(response, str_authorization, authorization, NULL);
+		string_t txgroup = STRING_DCL(str_xgroup);
+		cookie_set(response, &txgroup, &tgroup, NULL);
 	}
-	const char *user = auth_info(response, STRING_REF(str_user));
-	cookie_set(response, str_xuser, user, NULL);
-	const char *group = auth_info(response, STRING_REF(str_group));
-	if (group && group[0] != '\0')
-		cookie_set(response, str_xgroup, group, NULL);
+
 	const char *home = auth_info(response, STRING_REF(str_home));
 	if (home && home[0] != '\0')
-		cookie_set(response, str_xhome, "~/", NULL);
+	{
+		string_t ttylde = STRING_DCL("~/");
+		string_t txhome = STRING_DCL(str_xhome);
+		cookie_set(response, &txhome, &ttylde, NULL);
+	}
 	return ESUCCESS;
 }
 
 static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
-			const char *authorization,
-			const char *token, int tokenlen, const char *sign, int signlen,
+			const string_t *authorization, const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
 	_mod_auth_t *mod = ctx->mod;
 
 	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
-		httpmessage_addheader(response, str_xtoken, token, tokenlen);
-		if (sign && signlen > 0)
+		httpmessage_addheader(response, str_xtoken, string_toc(token), string_length(token));
+		if (!string_empty(sign))
 		{
 			httpmessage_appendheader(response, str_xtoken, STRING_REF("."));
-			httpmessage_appendheader(response, str_xtoken, sign, signlen);
+			httpmessage_appendheader(response, str_xtoken, string_toc(sign), string_length(sign));
 		}
 	}
-	else if (authorization != NULL)
+	else if (!string_empty(authorization))
 	{
-		httpmessage_addheader(response, str_authorization, authorization, -1);
+		httpmessage_addheader(response, str_authorization, string_toc(authorization), string_length(authorization));
 	}
 	const char *user = NULL;
 	size_t userlen = auth_info2(response, str_user, &user);
@@ -1304,40 +1324,47 @@ static int auth_saveinfo(void *arg, const char *key, size_t keylen, const char *
 }
 
 static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response,
-					const char *authorization, const char *token)
+					const char *cauthorization, const char *ctoken)
 {
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
+	string_t authorization = {0};
+	string_store(&authorization, cauthorization, -1);
+	string_t token = {0};
+	string_store(&token, ctoken, -1);
+	string_t sign = {0};
+
 	char *ttoken = NULL;
-	size_t tokenlen = -1;
+	size_t ttokenlen = -1;
 	char *tsign = NULL;
-	size_t tsignlen = 0;
+	size_t tsignlen = -1;
 #ifdef AUTH_TOKEN
-	if (token == NULL && config->authz.type & AUTHZ_TOKEN_E)
+	if (string_empty(&token) && config->authz.type & AUTHZ_TOKEN_E)
 	{
-		size_t ttokenlen = -1;
+		ttokenlen = _authn_generatetoken(&mod->config->token, request, &ttoken);
+		string_store(&token, ttoken, ttokenlen);
+
 		tsignlen = (int)(HASH_MAX_SIZE * 1.5) + 1;
 		tsign = calloc(1, tsignlen);
 
-		ttokenlen = _authn_generatetoken(&mod->config->token, request, &ttoken);
 		const char *key = mod->config->token.secret.data;
 		size_t keylen = mod->config->token.secret.length;
 		tsignlen = _authn_signtoken(key, keylen, ttoken, ttokenlen, tsign, tsignlen);
 		if (tsign == NULL)
-			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, tsignlen);
+			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, ttokenlen);
 		else
 			httpclient_session(ctx->clt, STRING_REF(str_token), tsign, tsignlen);
-		token = ttoken;
+		string_store(&sign, tsign, tsignlen);
 	}
 #endif
 
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
-		_authn_setauthorization_header(ctx, authorization, token, tokenlen, tsign, tsignlen, response);
+		_authn_setauthorization_header(ctx, &authorization, &token, &sign, response);
 	}
 	else if (mod->authn->type & AUTHN_COOKIE_E)
 	{
-		_authn_setauthorization_cookie(ctx, authorization, token, tokenlen, tsign, tsignlen, response);
+		_authn_setauthorization_cookie(ctx, &authorization, &token, &sign, response);
 	}
 
 	if (mod->authz->type & AUTHZ_CHOWN_E)

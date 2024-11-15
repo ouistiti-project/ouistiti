@@ -39,7 +39,6 @@ const char str_options[] = "OPTIONS";
 
 const char str_authenticate[] = "WWW-Authenticate";
 const char str_authorization[] = "Authorization";
-const char str_SetCookie[] = "Set-Cookie";
 const char str_cachecontrol[] = "Cache-Control";
 const char str_xtoken[] = "X-Auth-Token";
 const char str_xuser[] = "X-Remote-User";
