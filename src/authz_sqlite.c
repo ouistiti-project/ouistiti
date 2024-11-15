@@ -50,6 +50,9 @@
 #define DEFAULT_GROUPID 2
 #define STRINGIFY(x) #x
 
+#define AUTHZ_SQLITE_CONTEXTSETUP
+#define AUTHZ_SQLITE_GLOBALDB
+
 #ifdef DEBUG
 #define SQLITE3_CHECK(ret, value, sql) \
 	do { \
@@ -61,6 +64,9 @@
 #else
 #define SQLITE3_CHECK(...)
 #endif
+
+static sqlite3 *g_db = NULL;
+int g_dbref = 0;
 
 static int authz_sqlite_userid(authz_sqlite_t *ctx, const char *user);
 
@@ -146,47 +152,65 @@ static int _authz_sqlite_createdb(const char *dbname)
 	return (ret == SQLITE_OK)?ESUCCESS:EREJECT;
 }
 
+static sqlite3 * _authz_sqlite_opendb(const char *dbname)
+{
+#ifdef AUTHZ_SQLITE_GLOBALDB
+	g_dbref++;
+	if (g_db != NULL)
+		return g_db;
+#endif
+	sqlite3 *db = NULL;
+	/// sqlite3 documentation tells to open the database for each process and only once per process
+	int ret = sqlite3_open_v2(dbname, &db, SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK)
+	{
+		err("auth: database %s not found", dbname);
+		return NULL;
+	}
+#ifdef AUTHZ_SQLITE_GLOBALDB
+	g_db = db;
+#endif
+	return db;
+}
+
 static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
 	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
 
-	if (access(config->dbname, R_OK))
+	if (access(config->dbname, R_OK) && _authz_sqlite_createdb(config->dbname) == EREJECT)
 	{
-		_authz_sqlite_createdb(config->dbname);
+		err("auth: database %s storage not allowed", config->dbname);
+		return NULL;
 	}
 	auth_dbg("auth: authentication DB storage on %s", config->dbname);
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
+	ctx->db = _authz_sqlite_opendb(config->dbname);
 	return ctx;
 }
 
 static void *authz_sqlite_setup(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	const authz_sqlite_config_t *config = ctx->config;
 	int ret;
-	ctx->ref++;
 	authz_sqlite_t *cltctx = ctx;
-/**
+#ifdef AUTHZ_SQLITE_CONTEXTSETUP
 	cltctx = calloc(1, sizeof(*cltctx));
 	cltctx->config = ctx->config;
 	cltctx->ref = ctx->ref;
-	if (ctx->db == NULL)
+	if (ctx->db == NULL && config)
 	{
-*/
-		/// sqlite3 documentation tells to open the database for each process
-		ret = sqlite3_open_v2(ctx->config->dbname, &ctx->db, SQLITE_OPEN_READONLY, NULL);
-		if (ret != SQLITE_OK)
-		{
-			err("auth: database not found %s", ctx->config->dbname);
-			return NULL;
-		}
-		auth_dbg("auth: authentication DB storage on %s", ctx->config->dbname);
-/**
+#endif
+		ctx->db = _authz_sqlite_opendb(config->dbname);
+		auth_dbg("auth: authentication DB storage on %s from setup", ctx->config->dbname);
+#ifdef AUTHZ_SQLITE_CONTEXTSETUP
 	}
 	cltctx->db = ctx->db;
-**/
+#endif
+	ctx->ref++;
 	return cltctx;
 }
 
@@ -594,17 +618,18 @@ static void authz_sqlite_cleanup(void *arg)
 		sqlite3_finalize(ctx->statement);
 	ctx->statement = NULL;
 	ctx->ref--;
-	if (ctx->ref == 0)
-	{
-		sqlite3_close(ctx->db);
-		ctx->db = NULL;
-	}
-//	free(ctx);
+#ifdef AUTHZ_SQLITE_CONTEXTSETUP
+	free(ctx);
+#endif
 }
 
 static void authz_sqlite_destroy(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+#ifdef AUTHZ_SQLITE_GLOBALDB
+	if (g_dbref == 0)
+#endif
+	sqlite3_close(ctx->db);
 	free(ctx->config);
 	free(ctx);
 }
