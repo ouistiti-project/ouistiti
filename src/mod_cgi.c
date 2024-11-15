@@ -232,7 +232,6 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request, string_t *
 		char **env = NULL;
 		env = (char **)cgi_buildenv(config, request, cgi_path, path_info, calloc);
 
-		close(sock);
 
 		setlinebuf(stdout);
 		sched_yield();
@@ -484,7 +483,6 @@ static int _cgi_connector(void *arg, http_message_t *request, http_message_t *re
 	}
 	else
 	{
-
 		int instate = (ctx->state & STATE_INMASK);
 		if (ctx->tocgi > 0 && instate >= STATE_INSTART && instate < STATE_INFINISH)
 		{
