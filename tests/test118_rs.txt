@@ -1,4 +1,4 @@
 HTTP/1.1 200 OK
-Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJzdGF0dXMiOiAiYWN0aXZhdGVkIiwgInJvbGVzIjogInVzZXJzIiwgImV4cCI6IDE4MDAsICJpc3MiOiAidG90cCJ9.wcuTvq01mglVcqCOKBvy01lv9B-dm5N5R9ZTpFC2-Tc; SameSite=strict; Path=/; Domain=.ouistiti.local
+Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJzdGF0dXMiOiAiYWN0aXZhdGVkIiwgInJvbGVzIjogInVzZXJzIiwgImV4cCI6IDE4MDAsICJpc3MiOiAidG90cCJ9.wcuTvq01mglVcqCOKBvy01lv9B-dm5N5R9ZTpFC2-Tc; Secure; Samesite=Lax; SameSite=strict; Path=/; Domain=.ouistiti.local
 Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/; Domain=.ouistiti.local
 Set-Cookie: X-Remote-Group=users; SameSite=strict; Path=/; Domain=.ouistiti.local
