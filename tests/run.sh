@@ -212,14 +212,16 @@ test () {
 		#$WGET --no-check-certificate -S -O - $WGETURL
 		cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
 	fi
-	if [ -n "$TESTREQUEST" ]; then
-		if [ -n "$INFO" ]; then
-			cat ${TESTDIR}$TESTREQUEST
-			echo "----"
+	for REQUEST in ${TESTREQUEST} ; do
+		if [ -n "$REQUEST" ]; then
+			if [ -n "$INFO" ]; then
+				cat ${TESTDIR}$REQUEST
+				echo "----"
+			fi
+			echo cat ${TESTDIR}$REQUEST' |' $TESTCLIENT $TESTOPTION
+			cat ${TESTDIR}$REQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 		fi
-		echo cat ${TESTDIR}$TESTREQUEST' |' $TESTCLIENT $TESTOPTION
-		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
-	fi
+	done
 	if [ -n "$CMDREQUEST" ]; then
 		if [ -n "$INFO" ]; then
 			$CMDREQUEST
