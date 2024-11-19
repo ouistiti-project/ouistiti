@@ -157,7 +157,7 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 		free(ctx);
 		return NULL;
 	}
-	dbg("tls create");
+
 	ctx->ssl = SSL_new(mod->openssl_ctx);
 	int sock = httpclient_socket(clt);
 
@@ -181,7 +181,7 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 		_tls_destroy(ctx);
 		return NULL;
 	}
-	dbg("tls: connection accepted");
+	warn("tls: connection accepted for %p", clt);
 	return ctx;
 }
 
