@@ -244,7 +244,7 @@ test () {
 				ERR=4
 			fi
 		fi
-		rescode=$(cat $TMPRESPONSE | ${AWK} '/^HTTP\/1\.1 .* .*/{print $2}' )
+		rescode=$(cat $TMPRESPONSE | ${AWK} '/^HTTP\/1\.[0,1] .* .*/{print $2}' )
 		resheaderlen=$TESTHEADERLEN
 		rescontentlen=$TESTCONTENTLEN
 		#resheaderlen=$(echo $result | ${AWK} -F= 't$0 == t {print $0}' | wc -c)
