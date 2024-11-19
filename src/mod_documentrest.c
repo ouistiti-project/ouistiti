@@ -90,7 +90,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	 */
 
 	const char *input;
-	unsigned long long inputlen;
+	int inputlen;
 	int error = 0;
 	/**
 	 * rest = 1 to close the connection on end of file or
