@@ -587,6 +587,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->authz->ctx = mod->authz->rules->create(server, config->authz.config);
 	if (mod->authz->ctx == NULL)
 	{
+		err("auth: authz %s not supported", mod->authz->name);
 		free(mod->authz);
 		free(mod);
 		return NULL;

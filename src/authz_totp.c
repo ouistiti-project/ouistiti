@@ -164,7 +164,7 @@ size_t otp_url(const unsigned char* key, size_t keylen, const char *user, const 
 	length += snprintf(output + length, OTP_MAXURL - length, "secret=%.*s&", (int)keyb32len, keyb32);
 	if (issuer != NULL)
 		length += snprintf(output + length, OTP_MAXURL - length, "issuer=%s&", issuer);
-	if (hash && hash != hash_macsha1)
+	if (hash)
 		length += snprintf(output + length, OTP_MAXURL - length, "algorithm=%s&", hash->name);
 	length += snprintf(output + length, OTP_MAXURL - length, "digits=%d", digits);
 	free(keyb32);
