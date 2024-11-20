@@ -579,7 +579,7 @@ int ouistiti_setlogfile(const char *logfile)
 		logfile = g_logfile;
 	if (logfile != NULL && logfile[0] != '\0' && logfile[0] != '-')
 	{
-		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00644);
+		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00640);
 		if (g_logfd > 0)
 		{
 			dup2(g_logfd, 1);
