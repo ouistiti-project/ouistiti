@@ -36,6 +36,7 @@
 #include <libgen.h>
 #include <sched.h>
 #include <dirent.h>
+#include <limits.h>
 #ifdef BACKTRACE
 #include <execinfo.h> // for backtrace
 #endif
@@ -112,10 +113,10 @@ int string_cpy(string_t *str, const char *source, size_t length)
 {
 	if (str->data == NULL)
 		return EREJECT;
-	if (length == (size_t) -1)
+	if ((length == (size_t) -1) || (length > INT_MAX))
 		str->length = snprintf((char *)str->data, str->size, "%s", source);
 	else
-		str->length = snprintf((char *)str->data, str->size, "%.*s", length, source);
+		str->length = snprintf((char *)str->data, str->size, "%.*s", (int)length, source);
 	return str->length;
 }
 
