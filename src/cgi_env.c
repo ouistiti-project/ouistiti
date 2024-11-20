@@ -472,32 +472,32 @@ unsigned char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *req
 		switch (cgi_env[i].id)
 		{
 			case SCRIPT_NAME:
-				if (cgi_path)
+				if (cgi_path && !string_empty(cgi_path))
 				{
-					value = cgi_path->data;
-					valuelength = cgi_path->length;
-					if (strstr(cgi_path->data, config->docroot.data) == cgi_path->data)
+					value = string_toc(cgi_path);
+					valuelength = string_length(cgi_path);
+					if (strstr(string_toc(cgi_path), config->docroot.data) == string_toc(cgi_path))
 					{
-						value += config->docroot.length;
-						valuelength -= config->docroot.length;
+						value += string_length(&config->docroot);
+						valuelength -= string_length(&config->docroot);
 					}
 				}
 			break;
 			case SCRIPT_FILENAME:
-				if (cgi_path)
+				if (cgi_path && !string_empty(cgi_path))
 				{
-					value = cgi_path->data;
-					valuelength = cgi_path->length;
-					if (strstr(cgi_path->data, config->docroot.data) == NULL)
+					value = string_toc(cgi_path);
+					valuelength = string_length(cgi_path);
+					if (strstr(string_toc(cgi_path), string_toc(&config->docroot)) == NULL)
 						adddocroot = 1;
 				}
 			break;
 			case PATH_INFO:
 			case PATH_TRANSLATED:
-				if (path_info)
+				if (path_info && !string_empty(path_info))
 				{
-					value = path_info->data;
-					valuelength = (int)path_info->length;
+					value = string_toc(path_info);
+					valuelength = string_length(path_info);
 				}
 			break;
 			case HTTPS:
@@ -505,8 +505,13 @@ unsigned char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *req
 					value = str_null;
 			break;
 			default:
+			{
+				const char *path = NULL;
+				if (cgi_path && !string_empty(cgi_path))
+					path = string_toc(cgi_path);
 				if (cgi_env[i].cb != NULL)
-					valuelength = cgi_env[i].cb(config, request, cgi_path->data, &value);
+					valuelength = cgi_env[i].cb(config, request, path, &value);
+			}
 		}
 		if ((value == NULL) && (options & ENV_NOTREQUIRED) == 0)
 		{
