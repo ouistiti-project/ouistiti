@@ -97,7 +97,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 static int _forbidden_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifndef AUTHZ_JWT
-static size_t authn_generatetoken(const mod_auth_t *mod, http_message_t *request, char **token);
+static size_t authn_generatetoken(const authz_token_config_t *config, http_message_t *request, char **token);
 #endif
 
 static const char str_auth[] = "auth";
