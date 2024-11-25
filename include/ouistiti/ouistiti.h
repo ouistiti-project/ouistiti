@@ -153,10 +153,10 @@ extern const char str_sec_ws_protocol[23];
 extern const char str_sec_ws_accept[21];
 extern const char str_sec_ws_key[18];
 extern const char str_date[5];
-extern const char *str_authorization_code[5];
-extern const char *str_access_token[12];
-extern const char *str_state[14];
-extern const char *str_expires[8];
+extern const char str_authorization_code[5];
+extern const char str_access_token[12];
+extern const char str_state[14];
+extern const char str_expires[8];
 
 extern const char str_form_urlencoded[34];
 extern const char str_multipart_replace[26];
