@@ -180,6 +180,7 @@ test () {
 	fi
 
 	config $CONFIG
+	rm -f $TMPRESPONSE
 
 	if [ -n "$PREPARE_ASYNC" ]; then
 		$PREPARE_ASYNC &
@@ -219,7 +220,7 @@ test () {
 				echo "----"
 			fi
 			echo cat ${TESTDIR}$REQUEST' |' $TESTCLIENT $TESTOPTION
-			cat ${TESTDIR}$REQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
+			cat ${TESTDIR}$REQUEST | $TESTCLIENT $TESTOPTION >> $TMPRESPONSE
 		fi
 	done
 	if [ -n "$CMDREQUEST" ]; then
