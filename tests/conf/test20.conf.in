@@ -1,5 +1,6 @@
 user="%USER%";
 log-file="%LOGFILE%";
+init_d="/media/mch/mchalain/Projects/ouistiti/tests/init.d";
 servers= ({
 		hostname = "www.ouistiti.net";
 		port = 8080;
