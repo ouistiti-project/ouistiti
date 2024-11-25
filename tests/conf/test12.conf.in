@@ -13,7 +13,7 @@ servers= ({
 			auth = {
 				type = "Basic";
 				dbname="%PWD%/tests/conf/passwd.db";
-				options = "token,cookie";
+				options = "jwt,cookie";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html";
@@ -38,7 +38,7 @@ servers= ({
 			auth = {
 				type = "Basic";
 				authz = "totp";
-				options = "token,cookie";
+				options = "jwt,cookie";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html";
@@ -62,13 +62,13 @@ servers= ({
 			auth = {
 				type="Bearer";
 				authz = "jwt";
-				options = "token,cookie";
+				options = "jwt,cookie";
 			};
 		});
 		auth = {
 			type="Bearer";
 			authz = "jwt";
-			options = "token,cookie";
+			options = "jwt,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
 		};

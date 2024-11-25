@@ -75,8 +75,9 @@ void *authz_jwt_config(const config_setting_t *configauth)
 }
 #endif
 
-size_t authn_jwt_generatetoken(const authz_token_config_t *config, http_message_t *request, char **token)
+size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
 {
+	const authz_token_config_t *config = (const authz_token_config_t *)arg;
 #ifdef JWT_FORMATHEADER
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));
@@ -435,9 +436,9 @@ static void authz_jwt_destroy(void *arg)
 authz_rules_t authz_jwt_rules =
 {
 	.create = &authz_jwt_create,
-	.check = authz_jwt_check,
+	.check = &authz_jwt_check,
 	.passwd = NULL,
-	.setsession = authz_jwt_setsession,
-	.join = authz_jwt_join,
+	.setsession = &authz_jwt_setsession,
+	.join = &authz_jwt_join,
 	.destroy = &authz_jwt_destroy,
 };

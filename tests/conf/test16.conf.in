@@ -19,7 +19,7 @@ servers= ({
 				type = "wwwform";
 				token_ep = "/token_totp";
 				authz = "totp";
-				options = "token,cookie";
+				options = "jwt,cookie";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html?step=totp";
@@ -46,7 +46,7 @@ servers= ({
 		auth = {
 			type="Bearer";
 			authz = "jwt";
-			options = "token,cookie";
+			options = "jwt,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
 		};
