@@ -212,7 +212,7 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 		const char *uri = httpmessage_REQUEST(request, "uri");
 		if (htaccess_check(&mod->config->htaccess, uri, &path_info) != ESUCCESS)
 		{
-			warn("webstream: %s forbidden", uri);
+			dbg("webstream: %s forbidden", uri);
 			return EREJECT;
 		}
 
@@ -226,10 +226,11 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 		fstat(fdfile, &filestat);
 		close(fdfile);
 
-		if (S_ISSOCK(filestat.st_mode) &&
-			(ctx->client = _webstream_start(ctx, config, response, uri)) > 0)
+		if ((S_ISSOCK(filestat.st_mode)) &&
+			((ctx->client = _webstream_start(ctx, config, response, uri)) > 0))
 		{
 			ctx->socket = httpmessage_lock(response);
+			warn("webstream: connect to %s", uri);
 			ret = ECONTINUE;
 		}
 		else
@@ -487,7 +488,7 @@ static void *_webstream_main(void *arg)
 			end = 1;
 			ret--;
 		}
-		if (ret > 0 && FD_ISSET(client, &rdfs))
+		if ((ret > 0) && (FD_ISSET(client, &rdfs)))
 		{
 			end = _webstream_transferdata(info, config->options & (WEBSTREAM_MULTIPART | WEBSTREAM_MULTIPART_DATE));
 			if (config->options & WEBSTREAM_MULTIPART)
