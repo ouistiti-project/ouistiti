@@ -948,13 +948,13 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	{
 		ret = _authn_checktoken(&mod->config->token, token);
 	}
+	else
+		err("auth: token with bad signature %.*s", (int)signlen, sign);
 	if (ret == ESUCCESS)
 	{
 		/// some authz may join a token to an user
 		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
 	}
-	else
-		err("auth: token with bad signature %.*s", (int)signlen, sign);
 	return ret;
 }
 #endif
@@ -1130,8 +1130,6 @@ static int _authn_check(_mod_auth_ctx_t *ctx, authz_t *authz, http_message_t *re
 		size_t authorizationlen = _authn_getauthorization(ctx, request, authorization);
 		if (authorizationlen > 0)
 			tuser = _authn_checkauthorization( ctx, authn, authz, *authorization, authorizationlen, request);
-		else
-			warn("auth: authorization not found");
 	}
 	else if (authn->rules->checkrequest)
 	{
@@ -1429,8 +1427,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				token = NULL;
 			auth_dbg("auth: checktoken %d", ret);
 		}
-		else
-			warn("auth: token not found");
 		if (ret == EREJECT && user == NULL)
 			user = _authn_gettokenuser(ctx, request);
 	}
@@ -1507,7 +1503,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else if (status && strcmp(status, str_status_activated) != 0)
 		{
-			err("auth: user \"%s\" is not yet activated (%s)", user, status);
+			err("auth: user \"%s\" is not yet activated (%s) from %p", user, status, ctx->clt);
 			httpclient_dropsession(ctx->clt);
 			return _authn_challenge(ctx, request, response);
 		}
@@ -1520,7 +1516,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else
 	{
-		warn("auth: accepted without authorization (unprotect files, shortcut,...)");
+		warn("auth: accepted without authorization (unprotect files, shortcut,...) from %p", ctx->clt);
 	}
 	/**
 	 * As the setup, the authz may need to cleanup between each message

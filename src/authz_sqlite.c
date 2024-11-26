@@ -642,7 +642,9 @@ static void authz_sqlite_destroy(void *arg)
 #ifdef AUTHZ_SQLITE_GLOBALDB
 	if (g_dbref == 0)
 #endif
-	sqlite3_close(ctx->db);
+	{
+		sqlite3_close(ctx->db);
+	}
 	free(ctx->config);
 	free(ctx);
 }
