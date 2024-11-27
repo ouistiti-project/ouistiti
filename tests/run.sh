@@ -40,7 +40,7 @@ case $1 in
 		;;
 	-A)
 		ALL=1
-		TESTS=$(find $TESTDIR -maxdepth 1 -name test*[0-9] | sort)
+		TESTS=$(find $TESTDIR -maxdepth 1 -name "test*[0-9]" | sort)
 		;;
 	-N)
 		NOERROR=1
