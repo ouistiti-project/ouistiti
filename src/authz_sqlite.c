@@ -475,7 +475,7 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 	return user;
 }
 
-int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
+int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int length, int group)
 {
 	int userid = EREJECT;
 	int ret;
@@ -500,7 +500,7 @@ int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
 	int index;
 	index = sqlite3_bind_parameter_index(statement, "@NAME");
 	if (index > 0)
-		ret = sqlite3_bind_text(statement, index, name, -1, SQLITE_STATIC);
+		ret = sqlite3_bind_text(statement, index, name, length, SQLITE_STATIC);
 	if (ret != SQLITE_OK) {
 		err("%s(%d) %d: %s\n%s", __FUNCTION__, __LINE__, ret, sql[group], sqlite3_errmsg(ctx->db));
 		sqlite3_finalize(statement);
@@ -519,7 +519,7 @@ int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int group)
 
 static int authz_sqlite_userid(authz_sqlite_t *ctx, const char *name)
 {
-	return authz_sqlite_getid(ctx, name, 0);
+	return authz_sqlite_getid(ctx, name, -1, 0);
 }
 
 #ifdef AUTH_TOKEN
