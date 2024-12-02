@@ -256,33 +256,22 @@ static int authz_sqlite_addgroup(void *arg, const char *group, int length)
 	return EREJECT;
 }
 
-#if 0
-static int _compute_passwd(const char *input, char *output, int outlen)
+static int _compute_passwd(const hash_t *hash, const char *input, char *output, int outlen)
 {
 	if (input == NULL)
 		return -1;
-	const hash_t *hash = NULL;
-	hash = hash_sha256;
 
-	if (hash != NULL)
-	{
-		char *hashpasswd = malloc(hash->size);
-		void *ctx;
-		ctx = hash->init();
-		hash->update(ctx, input, strlen(input));
-		hash->finish(ctx, hashpasswd);
+	char *hashpasswd = malloc(hash->size);
+	void *ctx;
+	ctx = hash->init();
+	hash->update(ctx, input, strlen(input));
+	hash->finish(ctx, hashpasswd);
 
-		int len = snprintf(output, outlen, "$5$");
-		base64->encode(hashpasswd, hash->size, output + len, outlen - len);
-		free(hashpasswd);
-	}
-	else
-	{
-		snprintf(output, outlen, "%s", input);
-	}
-	return 0;
+	int len = snprintf(output, outlen, "$%c$", hash->nameid);
+	len += base64->encode(hashpasswd, hash->size, output + len, outlen - len);
+	free(hashpasswd);
+	return len;
 }
-#endif
 
 static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 {
@@ -296,7 +285,20 @@ static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 
 	if (authinfo->passwd[0] != '\0')
 	{
-		ret = authz_sqlite_updatefield(ctx, userid, authinfo->passwd, -1, FIELD_PASSWD);
+		int length = -1;
+		const char *passwd = authinfo->passwd;
+		char passwdarray[TOKEN_MAX];
+		if (ctx->config->hash != NULL)
+		{
+			int len = _compute_passwd(ctx->config->hash, authinfo->passwd, passwdarray, TOKEN_MAX);
+			if (len > 0)
+			{
+				length = len;
+				passwd = passwdarray;
+			}
+		}
+
+		ret = authz_sqlite_updatefield(ctx, userid, passwd, length, FIELD_PASSWD);
 	}
 	if (ret != EREJECT)
 		ret = authz_sqlite_getusermng(ctx, userid, authinfo);

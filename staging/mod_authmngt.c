@@ -85,6 +85,31 @@ static const char error_badvalue[] = "bad value";
 
 #ifdef FILE_CONFIG
 #ifdef AUTHZ_SQLITE
+static const hash_t *_mod_findhash(const char *name, int nameid)
+{
+	const hash_t *hash_list[] =
+	{
+		hash_md5,
+		hash_sha1,
+		hash_sha224,
+		hash_sha256,
+		hash_sha512,
+		hash_macsha256,
+		NULL
+	};
+
+	static const hash_t *hash = NULL;
+	for (int i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
+	{
+		hash = hash_list[i];
+		if (hash != NULL &&
+			((name != NULL && !strcasecmp(name, hash->name)) ||
+				(nameid == hash->nameid)))
+			break;
+	}
+	return hash;
+}
+
 static void *authmngt_sqlite_config(const config_setting_t *configauth)
 {
 	authz_sqlite_config_t *authz_config = NULL;
@@ -96,6 +121,9 @@ static void *authmngt_sqlite_config(const config_setting_t *configauth)
 		authz_config = calloc(1, sizeof(*authz_config));
 		authz_config->dbname = path;
 	}
+	const char *algo = NULL;
+	if (config_setting_lookup_string(configauth, "algorithm", &algo) == CONFIG_TRUE)
+		authz_config->hash = _mod_findhash(algo, -1);
 	return authz_config;
 }
 #endif
@@ -145,6 +173,10 @@ static void *mod_authmngt_config(config_setting_t *iterator, server_t *UNUSED(se
 #endif
 	if (configauth)
 	{
+		const char *mode = NULL;
+		config_setting_lookup_string(configauth, "options", &mode);
+		if (utils_searchexp("management", mode, NULL) != ESUCCESS)
+			return NULL;
 		mngtconfig = calloc(1, sizeof(*mngtconfig));
 		if (authmngt_setrules(configauth, mngtconfig) != ESUCCESS)
 		{

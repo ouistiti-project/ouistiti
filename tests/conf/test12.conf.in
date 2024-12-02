@@ -9,14 +9,15 @@ servers= ({
 		version="HTTP11";
 		vhost =({
 			hostname = "auth.ouistiti.local";
-			service = "ouistitiauth";
+			service = "auth";
 			auth = {
 				type = "Basic";
 				dbname="%PWD%/tests/conf/passwd.db";
-				options = "jwt,cookie";
+				options = "jwt,cookie,management";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html";
+				algorithm = "SHA-256";
 			};
 			redirect = {
 				links = ({
@@ -33,8 +34,7 @@ servers= ({
 				origin = "localhost,ouistiti";
 			};
 		},{
-			hostname = "totp.ouistiti.local";
-			service = "ouistititoto";
+			service = "totp";
 			auth = {
 				type = "Basic";
 				authz = "totp";
