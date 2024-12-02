@@ -49,10 +49,10 @@
 
 #define auth_dbg(...)
 
-static void *authmngt_sqlite_create(http_server_t *UNUSED(server), void *arg)
+static void *authmngt_sqlite_create(http_client_t *UNUSED(client), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
-	const authz_sqlite_config_t *config = (const authz_sqlite_config_t *)arg;
+	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
 	int ret;
 	sqlite3 *db;
 
@@ -62,7 +62,7 @@ static void *authmngt_sqlite_create(http_server_t *UNUSED(server), void *arg)
 		return NULL;
 	}
 
-	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL);
+	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
 	if (ret != SQLITE_OK)
 	{
 		err("authmngt: database %s error: %s", config->dbname, sqlite3_errstr(ret));
