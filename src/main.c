@@ -311,6 +311,36 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
 }
 
+static const char *g_logfile = NULL;
+static int g_logfd = 0;
+size_t g_logmax = 1024 * 1024;
+int ouistiti_setlogfile(const char *logfile, size_t logmax)
+{
+	if (g_logfile != NULL)
+		logfile = g_logfile;
+	if (logfile != NULL && logfile[0] != '\0' && logfile[0] != '-')
+	{
+		const char *logmaxenv = getenv("LOG_MAXFILESIZE");
+		if (logmaxenv)
+			logmax = strtoul(logmaxenv, NULL, 10);
+		if (logmax)
+			g_logmax = logmax;
+		g_logfile = logfile;
+		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00640);
+		if (g_logfd > 0)
+		{
+			dup2(g_logfd, 1);
+			dup2(g_logfd, 2);
+			close(g_logfd);
+		}
+		else
+			err("log file error %s", strerror(errno));
+	}
+	else
+		g_logfile = NULL;
+	return (g_logfd > 0);
+}
+
 #undef BACKTRACE
 static server_t *g_first = NULL;
 static char run = 0;
@@ -547,10 +577,15 @@ static int main_run(server_t *first)
 		httpserver_connect(server->server);
 	}
 
-	while(run != 'q')
+	while(run != 'q' && first != NULL && first->server != NULL)
 	{
-		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
+		if (httpserver_run(first->server) != ECONTINUE)
 			break;
+		struct stat logstat = {0};
+		if (g_logfile && !stat(g_logfile, &logstat) && (logstat.st_size > g_logmax))
+		{
+			ouistiti_setlogfile(g_logfile, g_logmax);
+		}
 	}
 	return 0;
 }
@@ -600,27 +635,6 @@ static server_t *ouistiti_loadservers(ouistiticonfig_t *ouistiticonfig, int serv
 		}
 	}
 	return first;
-}
-
-static char *g_logfile = NULL;
-static int g_logfd = 0;
-int ouistiti_setlogfile(const char *logfile)
-{
-	if (g_logfile != NULL)
-		logfile = g_logfile;
-	if (logfile != NULL && logfile[0] != '\0' && logfile[0] != '-')
-	{
-		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00640);
-		if (g_logfd > 0)
-		{
-			dup2(g_logfd, 1);
-			dup2(g_logfd, 2);
-			close(g_logfd);
-		}
-		else
-			err("log file error %s", strerror(errno));
-	}
-	return (g_logfd > 0);
 }
 
 #define DAEMONIZE 0x01

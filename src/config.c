@@ -224,7 +224,7 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 	config_lookup_string(configfile, str_user, (const char **)&ouistiticonfig->user);
 	const char *logfile = NULL;
 	config_lookup_string(configfile, "log-file", (const char **)&logfile);
-	ouistiti_setlogfile(logfile);
+	ouistiti_setlogfile(logfile, LOG_MAXFILESIZE);
 	config_lookup_string(configfile, "init_d", (const char **)&ouistiticonfig->init_d);
 	const config_setting_t *configmimes = config_lookup(configfile, "mimetypes");
 	config_mimes(configmimes);
