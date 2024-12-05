@@ -499,7 +499,7 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	}
 	if (auth->authz.type & AUTHZ_JWT_E)
 		auth->token.type = E_JWT;
-	if (config_setting_lookup_string(config, "issuer", &data) == CONFIG_FALSE)
+	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_FALSE)
 		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
 	else
 		string_store(&auth->token.issuer, data, -1);
@@ -1484,14 +1484,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
 		{
 			auth_dbg("auth: session already open");
-			httpclient_appendsession(ctx->clt, "issuer", "+", 1);
-			httpclient_appendsession(ctx->clt, "issuer", STRING_INFO(config->token.issuer));
+			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
+			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
 		}
 		else
 		{
 			auth_dbg("auth: set the session");
 			authz->rules->setsession(authz->ctx, user, token, auth_saveinfo, ctx->clt);
-			httpclient_session(ctx->clt, STRING_REF("issuer"), STRING_INFO(config->token.issuer));
+			httpclient_session(ctx->clt, STRING_REF(str_issuer), STRING_INFO(config->token.issuer));
 			if (authz->rules->join)
 			{
 				authz->rules->join(authz->ctx, user, authorization, mod->config->token.expire);

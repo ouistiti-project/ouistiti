@@ -66,7 +66,7 @@ void *authz_jwt_config(const config_setting_t *configauth)
 	authz_token_config_t *authz_config = calloc(1, sizeof(*authz_config));
 	const char *issuer = NULL;
 
-	int ret = config_setting_lookup_string(configauth, "issuer", &issuer);
+	int ret = config_setting_lookup_string(configauth, str_issuer, &issuer);
 	if (ret == CONFIG_TRUE)
 	{
 		string_store(&authz_config->issuer, issuer, -1);
@@ -128,7 +128,7 @@ size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
 	else
 		jexpire = json_integer((30 * 60) + now);
 	json_object_set(jtoken, "exp", jexpire);
-	const char *issuer = auth_info(request, STRING_REF("issuer"));
+	const char *issuer = auth_info(request, STRING_REF(str_issuer));
 	if (issuer)
 		json_object_set(jtoken, "iss", json_string(issuer));
 #ifdef AUTH_OPENID
@@ -274,7 +274,7 @@ const char *authz_jwt_get(const char *id_token, const char *key)
 		return NULL;
 	if (!strcmp(key, str_user))
 		return _jwt_getuser(jinfo);
-	if (!strcmp(key, "issuer"))
+	if (!strcmp(key, str_issuer))
 		return _jwt_get(jinfo, "iss");
 	return _jwt_get(jinfo, key);
 }
