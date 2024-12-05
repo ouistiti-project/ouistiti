@@ -11,10 +11,16 @@ servers= ({
 			hostname = "auth.ouistiti.local";
 			service = "ouistitiauth";
 			auth = ({
+				type = "none";
+				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
+				options = "jwt,cookie";
+				issuer = "authpass+totp";
+			},{
 				type = "Basic";
 				dbname="%PWD%/tests/conf/passwd.db";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html?step=passwd";
+				issuer = "authpass";
 			},{
 				type = "wwwform";
 				token_ep = "/token_totp";
@@ -23,15 +29,12 @@ servers= ({
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html?step=totp";
+				issuer = "totp";
 			});
 			redirect = {
 				links = ({
 					options = "query,temporary";
 					origin = "^/token";
-					destination = "/token_totp";
-				},{
-					options = "query,temporary";
-					origin = "^/token_totp";
 				});
 			};
 			document = {
@@ -49,6 +52,7 @@ servers= ({
 			options = "jwt,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
+			issuer = "authpass";
 		};
 		userfilter = {
 			dbname = "%PWD%/tests/conf/filter.db";
