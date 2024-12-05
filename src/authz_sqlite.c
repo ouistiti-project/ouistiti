@@ -109,7 +109,9 @@ static int _authz_sqlite_createdb(const char *dbname)
 					"FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL,"
 					"FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
 		"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER,"
-					"FOREIGN KEY (userid) REFERENCES users(id) ON UPDATE SET NULL);",
+					"FOREIGN KEY (userid) REFERENCES users(id) ON DELETE CASCADE);",
+		"create table issuers (\"userid\" INTEGER NOT NULL,\"issuer\" TEXT,"
+					"FOREIGN KEY (userid) REFERENCES users(id) ON DELETE CASCADE);",
 		"insert into status (id, name) values(1, \"approving\");",
 		"insert into status (id, name) values(2, \"activated\");",
 		"insert into status (id, name) values(3, \"repudiated\");",
@@ -130,6 +132,10 @@ static int _authz_sqlite_createdb(const char *dbname)
 #ifdef DEBUG
 		"insert into users (name,groupid, statusid,passwd,home)"
 			"values(\"foo\",(select id from groups where name=\"users\"),(select id from status where name=\"activated\"),\"bar\",\"/home/foo\");",
+		"insert into users (name,groupid, statusid,passwd,home)"
+			"values(\"johnDoe\",(select id from groups where name=\"users\"),(select id from status where name=\"activated\"),\"jane\",\"/home/john\");",
+		"insert into issuers (userid,issuer)"
+			"values((select id from users where name=\"johnDoe\"),\"totp\");",
 #endif
 		NULL,
 	};
@@ -623,6 +629,43 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 #define authz_sqlite_join NULL
 #endif
 
+static size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t length)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	int userid = authz_sqlite_userid(ctx, user);
+
+	if (userid == EREJECT)
+	{
+		return EREJECT;
+	}
+	int ret;
+	const char *sql = "select issuer from issuers where userid=@USERID;";
+
+	sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@USERID");
+	ret = sqlite3_bind_int(statement, index, userid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	ret = sqlite3_step(statement);
+	if (ret == SQLITE_ROW)
+	{
+		if (sqlite3_column_type(statement, 0) == SQLITE_TEXT)
+		{
+			strncpy(issuer, sqlite3_column_text(statement, 0), length);
+			length = sqlite3_column_bytes(statement, 0);
+		}
+		ret = sqlite3_step(statement);
+	}
+	else
+		length = 0;
+	sqlite3_finalize(statement);
+	return length;
+}
+
 static void authz_sqlite_cleanup(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
@@ -655,6 +698,7 @@ authz_rules_t authz_sqlite_rules =
 	.setup = &authz_sqlite_setup,
 	.check = &authz_sqlite_check,
 	.passwd = &authz_sqlite_passwd,
+	.issuer = &authz_sqlite_issuer,
 	.setsession = &authz_sqlite_setsession,
 	.join = &authz_sqlite_join,
 	.cleanup = &authz_sqlite_cleanup,
