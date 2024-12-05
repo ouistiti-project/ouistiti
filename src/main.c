@@ -104,6 +104,28 @@ int string_cmp(const string_t *str, const char *cmp, size_t length)
 	return strncasecmp(str->data, cmp, str->length);
 }
 
+int string_contain(const string_t *str, const char *cmp, size_t length, const char sep)
+{
+	int ret = -1;
+	if (cmp == NULL)
+		return -1;
+	if (length == (size_t) -1)
+		length = strnlen(cmp, str->length);
+	const char *offset = str->data;
+	while (offset && offset[0] != '\0')
+	{
+		if (!strncasecmp(offset, cmp, length))
+		{
+			ret = 0;
+			break;
+		}
+		offset = strchr(offset, sep);
+		if (offset)
+			offset++;
+	}
+	return ret;
+}
+
 int string_empty(const string_t *str)
 {
 	return ! (str->data != NULL && str->data[0] != '\0' && str->length > 0);

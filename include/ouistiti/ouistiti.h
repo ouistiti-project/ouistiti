@@ -116,6 +116,7 @@ struct string_s
 #define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
 int string_store(string_t *str, const char *pointer, size_t length);
 int string_cmp(const string_t *str, const char *cmp, size_t length);
+int string_contain(const string_t *str, const char *cmp, size_t length, const char sep);
 int string_cpy(string_t *str, const char *source, size_t length);
 int string_empty(const string_t *str);
 const char *string_toc(const string_t *str);
