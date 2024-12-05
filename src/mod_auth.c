@@ -301,16 +301,16 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 	int ret = EREJECT;
 
 	char *type = NULL;
-	config_setting_lookup_string(configauth, "type", (const char **)&type);
-	if (type == NULL)
+	if (config_setting_lookup_string(configauth, "type", (const char **)&type) != CONFIG_TRUE)
 	{
+		err("auth: authn type is not set");
 		return ret;
 	}
 
 	const struct _authn_s *authn = NULL;
 	for (int i = 0; i < (sizeof(authn_list) / sizeof(*authn_list)); i++)
 	{
-		if (!strcmp(type, authn_list[i]->name.data))
+		if (!string_cmp(&authn_list[i]->name, type, -1))
 			mod->config = authn_list[i]->config(configauth);
 		if (mod->config != NULL)
 		{
@@ -333,6 +333,8 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 
 		ret = ESUCCESS;
 	}
+	else
+		err("auth: authn '%s' not found", type);
 	return ret;
 }
 
@@ -507,7 +509,6 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	ret = authn_config(config, &auth->authn);
 	if (ret == EREJECT)
 	{
-		err("config: authn type is not set");
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
 
@@ -1432,7 +1433,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				token = NULL;
 			auth_dbg("auth: checktoken %d", ret);
 		}
-		if (ret == EREJECT && user == NULL)
+		if (ret == EREJECT)
 			user = _authn_gettokenuser(ctx, request);
 	}
 #endif
@@ -1454,6 +1455,19 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		ret = _authn_check(ctx, authz, request, &authorization, &user);
 		auth_dbg("auth: checkauthorization %d", ret);
+	}
+	string_t issuer = {0};
+	if (ret != EREJECT)
+	{
+		const char *issuerdata = NULL;
+		size_t length = auth_info2(request, str_issuer, &issuerdata);
+		string_store(&issuer, issuerdata, length);
+		if (!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
+		{
+			warn("auth: session's issuer already set, by-pass the token checking");
+			auth_info2(request, str_user, &user);
+			ret = EREJECT;
+		}
 	}
 	if (ret == EREJECT)
 	{
@@ -1496,6 +1510,15 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			{
 				authz->rules->join(authz->ctx, user, authorization, mod->config->token.expire);
 			}
+		}
+		char issuerdata[254];
+		size_t length = 0;
+		if (authz->rules->issuer)
+			length = authz->rules->issuer(authz->ctx, user, issuerdata, sizeof(issuerdata));
+		if (length > 0)
+		{
+			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
+			httpclient_appendsession(ctx->clt, str_issuer, issuerdata, length);
 		}
 		dbg("auth: type %s", (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0));
 		const char *user = auth_info(request, STRING_REF(str_user));
