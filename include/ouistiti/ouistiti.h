@@ -103,6 +103,8 @@ int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);
 serverconfig_t *ouistiti_serverconfig(server_t *server);
 
+int ouistiti_setprocessowner(const char *user);
+
 typedef struct string_s string_t;
 struct string_s
 {

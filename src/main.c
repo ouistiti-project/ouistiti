@@ -187,7 +187,7 @@ size_t auth_info2(http_message_t *request, const char *key, const char **value)
 	return httpmessage_SESSION2(request, key, (void **)value);
 }
 
-int auth_setowner(const char *user)
+int ouistiti_setprocessowner(const char *user)
 {
 	int ret = EREJECT;
 #ifdef HAVE_PWD
@@ -803,11 +803,6 @@ int main(int argc, char * const *argv)
 
 	signal(SIGPIPE, SIG_IGN);
 #endif
-
-	if (ouistiticonfig->user == NULL || auth_setowner(ouistiticonfig->user) == EREJECT)
-		err("Error: user %s not found", ouistiticonfig->user);
-	else
-		warn("%s run as %s", argv[0], ouistiticonfig->user);
 
 	main_run(g_first);
 
