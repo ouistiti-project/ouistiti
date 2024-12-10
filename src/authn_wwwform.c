@@ -73,7 +73,7 @@ static int authn_wwwform_challenge(void *arg, http_message_t *UNUSED(request), h
 	const mod_auth_t *config = mod->authn->config;
 #endif
 
-	httpmessage_addheader(response, str_authenticate, STRING_REF("x-www-form-urlencoded"));
+	httpmessage_addheader(response, str_authenticate, STRING_REF("WWW-Form"));
 	return ret;
 }
 
