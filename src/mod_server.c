@@ -165,7 +165,7 @@ static void *mod_server_create(http_server_t *server, void *config)
 
 	mod->config = config;
 	mod->server = server;
-	httpserver_addconnector(server, _server_connector, mod, CONNECTOR_SERVER, str_server);
+	httpserver_addconnector(server, _server_connector, mod, CONNECTOR_FILTER, str_server);
 
 	return mod;
 }
