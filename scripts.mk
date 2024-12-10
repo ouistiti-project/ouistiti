@@ -260,6 +260,9 @@ endif
 ifneq ($(wildcard $(sysroot)/usr/lib$(libsuffix)/pkgconfig/),)
   PKG_CONFIG_PATH+=:$(sysroot)/usr/lib$(libsuffix)/pkgconfig
 endif
+ifneq ($(wildcard $(sysroot)/usr/share/pkgconfig/),)
+  PKG_CONFIG_PATH+=:$(sysroot)/usr/share/pkgconfig
+endif
 PKG_CONFIG_PATH+=:$(builddir)
 PKG_CONFIG_PATH:=$(subst $(space),,$(PKG_CONFIG_PATH))
 
