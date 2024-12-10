@@ -190,7 +190,7 @@ static void * authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct s
 static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)
 {
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Digest "));
-	if (mod->authn->config->realm.data != NULL && mod->authn->config->realm.data[0] != 0)
+	if (!string_empty(&mod->authn->config->realm))
 	{
 		httpmessage_appendheader(response, str_authenticate, STRING_REF("realm=\""));
 		httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->authn->config->realm));
