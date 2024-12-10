@@ -286,6 +286,10 @@ static int authmngt_jsonifyuser(_mod_authmngt_ctx_t *UNUSED(ctx), http_message_t
 		httpmessage_appendcontent(response, info->token, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
+	if (info->passwd[0] != '\0')
+	{
+		httpmessage_appendcontent(response, ",\"passwdchanged\":true", -1);
+	}
 	httpmessage_appendcontent(response, "}", -1);
 	return ESUCCESS;
 }
@@ -317,6 +321,10 @@ static int authmngt_stringifyuser(_mod_authmngt_ctx_t *UNUSED(ctx), http_message
 	{
 		httpmessage_appendcontent(response, "&token=", -1);
 		httpmessage_appendcontent(response, info->token, -1);
+	}
+	if (info->passwd[0] != '\0')
+	{
+		httpmessage_appendcontent(response, "&passwdchanged=true", -1);
 	}
 	return 0;
 }
@@ -374,6 +382,8 @@ static int _authmngt_parsepasswd(http_message_t *request, authsession_t *session
 			strncpy(session->passwd, decode, TOKEN_MAX);
 			free(decode);
 		}
+		else
+			strncpy(session->passwd, passwd, TOKEN_MAX);
 		ret = ESUCCESS;
 	}
 	return ret;
