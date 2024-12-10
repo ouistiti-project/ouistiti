@@ -71,6 +71,7 @@ servers= ({
 			options = "jwt,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
+			issuer = "sqlite+totp";
 		};
 		userfilter = {
 			dbname = "%PWD%/tests/conf/filter.db";

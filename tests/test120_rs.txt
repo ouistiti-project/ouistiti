@@ -17,7 +17,7 @@ Content-Type: text/html
 	</body>
 </html>
 HTTP/1.1 302 Found
-WWW-Authenticate: x-www-form-urlencoded
+WWW-Authenticate: WWW-Form
 Location: /trust/signin.html?step=totp&redirect_uri=https://www.ouistiti.local:8080/index.html
 
  302 Found
