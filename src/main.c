@@ -283,6 +283,7 @@ static int main_initat(int rootfd, const char *path, int action)
 			}
 			free(namelist[n]);
 		}
+		free(namelist);
 		close(newrootfd);
 	}
 	else if (faccessat(rootfd, path, X_OK, 0) == 0)
@@ -334,7 +335,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
 	fprintf(stderr, "\t-K \t\tto kill other instances of the server\n");
 	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
-	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
+	fprintf(stderr, "\t-W <directory>\tset the working directory as chroot\n");
 }
 
 static int _ouistiti_chown(int fd, const char *owner)
@@ -557,20 +558,28 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 	server->server = httpserver;
 	server->config = config;
 	server->id = id;
-	char *cwd = NULL;
+	char cwd[PATH_MAX] = {0};
 	if (config->root != NULL && config->root[0] != '\0' )
 	{
-		cwd = getcwd(NULL, 0);
+		getcwd(cwd, PATH_MAX);
 		if (chdir(config->root))
-			err("main: change directory error !");
+			err("main: change %s directory error !", config->root);
 	}
-	ouistiti_setmodules(server, NULL, config->modulesconfig);
-	if (cwd != NULL)
+#ifdef DEBUG
+	char pwd[PATH_MAX];
+	warn("main: ouistiti running environment %s", getcwd(pwd, PATH_MAX));
+	struct dirent **namelist;
+	int n = scandir(".", &namelist, NULL, alphasort);
+	while (n-- > 0)
 	{
-		if (chdir(cwd))
-			err("main: change directory error !");
-		free(cwd);
+		warn("\t%s", namelist[n]->d_name);
+		free(namelist[n]);
 	}
+	free(namelist);
+#endif
+	ouistiti_setmodules(server, NULL, config->modulesconfig);
+	if (cwd[0] && chdir(cwd))
+		err("main: change directory error !");
 
 	return server;
 }
@@ -764,12 +773,6 @@ int main(int argc, char * const *argv)
 		return 0;
 	}
 
-	if (workingdir != NULL && chdir(workingdir) != 0)
-	{
-		err("%s directory is not accessible", workingdir);
-		return 1;
-	}
-
 	ouistiti_initmodules(pkglib);
 #ifdef MODULES
 	const char *modules_path = getenv("OUISTITI_MODULES_PATH");
@@ -789,6 +792,19 @@ int main(int argc, char * const *argv)
 	{
 		display_configuration(configfile, pidfile);
 		return 0;
+	}
+
+	if (workingdir != NULL)
+	{
+		if (chroot(workingdir) == 0)
+		{
+			warn("main: daemon run inside sandbox");
+		}
+		else if (chdir(workingdir) != 0)
+		{
+			err("%s directory is not accessible", workingdir);
+			return 1;
+		}
 	}
 
 	if (ouistiticonfig->init_d != NULL)

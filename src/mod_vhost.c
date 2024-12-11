@@ -31,6 +31,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <limits.h>
 
 #ifdef MODULES
 #include <dlfcn.h>
@@ -267,11 +268,11 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 	httpserver_addconnector(server, _vhost_connector, mod, CONNECTOR_SERVER, str_vhost);
 	httpserver_addconnector(mod->vserver, _vhost_vconnector, mod, CONNECTOR_SERVER, str_vhost);
 
-	char *cwd = NULL;
+	char cwd[PATH_MAX] = {0};
 	if (config->root != NULL && config->root[0] != '\0' )
 	{
 		warn("vhost: change directory %s", config->root);
-		cwd = getcwd(NULL, 0);
+		getcwd(cwd, PATH_MAX);
 		if (chdir(config->root))
 		{
 			err("vhost: change directory error !");
@@ -295,13 +296,9 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 			mod->modules = entry;
 		}
 	}
-	if (cwd != NULL)
-	{
-		warn("vhost: change directory %s", cwd);
-		if (chdir(cwd))
-			err("main: change directory error !");
-		free(cwd);
-	}
+	warn("vhost: change directory %s", cwd);
+	if (cwd[0] && chdir(cwd))
+		err("vhost: change directory error !");
 
 	dbg("create vhost for %s", config->vserver.hostname);
 
