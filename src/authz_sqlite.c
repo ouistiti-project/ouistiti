@@ -187,6 +187,7 @@ static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 	if (access(config->dbname, R_OK) && _authz_sqlite_createdb(config->dbname) == EREJECT)
 	{
 		err("auth: database %s storage not allowed", config->dbname);
+		warn("auth: check if %s is not a broken link", config->dbname);
 		return NULL;
 	}
 	auth_dbg("auth: authentication DB storage on %s", config->dbname);
