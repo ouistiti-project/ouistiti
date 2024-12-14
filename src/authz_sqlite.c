@@ -630,7 +630,7 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 #define authz_sqlite_join NULL
 #endif
 
-static size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t length)
+size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t length)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int userid = authz_sqlite_userid(ctx, user);
@@ -656,7 +656,7 @@ static size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, siz
 	{
 		if (sqlite3_column_type(statement, 0) == SQLITE_TEXT)
 		{
-			strncpy(issuer, sqlite3_column_text(statement, 0), length);
+			snprintf(issuer, length, "%.*s", sqlite3_column_bytes(statement, 0), sqlite3_column_text(statement, 0));
 			length = sqlite3_column_bytes(statement, 0);
 		}
 		ret = sqlite3_step(statement);
