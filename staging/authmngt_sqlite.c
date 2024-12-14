@@ -411,7 +411,7 @@ static int authmngt_sqlite_addissuer(void *arg, int userid, const char *issuer, 
 	ret = sqlite3_bind_text(statement, index, issuer, length, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
-	authdbg("auth: sql query %s", sqlite3_expanded_sql(statement));
+	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
 	ret = sqlite3_step(statement);
 	sqlite3_finalize(statement);
 
