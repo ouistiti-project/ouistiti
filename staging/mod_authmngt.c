@@ -164,28 +164,40 @@ static int authmngt_setrules(const config_setting_t *configauth, mod_authmngt_t 
 	return ESUCCESS;
 }
 
-static void *mod_authmngt_config(config_setting_t *iterator, server_t *UNUSED(server))
+static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
+	int conf_ret = ESUCCESS;
 	mod_authmngt_t *mngtconfig = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	const config_setting_t *configauth = config_setting_get_member(iterator, "auth");
+	const config_setting_t *config = config_setting_get_member(iterator, "auth");
 #else
-	const config_setting_t *configauth = config_setting_lookup(iterator, "auth");
+	const config_setting_t *config = config_setting_lookup(iterator, "auth");
 #endif
-	if (configauth)
+	if (config && config_setting_is_list(config))
+	{
+			if (index >= config_setting_length(config))
+				return EREJECT;
+			config = config_setting_get_elem(config, index);
+			conf_ret = ECONTINUE;
+	}
+	if (config)
 	{
 		const char *mode = NULL;
-		config_setting_lookup_string(configauth, "options", &mode);
+		config_setting_lookup_string(config, "options", &mode);
 		if (utils_searchexp("management", mode, NULL) != ESUCCESS)
-			return NULL;
+			return EREJECT;
 		mngtconfig = calloc(1, sizeof(*mngtconfig));
-		if (authmngt_setrules(configauth, mngtconfig) != ESUCCESS)
+		if (authmngt_setrules(config, mngtconfig) != ESUCCESS)
 		{
 			free(mngtconfig);
 			mngtconfig = NULL;
+			conf_ret = EREJECT;
 		}
 	}
-	return mngtconfig;
+	else
+		conf_ret = EREJECT;
+	*modconfig = (void *)mngtconfig;
+	return conf_ret;
 }
 #else
 static const mod_authmngt_t g_authmngt_config =
@@ -748,6 +760,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 
 const module_t mod_authmngt =
 {
+	.version = 0x01,
 	.name = str_authmngt,
 	.configure = (module_configure_t)&mod_authmngt_config,
 	.create = (module_create_t)&mod_authmngt_create,
