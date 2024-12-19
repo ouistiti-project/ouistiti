@@ -886,15 +886,16 @@ static const char *_authn_gettokenuser(const _mod_auth_ctx_t *ctx, http_message_
 {
 	const _mod_auth_t *mod = ctx->mod;
 	const char *user = NULL;
+	size_t length = 0;
 	/**
 	 * The authorization may be accepted and replaced by a token.
 	 * This token is available inside the cookie.
 	 */
 	if (mod->authn->type & AUTHN_HEADER_E)
-		httpmessage_REQUEST2(request, str_xuser, &user);
-	if (user == NULL || user[0] == '\0')
-		httpmessage_cookie(request, str_xuser, &user);
-	if (user == NULL || user[0] == '\0')
+		length = httpmessage_REQUEST2(request, str_xuser, &user);
+	if (length == 0)
+		length = httpmessage_cookie(request, str_xuser, &user);
+	if (length == 0)
 		user = str_anonymous;
 	return user;
 }
