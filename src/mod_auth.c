@@ -1012,11 +1012,6 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 		else
 			cookie_set(response, &txtoken, token, &tpoint, sign, &tsecure, &tsamesitelax, NULL);
 	}
-	else if (!string_empty(authorization))
-	{
-		string_t tauthorization = STRING_DCL(str_authorization);
-		cookie_set(response, &tauthorization, authorization, &tsecure, &tsamesitelax, NULL);
-	}
 	const char *user = NULL;
 	size_t userlen = auth_info2(response, str_user, &user);
 	string_t tuser = {0};
@@ -1058,10 +1053,6 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 			httpmessage_appendheader(response, str_xtoken, STRING_REF("."));
 			httpmessage_appendheader(response, str_xtoken, string_toc(sign), string_length(sign));
 		}
-	}
-	else if (!string_empty(authorization))
-	{
-		httpmessage_addheader(response, str_authorization, string_toc(authorization), string_length(authorization));
 	}
 	const char *user = NULL;
 	size_t userlen = auth_info2(response, str_user, &user);
@@ -1444,7 +1435,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		 * allows to disconnect the user.
 		 */
 		authorization = httpmessage_REQUEST(request, str_authenticate);
-		if (ret == ECONTINUE && authorization != NULL && authorization[0] != '\0')
+		if (authorization != NULL && authorization[0] != '\0')
 		{
 			ret = ESUCCESS;
 		}
@@ -1464,8 +1455,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		string_store(&issuer, issuerdata, length);
 		if (!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
 		{
-			warn("auth: session's issuer already set, by-pass the token checking");
+			warn("auth: session's issuer (%s) already set, by-pass the token checking", string_toc(&config->token.issuer));
 			auth_info2(request, str_user, &user);
+			authorization = issuerdata;
 			ret = EREJECT;
 		}
 	}
