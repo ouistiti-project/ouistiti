@@ -3,5 +3,5 @@ if [ "$AUTHZ_MANAGER" != "y" ]; then
 	DISABLED=1
 fi
 DESC="authmngt: change user's issuer from root"
-CONFIG=test12.conf
+CONFIG=test16.conf
 TESTCODE=200

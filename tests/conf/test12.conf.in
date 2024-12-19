@@ -68,7 +68,7 @@ servers= ({
 		auth = {
 			type="Bearer";
 			authz = "jwt";
-			options = "jwt,cookie";
+			options = "cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
 			issuer = "sqlite+totp";
@@ -83,6 +83,10 @@ servers= ({
 			docroot = "%PWD%/tests/htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
+		};
+		cgi = {
+			docroot = "%PWD%/tests/htdocs";
+			allow = ".cgi";
 		};
 		redirect = {
 			links = ({
