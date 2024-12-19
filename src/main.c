@@ -567,12 +567,12 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 	}
 #ifdef DEBUG
 	char pwd[PATH_MAX];
-	warn("main: ouistiti running environment %s", getcwd(pwd, PATH_MAX));
+	dbg("main: ouistiti running environment %s", getcwd(pwd, PATH_MAX));
 	struct dirent **namelist;
 	int n = scandir(".", &namelist, NULL, alphasort);
 	while (n-- > 0)
 	{
-		warn("\t%s", namelist[n]->d_name);
+		dbg("\t%s", namelist[n]->d_name);
 		free(namelist[n]);
 	}
 	free(namelist);
