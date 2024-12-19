@@ -88,10 +88,18 @@ struct authmngt_s
 	const char *name;
 };
 
+typedef struct mod_authmngt_issuer_s mod_authmngt_issuer_t;
+struct mod_authmngt_issuer_s
+{
+	string_t name;
+	mod_authmngt_issuer_t *next;
+};
+
 typedef struct mod_authmngt_s mod_authmngt_t;
 struct mod_authmngt_s
 {
 	authmngt_t mngt;
+	mod_authmngt_issuer_t *issuers;
 };
 
 extern const module_t mod_authmngt;
