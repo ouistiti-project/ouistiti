@@ -639,6 +639,8 @@ size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t len
 	{
 		return EREJECT;
 	}
+
+	size_t len = 0;
 	int ret;
 	const char *sql = "select issuer from issuers where userid=@USERID;";
 
@@ -656,15 +658,16 @@ size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t len
 	{
 		if (sqlite3_column_type(statement, 0) == SQLITE_TEXT)
 		{
-			snprintf(issuer, length, "%.*s", sqlite3_column_bytes(statement, 0), sqlite3_column_text(statement, 0));
-			length = sqlite3_column_bytes(statement, 0);
+			len = sqlite3_column_bytes(statement, 0);
+			const char *data = sqlite3_column_text(statement, 0);
+			if (data[0] == '\0')
+				len = 0;
+			snprintf(issuer, length, "%.*s", (int)len, data);
 		}
 		ret = sqlite3_step(statement);
 	}
-	else
-		length = 0;
 	sqlite3_finalize(statement);
-	return length;
+	return len;
 }
 
 static void authz_sqlite_cleanup(void *arg)
