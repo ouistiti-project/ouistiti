@@ -308,6 +308,11 @@ if [ ${ALL} -eq 1 ]; then
 	${SRCDIR}${TARGET} ${ARGUMENTS} -h
 	${SRCDIR}${TARGET} ${ARGUMENTS} -V
 	${SRCDIR}${TARGET} ${ARGUMENTS} -C -f ${TESTDIR}conf/test1.conf
+	${SRCDIR}${TARGET} ${ARGUMENTS} -W ${TESTDIR} -f ${TESTDIR}conf/test.conf -p $TMPRESPONSE.pid -D
+	sleep 1
+	$WGET --no-check-certificate -S -q -O - http://127.0.0.1:8080/index.html 2> $TMPRESPONSE.tmp
+	sleep 1
+	${SRCDIR}${TARGET} ${ARGUMENTS} -p $TMPRESPONSE.pid -K
 fi
 if [ ${GCOV} -eq 1 ]; then
 	make DEBUG=y gcov
