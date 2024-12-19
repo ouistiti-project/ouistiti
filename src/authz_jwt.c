@@ -315,7 +315,7 @@ static int _authn_jwt_checktoken(const authz_token_config_t *config, const char 
 		string_store(&strissuer, issuer, -1);
 		if (issuer && string_contain(&strissuer, string_toc(&config->issuer), string_length(&config->issuer), '+'))
 		{
-			err("auth: token with bad issuer: %s '%s'", issuer, config->issuer);
+			err("auth: token with bad issuer: %s / %s", issuer, string_toc(&config->issuer));
 			return EREJECT;
 		}
 		ret = ESUCCESS;
