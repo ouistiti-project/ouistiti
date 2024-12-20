@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/; Domain=.ouistiti.local
+Set-Cookie: X-Remote-Group=users; SameSite=strict; Path=/; Domain=.ouistiti.local
+Content-Type: text/plain
+Content-Length: 125
+
+otpauth://totp/totp:foo?secret=F7436YAQRGW7TSBQV544DMUBTI63CHCTTJZI3HEKLVKTXSGYEQFA&issuer=totp&algorithm=hmac-sha1&digits=6

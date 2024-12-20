@@ -39,14 +39,16 @@ servers= ({
 				type = "Basic";
 				authz = "totp";
 				options = "jwt,cookie";
+				issuer = "totp";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html";
+				token_ep = "/token_totp";
 			};
 			redirect = {
 				links = ({
 					options = "query,temporary";
-					origin = "^/token";
+					origin = "^/token$";
 				});
 			};
 			document = {
