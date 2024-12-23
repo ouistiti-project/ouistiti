@@ -71,7 +71,7 @@
 
 char str_hostname[HOST_NAME_MAX + 7];
 
-#define MAX_STRING 256
+#define MAX_STRING 1024
 
 size_t string_length(const string_t *str)
 {
