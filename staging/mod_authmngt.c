@@ -257,6 +257,10 @@ static void *mod_authmngt_getctx(void *arg, http_client_t *clt, struct sockaddr 
 	ctx->clt = clt;
 	httpclient_addconnector(clt, _authmngt_connector, ctx, CONNECTOR_DOCUMENT, "authmngt");
 
+	for (mod_authmngt_issuer_t *issuer = mod->config->issuers; issuer != NULL; issuer = issuer->next)
+	{
+		dbg("%s %d issuer %s", __FILE__, __LINE__, string_toc(&issuer->name));
+	}
 	return ctx;
 }
 
@@ -470,7 +474,7 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 {
 	int ret = EREJECT;
 	const char *data = NULL;
-	size_t length = httpmessage_parameter(request, str_issuer, &data);
+	size_t length = httpmessage_parameter(request, "issuers", &data);
 	if (length > 0)
 	{
 		char *decode = utils_urldecode(data, length);
@@ -483,6 +487,8 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 			string_cpy(issuer, data, length);
 		ret = ESUCCESS;
 	}
+	else
+		string_cpy(issuer, data, 0);
 	return ret;
 }
 
@@ -501,6 +507,8 @@ static int _authmngt_parsesession(_mod_authmngt_ctx_t *ctx, const char *user,
 		size_t length = httpmessage_parameter(request, str_user, &tmpuser);
 		if (length > 0)
 			isuser = !strncmp(user, tmpuser, length);
+		else
+			isuser = 1;
 	}
 	if (user != NULL)
 	{
@@ -700,7 +708,7 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 	}
 
 	authsession_t info = {0};
-	const char data[254];
+	const char data[256];
 	string_t issuer = {0};
 	string_store(&issuer, STRING_REF(data));
 	ret = _authmngt_parsesession(ctx, user, request, &info, &issuer);
@@ -722,7 +730,7 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 			ret = mod->config->mngt.rules->changeinfo(ctx->ctx, &info);
 		}
 	}
-	if (ret == ESUCCESS && ctx->isroot && !string_empty(&issuer) && mod->config->mngt.rules->setissuer != NULL)
+	if (ret == ESUCCESS && (ctx->isuser || ctx->isroot) && mod->config->mngt.rules->setissuer != NULL)
 	{
 		ret = mod->config->mngt.rules->setissuer(ctx->ctx, user,string_toc(&issuer), string_length(&issuer));
 	}

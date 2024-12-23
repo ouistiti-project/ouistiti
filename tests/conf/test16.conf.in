@@ -53,7 +53,7 @@ servers= ({
 				type = "none";
 				dbname="%PWD%/tests/conf/passwd.db";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
-				options = "jwt,cookie,management";
+				options = "jwt,management";
 				issuer = "authpass+totp";
 			});
 			redirect = {
