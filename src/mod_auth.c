@@ -1514,7 +1514,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		else
 		{
 			auth_dbg("auth: set the session");
-			authz->rules->setsession(authz->ctx, user, token, auth_saveinfo, ctx->clt);
+			// The first MFA authenticator must know the group, and status
+			// the next authenticator haven't to modify this values
+			if (authz->rules->setsession)
+				authz->rules->setsession(authz->ctx, user, token, auth_saveinfo, ctx->clt);
 			httpclient_session(ctx->clt, STRING_REF(str_issuer), STRING_INFO(config->token.issuer));
 			if (authz->rules->join)
 			{
