@@ -326,22 +326,34 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 		else if (link->options & REDIRECT_TEMPORARY)
 			result = RESULT_307;
 
-		if (link->destination != NULL &&
+		string_t query = {0};
+		ouimessage_REQUEST(request, "query", &query);
+		if (!string_empty(&query) &&
+				!string_contain(&query, "noredirect*", 11, '&'))
+		{
+			result = RESULT_204;
+			ret = ESUCCESS;
+		}
+		else if (link->destination != NULL &&
 				utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
 		{
 			ret = _mod_redirect_destination(mod, link, request, response, path_info);
 		}
 		else if (link->options & REDIRECT_QUERY)
 		{
-			const char *redirect = NULL;
-			size_t length = httpmessage_parameter(request, "redirect_uri", &redirect);
-			char *decode = utils_urldecode(redirect, length);
+			string_t redirect = {0};
+			ouimessage_parameter(request, "redirect_uri", &redirect);
+			char *decode = NULL;
+			if (!string_empty(&redirect))
+				decode = utils_urldecode(string_toc(&redirect), string_length(&redirect));
 			if (decode != NULL)
 			{
 				redirect_dbg("redirect: Location from query %s", decode);
 				httpmessage_addheader(response, str_location, decode, strlen(decode));
 				free(decode);
 			}
+			else
+				result = RESULT_204;
 			ret = ESUCCESS;
 		}
 		if (ret == ESUCCESS)
@@ -401,7 +413,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 	}
 	if (config->options & REDIRECT_GENERATE204)
 	{
-		if (utils_searchexp(uri, "generate_204", NULL) == ESUCCESS)
+		if (utils_searchexp(uri, "generate_204,^/true", NULL) == ESUCCESS)
 		{
 			httpmessage_result(response, RESULT_204);
 			return ESUCCESS;
