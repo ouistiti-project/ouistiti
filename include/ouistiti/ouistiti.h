@@ -124,6 +124,10 @@ int string_empty(const string_t *str);
 const char *string_toc(const string_t *str);
 size_t string_length(const string_t *str);
 
+int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value);
+int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value);
+int ouimessage_parameter(http_message_t *message, const char *key, string_t *value);
+
 extern const char str_servername[9];
 
 extern const char str_http[5];
