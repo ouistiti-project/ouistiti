@@ -11,6 +11,7 @@ servers= ({
 			options = "jwt,cookie";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			issuer = "sqlite";
+			realm = "www.ouistiti.net";
 			token_ep = "https://auth.ouistiti.net:8080/token";
 		};
 		document = {

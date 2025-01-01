@@ -69,11 +69,15 @@ static int authn_wwwform_challenge(void *arg, http_message_t *UNUSED(request), h
 {
 	int ret = ECONTINUE;
 	const authn_wwwform_t *mod = (authn_wwwform_t *)arg;
-#if 0
 	const mod_auth_t *config = mod->authn->config;
-#endif
 
 	httpmessage_addheader(response, str_authenticate, STRING_REF("WWW-Form"));
+	if (!string_empty(&config->realm))
+	{
+		httpmessage_appendheader(response, str_authenticate, STRING_REF(" realm=\""));
+		httpmessage_appendheader(response, str_authenticate, STRING_INFO(config->realm));
+		httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
+	}
 	return ret;
 }
 
