@@ -74,6 +74,7 @@ servers= ({
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
 			issuer = "sqlite+totp";
+			realm = "www.ouistiti.local";
 		};
 		userfilter = {
 			dbname = "%PWD%/tests/conf/filter.db";

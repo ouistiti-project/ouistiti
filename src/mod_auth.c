@@ -488,10 +488,12 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	if (config_setting_lookup_int(config, "expire", &auth->token.expire) == CONFIG_FALSE)
 		auth->token.expire = 30;
 
-	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_FALSE)
-		string_store(&auth->realm, hostname, -1);
-	else
+	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
 		string_store(&auth->realm, data, -1);
+	else if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
+		string_store(&auth->realm, data, -1);
+	else
+		string_store(&auth->realm, hostname, -1);
 
 	ret = authz_config(config, &auth->authz);
 	if (ret == EREJECT)
@@ -501,10 +503,12 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	}
 	if (auth->authz.type & AUTHZ_JWT_E)
 		auth->token.type = E_JWT;
-	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_FALSE)
-		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
-	else
+	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
 		string_store(&auth->token.issuer, data, -1);
+	else if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
+		string_store(&auth->token.issuer, data, -1);
+	else
+		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
 
 	ret = authn_config(config, &auth->authn);
 	if (ret == EREJECT)

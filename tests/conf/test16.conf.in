@@ -30,6 +30,7 @@ servers= ({
 				options = "jwt";
 				 */
 				issuer = "authpass";
+				realm = "auth.ouistiti.local";
 			},{
 				type = "wwwform";
 				token_ep = "/token_totp";
@@ -44,6 +45,7 @@ servers= ({
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html?step=totp";
 				issuer = "totp";
+				realm = "auth.ouistiti.local:totp";
 			},{
 				/*
 				   The last auth is not a real authentication
@@ -84,6 +86,7 @@ servers= ({
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
 			issuer = "authpass";
+			realm = "www.ouistiti.local";
 		};
 		userfilter = {
 			dbname = "%PWD%/tests/conf/filter.db";
