@@ -104,21 +104,28 @@ int string_cmp(const string_t *str, const char *cmp, size_t length)
 	return strncasecmp(str->data, cmp, str->length);
 }
 
-int string_contain(const string_t *str, const char *cmp, size_t length, const char sep)
+int string_contain(const string_t *stack, const char *nail, size_t length, const char sep)
 {
 	int ret = -1;
-	if (cmp == NULL)
+	if (nail == NULL)
 		return -1;
 	if (length == (size_t) -1)
-		length = strnlen(cmp, str->length);
-	const char *offset = str->data;
+		length = strnlen(nail, stack->length);
+	if (nail[length - 1] == '*')
+		length--;
+	const char *offset = stack->data;
 	while (offset && offset[0] != '\0')
 	{
-		if (!strncasecmp(offset, cmp, length))
+		if (!strncasecmp(offset, nail, length))
 		{
-			ret = 0;
-			break;
+			if (nail[length] == '*')
+				ret = 0;
+			/// a string_t may not be a null terminated array
+			if (((offset + length) == (stack->data + stack->length)) || offset[length] == sep)
+				ret = 0;
 		}
+		if (ret == 0)
+			break;
 		offset = strchr(offset, sep);
 		if (offset)
 			offset++;
