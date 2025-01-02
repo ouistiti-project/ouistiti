@@ -951,6 +951,7 @@ int authn_checksignature(const char *key, size_t keylen,
 		return EREJECT;
 	string_t signature = {0};
 	string_store(&signature, b64signature, len);
+	dbg("auth: signature should be '%.*s'", len, b64signature);
 	if (string_cmp(&signature, sign, signlen))
 		return EREJECT;
 	return ESUCCESS;
@@ -1254,23 +1255,13 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			/// The page tried an authentication and want to stay on top.
 			httpmessage_result(response, RESULT_403);
 		}
-		else if (config->redirect.data)
+		else if (!string_empty(&config->redirect))
 		{
 			int protect = 1;
 			/**
 			 * check the url redirection
 			 */
-			const char *redirect = strstr(config->redirect.data, "://");
-			if (redirect != NULL)
-			{
-				redirect += 3;
-				redirect = strchr(redirect, '/');
-			}
-			else
-				redirect = config->redirect.data;
-			if (redirect[0] == '/')
-				redirect++;
-			protect = utils_searchexp(uri, redirect, NULL);
+			protect = string_contain(&config->redirect, uri, -1, '?')?EREJECT:ESUCCESS;
 			if (protect == ESUCCESS)
 			{
 				/**
