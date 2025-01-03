@@ -989,12 +989,6 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 	 * is sended info header
 	 */
 	authorizationlen = httpmessage_REQUEST2(request, str_authorization, authorization);
-	if (authorizationlen != 0 && string_cmp(&mod->type, *authorization, -1))
-	{
-		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, *authorization, (int)mod->type.length, mod->type.data);
-		*authorization = NULL;
-		authorizationlen = 0;
-	}
 	/**
 	 * to send the authorization header only once, the "cookie"
 	 * option of the server store the authorization inside cookie.
@@ -1010,6 +1004,13 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 			*authorization = string_toc(&cookie);
 		}
 		auth_dbg("auth: cookie get %p", *authorization);
+	}
+
+	if (authorizationlen != 0 && string_cmp(&mod->type, *authorization, -1))
+	{
+		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, *authorization, (int)mod->type.length, mod->type.data);
+		*authorization = NULL;
+		authorizationlen = 0;
 	}
 	return authorizationlen;
 }
@@ -1411,6 +1412,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		authz = &ctx->authz;
 	}
 
+	auth_dbg("auth: check for %s", string_toc(&config->token.issuer));
 	const char *user = NULL;
 #ifdef AUTH_TOKEN
 	if (mod->authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
@@ -1469,6 +1471,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			authorization = issuerdata;
 			ret = EREJECT;
 		}
+		auth_dbg("auth: check issuer %d", ret);
 	}
 	if (ret == EREJECT)
 	{
