@@ -17,7 +17,7 @@ Content-Type: text/html
 	</body>
 </html>
 HTTP/1.1 307 Temporary Redirect
-Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImpvaG5Eb2UiLCAiaG9tZSI6ICIvaG9tZS9qb2huIiwgInN0YXR1cyI6ICJhY3RpdmF0ZWQiLCAicm9sZXMiOiAidXNlcnMiLCAiZXhwIjogMTgwMCwgImlzcyI6ICJhdXRocGFzcyt0b3RwICJ9.NNFbpUnIAY3zP3NAUU9Eggisw2F-q2AKGD-Y7wmEmVo; Secure; Samesite=Lax; SameSite=strict; Path=/; Domain=.ouistiti.local
+Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImpvaG5Eb2UiLCAiaG9tZSI6ICIvaG9tZS9qb2huIiwgInN0YXR1cyI6ICJhY3RpdmF0ZWQiLCAicm9sZXMiOiAidXNlcnMiLCAiZXhwIjogMTgwMCwgImlzcyI6ICJhdXRocGFzcyt0b3RwIn0.BhSwM6PQfSSjB6cuLaE9rQaf5xbD_4vEc9mdFFHYoLg; Secure; Samesite=Lax; SameSite=strict; Path=/; Domain=.ouistiti.local
 Location: https://www.ouistiti.local:8080/index.html
 
  307 Temporary Redirect
