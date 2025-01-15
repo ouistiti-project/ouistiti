@@ -488,7 +488,7 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 		ret = ESUCCESS;
 	}
 	else
-		string_cpy(issuer, data, 0);
+		string_cleansafe(issuer);
 	return ret;
 }
 
@@ -670,10 +670,8 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	ctx->isuser = 1;
 
 	authsession_t info = {0};
-	const char data[254];
-	string_t issuer = {0};
-	string_store(&issuer, STRING_REF(data));
-	ret = _authmngt_parsesession(ctx, user, request, &info, &issuer);
+	string_t *issuer = string_create(254);
+	ret = _authmngt_parsesession(ctx, user, request, &info, issuer);
 	if (ret == ESUCCESS && mod->config->mngt.rules->adduser != NULL)
 	{
 		ret = mod->config->mngt.rules->adduser(ctx->ctx, &info);
@@ -683,7 +681,7 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 			ctx->error = error_userexists;
 		if (ret == ESUCCESS && mod->config->mngt.rules->setissuer != NULL)
 		{
-			ret = mod->config->mngt.rules->setissuer(ctx->ctx, info.user, string_toc(&issuer), string_length(&issuer));
+			ret = mod->config->mngt.rules->setissuer(ctx->ctx, info.user, string_toc(issuer), string_length(issuer));
 		}
 		else
 			ctx->error = error_badvalue;
@@ -694,6 +692,7 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	}
 	else
 		ctx->error = error_accessdenied;
+	string_destroy(issuer);
 	return ret;
 }
 

@@ -50,7 +50,7 @@ struct authn_digest_s
 	const hash_t *hash;
 	char _nonce[MAXNONCE];
 	string_t nonce;
-	char *user;
+	string_t user;
 	int stale;
 	int encode;
 };
@@ -239,7 +239,7 @@ static int authn_digest_challenge(void *arg, http_message_t *UNUSED(request), ht
 struct authn_digest_computing_s
 {
 	char *(*digest)(const hash_t * hash, const char *a1, size_t a1len, const char *nonce, size_t noncelen, const char *nc, size_t nclen, const char *cnonce, size_t cnoncelen, const char *qop, size_t qoplen, const char *a2, size_t a2len);
-	size_t (*a1)(const hash_t * hash, const char *user, size_t userlen, const char *realm, size_t realmlen, const char *passwd, size_t passwdlen, char **a1);
+	size_t (*a1)(const hash_t * hash, string_t *user, const char *realm, size_t realmlen, string_t *passwd, char **a1);
 	size_t (*a2)(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen, char **a2);
 };
 
@@ -284,48 +284,48 @@ static char *authn_digest_digest(const hash_t * hash, const char *a1, size_t a1l
 	return NULL;
 }
 
-static size_t authn_digest_a1(const hash_t * hash, const char *user, size_t userlen, const char *realm, size_t realmlen, const char *passwd, size_t passwdlen, char **a1)
+static size_t authn_digest_a1(const hash_t * hash, string_t *user, const char *realm, size_t realmlen, string_t *passwd, char **a1)
 {
-	if (passwd[0] != '$')
+	if (string_toc(passwd)[0] != '$')
 	{
 		unsigned char A1[32];
 		void *ctx;
 
 		ctx = hash->init();
-		hash->update(ctx, user, userlen);
+		hash->update(ctx, string_toc(user), string_length(user));
 		hash->update(ctx, ":", 1);
 		hash->update(ctx, realm, realmlen);
 		hash->update(ctx, ":", 1);
-		hash->update(ctx, passwd, passwdlen);
+		hash->update(ctx, string_toc(passwd), string_length(passwd));
 		hash->finish(ctx, A1);
 		return utils_stringify(A1, hash->size, a1);
 	}
-	else if (passwd[0] == '$')
+	else if (string_toc(passwd)[0] == '$')
 	{
-		const char *fullpasswd = passwd;
+		const char *itpasswd = string_toc(passwd);
 		int i = 1;
 		int decode = 0;
-		if (passwd[i] == 'a')
+		if (itpasswd[i] == 'a')
 		{
 			decode = 1;
 			i++;
 		}
-		if (passwd[i] == 'd')
+		if (itpasswd[i] == 'd')
 		{
 			i++;
 		}
-		if ( passwd[i] == hash->nameid)
+		if ( itpasswd[i] == hash->nameid)
 		{
-			passwd = strrchr(passwd + 1, '$');
-			passwd += 1;
+			itpasswd = strrchr(itpasswd + 1, '$');
+			itpasswd += 1;
+			size_t passwdlen = string_length(passwd) - (size_t)(itpasswd - string_toc(passwd));
 			if (decode)
 			{
 				unsigned char b64passwd[64] = {0};
-				passwdlen -= passwd - fullpasswd;
-				int len = base64->decode(passwd, passwdlen, b64passwd, 64);
+				int len = base64->decode(itpasswd, passwdlen, b64passwd, 64);
 				return utils_stringify(b64passwd, len, a1);
 			}
-			*a1 = strdup(passwd);
+			*a1 = strdup(itpasswd);
 			return passwdlen;
 		}
 	}
@@ -546,32 +546,39 @@ static int authn_digest_checkresponse(void *data, const char *value, size_t leng
 struct checkuser_s
 {
 	authz_t *authz;
-	const char *value;
-	size_t length;
-	const char *passwd;
-	size_t passwdlen;
+	string_t name;
+	string_t *passwd;
 };
 
 typedef struct checkuser_s checkuser_t;
 static int authn_digest_checkuser(void *data, const char *user, size_t length)
 {
+	int ret = EREJECT;
 	checkuser_t *info = (checkuser_t *)data;
 	authz_t *authz = info->authz;
 
 	if (user != NULL)
 	{
-		info->passwdlen = authz->rules->passwd(authz->ctx, user, &info->passwd);
-		if (info->passwdlen > 0)
+		string_t userstr = {0};
+		string_store(&userstr, user, length);
+		ret = authz->rules->passwd(authz->ctx, &userstr, NULL);
+		if (ret < 1)
+			return EREJECT;
+		info->passwd = string_create(ret + 1);
+		ret = authz->rules->passwd(authz->ctx, &userstr, info->passwd);
+		ret = EREJECT;
+		if (!string_empty(info->passwd))
 		{
-			info->value = user;
-			info->length = length;
-			auth_dbg("user %.*s", (int)length, user);
-			return ESUCCESS;
+			string_store(&info->name, user, length);
+			auth_dbg("user %.*s", (int)string_length(&info->name), string_toc(&info->name));
+			ret = ESUCCESS;
 		}
-		warn("auth: user %s is unknown", user);
+		else
+			warn("auth: user %.*s is unknown", length, user);
 	}
-	warn("auth: user is unset");
-	return EREJECT;
+	else
+		warn("auth: user is unset");
+	return ret;
 }
 
 
@@ -608,9 +615,9 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 	{
 		char *a1 = NULL;
 		size_t a1len = authn_digest_computing->a1(algorithm.hash,
-						user.value, user.length,
+						&user.name,
 						realm.value, realm.length,
-						user.passwd, user.passwdlen, &a1);
+						user.passwd, &a1);
 		auth_dbg("a1:\n\t%.*s\n", (int)a1len, a1);
 		char *a2 = NULL;
 		size_t a2len = authn_digest_computing->a2(algorithm.hash,
@@ -627,18 +634,23 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 						a2, a2len);
 
 		auth_dbg("Digest:\n\t%.*s\n\t%s", (int)response.length, response.value, digest);
-		if (mod->user != NULL)
-			free(mod->user);
+		if (!string_empty(&mod->user))
+			string_destroy(&mod->user);
 		if (digest && !strncmp(digest, response.value, response.length))
 		{
-			mod->user = strndup(user.value, user.length);
-			user_ret = mod->user;
+			string_dup(&mod->user, &user.name);
+			user_ret = string_toc(&mod->user);
 		}
 		else
-			mod->user = NULL;
+			string_destroy(&mod->user);
 		free (a1);
 		free (a2);
 		free (digest);
+	}
+	if (user.passwd)
+	{
+		string_cleansafe(user.passwd);
+		string_destroy(user.passwd);
 	}
 	return user_ret;
 }
@@ -646,8 +658,6 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 static void authn_digest_destroy(void *arg)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
-	if (mod->user != NULL)
-		free(mod->user);
 	free(mod->config);
 	free(mod);
 }

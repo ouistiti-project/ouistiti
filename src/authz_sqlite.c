@@ -227,36 +227,41 @@ static void *authz_sqlite_setup(void *arg, http_client_t *clt, struct sockaddr *
 						"inner join status on status.id=users.statusid " \
 						"where users.name=@NAME;"
 
-static const unsigned char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field, int fieldlen)
+static int authz_sqlite_search(authz_sqlite_t *ctx, const string_t *user, char *field, int fieldlen, string_t *passwd)
 {
 	int ret;
 	const unsigned char *value = NULL;
+	int length = 0;
 
 	size_t size = sizeof(SEARCH_QUERY) + fieldlen;
 	char *sql = sqlite3_malloc(size);
 	snprintf(sql, size, SEARCH_QUERY, field);
 
-	if (ctx->statement != NULL)
-		sqlite3_finalize(ctx->statement);
-	sqlite3_prepare_v2(ctx->db, sql, -1, &ctx->statement, NULL);
+	sqlite3_stmt *statement = NULL; /// use a specific statement
+	sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
 
 	int index;
-	index = sqlite3_bind_parameter_index(ctx->statement, "@NAME");
+	index = sqlite3_bind_parameter_index(statement, "@NAME");
 	if (index > 0)
-		sqlite3_bind_text(ctx->statement, index, user, -1, SQLITE_STATIC);
-	ret = sqlite3_step(ctx->statement);
+		sqlite3_bind_text(statement, index, string_toc(user), string_length(user), SQLITE_STATIC);
+	ret = sqlite3_step(statement);
 	while (ret == SQLITE_ROW)
 	{
 		int i = 0;
-		if (sqlite3_column_type(ctx->statement, i) == SQLITE_TEXT)
+		if (sqlite3_column_type(statement, i) == SQLITE_TEXT)
 		{
-			value = sqlite3_column_text(ctx->statement, i);
+			value = sqlite3_column_text(statement, i);
+			length = sqlite3_column_bytes(statement, i);
 			break;
 		}
-		ret = sqlite3_step(ctx->statement);
+		ret = sqlite3_step(statement);
 	}
 	sqlite3_free(sql);
-	return value;
+	ret = length;
+	if (value && passwd)
+		ret = string_cpy(passwd, value, length);
+	sqlite3_finalize(statement);
+	return ret;
 }
 
 static int _authz_sqlite_storeuser(const authz_sqlite_t *UNUSED(ctx), sqlite3_stmt *statement, storeinfo_t callback, void *cbarg)
@@ -390,14 +395,12 @@ static int authz_sqlite_setsession(void *arg, const char *user, const char *toke
 	return ret;
 }
 
-static int authz_sqlite_passwd(void *arg, const char *user, const char **passwd)
+static int authz_sqlite_passwd(void *arg, const string_t *user, string_t *passwd)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	*passwd = (const char *)authz_sqlite_search(ctx, user, STRING_REF("passwd"));
-	if (*passwd)
-		return strlen(*passwd);
-	return 0;
+	int ret = authz_sqlite_search(ctx, user, STRING_REF("passwd"), passwd);
+	return ret;
 }
 
 #ifdef AUTH_TOKEN
@@ -438,23 +441,23 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	const char *checkpasswd = NULL;
-	authz_sqlite_passwd(ctx, user, &checkpasswd);
+	string_t userstr = {0};
+	string_store(&userstr, user, -1);
+	ret = authz_sqlite_passwd(ctx, &userstr, NULL);
+	string_t *checkpasswd = string_create(ret);
+	ret = authz_sqlite_passwd(ctx, &userstr, checkpasswd);
 	auth_dbg("auth: check password for %s => %s (%s)", user, passwd, checkpasswd);
-	if (checkpasswd != NULL)
+	if (ret == ESUCCESS)
 	{
-		string_t userstr = {0};
-		string_store(&userstr, user, -1);
 		string_t passwdstr = {0};
 		string_store(&passwdstr, passwd, -1);
-		if (authz_checkpasswd(checkpasswd, &userstr, NULL, &passwdstr) == ESUCCESS)
+		if (authz_checkpasswd(string_toc(checkpasswd), &userstr, NULL, &passwdstr) == ESUCCESS)
 			ret = 1;
 	}
 	else
 		err("auth: user %s not found in DB", user);
-	if (ctx->statement != NULL)
-		sqlite3_finalize(ctx->statement);
-	ctx->statement = NULL;
+	string_cleansafe(checkpasswd);
+	string_destroy(checkpasswd);
 	return ret;
 }
 
