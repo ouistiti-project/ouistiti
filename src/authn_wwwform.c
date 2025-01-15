@@ -89,7 +89,7 @@ static const char *authn_wwwform_checkrequest(void *arg, authz_t *authz, http_me
 
 	const char *uri = NULL;
 	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
-	if (string_cmp(&config->token_ep, uri, urilen))
+	if (string_contain(&config->token_ep, uri, urilen, '?'))
 		return NULL;
 
 	const char *content_type = NULL;
