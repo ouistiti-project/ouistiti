@@ -111,18 +111,28 @@ struct string_s
 	const char *data;
 	size_t length;
 	size_t size;
+	char *ddata;
 };
 
 #define STRING_REF(string) string, sizeof(string)-1
 #define STRING_INFO(string) string.data, string.length
 #define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
+string_t *string_create(size_t size);
 int string_store(string_t *str, const char *pointer, size_t length);
 int string_cmp(const string_t *str, const char *cmp, size_t length);
 int string_contain(const string_t *str, const char *cmp, size_t length, const char sep);
+int string_is(const string_t *str1, const string_t *str2);
+int string_printf(string_t *str, void *fmt,...);
+int string_fgetline(string_t *str, FILE *f);
 int string_cpy(string_t *str, const char *source, size_t length);
 int string_empty(const string_t *str);
 const char *string_toc(const string_t *str);
 size_t string_length(const string_t *str);
+size_t string_size(const string_t *str);
+int string_split(string_t *str, char sep, ...);
+int string_dup(string_t *dst, string_t *src);
+void string_cleansafe(string_t *str);
+void string_destroy(string_t *str);
 
 int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value);
 int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value);

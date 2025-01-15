@@ -40,6 +40,9 @@
 #ifdef BACKTRACE
 #include <execinfo.h> // for backtrace
 #endif
+#ifdef USE_STDARG
+#include <stdarg.h>
+#endif
 
 #ifndef WIN32
 # include <sys/socket.h>
@@ -73,6 +76,14 @@ char str_hostname[HOST_NAME_MAX + 7];
 
 #define MAX_STRING 1024
 
+string_t *string_create(size_t size)
+{
+	string_t *str = calloc(1, sizeof(*str) + size);
+	str->ddata = (void *)str + sizeof(*str);
+	str->data = str->ddata;
+	str->size = size;
+}
+
 size_t string_length(const string_t *str)
 {
 	if (str->data && str->length == (size_t) -1)
@@ -80,8 +91,17 @@ size_t string_length(const string_t *str)
 	return str->length;
 }
 
+size_t string_size(const string_t *str)
+{
+	return str->size;
+}
+
 int string_store(string_t *str, const char *pointer, size_t length)
 {
+	if (str->ddata)
+	{
+		return string_cpy(str, pointer, length);
+	}
 	str->data = pointer;
 	/// set length and check if value is -1
 	str->length = length;
@@ -133,6 +153,51 @@ int string_contain(const string_t *stack, const char *nail, size_t length, const
 	return ret;
 }
 
+int string_split(string_t *str, char sep, ...)
+{
+	int ret = 0;
+#ifdef USE_STDARG
+	va_list ap;
+	va_start(ap, sep);
+	for (size_t index = 0; index < str->length; index++)
+	{
+		string_t *arg = va_arg(ap, string_t *);
+		if (arg == NULL)
+			break;
+		ret++;
+		arg->data = &str->data[index];
+		char *end = strchr(arg->data, sep);
+		if (end)
+		{
+			arg->length = end - arg->data;
+		}
+		else
+		{
+			arg->length = str->length - (arg->data - str->data);
+		}
+		index += arg->length;
+		if (arg->ddata)
+		{
+			string_cpy(arg, arg->data, arg->length);
+			arg->data = arg->ddata;
+		}
+	}
+	va_end(ap);
+#endif
+	return ret;
+}
+
+int string_is(const string_t *str1, const string_t *str2)
+{
+	if ((str1 == NULL) || (str2 == NULL))
+		return 0;
+	if ((str1->length != str2->length))
+		return 0;
+	if (!strncasecmp(str1->data, str2->data, str1->length))
+		return 1;
+	return 0;
+}
+
 int string_empty(const string_t *str)
 {
 	return ! (str->data != NULL && str->data[0] != '\0' && str->length > 0);
@@ -140,18 +205,103 @@ int string_empty(const string_t *str)
 
 int string_cpy(string_t *str, const char *source, size_t length)
 {
-	if (str->data == NULL)
+	if (str->ddata == NULL)
 		return EREJECT;
 	if ((length == (size_t) -1) || (length > INT_MAX))
-		str->length = snprintf((char *)str->data, str->size, "%s", source);
+		str->length = snprintf(str->ddata, str->size, "%s", source);
 	else
-		str->length = snprintf((char *)str->data, str->size, "%.*s", (int)length, source);
-	return str->length;
+		str->length = snprintf(str->ddata, str->size, "%.*s", (int)length, source);
+	if (str->length == str->size)
+		return EREJECT;
+	return ESUCCESS;
+}
+
+int string_printf(string_t *str, void *fmt,...)
+{
+	if (str->ddata != NULL)
+	{
+#ifdef USE_STDARG
+		va_list ap;
+		va_start(ap, fmt);
+		str->length = vsnprintf(str->ddata, str->size, fmt, ap);
+		va_end(ap);
+		if (str->length < str->size)
+			return ESUCCESS;
+#endif
+	}
+	return EREJECT;
+}
+
+int string_dup(string_t *dst, string_t *src)
+{
+	if (string_empty(src))
+		return EREJECT;
+	dst->ddata = strndup(src->data, src->length);
+	dst->data = dst->ddata;
+	dst->size = src->length + 1;
+	dst->length = src->length;
+	return ESUCCESS;
+}
+
+int string_fgetline(string_t *str, FILE *file)
+{
+	if (str->ddata == NULL)
+		return EREJECT;
+	size_t length = 0;
+#if 1
+	do
+	{
+		char c = fgetc(file);
+		if (c == EOF || c == '\n')
+			break;
+		str->ddata[length++] = c;
+	} while (length < str->size);
+#elif 0
+	while (((str->ddata[length] = fgetc(file)) != EOF) &&
+			(str->ddata[length] != '\n') &&
+			(length < str->size)) length++;
+#else
+	ssize_t ret = getline(&str->ddata, &str->size, file);
+	if (ret == -1)
+		return EREJECT;
+#endif
+	if (str->ddata[length] == '\n')
+		length--;
+	if (length == 0)
+		return EREJECT;
+	str->length = length;
+	return ESUCCESS;
 }
 
 const char *string_toc(const string_t *str)
 {
 	return str->data;
+}
+
+void string_cleansafe(string_t *str)
+{
+	volatile char *p = str->ddata;
+	if (p == NULL)
+	{
+		warn("string: clean safe a static string");
+		return;
+	}
+	while (str->length--)
+	{
+		*p++ = (char)random();
+	}
+	str->length = 0;
+}
+
+void string_destroy(string_t *str)
+{
+	if (str->ddata && ((void*)str->ddata != ((void *)str + sizeof(*str))))
+		free(str->ddata);
+	str->ddata = NULL;
+	str->data = NULL;
+	str->length = 0;
+	str->size = 0;
+	free(str);
 }
 
 int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value)
