@@ -509,7 +509,7 @@ static int _ouistiti_chown(int fd, const char *owner)
 }
 static const char *g_logfile = NULL;
 static int g_logfd = 0;
-size_t g_logmax = 1024 * 1024;
+size_t g_logmax = LOG_MAXFILESIZE;
 int ouistiti_setlogfile(const char *logfile, size_t logmax, const char *owner)
 {
 	if (g_logfile != NULL)
@@ -787,12 +787,14 @@ static int main_run(server_t *first)
 	{
 		if (httpserver_run(first->server) != ECONTINUE)
 			break;
+#if LOG_MAXFILESIZE != -1
 		struct stat logstat = {0};
 		if (g_logfile && !stat(g_logfile, &logstat) && (logstat.st_size > g_logmax))
 		{
 			ouistiti_setlogfile(g_logfile, g_logmax, NULL);
 			warn("main: reset logfile");
 		}
+#endif
 	}
 	return 0;
 }
