@@ -35,6 +35,7 @@ USE_REENTRANT=y
 USE_EXECVEAT=n
 USE_POLL=y
 USE_PTHREAD=y
+USE_IPV6=y
 
 # libraries  configuration:
 LIBWEBSOCKET=y
