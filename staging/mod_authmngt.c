@@ -672,7 +672,7 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	authsession_t info = {0};
 	string_t *issuer = string_create(254);
 	ret = _authmngt_parsesession(ctx, user, request, &info, issuer);
-	if (ret == ESUCCESS && mod->config->mngt.rules->adduser != NULL)
+	if (ret == ESUCCESS && mod->config->mngt.rules->adduser != NULL && info.user[0] != '\0')
 	{
 		ret = mod->config->mngt.rules->adduser(ctx->ctx, &info);
 		if (ret == ESUCCESS && mod->config->mngt.rules->setsession != NULL)
