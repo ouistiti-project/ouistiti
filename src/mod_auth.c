@@ -1471,6 +1471,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			authorization = issuerdata;
 			ret = EREJECT;
 		}
+		else
+			string_cleansafe(&issuer);
 		auth_dbg("auth: check issuer %d", ret);
 	}
 	if (ret == EREJECT)
@@ -1499,13 +1501,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else if (authorization != NULL)
 	{
-		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
-		{
-			auth_dbg("auth: session already open");
-			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
-			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
-		}
-		else
+		if (httpclient_setsession(ctx->clt, authorization, -1) >= 0)
 		{
 			auth_dbg("auth: set the session");
 			// The first MFA authenticator must know the group, and status
@@ -1517,6 +1513,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			{
 				authz->rules->join(authz->ctx, user, authorization, mod->config->token.expire);
 			}
+		}
+		else if (string_empty(&issuer))
+		{
+			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
+			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
 		}
 		char issuerdata[254];
 		size_t length = 0;

@@ -90,29 +90,31 @@ size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
 	size_t theaderlen = sizeof(theader) - 1;
 #endif
 
+	size_t len = 0;
 	json_t *jtoken = json_object();
-	const char *user = auth_info(request, STRING_REF(str_user));
-	if (user)
+	const char *info = NULL;
+	len = auth_info2(request, str_user, &info);
+	if (len > 0)
 	{
-		json_t *juser = json_string(user);
+		json_t *juser = json_stringn(info, len);
 		json_object_set(jtoken, str_user, juser);
 	}
-	const char *home = auth_info(request, STRING_REF(str_home));
-	if (home)
+	len = auth_info2(request, str_home, &info);
+	if (len > 0)
 	{
-		json_t *jhome = json_string(home);
+		json_t *jhome = json_stringn(info, len);
 		json_object_set(jtoken, str_home, jhome);
 	}
-	const char *status = auth_info(request, STRING_REF(str_status));
-	if (status)
+	len = auth_info2(request, str_status, &info);
+	if (len > 0)
 	{
-		json_t *jstatus = json_string(status);
+		json_t *jstatus = json_stringn(info, len);
 		json_object_set(jtoken, str_status, jstatus);
 	}
-	const char *group = auth_info(request, STRING_REF(str_group));
-	if (group)
+	len = auth_info2(request, str_group, &info);
+	if (len > 0)
 	{
-		json_t *jroles = json_string(group);
+		json_t *jroles = json_stringn(info, len);
 		json_object_set(jtoken, "roles", jroles);
 	}
 #ifndef DEBUG
@@ -128,9 +130,11 @@ size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
 	else
 		jexpire = json_integer((30 * 60) + now);
 	json_object_set(jtoken, "exp", jexpire);
-	const char *issuer = auth_info(request, STRING_REF(str_issuer));
+	const char *issuer = NULL;
+	len = auth_info2(request, str_issuer, &issuer);
+
 	if (issuer)
-		json_object_set(jtoken, "iss", json_string(issuer));
+		json_object_set(jtoken, "iss", json_stringn(issuer, len));
 #ifdef AUTH_OPENID
 	json_object_set(jtoken, "sub", juser);
 	json_object_set(jtoken, "preferred_username", juser);
