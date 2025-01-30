@@ -182,7 +182,10 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 			ret = config_read_file(configfile, filepath);
 		}
 		else
-			ret = -1;
+		{
+			ret = EREJECT;
+			err("vhost: file %s access %m", filepath);
+		}
 		if (ret == CONFIG_TRUE)
 		{
 			config = config_lookup(configfile, "servers");
@@ -199,6 +202,8 @@ static int vhost_config(config_setting_t *iterator, server_t *server, int index,
 		{
 			config = config_lookup(configfile, "vhost");
 		}
+		if (ret == CONFIG_TRUE && config == NULL)
+			err("vhost: no servers found in file");
 	}
 	if (config && config_setting_is_group(config))
 	{
@@ -296,9 +301,12 @@ static void *mod_vhost_create(http_server_t *server, mod_vhost_t *config)
 			mod->modules = entry;
 		}
 	}
-	warn("vhost: change directory %s", cwd);
-	if (cwd[0] && chdir(cwd))
-		err("vhost: change directory error !");
+	if (cwd[0])
+	{
+		warn("vhost: change directory %s", cwd);
+		if (chdir(cwd))
+			err("vhost: change directory error !");
+	}
 
 	dbg("create vhost for %s", config->vserver.hostname);
 
