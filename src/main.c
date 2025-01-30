@@ -82,6 +82,12 @@ string_t *string_create(size_t size)
 	str->ddata = (void *)str + sizeof(*str);
 	str->data = str->ddata;
 	str->size = size;
+	return str;
+}
+
+void string_debug(string_t *str, const char *name)
+{
+	dbg("string: %s %.*s", name, str->length, str->data);
 }
 
 size_t string_length(const string_t *str)
@@ -124,6 +130,7 @@ int string_cmp(const string_t *str, const char *cmp, size_t length)
 	return strncasecmp(str->data, cmp, str->length);
 }
 
+#if 1
 int string_contain(const string_t *stack, const char *nail, size_t length, const char sep)
 {
 	int ret = -1;
@@ -152,6 +159,52 @@ int string_contain(const string_t *stack, const char *nail, size_t length, const
 	}
 	return ret;
 }
+#else
+int string_contain(const string_t *stack, const char *nailorig, size_t length, const char sep)
+{
+	int ret = -1;
+	const char *nail = nailorig;
+	if (nail == NULL)
+		return -1;
+	if (length == (size_t) -1)
+		length = strnlen(nail, stack->length);
+	if (nail[length - 1] == '*')
+		length--;
+	const char *offset = stack->data;
+	while (offset && offset[0] != '\0')
+	{
+		int wildcard = 0;
+		if (offset[0] == '*')
+			wildcard = 1;
+		do
+		{
+			if (wildcard)
+			{
+				while (*nail != offset[1] && nail < nailorig + length) nail++;
+				offset++;
+			}
+			if (length - (nail - nailorig) == 0)
+				break;
+			if (!strncasecmp(offset, nail, length - (nail - nailorig)))
+			{
+				if (nail[length] == '*')
+					ret = 0;
+				/// a string_t may not be a null terminated array
+				if (((offset + length) == (stack->data + stack->length)) || offset[length] == sep)
+					ret = 0;
+			}
+		} while (ret);
+		if (ret == 0)
+			break;
+		offset = strchr(offset, sep);
+		nail = nailorig;
+		wildcard = 0;
+		if (offset)
+			offset++;
+	}
+	return ret;
+}
+#endif
 
 int string_split(string_t *str, char sep, ...)
 {
@@ -162,19 +215,13 @@ int string_split(string_t *str, char sep, ...)
 	for (size_t index = 0; index < str->length; index++)
 	{
 		string_t *arg = va_arg(ap, string_t *);
-		if (arg == NULL)
+		if (arg == NULL || ret > 10) ///10 for max elements
 			break;
 		ret++;
 		arg->data = &str->data[index];
-		char *end = strchr(arg->data, sep);
-		if (end)
-		{
-			arg->length = end - arg->data;
-		}
-		else
-		{
-			arg->length = str->length - (arg->data - str->data);
-		}
+		while (arg->data[arg->length] != sep &&
+				arg->length < (str->length - (arg->data - str->data)))
+			arg->length++;
 		index += arg->length;
 		if (arg->ddata)
 		{
@@ -194,6 +241,17 @@ int string_is(const string_t *str1, const string_t *str2)
 	if ((str1->length != str2->length))
 		return 0;
 	if (!strncasecmp(str1->data, str2->data, str1->length))
+		return 1;
+	return 0;
+}
+
+int string_startwith(const string_t *str1, const string_t *str2)
+{
+	if ((str1 == NULL) || (str2 == NULL))
+		return 0;
+	if ((str1->length < str2->length))
+		return 0;
+	if (!strncasecmp(str1->data, str2->data, str2->length))
 		return 1;
 	return 0;
 }
@@ -243,6 +301,18 @@ int string_dup(string_t *dst, string_t *src)
 	return ESUCCESS;
 }
 
+size_t string_slice(string_t *str, int start, int length)
+{
+	if (start > 0)
+	{
+		str->data += start;
+		str->length -= start;
+	}
+	if (length > 0 && length < str->length)
+		str->length = length;
+	return str->length;
+}
+
 int string_fgetline(string_t *str, FILE *file)
 {
 	if (str->ddata == NULL)
@@ -284,13 +354,13 @@ void string_cleansafe(string_t *str)
 	if (p == NULL)
 	{
 		warn("string: clean safe a static string");
+		str->length = 0;
 		return;
 	}
 	while (str->length--)
 	{
 		*p++ = (char)random();
 	}
-	str->length = 0;
 }
 
 void string_destroy(string_t *str)
@@ -328,6 +398,16 @@ int ouimessage_parameter(http_message_t *message, const char *key, string_t *val
 {
 	const char *data = NULL;
 	size_t datalen = httpmessage_parameter(message, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+
+int ouiserver_INFO(http_server_t *server, const char *key, string_t *value)
+{
+	const char *data = NULL;
+	size_t datalen = httpserver_INFO2(server, key, &data);
 	if (data == NULL)
 		return EREJECT;
 	string_store(value, data, datalen);

@@ -118,10 +118,12 @@ struct string_s
 #define STRING_INFO(string) string.data, string.length
 #define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
 string_t *string_create(size_t size);
+void string_debug(string_t *str, const char *name);
 int string_store(string_t *str, const char *pointer, size_t length);
 int string_cmp(const string_t *str, const char *cmp, size_t length);
 int string_contain(const string_t *str, const char *cmp, size_t length, const char sep);
 int string_is(const string_t *str1, const string_t *str2);
+int string_startwith(const string_t *str1, const string_t *str2);
 int string_printf(string_t *str, void *fmt,...);
 int string_fgetline(string_t *str, FILE *f);
 int string_cpy(string_t *str, const char *source, size_t length);
@@ -130,6 +132,7 @@ const char *string_toc(const string_t *str);
 size_t string_length(const string_t *str);
 size_t string_size(const string_t *str);
 int string_split(string_t *str, char sep, ...);
+size_t string_slice(string_t *str, int start, int length);
 int string_dup(string_t *dst, string_t *src);
 void string_cleansafe(string_t *str);
 void string_destroy(string_t *str);
@@ -137,6 +140,7 @@ void string_destroy(string_t *str);
 int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value);
 int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value);
 int ouimessage_parameter(http_message_t *message, const char *key, string_t *value);
+int ouiserver_INFO(http_server_t *server, const char *key, string_t *value);
 
 extern const char str_servername[9];
 
