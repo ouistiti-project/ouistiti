@@ -135,7 +135,6 @@ static void authz_destroy(void *arg)
 	authz_simple_t *ctx = (authz_simple_t *)arg;
 
 	string_cleansafe(&ctx->passwd);
-	string_destroy(&ctx->passwd);
 }
 
 authz_rules_t authz_simple_rules =
