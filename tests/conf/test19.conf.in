@@ -8,13 +8,13 @@ servers= ({
 		version="HTTP11";
 		auth = {
 			type="Basic";
-			file="%PWD%/tests/conf/passwd";
+			file="conf/passwd";
 			options="jwt,header";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			realm="www.ouistiti.net";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 		};

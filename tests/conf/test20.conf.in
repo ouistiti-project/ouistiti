@@ -1,6 +1,6 @@
 user="%USER%";
 log-file="%LOGFILE%";
-init_d="%PWD%/tests/init.d";
+init_d="./init.d";
 servers= ({
 		hostname = "www.ouistiti.net";
 		port = 8080;
@@ -16,7 +16,7 @@ servers= ({
 				passwd="bar";
 			};
 			document = {
-				docroot = "%PWD%/tests/htdocs/vhost";
+				docroot = "htdocs/vhost";
 				allow = ".html,.*htm*,.css,.js,.txt,*";
 				deny = ".htaccess,.cgi,*.php";
 				options = "dirlisting,range,rest";
@@ -36,12 +36,12 @@ servers= ({
 			hostname = "myvhost2.ouistiti.net";
 			service = "myvhost2";
 			document = {
-				docroot = "%PWD%/tests/htdocs/";
-                                allow = ".html,.*htm*,.css,.js,.txt,*";
-                                deny = ".htaccess,.cgi,*.php";
-                                options = "dirlisting,range";
+				docroot = "htdocs/";
+				allow = ".html,.*htm*,.css,.js,.txt,*";
+				deny = ".htaccess,.cgi,*.php";
+				options = "dirlisting,range";
 			};
-		},"%PWD%/tests/conf/config.d/test20.vhost");
+		},"./conf/config.d/test20.vhost");
 	});
 
 

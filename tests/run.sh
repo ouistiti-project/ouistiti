@@ -78,7 +78,7 @@ WGET=wget
 #USER=$(ls -l $0 | ${AWK} '{print $3}')
 USER=$(ps -p $$ -o user --no-headers)
 TESTCLIENT="./host/utils/testclient"
-LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/:$TESTDIR../utils/
+LD_LIBRARY_PATH=${SRCDIR}:libhttpserver/src/:libhttpserver/src/httpserver/:utils/
 
 export LD_LIBRARY_PATH
 
@@ -94,7 +94,8 @@ config () {
 	CONFIG=$1
 
 	cp ${TESTDIR}conf/${CONFIG}.in ${TESTDIR}conf/${CONFIG}
-	${SED} -i "s,\%PWD\%,$PWD,g" ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s,\%TESTDIR\%,${TESTDIR},g" ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s,\%PWD\%,${PWD},g" ${TESTDIR}conf/${CONFIG}
 	${SED} -i "s,\%USER\%,$USER,g" ${TESTDIR}conf/${CONFIG}
 	${SED} -i "s,\%LOGFILE\%,$LOGFILE,g" ${TESTDIR}conf/${CONFIG}
 
@@ -112,6 +113,7 @@ start () {
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
 	ARGUMENTS=$ARGUMENTS" -M ./staging:./src"
+	ARGUMENTS=$ARGUMENTS" -W "$TESTDIR
 	if [ -n "$INFO" ]; then
 		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
 		echo "******************************"

@@ -17,7 +17,7 @@ servers= ({
 				issuer = "authpass+totp";
 			},{
 				type = "Basic";
-				dbname="%PWD%/tests/conf/passwd.db";
+				dbname="conf/passwd.db";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html?step=passwd";
 				/*
@@ -53,7 +53,7 @@ servers= ({
 				   manages the users database
 				*/
 				type = "none";
-				dbname="%PWD%/tests/conf/passwd.db";
+				dbname="conf/passwd.db";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				options = "jwt,management";
 				issuer = "authpass+totp";
@@ -65,7 +65,7 @@ servers= ({
 				});
 			};
 			document = {
-				docroot = "%PWD%/tests/htdocs";
+				docroot = "htdocs";
 				allow = "signin.html,.css,.js,";
 				deny = ".htaccess,.php";
 			};
@@ -89,13 +89,13 @@ servers= ({
 			realm = "www.ouistiti.local";
 		};
 		userfilter = {
-			dbname = "%PWD%/tests/conf/filter.db";
+			dbname = "conf/filter.db";
 			allow = "^/token$,^/trust/,^/index.html$";
 			superuser = "root";
 			configuri = "^/filter/config*";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 		};

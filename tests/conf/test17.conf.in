@@ -8,23 +8,23 @@ servers= ({
 		auth = {
 			realm = "www.ouistiti.net";
 			type = "Basic";
-			file="%PWD%/tests/conf/passwd";
+			file="conf/passwd";
 			secret = "I am a great pretender";
 			unprotect="^/trust/*";
 			options = "cookie";
 			algorithm = "SHA-256";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = "^.htaccess,.cgi,.php";
 			options = "dirlisting,range,rest";
 		};
 		tls = {
-			crtfile = "%PWD%/tests/conf/ouistiti_srv.crt";
-			keyfile = "%PWD%/tests/conf/ouistiti_srv.key";
-			cachain = "%PWD%/tests/conf/ouistiti_ca.crt";
-			dhmfile = "%PWD%/tests/conf/ouistiti_dhparam.key";
+			crtfile = "conf/ouistiti_srv.crt";
+			keyfile = "conf/ouistiti_srv.key";
+			cachain = "conf/ouistiti_ca.crt";
+			dhmfile = "conf/ouistiti_dhparam.key";
 		};
 	},{
 		

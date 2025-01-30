@@ -6,12 +6,12 @@ servers= ({
 		keepalivetimeout = 5;
 		version="HTTP11";
 		cgi = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".cgi*";
 			deny = ".htaccess,.php,*.py";
 		};
 		python = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".py*";
 			deny = ".htaccess,.php,*.cgi";
 			scripts = ["testpython"];

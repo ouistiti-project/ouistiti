@@ -12,7 +12,7 @@ servers= ({
 			service = "auth";
 			auth = {
 				type = "Basic";
-				dbname="%PWD%/tests/conf/passwd.db";
+				dbname="conf/passwd.db";
 				options = "jwt,cookie,management";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
@@ -26,7 +26,7 @@ servers= ({
 				});
 			};
 			document = {
-				docroot = "%PWD%/tests/htdocs";
+				docroot = "htdocs";
 				allow = "signin.html,.css,.js,";
 				deny = ".htaccess,.php";
 			};
@@ -52,7 +52,7 @@ servers= ({
 				});
 			};
 			document = {
-				docroot = "%PWD%/tests/htdocs";
+				docroot = "htdocs";
 				allow = "signin.html,.css,.js,";
 				deny = ".htaccess,.php";
 			};
@@ -77,18 +77,18 @@ servers= ({
 			realm = "www.ouistiti.local";
 		};
 		userfilter = {
-			dbname = "%PWD%/tests/conf/filter.db";
+			dbname = "conf/filter.db";
 			allow = "^/token$,^/trust/,^/index.html$";
 			superuser = "root";
 			configuri = "^/filter/config*";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 		};
 		cgi = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".cgi";
 		};
 		redirect = {

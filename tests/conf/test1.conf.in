@@ -23,7 +23,7 @@ servers= ({
 		version="HTTP11";
 		security = "frame";
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.cgi,*.php";
 			options = "dirlisting,range,rest";
@@ -43,8 +43,9 @@ servers= ({
 		forward = {
 			links = ({
 				origin = "forward*";
-				destination = "http://par21s20-in-f14.1e100.net/generate_204";
+				#destination = "http://par21s20-in-f14.1e100.net/generate_204";
 				#destination = "http://clients1.google.com/generate_204";
+				destination = "http://connectivitycheck.gstatic.com/generate_204";
 			});
 		};
 		signature = {

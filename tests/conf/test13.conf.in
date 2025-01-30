@@ -15,7 +15,7 @@ servers= ({
 			token_ep = "https://auth.ouistiti.net:8080/token";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 		};
