@@ -59,7 +59,8 @@ struct _mod_cors_s
 {
 	mod_cors_t *config;
 	socket_t socket;
-	const char *methods;
+	string_t methods;
+	string_t hostname;
 };
 
 static const char str_cors[] = "cors";
@@ -69,34 +70,46 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	int ret = EREJECT;
 	const _mod_cors_t *mod = (_mod_cors_t *)arg;
 
-	const char *origin = httpmessage_REQUEST(request, "Origin");
-	const char *host = httpmessage_REQUEST(request, "Host");
-	if (origin && origin[0] != '\0' && (utils_searchexp(origin, mod->config->origin, NULL) == ESUCCESS))
+	string_t origin = {0};
+	ouimessage_REQUEST(request, "Origin", &origin);
+	string_t protocol = {0};
+	string_t host = {0};
+	string_t port = {0};
+	const string_t *checkorigin = &mod->config->origin;
+
+	if (string_empty(checkorigin))
+		checkorigin = &mod->hostname;
+	if (!string_empty(&origin) && (string_split(&origin, ':', &protocol, &host, &port, NULL) > 1) &&
+		!string_empty(&host) && !string_empty(checkorigin) &&
+		!string_contain(checkorigin, string_toc(&host) + 2, string_length(&host) - 2, ',')) /// remove first "//"
 	{
-		httpmessage_addheader(response, "Access-Control-Allow-Origin", origin, -1);
-		const char *method;
-		method = httpmessage_REQUEST(request, "method");
-		const char *methods = method;
-		if (mod->methods && mod->methods[0] != '\0')
-			methods = mod->methods;
-		const char *ac_request;
-		ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Method");
-		if (ac_request && ac_request[0] != '\0')
+		httpmessage_addheader(response, "Access-Control-Allow-Origin", STRING_INFO(origin));
+		string_t method = {0};
+		ouimessage_REQUEST(request, "method", &method);
+		const string_t *methods = &method;
+		if (!string_empty(&mod->methods))
+			methods = &mod->methods;
+		string_t ac_request = {0};
+		ouimessage_REQUEST(request, "Access-Control-Request-Method", &ac_request);
+		if (!string_empty(&ac_request))
 		{
-			httpmessage_addheader(response, "Access-Control-Allow-Methods", methods, -1);
+			httpmessage_addheader(response, "Access-Control-Allow-Methods", string_toc(methods), string_length(methods));
 		}
-		ac_request = httpmessage_REQUEST(request, "Access-Control-Request-Headers");
-		if (ac_request && ac_request[0] != '\0')
+#if 0
+		ouimessage_REQUEST(request, "Access-Control-Request-Headers", &ac_request);
+		if (!string_empty(&ac_request))
 		{
-			httpmessage_addheader(response, "Access-Control-Allow-Headers", ac_request, -1);
+			httpmessage_addheader(response, "Access-Control-Allow-Headers", STRING_INFO(ac_request));
 		}
+#endif
 		httpmessage_addheader(response, "Access-Control-Allow-Credentials", STRING_REF("true"));
-		if (!strcmp(method, str_options))
+		if (!string_cmp(&method, STRING_REF(str_options)))
 		{
 			ret = ESUCCESS;
 		}
 	}
-	else if (origin && origin[0] != '\0' && httpmessage_isprotected(request) && (strstr(origin, host) == NULL))
+	else if (!string_empty(&origin) && httpmessage_isprotected(request) &&
+			string_contain(&mod->hostname,  string_toc(&host) + 2, string_length(&host) - 2, '.'))
 	{
 		httpmessage_result(response, 405);
 		ret = ESUCCESS;
@@ -115,7 +128,8 @@ static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *UN
 	/**
 	 * Methods must be set here, because other modules may append new methods to the server.
 	 */
-	mod->methods = httpserver_INFO(httpclient_server(clt), "methods");
+	ouiserver_INFO(httpclient_server(clt), "methods", &mod->methods);
+	ouiserver_INFO(httpclient_server(clt), "hostname", &mod->hostname);
 	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_FILTER, str_cors);
 
 	return mod;
@@ -137,7 +151,9 @@ static void *cors_config(config_setting_t *iterator, server_t *server)
 	if (config_set)
 	{
 		config = calloc(1, sizeof(*config));
-		config_setting_lookup_string(config_set, "origin", (const char **)&config->origin);
+		const char *origin = NULL;
+		if (config_setting_lookup_string(config_set, "origin", &origin) == CONFIG_TRUE)
+			string_store(&config->origin, origin, -1);
 	}
 	return config;
 }
