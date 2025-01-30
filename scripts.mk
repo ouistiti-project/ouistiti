@@ -683,7 +683,7 @@ quiet_cmd_link=LINK $*
 #
 quiet_cmd_generate_makefile=MAKEFILE $(notdir $@/Makefile)
  define cmd_generate_makefile
-  $(file >  $@,BUILDDIR=$$(dir $$(firstword $$(MAKEFILE_LIST))))
+  $(file >  $@,BUILDDIR=$$(realpath $$(dir $$(firstword $$(MAKEFILE_LIST)))))
   $(file >> $@,srcdir=$(srcdir))
   $(if $(CROSS_COMPILE),$(file >> $@,MAKE_OPTS+=CROSS_COMPILE=$(CROSS_COMPILE)))
   $(if $(SYSROOT),$(file >> $@,MAKE_OPTS+=SYSROOT=$(SYSROOT)))
@@ -1068,7 +1068,7 @@ defconfig: cleanconfig $(builddir)/Makefile
 # 1) set the DEFCONFIG variable
 # 2) relaunch with _defconfig target
 DEFCONFIGFILES:=$(notdir $(wildcard $(srcdir)configs/*))
-$(DEFCONFIGFILES): %_defconfig: cleanconfig $(builddir)
+$(DEFCONFIGFILES): %_defconfig: cleanconfig $(builddir)/Makefile
 	$(Q)$(call cmd,clean,$(CONFIG))
 	$(Q)$(MAKE) _defconfig DEFCONFIG=$(srcdir)configs/$*_defconfig TMPCONFIG=$(builddir).tmpconfig -f $(makemore) file=$(file)
 
