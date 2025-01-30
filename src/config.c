@@ -256,6 +256,8 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 		int ret = stat(configd, &filestat);
 		if (!ret && S_ISREG(filestat.st_mode))
 			ouistiticonfig_subconfigfile(configd, ouistiticonfig);
+		else
+			err("config: sub config directory not found (before change working directory)");
 	}
 
 	return ouistiticonfig;
