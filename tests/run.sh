@@ -82,10 +82,6 @@ LD_LIBRARY_PATH=${SRCDIR}:libhttpserver/src/:libhttpserver/src/httpserver/:utils
 
 export LD_LIBRARY_PATH
 
-if [ -z "$INFO" ]; then
-CURLOUT="-o /dev/null"
-fi
-
 TESTERROR=""
 
 rm -f ${TESTDIR}run.pid
@@ -147,13 +143,17 @@ test () {
 	unset CMDREQUEST
 	unset FILEDATA
 	unset PREPARE
+	unset CURLURL
 	unset CURLPARAM
+	unset WGETURL
+	unset WGETPARAM
 	unset TESTREQUEST
 	unset TESTRESPONSE
 	unset TESTCODE
 	unset TESTHEADERLEN
 	unset TESTCONTENTLEN
 	unset TESTOPTION
+	unset TESTCUSTOM
 	unset ASYNC_PID
 	unset PREPARE_ASYNC
 	unset PREPARE
@@ -204,7 +204,7 @@ test () {
 			echo "get $CURLPARAM"
 			echo "----"
 		fi
-		$CURL $CURLOUT -f -s -S $CURLPARAM > $TMPRESPONSE
+		$CURL -i $CURLPARAM > $TMPRESPONSE
 	fi
 	if [ -n "$WGETURL" ]; then
 		if [ -n "$INFO" ]; then
@@ -271,10 +271,19 @@ test () {
 		echo "content error received $rescontentlen instead $TESTCONTENTLEN"
 		ERR=3
 	fi
-	if [ ! $ERR -eq 0 ]; then
+	if [ -n "$TESTCUSTOM" ]; then
+		$TESTCUSTOM
+		if [ $? -ne 0 ]; then
+			ERR=4
+		fi
+	fi
+	if [ $ERR -ne 0 ]; then
 		echo "$TEST quits on error"
 		stop $TARGET
 		cat $LOGFILE
+		if [ $ERR -eq 4 ]; then
+			echo "Custom test error"
+		fi
 		if [ $NOERROR -eq 1 ]; then
 			TESTERROR="${TESTERROR} $TEST"
 		else

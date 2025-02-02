@@ -1,0 +1,12 @@
+DESC="test to PUT file on the server"
+TEST153_FILE=ouistiti.jpg
+TEST153_FILESIZE=$(stat -c%s ${TESTDIR}/${TEST153_FILE})
+PREPARE="rm -f ${TESTDIR}/htdocs/${TEST153_FILE}"
+CURLPARAM="-X PUT -d @"${TESTDIR}/${TEST153_FILE}" http://localhost:8080/${TEST153_FILE} -u test:test"
+CONFIG=test10.conf
+TESTCODE=201
+TESTCUSTOM=test153 
+test153() {
+  [ $(stat -c%s ${TESTDIR}/htdocs/${TEST153_FILE}) -eq ${TEST153_FILESIZE} ]
+  return $?
+}
