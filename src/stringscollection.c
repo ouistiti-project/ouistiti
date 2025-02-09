@@ -57,6 +57,7 @@ const char str_state[] = "session_state";
 const char str_expires[] = "expires";
 
 const char str_multipart_replace[] = "multipart/x-mixed-replace";
+const char str_multipart_form_data[] = "multipart/form-data";
 
 const char str_boundary[] = "FRAME";
 
@@ -72,3 +73,5 @@ const char str_status_approving[] = "approving";
 const char str_status_reapproving[] = "reapproving";
 const char str_status_activated[] = "activated";
 const char str_status_repudiated[] = "repudiated";
+
+const char str_mime_inode_directory[] = "inode/directory";
