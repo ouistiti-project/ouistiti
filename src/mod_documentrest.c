@@ -96,9 +96,9 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	 * rest = 1 to close the connection on end of file or
 	 * on connection error
 	 */
-	size_t rest = 1;
+	ssize_t rest = 1;
 	inputlen = httpmessage_content(request, &input, &rest);
-	document_dbg("document: put %lld bytes into file", inputlen);
+	document_dbg("document: put %d bytes into file %s", inputlen, private->url);
 
 	/**
 	 * the function returns EINCOMPLETE to wait before to send
@@ -111,7 +111,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 		int wret = write(private->fdfile, input, inputlen);
 		if (wret < 0)
 		{
-			err("document: access file %s error %s", private->url, strerror(errno));
+			err("document: access file %s error %m", private->url);
 			if (errno != EAGAIN)
 			{
 				error = errno;
@@ -132,6 +132,9 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	{
 		rest = 0;
 	}
+#ifdef DEBUG
+	document_dbg("document: put %lu rest %lu", private->datasize, rest);
+#endif
 	if (rest < 1)
 	{
 #ifdef DEBUG
@@ -177,16 +180,22 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 		http_connector_t *connector)
 {
 	int fdfile = -1;
-	const char *contenttype = httpmessage_REQUEST(request,"Content-Type");
+	string_t contenttype = {0};
+	ouimessage_REQUEST(request,"Content-Type", &contenttype);
 	errno = 0;
-	if (url[urllen - 1] == '/' || (contenttype && !strcmp(contenttype, "text/directory")))
+	if (url[urllen - 1] == '/' ||
+		(!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_mime_inode_directory))))
 	{
 		err("document: %s found dir", url);
 		fdfile = mkdirat(fdroot, url, 0777);
 		restheader_connector(request, response, errno);
 		fdfile = 0; /// The request is complete by this connector
 	}
-	else
+	if (!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_multipart_form_data)))
+	{
+		err("document: form data unsiupported with rest API");
+	}
+	else if (fdfile != 0)
 	{
 		fdfile = openat(fdroot, url, O_WRONLY | O_CREAT | O_EXCL, 0640);
 		if (fdfile < 0)
