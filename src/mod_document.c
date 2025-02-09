@@ -104,7 +104,7 @@ static int _document_dochome(_mod_document_mod_t *mod,
 	fdroot = openat(mod->fdhome, home, O_DIRECTORY);
 	if (fdroot == -1)
 	{
-		err("document: folder error %s", strerror(errno));
+		err("document: folder %s error %m", home);
 	}
 	else
 	{
@@ -117,7 +117,7 @@ static int _document_dochome(_mod_document_mod_t *mod,
 static int _document_docroot(_mod_document_mod_t *mod,
 		http_message_t *request, const char **uri)
 {
-	int fdroot = mod->fdroot;
+	int fdroot = dup(mod->fdroot);
 	document_dbg("document: root directory is %s", mod->config->docroot);
 
 	return fdroot;
@@ -261,8 +261,6 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		httpmessage_result(response, RESULT_404);
 		return  ESUCCESS;
 	}
-	/// without dup otherwise two successive requests fail (test049)
-	fdroot = dup(fdroot);
 
 	int fdfile = -1;
 	const char *mime = NULL;
@@ -644,12 +642,12 @@ static void *mod_document_create(http_server_t *server, mod_document_t *config)
 		}
 		else
 		{
-			mod->fdhome = mod->fdroot;
+			mod->fdhome = dup(mod->fdroot);
 			config->dochome = config->docroot;
 		}
 		if (mod->fdhome == -1)
 		{
-			err("document: dochome %s not found", config->dochome);
+			err("document: dochome %s not found %m", config->dochome);
 		}
 		else
 		{
@@ -673,6 +671,10 @@ static void mod_document_destroy(void *data)
 {
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)data;
 	free(mod->config);
+	if (mod->fdroot)
+		close(mod->fdroot);
+	if (mod->fdhome)
+		close(mod->fdhome);
 	free(data);
 }
 
