@@ -223,8 +223,6 @@ static int _dirlisting_connectorender(document_connector_t *private, http_messag
 	 * the content length is unknown before the sending.
 	 * We must close the socket to advertise the client.
 	 */
-	document_dbg("dirlisting: socket shutdown");
-	httpclient_shutdown(httpmessage_client(request));
 	free(private->ents);
 	private->ents = NULL;
 	return ESUCCESS;
