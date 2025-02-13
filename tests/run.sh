@@ -154,6 +154,7 @@ test () {
 	unset TESTCONTENTLEN
 	unset TESTOPTION
 	unset TESTCUSTOM
+	TESTTIMEOUT=0
 	unset ASYNC_PID
 	unset PREPARE_ASYNC
 	unset PREPARE
@@ -199,20 +200,20 @@ test () {
 	fi
 
 	echo "----"
-	if [ -n "$CURLPARAM" ]; then
+	if [ -n "$CURLURL" ]; then
 		if [ -n "$INFO" ]; then
-			echo "get $CURLPARAM"
+			echo "get $CURLURL"
 			echo "----"
 		fi
-		$CURL -i $CURLPARAM > $TMPRESPONSE
+		$CURL -i -k $CURLPARAM $CURLURL > $TMPRESPONSE
 	fi
 	if [ -n "$WGETURL" ]; then
 		if [ -n "$INFO" ]; then
 			echo "get $WGETURL"
 			echo "----"
 		fi
-		$WGET --no-check-certificate -S -q -O - $WGETURL 2> $TMPRESPONSE.tmp
-		#$WGET --no-check-certificate -S -O - $WGETURL
+		$WGET --no-check-certificate -S -q -O - $WGETPARAM $WGETURL 2> $TMPRESPONSE.tmp
+		#$WGET --no-check-certificate -S -O - WGETURL
 		cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
 	fi
 	for REQUEST in ${TESTREQUEST} ; do
@@ -233,6 +234,9 @@ test () {
 		$CMDREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
 	ERR=0
+	if [ $TESTTIMEOUT -ne 0 ]; then
+		sleep $TESTTIMEOUT
+	fi
 	if [ -n "$INFO" ]; then
 		cat $TMPRESPONSE
 		echo $TEST
