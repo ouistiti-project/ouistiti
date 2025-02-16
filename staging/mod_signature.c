@@ -199,7 +199,7 @@ static int _signature_connectorcomplete(void *arg, http_message_t *request, http
 	hash->update(hashctx, "\": ", 3);
 	hash->update(hashctx, input, inputoffset - input);
 	hash->update(hashctx, "\n", 1);
-	unsigned char signature[32];
+	char signature[32];
 	size_t signlen = hash->finish(hashctx, signature);
 	char result[((HASH_MAX_SIZE * 3) / 2 + 1)] = {0};
 	base64->encode(signature, signlen, result, sizeof(result));
@@ -207,7 +207,7 @@ static int _signature_connectorcomplete(void *arg, http_message_t *request, http
 	httpmessage_addheader(response, str_signature, result, -1);
 	httpmessage_appendheader(response, str_signature, ";created=", 9);
 	time_t t = time(NULL);
-	unsigned char tstr[24];
+	char tstr[24];
 	int tlen = snprintf(tstr, 24, "%.23ld", t);
 	httpmessage_appendheader(response, str_signature, tstr, tlen);
 	httpmessage_appendheader(response, str_signature, ";alg=", 5);

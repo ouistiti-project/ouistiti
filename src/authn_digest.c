@@ -29,6 +29,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <limits.h>
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/hash.h"
@@ -79,7 +80,7 @@ void *authn_digest_config(const config_setting_t *configauth)
 }
 #endif
 
-static size_t utils_stringify(const unsigned char *data, size_t len, char **result)
+static size_t utils_stringify(const char *data, size_t len, char **result)
 {
 	size_t length = 0;
 	*result = calloc(2, len + 1);
@@ -247,7 +248,7 @@ static char *authn_digest_digest(const hash_t * hash, const char *a1, size_t a1l
 {
 	if (a1 && a2)
 	{
-		unsigned char digest[32];
+		char digest[32];
 		void *ctx;
 
 		ctx = hash->init();
@@ -288,7 +289,7 @@ static size_t authn_digest_a1(const hash_t * hash, string_t *user, const char *r
 {
 	if (string_toc(passwd)[0] != '$')
 	{
-		unsigned char A1[32];
+		char A1[32];
 		void *ctx;
 
 		ctx = hash->init();
@@ -321,7 +322,7 @@ static size_t authn_digest_a1(const hash_t * hash, string_t *user, const char *r
 			size_t passwdlen = string_length(passwd) - (size_t)(itpasswd - string_toc(passwd));
 			if (decode)
 			{
-				unsigned char b64passwd[64] = {0};
+				char b64passwd[64] = {0};
 				int len = base64->decode(itpasswd, passwdlen, b64passwd, 64);
 				return utils_stringify(b64passwd, len, a1);
 			}
@@ -334,7 +335,7 @@ static size_t authn_digest_a1(const hash_t * hash, string_t *user, const char *r
 
 static size_t authn_digest_a2(const hash_t * hash, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *entity, size_t entitylen, char **a2)
 {
-	unsigned char A2[32];
+	char A2[32];
 	void *ctx;
 
 	ctx = hash->init();
@@ -536,7 +537,7 @@ static int authn_digest_checkresponse(void *data, const char *value, size_t leng
 	{
 		info->value = value;
 		info->length = length;
-		auth_dbg("response %.*s", (int)length, value);
+		auth_dbg("response %.*s", (int)(length & INT_MAX), value);
 		return ESUCCESS;
 	}
 	warn("auth: response is unset");
@@ -574,7 +575,7 @@ static int authn_digest_checkuser(void *data, const char *user, size_t length)
 			ret = ESUCCESS;
 		}
 		else
-			warn("auth: user %.*s is unknown", length, user);
+			warn("auth: user %.*s is unknown", (int)(length * INT_MAX), user);
 	}
 	else
 		warn("auth: user is unset");

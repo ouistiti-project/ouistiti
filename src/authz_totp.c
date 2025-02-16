@@ -226,7 +226,7 @@ static uint32_t totp_generator(const hash_t *hash, const string_t* key, unsigned
 size_t otp_url(const string_t* key, const char *user, const char *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL])
 {
 	void *base32state = base32->encoder.init();
-	unsigned char *keyb32 = malloc((int)string_length(key) * 2);
+	char *keyb32 = malloc((int)string_length(key) * 2);
 	size_t keyb32len = base32->encoder.update(base32state, keyb32, string_toc(key), string_length(key));
 	keyb32len += base32->encoder.finish(base32state, keyb32 + keyb32len);
 	free(base32state);

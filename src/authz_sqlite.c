@@ -37,6 +37,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
+
 #include <sqlite3.h>
 
 #include "ouistiti/httpserver.h"
@@ -258,7 +260,7 @@ static int authz_sqlite_search(authz_sqlite_t *ctx, const string_t *user, char *
 	sqlite3_free(sql);
 	ret = length;
 	if (value && passwd)
-		ret = string_cpy(passwd, value, length);
+		ret = string_cpy(passwd, (const char *)value, length);
 	sqlite3_finalize(statement);
 	return ret;
 }
@@ -661,10 +663,10 @@ size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t len
 		if (sqlite3_column_type(statement, 0) == SQLITE_TEXT)
 		{
 			len = sqlite3_column_bytes(statement, 0);
-			const char *data = sqlite3_column_text(statement, 0);
+			const unsigned char *data = sqlite3_column_text(statement, 0);
 			if (data[0] == '\0')
 				len = 0;
-			snprintf(issuer, length, "%.*s", (int)len, data);
+			snprintf(issuer, length, "%.*s", (int)(len & INT_MAX), data);
 		}
 		ret = sqlite3_step(statement);
 	}
