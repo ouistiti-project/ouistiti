@@ -642,8 +642,6 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 			string_dup(&mod->user, &user.name);
 			user_ret = string_toc(&mod->user);
 		}
-		else
-			string_destroy(&mod->user);
 		free (a1);
 		free (a2);
 		free (digest);
