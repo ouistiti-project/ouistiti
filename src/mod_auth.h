@@ -168,7 +168,7 @@ struct authz_token_config_s
 	}type;
 	string_t secret;
 	string_t issuer;
-	unsigned int expire;
+	time_t expire;
 };
 
 struct mod_auth_s

@@ -45,6 +45,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <time.h>
+#include <limits.h>
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
@@ -485,8 +486,11 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	{
 		authz_optionscb(auth, mode);
 	}
-	if (config_setting_lookup_int(config, "expire", &auth->token.expire) == CONFIG_FALSE)
+	int int_expire = 0;
+	if (config_setting_lookup_int(config, "expire", &int_expire) == CONFIG_FALSE)
 		auth->token.expire = 30;
+	else
+		auth->token.expire = (time_t)int_expire;
 
 	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
 		string_store(&auth->realm, data, -1);
@@ -951,7 +955,7 @@ int authn_checksignature(const char *key, size_t keylen,
 		return EREJECT;
 	string_t signature = {0};
 	string_store(&signature, b64signature, len);
-	dbg("auth: signature should be '%.*s'", len, b64signature);
+	dbg("auth: signature should be '%.*s'", (int)(len & INT_MAX), b64signature);
 	if (string_cmp(&signature, sign, signlen))
 		return EREJECT;
 	return ESUCCESS;
@@ -1023,7 +1027,7 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 	string_t tsecure = STRING_DCL("; Secure");
 	string_t tpoint = STRING_DCL(".");
 	string_t tsamesitelax = STRING_DCL("; Samesite=Lax");
-	_mod_auth_t *mod = ctx->mod;
+
 	if (!string_empty(token))
 	{
 		string_t txtoken = STRING_DCL(str_xtoken);
@@ -1063,8 +1067,6 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 			const string_t *authorization, const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
-	_mod_auth_t *mod = ctx->mod;
-
 	if (!string_empty(token))
 	{
 		httpmessage_addheader(response, str_xtoken, string_toc(token), string_length(token));
@@ -1096,7 +1098,6 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 static const char * _authn_checkauthorization(_mod_auth_ctx_t *ctx, authn_t *authn, authz_t *authz,
 		const char *authorization, size_t authorizationlen, http_message_t *request)
 {
-	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 	const char *authentication = strchr(authorization, ' ');
@@ -1405,7 +1406,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	/**
 	 * authz may need setup the user setting for each message
 	 **/
-	authz_t ctx_authz = {0};
 	authz_t *authz = mod->authz;
 	if(ctx->authz.ctx)
 	{

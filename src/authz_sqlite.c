@@ -202,7 +202,6 @@ static void *authz_sqlite_setup(void *arg, http_client_t *clt, struct sockaddr *
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	const authz_sqlite_config_t *config = ctx->config;
-	int ret;
 	authz_sqlite_t *cltctx = ctx;
 #ifdef AUTHZ_SQLITE_CONTEXTSETUP
 	cltctx = calloc(1, sizeof(*cltctx));

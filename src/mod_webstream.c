@@ -398,10 +398,10 @@ static int _webstream_sendpartheader(_webstream_main_t *info, size_t length, int
 	if (date)
 	{
 		time_t t;
-		struct tm *tmp, tmp_r;
+		struct tm tmp_r;
 
 		t = time(NULL);
-		tmp = gmtime_r(&t, &tmp_r);
+		gmtime_r(&t, &tmp_r);
 		char buf[26];
 		asctime_r(&tmp_r, buf);
 		ret = snprintf(buffer, 255, "%s: %s\r\n", str_date, buf);

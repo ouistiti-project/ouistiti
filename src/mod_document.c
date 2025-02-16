@@ -123,6 +123,7 @@ static int _document_docroot(_mod_document_mod_t *mod,
 	return fdroot;
 }
 
+#if 0
 static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const char *url, http_message_t *response)
 {
 	const mod_document_t *config = mod->config;
@@ -144,6 +145,7 @@ static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const 
 	}
 	return fdfile;
 }
+#endif
 
 static int _document_getconnnectorget(_mod_document_mod_t *mod,
 		int fdroot, const char *url, int urllen, const char **mime,

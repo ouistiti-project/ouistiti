@@ -226,7 +226,7 @@ static uint32_t totp_generator(const hash_t *hash, const string_t* key, unsigned
 size_t otp_url(const string_t* key, const char *user, const char *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL])
 {
 	void *base32state = base32->encoder.init();
-	char *keyb32 = malloc((int)string_length(key) * 2);
+	unsigned char *keyb32 = malloc((int)string_length(key) * 2);
 	size_t keyb32len = base32->encoder.update(base32state, keyb32, string_toc(key), string_length(key));
 	keyb32len += base32->encoder.finish(base32state, keyb32 + keyb32len);
 	free(base32state);
@@ -310,8 +310,10 @@ static const char *authz_totp_check(void *arg, const char *user, const char *pas
 
 static int authz_totp_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
+#if 0
 	authz_totp_t *ctx = (authz_totp_t *)arg;
 	const authz_totp_config_t *config = ctx->config;
+#endif
 
 	cb(cbarg, STRING_REF(str_user), user, -1);
 	cb(cbarg, STRING_REF(str_group), STRING_REF("users"));

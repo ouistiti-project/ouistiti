@@ -87,7 +87,7 @@ string_t *string_create(size_t size)
 
 void string_debug(string_t *str, const char *name)
 {
-	dbg("string: %s %.*s", name, str->length, str->data);
+	dbg("string: %s %.*s", name, (int)(str->length & INT_MAX), str->data);
 }
 
 size_t string_length(const string_t *str)

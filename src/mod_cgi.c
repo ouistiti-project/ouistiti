@@ -224,7 +224,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request, string_t *
 		dup2(fromcgi[1], STDOUT_FILENO);
 		close(fromcgi[1]);
 
-		int sock = httpmessage_keepalive(request);
+		httpmessage_keepalive(request);
 
 		// TODO: remove cast
 		char * const argv[2] = { (char *)cgi_path->data, NULL };
