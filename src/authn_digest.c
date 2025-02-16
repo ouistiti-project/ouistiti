@@ -86,7 +86,7 @@ static size_t utils_stringify(const char *data, size_t len, char **result)
 	*result = calloc(2, len + 1);
 	for (size_t i = 0; i < len; i++)
 	{
-		length += snprintf(*result + i * 2, 3, "%02x", data[i]);
+		length += snprintf(*result + i * 2, 3, "%02x", (unsigned char)data[i]);
 	}
 	return length;
 }
