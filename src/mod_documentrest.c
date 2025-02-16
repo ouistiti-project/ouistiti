@@ -293,7 +293,7 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 	}
 	else
 	{
-		err("document: %s unknown", cmd);
+		err("document: %s unknown", string_toc(&cmd));
 		error = 22;
 		fdfile = 0; /// The request is complete by this connector
 		restheader_connector(request, response, error);
