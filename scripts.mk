@@ -124,18 +124,15 @@ LESS?=lex
 YACC?=yacc
 MOC?=moc$(QT:%=-%)
 UIC?=uic$(QT:%=-%)
+RANLIB?=ranlib
 
 TOOLCHAIN?=
 CROSS_COMPILE?=
 
-ifeq ($(CC),cc)
-  CC:=$(realpath $(shell which $(CC)))
-endif
-
-HOSTCC=gcc
-HOSTCXX=g++
+HOSTCC=cc
+HOSTCXX=c++
 # if gcc, prefer to use directly gcc for ld
-HOSTLD=gcc
+HOSTLD=ld
 HOSTAR=ar
 HOSTRANLIB=ranlib
 HOSTCFLAGS=
@@ -144,36 +141,17 @@ HOSTSTRIP=strip
 HOST_COMPILE:=$(shell LANG=C $(HOSTCC) -dumpmachine | $(AWK) -F- '{print $$1}')
 HOSTCCVERSION:=$(shell $(HOSTCC) -\#\#\#  2>&1 | $(GREP) -i " version ")
 
-ifneq ($(CROSS_COMPILE),)
-  ifeq ($(findstring $(CROSS_COMPILE),$(CC)),)
-    CC=$(CROSS_COMPILE)gcc
-  endif
-endif
-ifneq ($(CC),)
-  CCVERSION:=$(shell $(CC) -\#\#\#  2>&1 | $(GREP) -i " version ")
-  ARCH:=$(shell LANG=C $(CC) -dumpmachine | $(AWK) -F- '{print $$1}')
-endif
-
-ifeq ($(HOST_COMPILE),$(ARCH))
-  CC?=$(HOSTCC)
-  CFLAGS?=
-  CXX?=$(HOSTCXX)
-  CXXFLAGS?=
-  LD?=$(HOSTLD)
-  LDFLAGS?=
-  AR?=$(HOSTAR)
-  RANLIB?=$(HOSTRANLIB)
-  STRIP?=$(HOSTSTRIP)
-else
-  TOOLCHAIN?=$(dir $(dir $(realpath $(shell which $(CC)))))
-endif
-
-ifneq ($(TOOLCHAIN),)
-  export PATH:=$(TOOLCHAIN):$(TOOLCHAIN)/bin:$(PATH)
-endif
-
 ifneq ($(dir $(CC)),./)
   TARGETPREFIX=
+  ifeq ($(CC),cc)
+    CC:=$(notdir $(realpath $(shell which $(CC))))
+  endif
+  ifeq ($(CXX),c++)
+    CXX:=$(notdir $(realpath $(shell which $(CXX))))
+  endif
+  ifeq ($(LD),ld)
+    LD:=$(notdir $(realpath $(shell which $(LD))))
+  endif
 else
   ifneq ($(CROSS_COMPILE),)
     ifeq ($(findstring $(CROSS_COMPILE),$(CC)),)
@@ -190,6 +168,29 @@ TARGETCXX:=$(TARGETPREFIX)$(CXX)
 TARGETAR:=$(TARGETPREFIX)$(AR)
 TARGETRANLIB:=$(TARGETPREFIX)$(RANLIB)
 TARGETSTRIP:=$(TARGETPREFIX)$(STRIP)
+
+ifneq ($(TARGETCC),)
+  CCVERSION:=$(shell $(TARGETCC) -\#\#\#  2>&1 | $(GREP) -i " version ")
+  ARCH:=$(shell LANG=C $(TARGETCC) -dumpmachine | $(AWK) -F- '{print $$1}')
+endif
+
+ifeq ($(HOST_COMPILE),$(ARCH))
+  CC?=$(HOSTCC)
+  CFLAGS?=
+  CXX?=$(HOSTCXX)
+  CXXFLAGS?=
+  LD?=$(HOSTLD)
+  LDFLAGS?=
+  AR?=$(HOSTAR)
+  RANLIB?=$(HOSTRANLIB)
+  STRIP?=$(HOSTSTRIP)
+else
+  TOOLCHAIN?=$(dir $(dir $(realpath $(shell which $(TARGETCC)))))
+endif
+
+ifneq ($(TOOLCHAIN),)
+  export PATH:=$(TOOLCHAIN):$(TOOLCHAIN)/bin:$(PATH)
+endif
 
 ifeq ($(findstring gcc,$(TARGETCC)),gcc)
   SYSROOT?=$(shell $(TARGETCC) -print-sysroot)
@@ -246,9 +247,13 @@ SYSTEM?=$(shell $(TARGETCC) -dumpmachine)
 LONG_BIT?=$(shell LANG=C getconf LONG_BIT)
 ifneq ($(wildcard $(sysroot)/usr/lib/$(SYSTEM)),)
   libsuffix?=/$(SYSTEM)
- else
-   ifneq ($(wildcard $(sysroot)/usr/lib$(LONG_BIT)),)
-     libsuffix?=$(LONG_BIT)
+else
+  ifneq ($(wildcard $(sysroot)/usr/lib/$(ARCH)-linux-gnu),)
+	libsuffix?=/$(ARCH)-linux-gnu
+  else
+    ifneq ($(wildcard $(sysroot)/usr/lib$(LONG_BIT)),)
+      libsuffix?=$(LONG_BIT)
+    endif
   endif
 endif
 
@@ -872,7 +877,7 @@ endef
 $(foreach dir, includedir datadir docdir sysconfdir libdir bindir sbindir ,$(addprefix $(destdir),$($(dir))/)):
 	$(Q)$(MKDIR) $@
 
-$(include-install): $(destdir)$(includedir:%/=%)/%: $(objdir)%
+$(include-install): $(destdir)$(includedir:%/=%)/%: %
 	$(Q)$(call cmd,install_data)
 	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
 
@@ -1044,16 +1049,21 @@ cleanconfig: TMPCONFIG:=$(builddir).tmpconfig
 cleanconfig: FORCE
 	$(Q)$(foreach file,$(configfiles), $(call cmd,clean,$(file));)
 
-oldconfig: _info $(builddir) $(CONFIG) FORCE
-	$(Q)$(call cmd,clean,$(PATHCACHE))
-	$(Q)$(MAKE) _oldconfig
+oldconfig: action:=_defconfig
+oldconfig: TMPCONFIG:=$(builddir).tmpconfig
+oldconfig:  cleanconfig $(builddir)/Makefile
+	$(Q)$(MAKE) _defconfig TMPCONFIG=$(builddir).tmpconfig -f $(makemore) file=$(file)
 
-quiet_cmd_oldconfig=OLDCONFIG
-cmd_oldconfig=cat $< | grep $(addprefix -e ,$(RESTCONFIGS)) >> $(CONFIG)
+#quiet_cmd_oldconfig=OLDCONFIG
+#cmd_oldconfig=cat $< | grep $(addprefix -e ,$(RESTCONFIGS)) >> $(CONFIG)
 
-_oldconfig: RESTCONFIGS:=$(foreach config,$(CONFIGS),$(if $($(config)),,$(config)))
-_oldconfig: $(DEFCONFIG) $(PATHCACHE)
-	$(Q)$(if $(strip $(RESTCONFIGS)),$(call cmd,oldconfig))
+#_oldconfig: RESTCONFIGS:=$(foreach config,$(CONFIGS),$(if $($(config)),,$(config)))
+#_oldconfig: $(DEFCONFIG) $(PATHCACHE) __oldconfig _hook _configbuild _versionbuild ;
+#	$(Q)$(if $(strip $(RESTCONFIGS)),$(call cmd,oldconfig))
+#	@
+
+#__oldconfig: $(subdir-target) $(lib-deps-target)
+#	$(Q)$(if $(strip $(RESTCONFIGS)),$(call cmd,oldconfig))
 
 # manage the defconfig files
 # 1) use the default defconfig file
