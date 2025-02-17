@@ -1,0 +1,5 @@
+GET /token_totp HTTP/1.1
+HOST: totp.ouistiti.local
+Connection: Close
+Authorization: Basic Zm9vOjEyMzk5NA==
+

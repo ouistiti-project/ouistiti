@@ -2,3 +2,8 @@ DESC="test to PUT file on the server"
 PREPARE="rm -f ${TESTDIR}/htdocs/test41.txt"
 CONFIG=test10.conf
 TESTCODE=201
+TESTCUSTOM=test041
+test041() {
+  [ $(stat -c%s ${TESTDIR}/htdocs/test41.txt) -eq 12 ]
+  return $?
+}

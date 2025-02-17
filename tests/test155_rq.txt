@@ -1,0 +1,7 @@
+POST /test41.txt HTTP/1.1
+HOST: 147.0.0.1
+Content-Type: text/plain
+Content-Length: 14
+Authorization: Basic dGVzdDp0ZXN0
+
+Hello foobar

@@ -2,7 +2,7 @@ PUT /auth/mngt HTTP/1.1
 HOST: auth.ouistiti.local
 Authorization: Basic cm9vdDpyb290
 Accept: text/json
-Origin: http://ouistiti.net
+Origin: http://ouistiti.local
 Content-Length: 40
 Content-Type: application/x-www-form-urlencoded
 

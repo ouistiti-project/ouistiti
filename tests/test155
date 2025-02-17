@@ -1,0 +1,10 @@
+DESC="replace content file with POST on the server"
+PREPARE="echo Hello world > ${TESTDIR}/htdocs/test41.txt"
+CONFIG=test10.conf
+TESTCODE=201
+TESTCUSTOM=test155
+test155() {
+  [ $(stat -c%s ${TESTDIR}/htdocs/test41.txt) -eq 14 ]
+  return $?
+}
+

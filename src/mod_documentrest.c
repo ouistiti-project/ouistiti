@@ -82,7 +82,7 @@ static int restheader_connector(http_message_t *request, http_message_t *respons
 static int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	document_connector_t *private = httpmessage_private(request, NULL);
+	document_connector_t *private = (document_connector_t *)arg;
 
 	/**
 	 * we are into PRECONTENT, the data is no yet available
@@ -90,7 +90,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	 */
 
 	const char *input;
-	unsigned long long inputlen;
+	int inputlen;
 	int error = 0;
 	/**
 	 * rest = 1 to close the connection on end of file or
@@ -98,7 +98,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	 */
 	size_t rest = 1;
 	inputlen = httpmessage_content(request, &input, &rest);
-	document_dbg("document: put %lld bytes into file", inputlen);
+	document_dbg("document: put %d/%lu bytes into file %s", inputlen, rest, private->url);
 
 	/**
 	 * the function returns EINCOMPLETE to wait before to send
@@ -111,7 +111,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 		int wret = write(private->fdfile, input, inputlen);
 		if (wret < 0)
 		{
-			err("document: access file %s error %s", private->url, strerror(errno));
+			err("document: access file %s error %m", private->url);
 			if (errno != EAGAIN)
 			{
 				error = errno;
@@ -132,6 +132,9 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	{
 		rest = 0;
 	}
+#ifdef DEBUG
+	document_dbg("document: put %lu rest %lu", private->datasize, rest);
+#endif
 	if (rest < 1)
 	{
 #ifdef DEBUG
@@ -154,7 +157,6 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 #endif
 		}
 		private->fdfile = 0;
-		document_close(private, request);
 		if (rest < 0)
 #ifdef RESULT_500
 			httpmessage_result(response, RESULT_500);
@@ -178,16 +180,22 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 		http_connector_t *connector)
 {
 	int fdfile = -1;
-	const char *contenttype = httpmessage_REQUEST(request,"Content-Type");
+	string_t contenttype = {0};
+	ouimessage_REQUEST(request,"Content-Type", &contenttype);
 	errno = 0;
-	if (url[urllen - 1] == '/' || (contenttype && !strcmp(contenttype, "text/directory")))
+	if (url[urllen - 1] == '/' ||
+		(!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_mime_inode_directory))))
 	{
 		err("document: %s found dir", url);
 		fdfile = mkdirat(fdroot, url, 0777);
 		restheader_connector(request, response, errno);
 		fdfile = 0; /// The request is complete by this connector
 	}
-	else
+	if (!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_multipart_form_data)))
+	{
+		err("document: form data unsupported with rest API");
+	}
+	else if (fdfile != 0)
 	{
 		fdfile = openat(fdroot, url, O_WRONLY | O_CREAT | O_EXCL, 0640);
 		if (fdfile < 0)
@@ -234,10 +242,11 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 	if (faccessat(fdroot, url, F_OK, 0) == -1)
 		return fdfile;
 
-	const char *cmd = httpmessage_REQUEST(request, "X-POST-CMD");
+	string_t cmd = {0};
+	ouimessage_REQUEST(request, "X-POST-CMD", &cmd);
 
 	errno = 0;
-	if (cmd && !strcmp("mv", cmd))
+	if (!string_empty(&cmd) && !string_cmp(&cmd, "mv", 2))
 	{
 		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (postarg[0] == '/')
@@ -246,8 +255,9 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 		fdfile = changename(fdroot, request, url, postarg, _document_renameat);
 		error = errno;
 		fdfile = 0; /// The request is complete by this connector
+		restheader_connector(request, response, error);
 	}
-	else if (cmd && !strcmp("chmod", cmd))
+	else if (!string_empty(&cmd) && !string_cmp(&cmd, "chmod", 5))
 	{
 		warn("chmod %s", url);
 		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
@@ -255,9 +265,10 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 		fdfile = fchmodat(fdroot, url, mod, 0);
 		error = errno;
 		fdfile = 0; /// The request is complete by this connector
+		restheader_connector(request, response, error);
 	}
 #ifdef HAVE_SYMLINK
-	else if (cmd && !strcmp("ln", cmd))
+	else if (!string_empty(&cmd) && !string_cmp(&cmd, "ln", 2))
 	{
 		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
 		if (postarg[0] == '/')
@@ -266,15 +277,27 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 		fdfile = changename(fdroot, request, url, postarg, _document_symlinkat);
 		error = errno;
 		fdfile = 0; /// The request is complete by this connector
+		restheader_connector(request, response, error);
 	}
 #endif
+	else if (string_empty(&cmd))
+	{
+		fdfile = openat(fdroot, url, O_WRONLY | O_EXCL, 0640);
+		if (fdfile < 0)
+		{
+			restheader_connector(request, response, errno);
+			fdfile = 0; /// The request is complete by this connector
+		}
+		else
+			*connector = putfile_connector;		
+	}
 	else
 	{
-		err("document: %s unknown", cmd);
+		err("document: %s unknown", string_toc(&cmd));
 		error = 22;
 		fdfile = 0; /// The request is complete by this connector
+		restheader_connector(request, response, error);
 	}
-	restheader_connector(request, response, error);
 	return fdfile;
 }
 

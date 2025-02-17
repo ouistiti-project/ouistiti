@@ -10,7 +10,7 @@ servers= ({
 			type = "None";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.cgi,.php";
 			options = "dirlisting,range,rest";

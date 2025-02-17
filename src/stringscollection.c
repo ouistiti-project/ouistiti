@@ -27,7 +27,6 @@
  *****************************************************************************/
 const char str_servername[9] = "ouistiti";
 
-const char str_http[5] = "http";
 const char str_https[6] = "https";
 
 /// defined into libouistiti
@@ -40,14 +39,12 @@ const char str_options[] = "OPTIONS";
 
 const char str_authenticate[] = "WWW-Authenticate";
 const char str_authorization[] = "Authorization";
-const char str_SetCookie[] = "Set-Cookie";
 const char str_cachecontrol[] = "Cache-Control";
 const char str_xtoken[] = "X-Auth-Token";
 const char str_xuser[] = "X-Remote-User";
 const char str_xgroup[] = "X-Remote-Group";
 const char str_xhome[] = "X-Remote-Home";
 const char str_upgrade_insec_req[] = "Upgrade-Insecure-Requests";
-const char str_connection[] = "Connection";
 const char str_upgrade[] = "Upgrade";
 const char str_websocket[] = "websocket";
 const char str_sec_ws_protocol[] = "Sec-WebSocket-Protocol";
@@ -60,6 +57,7 @@ const char str_state[] = "session_state";
 const char str_expires[] = "expires";
 
 const char str_multipart_replace[] = "multipart/x-mixed-replace";
+const char str_multipart_form_data[] = "multipart/form-data";
 
 const char str_boundary[] = "FRAME";
 
@@ -69,8 +67,11 @@ const char str_user[] = "user";
 const char str_group[] = "group";
 const char str_home[] = "home";
 const char str_status[] = "status";
+const char str_issuer[] = "issuer";
 
 const char str_status_approving[] = "approving";
 const char str_status_reapproving[] = "reapproving";
 const char str_status_activated[] = "activated";
 const char str_status_repudiated[] = "repudiated";
+
+const char str_mime_inode_directory[] = "inode/directory";

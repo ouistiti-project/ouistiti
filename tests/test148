@@ -1,0 +1,7 @@
+if [ "$AUTHZ_TOTP" != "y" ]; then
+	echo "auth with totp disabled"
+	DISABLED=1
+fi
+DESC="totp: retrieve otpurl"
+CONFIG=test12.conf
+TESTCODE=200

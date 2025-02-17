@@ -1,0 +1,4 @@
+DESC="redirect: query but without uri"
+CONFIG=test16.conf
+TESTCODE=204
+TESTRESPONSE=result204_rs.txt
