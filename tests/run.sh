@@ -40,7 +40,7 @@ case $1 in
 		;;
 	-A)
 		ALL=1
-		TESTS=$(find $TESTDIR -maxdepth 1 -name test*[0-9] | sort)
+		TESTS=$(find $TESTDIR -maxdepth 1 -name "test*[0-9]" | sort)
 		;;
 	-N)
 		NOERROR=1
@@ -78,13 +78,9 @@ WGET=wget
 #USER=$(ls -l $0 | ${AWK} '{print $3}')
 USER=$(ps -p $$ -o user --no-headers)
 TESTCLIENT="./host/utils/testclient"
-LD_LIBRARY_PATH=${SRCDIR}:$TESTDIR../libhttpserver/src/:$TESTDIR../libhttpserver/src/httpserver/:$TESTDIR../utils/
+LD_LIBRARY_PATH=${SRCDIR}:libhttpserver/src/:libhttpserver/src/httpserver/:utils/
 
 export LD_LIBRARY_PATH
-
-if [ -z "$INFO" ]; then
-CURLOUT="-o /dev/null"
-fi
 
 TESTERROR=""
 
@@ -94,7 +90,8 @@ config () {
 	CONFIG=$1
 
 	cp ${TESTDIR}conf/${CONFIG}.in ${TESTDIR}conf/${CONFIG}
-	${SED} -i "s,\%PWD\%,$PWD,g" ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s,\%TESTDIR\%,${TESTDIR},g" ${TESTDIR}conf/${CONFIG}
+	${SED} -i "s,\%PWD\%,${PWD},g" ${TESTDIR}conf/${CONFIG}
 	${SED} -i "s,\%USER\%,$USER,g" ${TESTDIR}conf/${CONFIG}
 	${SED} -i "s,\%LOGFILE\%,$LOGFILE,g" ${TESTDIR}conf/${CONFIG}
 
@@ -104,15 +101,21 @@ start () {
 	TARGET=$1
 	CONFIG=$2
 
+	ARGUMENTS=""
+	if [ "$VTHREAD" != "y" ]; then
+		ARGUMENTS=" -s 1"
+	fi
 	#ARGUMENTS=$ARGUMENTS" -s 1"
 	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
 	ARGUMENTS=$ARGUMENTS" -M ./staging:./src"
+	ARGUMENTS=$ARGUMENTS" -W "$TESTDIR
 	if [ -n "$INFO" ]; then
 		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
 		echo "******************************"
 		cat ${TESTDIR}conf/${CONFIG}
 	fi
+	echo "${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS}"
 	${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS} &
 	PID=$!
 	echo "${TARGET} started with pid ${PID}"
@@ -140,13 +143,18 @@ test () {
 	unset CMDREQUEST
 	unset FILEDATA
 	unset PREPARE
+	unset CURLURL
 	unset CURLPARAM
+	unset WGETURL
+	unset WGETPARAM
 	unset TESTREQUEST
 	unset TESTRESPONSE
 	unset TESTCODE
 	unset TESTHEADERLEN
 	unset TESTCONTENTLEN
 	unset TESTOPTION
+	unset TESTCUSTOM
+	TESTTIMEOUT=0
 	unset ASYNC_PID
 	unset PREPARE_ASYNC
 	unset PREPARE
@@ -175,6 +183,7 @@ test () {
 	fi
 
 	config $CONFIG
+	rm -f $TMPRESPONSE
 
 	if [ -n "$PREPARE_ASYNC" ]; then
 		$PREPARE_ASYNC &
@@ -191,30 +200,32 @@ test () {
 	fi
 
 	echo "----"
-	if [ -n "$CURLPARAM" ]; then
+	if [ -n "$CURLURL" ]; then
 		if [ -n "$INFO" ]; then
-			echo "get $CURLPARAM"
+			echo "get $CURLURL"
 			echo "----"
 		fi
-		$CURL $CURLOUT -f -s -S $CURLPARAM > $TMPRESPONSE
+		$CURL -i -k $CURLPARAM $CURLURL > $TMPRESPONSE
 	fi
 	if [ -n "$WGETURL" ]; then
 		if [ -n "$INFO" ]; then
 			echo "get $WGETURL"
 			echo "----"
 		fi
-		$WGET --no-check-certificate -S -q -O - $WGETURL 2> $TMPRESPONSE.tmp
-		#$WGET --no-check-certificate -S -O - $WGETURL
+		$WGET --no-check-certificate -S -q -O - $WGETPARAM $WGETURL 2> $TMPRESPONSE.tmp
+		#$WGET --no-check-certificate -S -O - WGETURL
 		cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
 	fi
-	if [ -n "$TESTREQUEST" ]; then
-		if [ -n "$INFO" ]; then
-			cat ${TESTDIR}$TESTREQUEST
-			echo "----"
+	for REQUEST in ${TESTREQUEST} ; do
+		if [ -n "$REQUEST" ]; then
+			if [ -n "$INFO" ]; then
+				cat ${TESTDIR}$REQUEST
+				echo "----"
+			fi
+			echo cat ${TESTDIR}$REQUEST' |' $TESTCLIENT $TESTOPTION
+			cat ${TESTDIR}$REQUEST | $TESTCLIENT $TESTOPTION >> $TMPRESPONSE
 		fi
-		echo cat ${TESTDIR}$TESTREQUEST' |' $TESTCLIENT $TESTOPTION
-		cat ${TESTDIR}$TESTREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
-	fi
+	done
 	if [ -n "$CMDREQUEST" ]; then
 		if [ -n "$INFO" ]; then
 			$CMDREQUEST
@@ -223,6 +234,9 @@ test () {
 		$CMDREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
 	ERR=0
+	if [ $TESTTIMEOUT -ne 0 ]; then
+		sleep $TESTTIMEOUT
+	fi
 	if [ -n "$INFO" ]; then
 		cat $TMPRESPONSE
 		echo $TEST
@@ -237,7 +251,7 @@ test () {
 				ERR=4
 			fi
 		fi
-		rescode=$(cat $TMPRESPONSE | ${AWK} '/^HTTP\/1\.1 .* .*/{print $2}' )
+		rescode=$(cat $TMPRESPONSE | ${AWK} '/^HTTP\/1\.[0,1] .* .*/{print $2}' )
 		resheaderlen=$TESTHEADERLEN
 		rescontentlen=$TESTCONTENTLEN
 		#resheaderlen=$(echo $result | ${AWK} -F= 't$0 == t {print $0}' | wc -c)
@@ -261,10 +275,19 @@ test () {
 		echo "content error received $rescontentlen instead $TESTCONTENTLEN"
 		ERR=3
 	fi
-	if [ ! $ERR -eq 0 ]; then
+	if [ -n "$TESTCUSTOM" ]; then
+		$TESTCUSTOM
+		if [ $? -ne 0 ]; then
+			ERR=4
+		fi
+	fi
+	if [ $ERR -ne 0 ]; then
 		echo "$TEST quits on error"
 		stop $TARGET
 		cat $LOGFILE
+		if [ $ERR -eq 4 ]; then
+			echo "Custom test error"
+		fi
 		if [ $NOERROR -eq 1 ]; then
 			TESTERROR="${TESTERROR} $TEST"
 		else
@@ -300,6 +323,11 @@ if [ ${ALL} -eq 1 ]; then
 	${SRCDIR}${TARGET} ${ARGUMENTS} -h
 	${SRCDIR}${TARGET} ${ARGUMENTS} -V
 	${SRCDIR}${TARGET} ${ARGUMENTS} -C -f ${TESTDIR}conf/test1.conf
+	${SRCDIR}${TARGET} ${ARGUMENTS} -W ${TESTDIR} -f ${TESTDIR}conf/test.conf -p $TMPRESPONSE.pid -D
+	sleep 1
+	$WGET --no-check-certificate -S -q -O - http://127.0.0.1:8080/index.html 2> $TMPRESPONSE.tmp
+	sleep 1
+	${SRCDIR}${TARGET} ${ARGUMENTS} -p $TMPRESPONSE.pid -K
 fi
 if [ ${GCOV} -eq 1 ]; then
 	make DEBUG=y gcov
