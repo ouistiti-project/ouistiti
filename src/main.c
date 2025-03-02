@@ -316,7 +316,8 @@ static void handler(int sig)
 		exit(1);
 #endif
 	}
-	run = 'q';
+	if (sig != SIGPIPE)
+		run = 'q';
 }
 
 http_server_t *ouistiti_httpserver(server_t *server)
@@ -715,11 +716,10 @@ int main(int argc, char * const *argv)
 	sigaction(SIGSEGV, &action, NULL);
 #endif
 
-#if 0
+	/// ignore sigpipe for multithreading
 	struct sigaction unaction;
 	unaction.sa_handler = SIG_IGN;
-#endif
-	sigaction(SIGPIPE, &action, NULL);
+	sigaction(SIGPIPE, &unaction, NULL);
 #else
 	signal(SIGTERM, handler);
 	signal(SIGINT, handler);
