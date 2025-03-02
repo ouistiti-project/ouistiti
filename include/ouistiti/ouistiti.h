@@ -33,6 +33,9 @@
 #define MAX_SERVERS 4
 #endif
 
+#include <stdio.h>
+#include "ouistiti/httpserver.h"
+
 typedef struct server_s server_t;
 
 typedef struct module_s module_t;
@@ -161,7 +164,6 @@ extern const char str_options[8];
 extern const char str_authenticate[17];
 extern const char str_authorization[14];
 extern const char str_Cookie[7];
-extern const char str_SetCookie[10];
 extern const char str_cachecontrol[14];
 extern const char str_xtoken[13];
 extern const char str_xuser[14];
@@ -175,13 +177,15 @@ extern const char str_sec_ws_protocol[23];
 extern const char str_sec_ws_accept[21];
 extern const char str_sec_ws_key[18];
 extern const char str_date[5];
-extern const char *str_authorization_code[5];
-extern const char *str_access_token[12];
-extern const char *str_state[14];
-extern const char *str_expires[8];
+extern const char str_authorization_code[5];
+extern const char str_access_token[12];
+extern const char str_state[14];
+extern const char str_expires[8];
 
 extern const char str_form_urlencoded[34];
 extern const char str_multipart_replace[26];
+extern const char str_multipart_form_data[20];
+extern const char str_mime_inode_directory[16];
 
 extern const char str_boundary[6];
 
