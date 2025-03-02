@@ -111,7 +111,7 @@ size_t auth_info2(http_message_t *request, const char *key, const char **value)
 	return httpmessage_SESSION2(request, key, (void **)value);
 }
 
-int auth_setowner(const char *user)
+int ouistiti_setprocessowner(const char *user)
 {
 	int ret = EREJECT;
 #ifdef HAVE_PWD
@@ -257,9 +257,22 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
 }
 
+static int _ouistiti_chown(int fd, const char *owner)
+{
+#ifdef HAVE_PWD
+	struct passwd *pw;
+	pw = getpwnam(owner);
+	if (pw != NULL)
+	{
+		return fchown(fd, pw->pw_uid, pw->pw_gid);
+	}
+#endif
+	return -1;
+}
 static const char *g_logfile = NULL;
+static int g_logfd = 0;
 size_t g_logmax = LOG_MAXFILESIZE;
-int ouistiti_setlogfile(const char *logfile, size_t logmax)
+int ouistiti_setlogfile(const char *logfile, size_t logmax, const char *owner)
 {
 	if (g_logfile != NULL)
 		logfile = g_logfile;
@@ -271,9 +284,11 @@ int ouistiti_setlogfile(const char *logfile, size_t logmax)
 		if (logmax)
 			g_logmax = logmax;
 		g_logfile = logfile;
-		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00640);
+		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00660);
 		if (g_logfd > 0)
 		{
+			if (owner && _ouistiti_chown(g_logfd, owner) == -1)
+				warn("main: impossible to change logfile owner");
 			dup2(g_logfd, 1);
 			dup2(g_logfd, 2);
 			close(g_logfd);
@@ -530,7 +545,8 @@ static int main_run(server_t *first)
 		struct stat logstat = {0};
 		if (g_logfile && !stat(g_logfile, &logstat) && (logstat.st_size > g_logmax))
 		{
-			ouistiti_setlogfile(g_logfile, g_logmax);
+			ouistiti_setlogfile(g_logfile, g_logmax, NULL);
+			warn("main: reset logfile");
 		}
 #endif
 	}
@@ -730,7 +746,7 @@ int main(int argc, char * const *argv)
 	signal(SIGPIPE, SIG_IGN);
 #endif
 
-	if (ouistiticonfig->user == NULL || auth_setowner(ouistiticonfig->user) == EREJECT)
+	if (ouistiticonfig->user == NULL || ouistiti_setprocessowner(ouistiticonfig->user) == EREJECT)
 		err("Error: user %s not found", ouistiticonfig->user);
 	else
 		warn("%s run as %s", argv[0], ouistiticonfig->user);
