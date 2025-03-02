@@ -69,7 +69,7 @@ void *authn_none_config(const config_setting_t *configauth)
 	if (user != NULL)
 	{
 		authn_config = calloc(1, sizeof(*authn_config));
-		_string_store(&authn_config->user, user, -1);
+		string_store(&authn_config->user, user, -1);
 	}
 	else
 		warn("config: authn_none needs to set the user");

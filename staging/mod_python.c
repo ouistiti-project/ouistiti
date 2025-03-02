@@ -206,7 +206,7 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 		{
 			_mod_python_script_t *pscript = calloc(1, sizeof(*pscript));
 			pscript->pymodule = pymodule;
-			_string_store(&pscript->path, script->path.data, script->path.length);
+			string_store(&pscript->path, script->path.data, script->path.length);
 			pscript->next = mod->scripts;
 			mod->scripts = pscript;
 		}

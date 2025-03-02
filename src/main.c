@@ -36,6 +36,7 @@
 #include <libgen.h>
 #include <sched.h>
 #include <dirent.h>
+#include <limits.h>
 #ifdef BACKTRACE
 #include <execinfo.h> // for backtrace
 #endif
@@ -72,33 +73,56 @@ char str_hostname[HOST_NAME_MAX + 7];
 
 #define MAX_STRING 256
 
-static size_t _string_len(string_t *str, const char *pointer)
+size_t string_length(const string_t *str)
 {
-	if (str->size == 0) str->size = MAX_STRING;
-	return strnlen(pointer, str->size);
+	if (str->data && str->length == (size_t) -1)
+		((string_t*)str)->length = strnlen(str->data, MAX_STRING);
+	return str->length;
 }
 
-int _string_store(string_t *str, const char *pointer, size_t length)
+int string_store(string_t *str, const char *pointer, size_t length)
 {
 	str->data = pointer;
-	if (pointer && length == (size_t) -1)
-		str->length = _string_len(str, pointer);
-	else
-		str->length = length;
+	/// set length and check if value is -1
+	str->length = length;
+	str->length = string_length(str);
 	str->size = str->length + 1;
+	if (str->data == NULL)
+	{
+		str->length = 0;
+		str->size = 0;
+	}
 	return ESUCCESS;
 }
 
-int _string_cmp(const string_t *str, const char *cmp, size_t length)
+int string_cmp(const string_t *str, const char *cmp, size_t length)
 {
+	if (cmp == NULL)
+		return -1;
 	if ((length != (size_t) -1) && (length != str->length))
-		return EREJECT;
+		return (length - str->length);
 	return strncasecmp(str->data, cmp, str->length);
 }
 
-int _string_empty(const string_t *str)
+int string_empty(const string_t *str)
 {
-	return ! (str->data != NULL && str->data[0] != '\0');
+	return ! (str->data != NULL && str->data[0] != '\0' && str->length > 0);
+}
+
+int string_cpy(string_t *str, const char *source, size_t length)
+{
+	if (str->data == NULL)
+		return EREJECT;
+	if ((length == (size_t) -1) || (length > INT_MAX))
+		str->length = snprintf((char *)str->data, str->size, "%s", source);
+	else
+		str->length = snprintf((char *)str->data, str->size, "%.*s", (int)length, source);
+	return str->length;
+}
+
+const char *string_toc(const string_t *str)
+{
+	return str->data;
 }
 
 const char *auth_info(http_message_t *request, const char *key, size_t keylen)
