@@ -50,6 +50,7 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/hash.h"
 #include "ouistiti/log.h"
+#include "mod_cookie.h"
 #include "mod_auth.h"
 #include "authn_none.h"
 #ifdef AUTHN_BASIC
