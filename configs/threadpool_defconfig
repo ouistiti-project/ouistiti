@@ -30,6 +30,7 @@ MAX_SERVERS=4
 #if mono thread only one server may run
 VTHREAD=y
 VTHREAD_TYPE=threadpool
+THREADPOOL_TIMED=n
 
 BACKTRACE=y
 
