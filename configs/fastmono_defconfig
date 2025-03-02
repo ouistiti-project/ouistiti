@@ -112,6 +112,15 @@ UPGRADE=y
 UPGRADE_INET=n
 #support for filter uri select by user
 USERFILTER=n
+#support of simple python scripts (staging)
+PYTHON=n
+#support of request forwarding
+#   depends on HTTPCLIENT_FEATURES
+FORWARD=n
+#support date field
+DATE=y
+#support of response's signature rfc9421
+SIGNATURE=n
 
 CERTIFICATE=n
 
