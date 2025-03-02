@@ -44,6 +44,8 @@ LIBURI=n
 LIBUTILS=y
 LIBHASH=y
 
+LOG_MAXFILESIZE=1048576
+
 # libouihash configuration:
 LIBB64=y
 # libouisocket configuration:
