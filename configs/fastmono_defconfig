@@ -38,6 +38,8 @@ USE_POLL=y
 USE_PTHREAD=n
 USE_IPV6=n
 
+LOG_MAXFILESIZE=1048576
+
 # libraries  configuration:
 LIBWEBSOCKET=y
 LIBURI=n

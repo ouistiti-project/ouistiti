@@ -257,6 +257,35 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
 }
 
+static const char *g_logfile = NULL;
+size_t g_logmax = LOG_MAXFILESIZE;
+int ouistiti_setlogfile(const char *logfile, size_t logmax)
+{
+	if (g_logfile != NULL)
+		logfile = g_logfile;
+	if (logfile != NULL && logfile[0] != '\0' && logfile[0] != '-')
+	{
+		const char *logmaxenv = getenv("LOG_MAXFILESIZE");
+		if (logmaxenv)
+			logmax = strtoul(logmaxenv, NULL, 10);
+		if (logmax)
+			g_logmax = logmax;
+		g_logfile = logfile;
+		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00640);
+		if (g_logfd > 0)
+		{
+			dup2(g_logfd, 1);
+			dup2(g_logfd, 2);
+			close(g_logfd);
+		}
+		else
+			err("log file error %s", strerror(errno));
+	}
+	else
+		g_logfile = NULL;
+	return (g_logfd > 0);
+}
+
 #undef BACKTRACE
 static server_t *g_first = NULL;
 static char run = 0;
@@ -492,10 +521,17 @@ static int main_run(server_t *first)
 		httpserver_connect(server->server);
 	}
 
-	while(run != 'q')
+	while(run != 'q' && first != NULL && first->server != NULL)
 	{
-		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
+		if (httpserver_run(first->server) != ECONTINUE)
 			break;
+#if LOG_MAXFILESIZE != -1
+		struct stat logstat = {0};
+		if (g_logfile && !stat(g_logfile, &logstat) && (logstat.st_size > g_logmax))
+		{
+			ouistiti_setlogfile(g_logfile, g_logmax);
+		}
+#endif
 	}
 	return 0;
 }
@@ -571,7 +607,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:P:hDKCVM:W:");
+		opt = getopt(argc, argv, "s:f:p:P:hDKCVM:W:L:");
 		switch (opt)
 		{
 			case 's':
@@ -606,6 +642,9 @@ int main(int argc, char * const *argv)
 			break;
 			case 'W':
 				 workingdir = optarg;
+			break;
+			case 'L':
+				 g_logfile = optarg;
 			break;
 			default:
 			break;
@@ -707,5 +746,7 @@ int main(int argc, char * const *argv)
 	}
 	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
+	if (g_logfd > 0)
+		close(g_logfd);
 	return 0;
 }

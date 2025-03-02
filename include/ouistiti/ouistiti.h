@@ -92,6 +92,8 @@ typedef struct ouistiticonfig_s
 ouistiticonfig_t *ouistiticonfig_create(const char *filepath);
 void ouistiticonfig_destroy(ouistiticonfig_t *ouistiticonfig);
 
+int ouistiti_setlogfile(const char *logfile, size_t logmax);
+
 int ouistiti_initmodules(const char *pkglib);
 void ouistiti_finalizemodule(void *dh);
 typedef void *(*configure_t)(void *data, const module_t *module, server_t *server);
