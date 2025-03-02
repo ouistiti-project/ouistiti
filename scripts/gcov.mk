@@ -34,20 +34,20 @@ quiet_cmd_lcov=LCOV
 quiet_cmd_genhtml=GENHTML $@
  cmd_genhtml=$(GENHTML) $< --output-directory $@
 
-$(reportpath)$(cwdir)%.c.gcov: GCOV_OPTIONS=-o $(dir $@) -s $(dir $<)
+$(reportpath)$(cwdir)%.c.gcov: GCOV_OPTIONS+=-o $(dir $@) -s $(dir $<)
 $(reportpath)$(cwdir)%.c.gcov:%.c $(file)
 	@$(call cmd,cc_gcov_c)
 
-$(reportpath)$(cwdir)%.c.gcov: GCOV_OPTIONS=-o $(dir $@) -s $(dir $<)
+$(reportpath)$(cwdir)%.c.gcov: GCOV_OPTIONS+=-o $(dir $@) -s $(dir $<)
 $(reportpath)$(cwdir)%.c.gcov:%.cpp $(file)
 	@$(call cmd,cc_gcov_c)
 
 # for generated files
-$(reportpath)$(cwdir)%.c.gcov: GCOV_OPTIONS=-o $(dir $@) -s $(dir $<)
+$(reportpath)$(cwdir)%.c.gcov: GCOV_OPTIONS+=-o $(dir $@) -s $(dir $<)
 $(reportpath)$(cwdir)%.c.gcov:$(obj)%.c $(file)
 	@$(call cmd,cc_gcov_c)
 
-$(reportpath)$(cwdir)%.c.gcov: GCOV_OPTIONS=-o $(dir $@) -s $(dir $<)
+$(reportpath)$(cwdir)%.c.gcov: GCOV_OPTIONS+=-o $(dir $@) -s $(dir $<)
 $(reportpath)$(cwdir)%.c.gcov:$(obj)%.cpp $(file)
 	@$(call cmd,cc_gcov_c)
 
@@ -56,3 +56,15 @@ $(reportpath)gcov.info: $(gcov-target)
 
 $(reportpath)index.html: $(reportpath)gcov.info
 	@$(call cmd,genhtml)
+
+_help_options_gcov:
+	@echo " make gcov :"
+	@echo "  options:"
+	@echo "    GCOV_OPTIONS=<string>"
+	@echo ""
+	@echo " make gcovhtml :"
+	@echo ""
+
+_help_entries_gcov:
+	@
+
