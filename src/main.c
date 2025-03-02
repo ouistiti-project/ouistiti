@@ -187,7 +187,10 @@ static int main_initat(int rootfd, const char *path, int action)
 {
 	struct stat filestat = {0};
 	if (fstatat(rootfd, path, &filestat, 0) != 0)
+	{
+		err("main: file %s not found %m", path);
 		return EREJECT;
+	}
 	if (S_ISDIR(filestat.st_mode))
 	{
 		struct dirent **namelist;
@@ -205,13 +208,14 @@ static int main_initat(int rootfd, const char *path, int action)
 			free(namelist[n]);
 		}
 		close(newrootfd);
-
 	}
 	else if (faccessat(rootfd, path, X_OK, 0) == 0)
 	{
-		warn("%s %s script", actions[action], path);
+		warn("main: %s %s script", actions[action], path);
 		main_exec(rootfd, path, action);
 	}
+	else
+		err("main: %s is not executable", path);
 
 	return ESUCCESS;
 }
