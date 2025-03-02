@@ -199,7 +199,7 @@ static int authz_totp_passwd(void *arg, const char *user, const char **passwd)
 {
 	authz_totp_t *ctx = (authz_totp_t *)arg;
 	string_t userstr = {0};
-	_string_store(&userstr, user, -1);
+	string_store(&userstr, user, -1);
 	return _authz_totp_passwdstr(ctx, &userstr, passwd);
 }
 
@@ -209,12 +209,12 @@ static int _authz_totp_checkpasswd(authz_totp_t *ctx, const char *user, const ch
 
 	const char *checkpasswd = NULL;
 	string_t userstr = {0};
-	_string_store(&userstr, user, -1);
+	string_store(&userstr, user, -1);
 	_authz_totp_passwdstr(ctx, &userstr, &checkpasswd);
 	if (checkpasswd != NULL)
 	{
 		string_t passwdstr = {0};
-		_string_store(&passwdstr, passwd, -1);
+		string_store(&passwdstr, passwd, -1);
 		if (authz_checkpasswd(checkpasswd, &userstr, NULL,  &passwdstr) == ESUCCESS)
 			return 1;
 	}

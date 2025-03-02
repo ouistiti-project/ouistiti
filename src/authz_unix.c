@@ -173,13 +173,13 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 			time_t now = time(NULL);
 			long day = now / (60 * 60 * 24);
 			if (spasswd->sp_max > 0 && day > (spasswd->sp_lstchg + spasswd->sp_max))
-				_string_store(&status, STRING_REF(str_status_reapproving));
+				string_store(&status, STRING_REF(str_status_reapproving));
 			if (spasswd->sp_expire > 0 && day > spasswd->sp_expire)
-				_string_store(&status, STRING_REF(str_status_repudiated));
+				string_store(&status, STRING_REF(str_status_repudiated));
 		}
 		else if (cryptpasswd[0] == '!')
 		{
-			_string_store(&status, STRING_REF(str_status_repudiated));
+			string_store(&status, STRING_REF(str_status_repudiated));
 			cryptpasswd += 1;
 		}
 
@@ -193,7 +193,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
 			ret = 1;
-			_string_store(&ctx->status, STRING_INFO(status));
+			string_store(&ctx->status, STRING_INFO(status));
 		}
 		else
 		{
