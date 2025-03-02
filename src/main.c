@@ -374,6 +374,46 @@ void string_destroy(string_t *str)
 	free(str);
 }
 
+int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value)
+{
+	const char *data = NULL;
+	size_t datalen = httpmessage_REQUEST2(message, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+
+int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value)
+{
+	void *data = NULL;
+	size_t datalen = httpmessage_SESSION2(message, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+
+int ouimessage_parameter(http_message_t *message, const char *key, string_t *value)
+{
+	const char *data = NULL;
+	size_t datalen = httpmessage_parameter(message, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+
+int ouiserver_INFO(http_server_t *server, const char *key, string_t *value)
+{
+	const char *data = NULL;
+	size_t datalen = httpserver_INFO2(server, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+/******************************************************************************/
 const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 {
 	return httpclient_session(httpmessage_client(request), key, keylen, NULL, -1);

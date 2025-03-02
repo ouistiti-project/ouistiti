@@ -137,6 +137,11 @@ int string_dup(string_t *dst, string_t *src);
 void string_cleansafe(string_t *str);
 void string_destroy(string_t *str);
 
+int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value);
+int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value);
+int ouimessage_parameter(http_message_t *message, const char *key, string_t *value);
+int ouiserver_INFO(http_server_t *server, const char *key, string_t *value);
+
 extern const char str_servername[9];
 
 extern const char str_http[5];
