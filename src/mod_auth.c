@@ -1322,7 +1322,7 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	if (mod->authz->type & AUTHZ_CHOWN_E)
 	{
 		const char *user = auth_info(request, STRING_REF(str_user));
-		auth_setowner(user);
+		ouistiti_setprocessowner(user);
 	}
 	if (ttoken)
 		free(ttoken);
