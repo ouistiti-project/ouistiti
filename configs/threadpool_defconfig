@@ -120,6 +120,10 @@ USERFILTER=y
 PYTHON=n
 #support of request forwarding
 FORWARD=y
+#support date field
+DATE=y
+#support of response's signature rfc9421
+SIGNATURE=y
 
 CERTIFICATE=n
 
