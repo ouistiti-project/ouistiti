@@ -54,7 +54,7 @@
 
 typedef struct _document_connector_s document_connector_t;
 
-#define MAX_NAMELENGTH (CONTENTCHUNK / 2)
+#define MAX_NAMELENGTH 128
 
 #define DIRLISTING_HEADER "\
 {\
