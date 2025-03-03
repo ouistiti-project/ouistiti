@@ -309,7 +309,9 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		ctx->mod = mod;
 		ctx->pymodule = pymodule;
 		ctx->pyfunc = pyfunc;
-		char **env = cgi_buildenv(config, request, uri, urilen, NULL, 0);
+		string_t uristr;
+		string_store(&uristr, uri, urilen);
+		char **env = cgi_buildenv(config, request, &uristr, NULL);
 		int count = 0;
 		ctx->pyenv = PyDict_New();
 		for (;env[count] != NULL; count++)
