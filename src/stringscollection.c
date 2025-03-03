@@ -76,3 +76,11 @@ const char str_status_activated[] = "activated";
 const char str_status_repudiated[] = "repudiated";
 
 const char str_mime_inode_directory[] = "inode/directory";
+
+const string_t string_authorization = STRING_DCL(str_authorization);
+const string_t string_xtoken = STRING_DCL(str_xtoken);
+const string_t string_xuser = STRING_DCL(str_xuser);
+const string_t string_xgroup = STRING_DCL(str_xgroup);
+const string_t string_xhome = STRING_DCL(str_xhome);
+
+const string_t string_dot = STRING_DCL(".");
