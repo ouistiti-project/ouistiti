@@ -97,7 +97,7 @@ static int authz_simple_passwd(void *arg,const  char *user, const char **passwd)
 	return 0;
 }
 
-static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))
+static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	const authz_simple_t *ctx = (const authz_simple_t *)arg;
 
@@ -107,6 +107,8 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 	{
 			return user;
 	}
+	if (token != NULL)
+		return authz_checktoken(NULL, token);
 	return NULL;
 }
 

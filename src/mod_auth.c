@@ -837,6 +837,29 @@ static size_t authz_generatetoken(const mod_auth_t *config, http_message_t *UNUS
 	free(_nonce);
 	return tokenlen;
 }
+
+const char *authz_checktoken(void *authz, const char *token)
+{
+	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
+	char *_nonce = calloc(1, _noncelen + 1);
+	size_t tokenlen = _noncelen + (_noncelen + 2) / 3;
+	tokenlen = strnlen(token, tokenlen);
+	_noncelen = base64_urlencoding->decode(token, tokenlen, _nonce, _noncelen);
+	time_t expire;
+	memcpy(&expire, &_nonce[25], sizeof(time_t));
+	free(_nonce);
+	if (expire < time(NULL))
+	{
+		err("auth: token expired");
+		return EREJECT;
+	}
+	return ESUCCESS;
+}
+#else
+const char *authz_checktoken(void *authz, const char *token)
+{
+	return _authz_jwt_checktoken(authz, token);
+}
 #endif
 
 #ifdef AUTH_TOKEN
@@ -916,29 +939,29 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	if (ret == ESUCCESS)
 	{
 		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
+	}
+	else
+		err("auth: token with bad signature %.*s", (int)signlen, sign);
 #ifdef AUTHZ_JWT
+	if (*user && ret == ESUCCESS)
+	{
 		const char *issuer = NULL;
 		const char *tuser = NULL;
 		authz_jwt_getinfo(token, &tuser, &issuer);
 		if (issuer && strstr(issuer, mod->config->issuer.data) == NULL)
 		{
-			warn("auth: token with bad issuer");
+			err("auth: token with bad issuer: %s", issuer);
 			ret = EREJECT;
 		}
 		if (tuser && (*user == NULL || strcmp(tuser, *user)))
 		{
 			*user = tuser;
 		}
-#else
-		if (*user == NULL)
-		{
-			*user = str_anonymous;
-		}
-#endif
 	}
-	else
+#endif
+	if (*user == NULL)
 	{
-		err("auth: token with bad signature %.*s", (int)signlen, sign);
+		return EREJECT;
 	}
 	return ret;
 }
@@ -1458,26 +1481,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
 		{
 			auth_dbg("auth: session already open");
-			const char *expire_str = auth_info(request, STRING_REF("expire"));
-			int expire = 0;
-			if (expire_str)
-				expire = strtol(expire_str, NULL, 10);
-#ifndef DEBUG
-			time_t now = time(NULL);
-			if (mod->config->expire > 0 &&
-				(expire < now ||
-				(expire + mod->config->expire) > now))
-			{
-				httpclient_dropsession(ctx->clt);
-				return _authn_challenge(ctx, request, response);
-			}
-#endif
 			httpclient_appendsession(ctx->clt, "issuer", "+", 1);
 			httpclient_appendsession(ctx->clt, "issuer", STRING_INFO(config->issuer));
 		}
 		else
 		{
-			auth_dbg("auth: ser the session");
+			auth_dbg("auth: set the session");
 			authz->rules->setsession(authz->ctx, user, auth_saveinfo, ctx->clt);
 			httpclient_session(ctx->clt, STRING_REF("issuer"), STRING_INFO(config->issuer));
 			if (authz->rules->join)
