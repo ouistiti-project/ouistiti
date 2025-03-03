@@ -172,21 +172,21 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 	if (!modconfig)
 		return NULL;
 
-	if (access(modconfig->docroot, R_OK) == -1)
+	if (access(string_toc(&modconfig->docroot), R_OK) == -1)
 	{
-		err("python: %s access denied", modconfig->docroot);
+		err("python: %s access denied",string_toc(&modconfig->docroot));
 		return NULL;
 	}
-	int rootfd = open(modconfig->docroot, O_PATH | O_DIRECTORY);
+	int rootfd = open(string_toc(&modconfig->docroot), O_PATH | O_DIRECTORY);
 	struct stat rootstat;
 	if (fstat(rootfd, &rootstat) == -1 || !S_ISDIR(rootstat.st_mode))
 	{
-		err("python: %s not a directory", modconfig->docroot);
+		err("python: %s not a directory", string_toc(&modconfig->docroot));
 		return NULL;
 	}
 	PyObject *sys = PyImport_ImportModule("sys");
 	PyObject *path = PyObject_GetAttrString(sys, "path");
-	PyObject *pwd = PyUnicode_FromString(modconfig->docroot);
+	PyObject *pwd = PyUnicode_FromString(string_toc(&modconfig->docroot));
 	PyList_Append(path, pwd);
 	Py_DECREF(sys);
 	Py_DECREF(path);
@@ -238,7 +238,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 	int ret = EREJECT;
 	const char *uri = NULL;
 	size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
-	if (uri && config->docroot)
+	if (uri && !string_empty(&config->docroot))
 	{
 		const char *function = NULL;
 		if (htaccess_check(&config->htaccess, uri, &function) != ESUCCESS)
