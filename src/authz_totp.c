@@ -229,12 +229,10 @@ static const char *authz_totp_check(void *arg, const char *user, const char *pas
 
 	if (user != NULL && passwd != NULL && _authz_totp_checkpasswd(ctx, user, passwd))
 		return user;
-	if (token != NULL)
-		return authz_checktoken(NULL, token);
 	return NULL;
 }
 
-static int authz_totp_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
+static int authz_totp_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
 	authz_totp_t *ctx = (authz_totp_t *)arg;
 	const authz_totp_config_t *config = ctx->config;
@@ -242,6 +240,8 @@ static int authz_totp_setsession(void *arg, const char *user, auth_saveinfo_t cb
 	cb(cbarg, STRING_REF(str_user), user, -1);
 	cb(cbarg, STRING_REF(str_group), STRING_REF("users"));
 	cb(cbarg, STRING_REF(str_status), STRING_REF(str_status_activated));
+	if (token)
+		cb(cbarg, STRING_REF(str_token), STRING_REF(token));
 	const char *service = NULL;
 	httpserver_INFO2(ctx->server, "service", &service);
 	char url[1024];
@@ -250,7 +250,7 @@ static int authz_totp_setsession(void *arg, const char *user, auth_saveinfo_t cb
 		string_t userstr = {.data = user, .length = strlen(user)};
 		authz_totp_generateK(config, &userstr, &ctx->userkey);
 	}
-	size_t urllen = otp_url(ctx->userkey.data, ctx->userkey.length, user, "test", config->hash, config->digits, url);
+	size_t urllen = otp_url(STRING_INFO(ctx->userkey), user, "test", config->hash, config->digits, url);
 	warn("otp: url %s", url);
 	cb(cbarg, STRING_REF("otpauth"), url, urllen);
 	return ESUCCESS;

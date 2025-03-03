@@ -118,13 +118,13 @@ static void *authn_digest_create(const authn_t *authn, void *config)
 static int authn_digest_noncetime(authn_digest_t *mod, char *nonce, size_t noncelen)
 {
 	int expire = 30;
-	if (mod->authn->config->expire != 0)
-		expire = mod->authn->config->expire;
+	if (mod->authn->config->token.expire != 0)
+		expire = mod->authn->config->token.expire;
 	time_t now = time(NULL);
 	now -= now % (60 * expire);
 	now += (60 *expire);
-	const char *key = mod->authn->config->secret.data;
-	size_t keylen = mod->authn->config->secret.length;
+	const char *key = mod->authn->config->token.secret.data;
+	size_t keylen = mod->authn->config->token.secret.length;
 	if (hash_macsha256 != NULL && key != NULL)
 	{
 		void *ctx = hash_macsha256->initkey(key, keylen);

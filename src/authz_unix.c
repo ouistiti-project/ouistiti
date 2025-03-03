@@ -213,12 +213,10 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 
 	if (user != NULL && passwd != NULL && _authz_unix_checkpasswd(ctx, user, passwd))
 		return user;
-	if (token != NULL)
-		return authz_checktoken(NULL, token);
 	return NULL;
 }
 
-static int authz_unix_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
+static int authz_unix_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
 	const authz_unix_t *ctx = (const authz_unix_t *)arg;
 
@@ -236,6 +234,8 @@ static int authz_unix_setsession(void *arg, const char *user, auth_saveinfo_t cb
 		cb(cbarg, STRING_REF(str_group), grp->gr_name, -1);
 	cb(cbarg, STRING_REF(str_home), ctx->pwstore.pw_dir, -1);
 	cb(cbarg, STRING_REF(str_status), STRING_INFO(ctx->status));
+	if (token)
+		cb(cbarg, STRING_REF(str_token), STRING_REF(token));
 	return ESUCCESS;
 }
 
