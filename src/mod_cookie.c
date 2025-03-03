@@ -241,6 +241,14 @@ const char *cookie_get(http_message_t *request, const char *key)
 }
 #endif
 
+int cookie_get2(http_message_t *request, const char *key, string_t *cookie)
+{
+	const char *tcookie = NULL;
+	size_t length = httpmessage_cookie(request, key, &tcookie);
+	string_store(cookie, tcookie, length);
+	return !string_empty(cookie)?ESUCCESS:EREJECT;
+}
+
 int cookie_set(http_message_t *response, const char *key, const char *value, ...)
 {
 	int ret = 0;
