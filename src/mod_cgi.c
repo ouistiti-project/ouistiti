@@ -196,7 +196,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request, string_t *
 		close(ctx->fromcgi[1]);
 #ifdef DEBUG
 		char **envs = NULL;
-		envs = cgi_buildenv(config, request, cgi_path, path_info);
+		envs = cgi_buildenv(config, request, cgi_path, path_info, calloc);
 		char *env = *envs++;
 		while (env != NULL)
 		{
@@ -226,7 +226,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request, string_t *
 		char * const argv[2] = { (char *)cgi_path->data, NULL };
 
 		char **env = NULL;
-		env = cgi_buildenv(config, request, cgi_path, path_info);
+		env = cgi_buildenv(config, request, cgi_path, path_info, calloc);
 
 
 		setlinebuf(stdout);
