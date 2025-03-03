@@ -960,9 +960,12 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 	 */
 	if (authorizationlen == 0)
 	{
-		*authorization = cookie_get(request, &string_authorization);
-		if (*authorization)
-			authorizationlen = strlen(*authorization);
+		string_t cookie = {0};
+		if (cookie_get2(request, &string_authorization, &cookie) == ESUCCESS);
+		{
+			authorizationlen = string_length(&cookie);
+			*authorization = string_toc(&cookie);
+		}
 		auth_dbg("auth: cookie get %p", *authorization);
 	}
 
@@ -976,53 +979,65 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 }
 
 static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
-			const char *authorization,
-			const char *token, int tokenlen, const char *sign, int signlen,
+			const string_t *authorization,
+			const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
 	_mod_auth_t *mod = ctx->mod;
-	if (mod->authz->type & AUTHZ_TOKEN_E && sign == NULL)
+	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
-		cookie_set(response, &string_xtoken, token, NULL);
+		if (string_empty(sign))
+			cookie_set(response, &string_xtoken, token, NULL);
+		else
+			cookie_set(response, &string_xtoken, token, &string_dot, sign, NULL);
 	}
-	else if (mod->authz->type & AUTHZ_TOKEN_E && sign != NULL)
-	{
-		cookie_set(response, &string_xtoken, token, ".", sign, NULL);
-	}
-	else if (authorization != NULL)
+	else if (!string_empty(authorization))
 	{
 		cookie_set(response, &string_authorization, authorization, NULL);
 	}
-	const char *user = auth_info(response, STRING_REF(str_user));
-	cookie_set(response, &string_xuser, user, NULL);
-	const char *group = auth_info(response, STRING_REF(str_group));
-	if (group && group[0] != '\0')
-		cookie_set(response, &string_xgroup, group, NULL);
-	const char *home = auth_info(response, STRING_REF(str_home));
-	if (home && home[0] != '\0')
-		cookie_set(response, &string_xhome, "~/", NULL);
+
+	const char *user = NULL;
+	size_t userlen = auth_info2(response, str_user, &user);
+	string_t tuser = {0};
+	string_store(&tuser, user, userlen);
+	cookie_set(response, &string_xuser, &tuser, NULL);
+	const char *group = NULL;
+	size_t grouplen = auth_info2(response, str_group, &group);
+	string_t tgroup = {0};
+	string_store(&tgroup, group, grouplen);
+	if (!string_empty(&tgroup))
+		cookie_set(response, &string_xgroup, &tgroup, NULL);
+	const char *home = NULL;
+	size_t homelen = auth_info2(response, str_home, &home);
+	string_t thome = {0};
+	string_store(&thome, home, homelen);
+	if (!string_empty(&thome))
+	{
+		string_t string_tylde = STRING_DCL("~/");
+		cookie_set(response, &string_xhome, &string_tylde, NULL);
+	}
 	return ESUCCESS;
 }
 
 static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
-			const char *authorization,
-			const char *token, int tokenlen, const char *sign, int signlen,
+			const string_t *authorization,
+			const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
 	_mod_auth_t *mod = ctx->mod;
 
 	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
-		httpmessage_addheader(response, str_xtoken, token, tokenlen);
-		if (sign && signlen > 0)
+		httpmessage_addheader(response, str_xtoken, string_toc(token), string_length(token));
+		if (!string_empty(sign))
 		{
 			httpmessage_appendheader(response, str_xtoken, STRING_REF("."));
-			httpmessage_appendheader(response, str_xtoken, sign, signlen);
+			httpmessage_appendheader(response, str_xtoken, string_toc(sign), string_length(sign));
 		}
 	}
-	else if (authorization != NULL)
+	else if (!string_empty(authorization))
 	{
-		httpmessage_addheader(response, str_authorization, authorization, -1);
+		httpmessage_addheader(response, str_authorization, string_toc(authorization), string_length(authorization));
 	}
 	const char *user = NULL;
 	size_t userlen = auth_info2(response, str_user, &user);
@@ -1314,11 +1329,27 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
-		_authn_setauthorization_header(ctx, authorization, token, tokenlen, tsign, tsignlen, response);
+		string_t tauthorization = {0};
+		string_store(&tauthorization, authorization, -1);
+		string_t ttoken = {0};
+		if (token != NULL)
+			string_store(&ttoken, token, -1);
+		string_t sign = {0};
+		if (tsign != NULL)
+			string_store(&sign, tsign, tsignlen);
+		_authn_setauthorization_header(ctx, &tauthorization, &ttoken, &sign, response);
 	}
 	else if (mod->authn->type & AUTHN_COOKIE_E)
 	{
-		_authn_setauthorization_cookie(ctx, authorization, token, tokenlen, tsign, tsignlen, response);
+		string_t tauthorization = {0};
+		string_store(&tauthorization, authorization, -1);
+		string_t ttoken = {0};
+		if (token != NULL)
+			string_store(&ttoken, token, -1);
+		string_t sign = {0};
+		if (tsign != NULL)
+			string_store(&sign, tsign, tsignlen);
+		_authn_setauthorization_cookie(ctx, &tauthorization, &ttoken, &sign, response);
 	}
 
 	if (mod->authz->type & AUTHZ_CHOWN_E)
