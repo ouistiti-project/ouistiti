@@ -82,7 +82,7 @@ static int restheader_connector(http_message_t *request, http_message_t *respons
 static int putfile_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret =  EREJECT;
-	document_connector_t *private = httpmessage_private(request, NULL);
+	document_connector_t *private = (document_connector_t *)arg;
 
 	/**
 	 * we are into PRECONTENT, the data is no yet available
@@ -154,7 +154,6 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 #endif
 		}
 		private->fdfile = 0;
-		document_close(private, request);
 		if (rest < 0)
 #ifdef RESULT_500
 			httpmessage_result(response, RESULT_500);
