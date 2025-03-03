@@ -476,7 +476,7 @@ char **cgi_buildenv(const mod_cgi_config_t *config, http_message_t *request, str
 				{
 					value = string_toc(cgi_path);
 					valuelength = string_length(cgi_path);
-					if (strstr(string_toc(cgi_path), config->docroot.data) == string_toc(cgi_path))
+					if (string_startwith(cgi_path, &config->docroot))
 					{
 						value += string_length(&config->docroot);
 						valuelength -= string_length(&config->docroot);
