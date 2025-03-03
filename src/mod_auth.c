@@ -960,7 +960,7 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 	 */
 	if (authorizationlen == 0)
 	{
-		*authorization = cookie_get(request, str_authorization);
+		*authorization = cookie_get(request, &string_authorization);
 		if (*authorization)
 			authorizationlen = strlen(*authorization);
 		auth_dbg("auth: cookie get %p", *authorization);
@@ -983,24 +983,24 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 	_mod_auth_t *mod = ctx->mod;
 	if (mod->authz->type & AUTHZ_TOKEN_E && sign == NULL)
 	{
-		cookie_set(response, str_xtoken, token, NULL);
+		cookie_set(response, &string_xtoken, token, NULL);
 	}
 	else if (mod->authz->type & AUTHZ_TOKEN_E && sign != NULL)
 	{
-		cookie_set(response, str_xtoken, token, ".", sign, NULL);
+		cookie_set(response, &string_xtoken, token, ".", sign, NULL);
 	}
 	else if (authorization != NULL)
 	{
-		cookie_set(response, str_authorization, authorization, NULL);
+		cookie_set(response, &string_authorization, authorization, NULL);
 	}
 	const char *user = auth_info(response, STRING_REF(str_user));
-	cookie_set(response, str_xuser, user, NULL);
+	cookie_set(response, &string_xuser, user, NULL);
 	const char *group = auth_info(response, STRING_REF(str_group));
 	if (group && group[0] != '\0')
-		cookie_set(response, str_xgroup, group, NULL);
+		cookie_set(response, &string_xgroup, group, NULL);
 	const char *home = auth_info(response, STRING_REF(str_home));
 	if (home && home[0] != '\0')
-		cookie_set(response, str_xhome, "~/", NULL);
+		cookie_set(response, &string_xhome, "~/", NULL);
 	return ESUCCESS;
 }
 
@@ -1188,7 +1188,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 #if 0
 		/// ---reset the Cookie to remove it on the client---
 		if (mod->authn->type & AUTHN_COOKIE_E)
-			cookie_set(response, "X-Auth-Token", "", ";Max-Age=0", NULL);
+			cookie_set(response, &string_xtoken, "", ";Max-Age=0", NULL);
 #endif
 
 		ret = ESUCCESS;
