@@ -246,31 +246,31 @@ int cookie_set(http_message_t *response, const char *key, const char *value, ...
 	int ret = 0;
 	const char *domain = NULL;
 	size_t domainlen = httpmessage_REQUEST2(response, "domain", &domain);
-	httpmessage_addheader(response, str_SetCookie, key, -1);
-	httpmessage_appendheader(response, str_SetCookie, STRING_REF("="));
+	httpmessage_addheader(response, str_setcookie, key, -1);
+	httpmessage_appendheader(response, str_setcookie, STRING_REF("="));
 #ifdef USE_STDARG
 	va_list ap;
 	va_start(ap, value);
 	while (value != NULL)
 	{
 #endif
-		ret = httpmessage_appendheader(response, str_SetCookie, value, -1);
+		ret = httpmessage_appendheader(response, str_setcookie, value, -1);
 #ifdef USE_STDARG
 		value = va_arg(ap, const char *);
 	}
 	va_end(ap);
 #endif
 	const char sameSite[] = "strict";
-	ret = httpmessage_appendheader(response, str_SetCookie, STRING_REF("; SameSite="));
-	ret = httpmessage_appendheader(response, str_SetCookie, STRING_REF(sameSite));
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; SameSite="));
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF(sameSite));
 	const char path[] = "/";
-	ret = httpmessage_appendheader(response, str_SetCookie, STRING_REF("; Path="));
-	ret = httpmessage_appendheader(response, str_SetCookie, STRING_REF(path));
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Path="));
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF(path));
 
 	if (domain != NULL && strncmp(domain, "local", 5))
 	{
-		ret = httpmessage_appendheader(response, str_SetCookie, STRING_REF("; Domain=."));
-		ret = httpmessage_appendheader(response, str_SetCookie, domain, domainlen);
+		ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Domain=."));
+		ret = httpmessage_appendheader(response, str_setcookie, domain, domainlen);
 	}
 	return ret;
 }
