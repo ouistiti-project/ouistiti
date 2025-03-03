@@ -220,4 +220,12 @@ extern const char str_mime_imagejpeg[11];
 extern const char str_mime_applicationjavascript[23];
 extern const char str_mime_applicationoctetstream[24];
 
+extern const string_t string_authorization;
+extern const string_t string_xtoken;
+extern const string_t string_xuser;
+extern const string_t string_xgroup;
+extern const string_t string_xhome;
+
+extern const string_t string_dot;
+
 #endif
