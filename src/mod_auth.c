@@ -1509,6 +1509,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (authz->ctx  && authz->rules->cleanup)
 	{
 		authz->rules->cleanup(authz->ctx);
+		authz->ctx = NULL;
 	}
 	return ret;
 }

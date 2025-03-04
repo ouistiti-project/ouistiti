@@ -242,7 +242,7 @@ static int authz_unix_setsession(void *arg, const char *user, const char *token,
 static void authz_unix_destroy(void *arg)
 {
 	authz_unix_t *ctx = (authz_unix_t *)arg;
-
+	free(ctx->config);
 	free(ctx);
 }
 

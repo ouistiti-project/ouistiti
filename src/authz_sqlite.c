@@ -149,7 +149,7 @@ static int _authz_sqlite_createdb(const char *dbname)
 static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
-	const authz_sqlite_config_t *config = (const authz_sqlite_config_t *)arg;
+	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
 
 	if (access(config->dbname, R_OK))
 	{
@@ -602,7 +602,7 @@ static void authz_sqlite_cleanup(void *arg)
 static void authz_sqlite_destroy(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-
+	free(ctx->config);
 	free(ctx);
 }
 

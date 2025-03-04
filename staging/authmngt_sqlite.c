@@ -52,7 +52,7 @@
 static void *authmngt_sqlite_create(http_server_t *UNUSED(server), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
-	const authz_sqlite_config_t *config = (const authz_sqlite_config_t *)arg;
+	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
 	int ret;
 	sqlite3 *db;
 
@@ -81,6 +81,7 @@ static void authmngt_sqlite_destroy(void *arg)
 	if (ctx->statement)
 		sqlite3_finalize(ctx->statement);
 	sqlite3_close_v2(ctx->db);
+	free(ctx->config);
 	free(ctx);
 }
 
