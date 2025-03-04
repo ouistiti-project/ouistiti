@@ -998,17 +998,19 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 			const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
+	string_t tsecure = STRING_DCL("; Secure");
+	string_t tsamesitelax = STRING_DCL("; Samesite=Lax");
 	_mod_auth_t *mod = ctx->mod;
 	if (mod->authz->type & AUTHZ_TOKEN_E)
 	{
 		if (string_empty(sign))
-			cookie_set(response, &string_xtoken, token, NULL);
+			cookie_set(response, &string_xtoken, token, &tsecure, &tsamesitelax, NULL);
 		else
-			cookie_set(response, &string_xtoken, token, &string_dot, sign, NULL);
+			cookie_set(response, &string_xtoken, token, &string_dot, sign, &tsecure, &tsamesitelax, NULL);
 	}
 	else if (!string_empty(authorization))
 	{
-		cookie_set(response, &string_authorization, authorization, NULL);
+		cookie_set(response, &string_authorization, authorization, &tsecure, &tsamesitelax, NULL);
 	}
 
 	const char *user = NULL;
