@@ -270,14 +270,14 @@ struct _authn_s *authn_list[] =
 #ifdef AUTHN_BEARER
 	&(struct _authn_s){
 		.config = &authn_bearer_config,
-		.type = AUTHN_BEARER_E | AUTHN_REDIRECT_E,
+		.type = AUTHN_BEARER_E | AUTHN_REDIRECT_E | AUTHN_TOKEN_E,
 		.name = STRING_DCL("Bearer"),
 	},
 #endif
 #ifdef AUTHN_OAUTH2
 	&(struct _authn_s){
 		.config = &authn_oauth2_config,
-		.type = AUTHN_OAUTH2_E | AUTHN_REDIRECT_E,
+		.type = AUTHN_OAUTH2_E | AUTHN_REDIRECT_E | AUTHN_TOKEN_E,
 		.name = STRING_DCL("oAuth2"),
 	},
 #endif
@@ -875,9 +875,9 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	{
 		*tokenlen = httpmessage_REQUEST2(request, str_xtoken, token);
 	}
-	if (*token == NULL)
+	if (*tokenlen == 0)
 		*tokenlen = httpmessage_cookie(request, str_xtoken, token);
-	if (*token != NULL && *token[0] != '\0')
+	if (*tokenlen > 0)
 	{
 		authorization = strrchr(*token, '.');
 		if (authorization == NULL)
@@ -1009,8 +1009,8 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 {
 	string_t tsecure = STRING_DCL("; Secure");
 	string_t tsamesitelax = STRING_DCL("; Samesite=Lax");
-	_mod_auth_t *mod = ctx->mod;
-	if (mod->authz->type & AUTHZ_TOKEN_E)
+
+	if (!string_empty(token))
 	{
 		if (string_empty(sign))
 			cookie_set(response, &string_xtoken, token, &tsecure, &tsamesitelax, NULL);
@@ -1046,9 +1046,7 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 			const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
-	_mod_auth_t *mod = ctx->mod;
-
-	if (mod->authz->type & AUTHZ_TOKEN_E)
+	if (!string_empty(token))
 	{
 		httpmessage_addheader(response, str_xtoken, string_toc(token), string_length(token));
 		if (!string_empty(sign))
@@ -1416,7 +1414,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	const char *user = NULL;
 #ifdef AUTH_TOKEN
-	if (authz->type & AUTHZ_TOKEN_E)
+	if (mod->authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
 	{
 		size_t tokenlen = 0;
 		authorization = _authn_gettoken(ctx, request, &token, &tokenlen);
