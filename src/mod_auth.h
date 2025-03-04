@@ -152,9 +152,14 @@ struct mod_authn_s
 };
 typedef struct mod_authn_s mod_authn_t;
 
+typedef size_t (*authz_rule_generatetoken_t)(void* arg, http_message_t *request, char **token);
 typedef struct authz_token_config_s authz_token_config_t;
 struct authz_token_config_s
 {
+	enum {
+		E_OUITOKEN,
+		E_JWT,
+	}type;
 	string_t secret;
 	string_t issuer;
 	time_t expire;
