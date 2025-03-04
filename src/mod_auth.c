@@ -1145,7 +1145,6 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
-	httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
 	httpmessage_addheader(response, str_location, config->redirect.data, config->redirect.length);
 
 	const char *uri = NULL;
