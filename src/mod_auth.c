@@ -813,7 +813,7 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 }
 
 #ifdef AUTH_TOKEN
-static size_t _mod_auth_generatetoken(void *arg, http_message_t *UNUSED(request), char **token)
+static size_t _mod_auth_generatetoken(void *arg, http_message_t *request, char **token)
 {
 	const authz_token_config_t *config = (const authz_token_config_t *)arg;
 	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
@@ -1355,6 +1355,10 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 		else
 			httpclient_session(ctx->clt, STRING_REF(str_token), tsign, tsignlen);
 		token = ttoken;
+
+		char strexpire[100];
+		size_t lenexpire = snprintf(strexpire, 100, "max-age=%lu, must-revalidate", config->token.expire * 60);
+		httpmessage_addheader(response, str_cachecontrol, strexpire, lenexpire);
 	}
 #endif
 
