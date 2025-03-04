@@ -52,6 +52,10 @@ typedef void *(*authz_rule_setup_t)(void *arg);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
 typedef int (*authz_rule_passwd_t)(void *arg, const char *user, const char **passwd);
+/**
+ * @brief returns *disabled* issuers of the current user
+ */
+typedef size_t (*authz_rule_issuer_t)(void *arg, const char *user, char *issuer, size_t length);
 typedef int (*authz_rule_setsession_t)(void* arg, const char *user, const char *toke, auth_saveinfo_t cb, void *cbarg);
 typedef void (*authz_rule_cleanup_t)(void *arg);
 typedef void (*authz_rule_destroy_t)(void *arg);
@@ -63,6 +67,7 @@ struct authz_rules_s
 	authz_rule_check_t check;
 	authz_rule_join_t join;
 	authz_rule_passwd_t passwd;
+	authz_rule_issuer_t issuer;
 	authz_rule_setsession_t setsession;
 	authz_rule_cleanup_t cleanup;
 	authz_rule_destroy_t destroy;
