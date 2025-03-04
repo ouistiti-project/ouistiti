@@ -135,6 +135,7 @@ typedef enum
 	AUTHN_REDIRECT_E = 0x10,
 	AUTHN_COOKIE_E = 0x20,
 	AUTHN_HEADER_E = 0x40,
+	AUTHN_TOKEN_E = 0x80,
 } authn_type_t;
 
 typedef struct hash_s hash_t;
