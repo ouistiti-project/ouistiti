@@ -926,7 +926,7 @@ static size_t _authn_signtoken(const char *key, size_t keylen,
 				return -1;
 			}
 			length = base64_urlencoding->encode(signature, signlen, b64signature, b64signaturelen);
-			auth_dbg("auth: signature %s / %.*s", b64signature, (int)signlen, signature);
+			auth_dbg("auth: signature %s", b64signature);
 		}
 	}
 	return length;
@@ -940,7 +940,10 @@ int authn_checksignature(const char *key, size_t keylen,
 	size_t len =_authn_signtoken(key, keylen, data, datalen, b64signature, sizeof(b64signature));
 	if (len == (size_t)-1)
 		return EREJECT;
-	if (strncmp(b64signature, sign, signlen))
+	string_t signature = {0};
+	string_store(&signature, b64signature, len);
+	dbg("auth: signature should be '%.*s'", (int)(len & INT_MAX), b64signature);
+	if (string_cmp(&signature, sign, signlen))
 		return EREJECT;
 	return ESUCCESS;
 }
