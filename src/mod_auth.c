@@ -1147,19 +1147,26 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	httpmessage_addheader(response, str_location, config->redirect.data, config->redirect.length);
 
 	const char *uri = NULL;
-	int urilen = httpmessage_REQUEST2(request, "uri", &uri);
+	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
 	const char *query = NULL;
-	int querylen = httpmessage_REQUEST2(request, "query", &query);
+	size_t querylen = httpmessage_REQUEST2(request, "query", &query);
 	if (utils_searchexp(query, "noredirect", NULL) == ESUCCESS)
 		return ret;
 
-	if (config->authn.type & AUTHN_REDIRECT_E)
+	const char *redirect_uri = NULL;
+	size_t redirect_urilen = httpmessage_parameter(request, "redirect_uri", &redirect_uri);
+	char sep = '?';
+	if (strchr(config->redirect.data, sep))
+		sep = '&';
+	if ((config->authn.type & AUTHN_REDIRECT_E) &&
+		(redirect_urilen == 0))
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
-		if (strchr(config->redirect.data, '?'))
-			httpmessage_appendheader(response, str_location, STRING_REF("&redirect_uri="));
-		else
-			httpmessage_appendheader(response, str_location, STRING_REF("?redirect_uri="));
+		httpmessage_appendheader(response, str_location, &sep, 1);
+		sep = '&';
+		httpmessage_appendheader(response, str_location, STRING_REF("redirect_uri"));
+		httpmessage_appendheader(response, str_location, STRING_REF("="));
+		/// append redirect_uri if not exist other with it will append later with query part
 		const char *scheme = NULL;
 		size_t schemelen = httpserver_INFO2(server, "scheme", &scheme);
 		httpmessage_appendheader(response, str_location, scheme, schemelen);
@@ -1182,10 +1189,7 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	}
 	if (query && query[0] != '\0')
 	{
-		if (strchr(config->redirect.data, '?'))
-			httpmessage_appendheader(response, str_location, STRING_REF("&"));
-		else
-			httpmessage_appendheader(response, str_location, STRING_REF("?"));
+		httpmessage_appendheader(response, str_location, &sep, 1);
 		httpmessage_appendheader(response, str_location, query, querylen);
 	}
 
