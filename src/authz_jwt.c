@@ -308,7 +308,6 @@ static int _authn_jwt_checktoken(const authz_token_config_t *config, const char 
 	{
 		if (_jwt_checkexpiration(jinfo) != ESUCCESS)
 		{
-			err("auth: token expired");
 			return EREJECT;
 		}
 		const char *issuer = _jwt_get(jinfo, "iss");
