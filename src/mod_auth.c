@@ -880,6 +880,23 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	return NULL;
 }
 
+static const char *_authn_gettokenuser(const _mod_auth_ctx_t *ctx, http_message_t *request)
+{
+	const _mod_auth_t *mod = ctx->mod;
+	const char *user = NULL;
+	/**
+	 * The authorization may be accepted and replaced by a token.
+	 * This token is available inside the cookie.
+	 */
+	if (mod->authn->type & AUTHN_HEADER_E)
+		httpmessage_REQUEST2(request, str_xuser, &user);
+	if (user == NULL || user[0] == '\0')
+		httpmessage_cookie(request, str_xuser, &user);
+	if (user == NULL || user[0] == '\0')
+		user = str_anonymous;
+	return user;
+}
+
 static size_t _authn_signtoken(const char *key, size_t keylen,
 		const char *data, size_t datalen,
 		char *b64signature, size_t b64signaturelen)
@@ -938,10 +955,6 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	}
 	else
 		err("auth: token with bad signature %.*s", (int)signlen, sign);
-	if (*user == NULL)
-	{
-		return EREJECT;
-	}
 	return ret;
 }
 #endif
@@ -1110,6 +1123,8 @@ static int _authn_check(_mod_auth_ctx_t *ctx, authz_t *authz, http_message_t *re
 		size_t authorizationlen = _authn_getauthorization(ctx, request, authorization);
 		if (authorizationlen > 0)
 			tuser = _authn_checkauthorization( ctx, authn, authz, *authorization, authorizationlen, request);
+		else
+			warn("auth: authorization not found");
 	}
 	else if (authn->rules->checkrequest)
 	{
@@ -1414,6 +1429,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				token = NULL;
 			auth_dbg("auth: checktoken %d", ret);
 		}
+		else
+			warn("auth: token not found");
+		if (ret == EREJECT && user == NULL)
+			user = _authn_gettokenuser(ctx, request);
 	}
 #endif
 	if (ret == ECONTINUE)
