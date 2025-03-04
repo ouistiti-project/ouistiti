@@ -276,6 +276,7 @@ static void authz_file_destroy(void *arg)
 #else
 	free(ctx->storage);
 #endif
+	free(ctx->config);
 	free(ctx);
 }
 
