@@ -40,7 +40,7 @@ extern authz_rules_t authz_jwt_rules;
 
 typedef struct authz_jwt_s authz_jwt_t;
 
-size_t authn_jwt_generatetoken(const authz_token_config_t *config, http_message_t *request, char **token);
+size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token);
 int authn_jwt_checktoken(const authz_token_config_t *config, const char *token);
 const char *authz_jwt_get(const char *id_token, const char *key);
 int authz_jwt_getinfo(const char *id_token, const char **user, const char **issuer);

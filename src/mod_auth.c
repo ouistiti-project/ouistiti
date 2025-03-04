@@ -97,8 +97,8 @@ static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _forbidden_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
-#ifndef AUTHZ_JWT
-static size_t authn_generatetoken(const authz_token_config_t *config, http_message_t *request, char **token);
+#ifdef AUTH_TOKEN
+static size_t _mod_auth_generatetoken(void *arg, http_message_t *UNUSED(request), char **token);
 #endif
 
 static const char str_auth[] = "auth";
@@ -117,6 +117,7 @@ struct _mod_auth_s
 	string_t type;
 	authn_t *authn;
 	authz_t *authz;
+	authz_rule_generatetoken_t generatetoken;
 };
 
 authn_rules_t *authn_rules[] = {
@@ -397,7 +398,15 @@ static void authz_optionscb(void *arg, const char *option)
 	if (utils_searchexp("home", option, NULL) == ESUCCESS)
 		auth->authz.type |= AUTHZ_HOME_E;
 	if (utils_searchexp("token", option, NULL) == ESUCCESS)
+	{
 		auth->authz.type |= AUTHZ_TOKEN_E;
+		auth->token.type = E_OUITOKEN;
+	}
+	if (utils_searchexp("jwt", option, NULL) == ESUCCESS)
+	{
+		auth->authz.type |= AUTHZ_TOKEN_E;
+		auth->token.type = E_JWT;
+	}
 	if (utils_searchexp("chown", option, NULL) == ESUCCESS)
 		auth->authz.type |= AUTHZ_CHOWN_E;
 
@@ -493,6 +502,9 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 		err("config: authz is not set");
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
+
+	if (auth->authz.type & AUTHZ_JWT_E)
+		auth->token.type = E_JWT;
 
 	if (config_setting_lookup_string(config, "issuer", &data) == CONFIG_FALSE)
 		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
@@ -590,6 +602,10 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		free(mod);
 		return NULL;
 	}
+	if (config->token.type == E_OUITOKEN)
+		mod->generatetoken = &_mod_auth_generatetoken;
+	else if (config->token.type == E_JWT)
+		mod->generatetoken = &authz_jwt_generatetoken;
 
 	mod->authz->ctx = mod->authz->rules->create(server, config->authz.config);
 	if (mod->authz->ctx == NULL)
@@ -797,12 +813,12 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 }
 
 #ifdef AUTH_TOKEN
-#ifndef AUTHZ_JWT
-static size_t _authn_generatetoken(const authz_token_config_t *config, http_message_t *UNUSED(request), char **token)
+static size_t _mod_auth_generatetoken(void *arg, http_message_t *UNUSED(request), char **token)
 {
+	const authz_token_config_t *config = (const authz_token_config_t *)arg;
 	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
 	size_t tokenlen = _noncelen + (_noncelen + 2) / 3;
-	*token = calloc(1, tokenlen + 1);
+	*token = calloc(2, tokenlen + 1);
 	char *_nonce = calloc(1, _noncelen + 1);
 	int i;
 	for (i = 0; i < (24 / sizeof(int)); i++)
@@ -827,6 +843,9 @@ static size_t _authn_generatetoken(const authz_token_config_t *config, http_mess
 
 static int _authn_checktoken(const authz_token_config_t *config, const char *token)
 {
+	if (config->type  == E_JWT)
+		return authn_jwt_checktoken(config, token);
+
 	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
 	char *_nonce = calloc(1, _noncelen + 1);
 	size_t tokenlen = _noncelen + (_noncelen + 2) / 3;
@@ -842,17 +861,6 @@ static int _authn_checktoken(const authz_token_config_t *config, const char *tok
 	}
 	return ESUCCESS;
 }
-#else
-static size_t _authn_generatetoken(const authz_token_config_t *config, http_message_t *request, char **token)
-{
-	return authn_jwt_generatetoken(config, request, token);
-}
-
-static int _authn_checktoken(const authz_token_config_t *config, const char *token)
-{
-	return authn_jwt_checktoken(config, token);
-}
-#endif
 
 static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request, const char **token, size_t *tokenlen)
 {
@@ -1340,7 +1348,7 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 		tsignlen = (int)(HASH_MAX_SIZE * 1.5) + 1;
 		tsign = calloc(1, tsignlen);
 
-		ttokenlen = _authn_generatetoken(&mod->config->token, request, &ttoken);
+		ttokenlen = mod->generatetoken(&mod->config->token, request, &ttoken);
 		const char *key = mod->config->token.secret.data;
 		size_t keylen = mod->config->token.secret.length;
 		tsignlen = _authn_signtoken(key, keylen, ttoken, ttokenlen, tsign, tsignlen);
