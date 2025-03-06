@@ -1012,7 +1012,7 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 		auth_dbg("auth: cookie get %p", *authorization);
 	}
 
-	if (authorizationlen != 0 && strncmp(*authorization, mod->type.data, mod->type.length))
+	if (authorizationlen != 0 && string_cmp(&mod->type, *authorization, -1))
 	{
 		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, *authorization, (int)mod->type.length, mod->type.data);
 		*authorization = NULL;
@@ -1419,6 +1419,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		authz = &ctx->authz;
 	}
 
+	auth_dbg("auth: check for %s", string_toc(&config->token.issuer));
 	const char *user = NULL;
 #ifdef AUTH_TOKEN
 	if (mod->authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
@@ -1477,6 +1478,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			authorization = issuerdata;
 			ret = EREJECT;
 		}
+		else
+			string_cleansafe(&issuer);
+		auth_dbg("auth: check issuer %d", ret);
 	}
 	if (ret == EREJECT)
 	{
@@ -1504,13 +1508,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else if (authorization != NULL)
 	{
-		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
-		{
-			auth_dbg("auth: session already open");
-			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
-			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
-		}
-		else
+		if (httpclient_setsession(ctx->clt, authorization, -1) >= 0)
 		{
 			auth_dbg("auth: set the session");
 			// The first MFA authenticator must know the group, and status
@@ -1522,6 +1520,11 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			{
 				authz->rules->join(authz->ctx, user, authorization, mod->config->token.expire);
 			}
+		}
+		else if (string_empty(&issuer))
+		{
+			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
+			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
 		}
 		char issuerdata[254];
 		size_t length = 0;
