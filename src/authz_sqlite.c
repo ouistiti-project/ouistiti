@@ -162,7 +162,7 @@ static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 	return ctx;
 }
 
-static void *authz_sqlite_setup(void *arg)
+static void *authz_sqlite_setup(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int ret;
