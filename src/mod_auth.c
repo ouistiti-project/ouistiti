@@ -1255,23 +1255,13 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			/// The page tried an authentication and want to stay on top.
 			httpmessage_result(response, RESULT_403);
 		}
-		else if (config->redirect.data)
+		else if (!string_empty(&config->redirect))
 		{
 			int protect = 1;
 			/**
 			 * check the url redirection
 			 */
-			const char *redirect = strstr(config->redirect.data, "://");
-			if (redirect != NULL)
-			{
-				redirect += 3;
-				redirect = strchr(redirect, '/');
-			}
-			else
-				redirect = config->redirect.data;
-			if (redirect[0] == '/')
-				redirect++;
-			protect = utils_searchexp(uri, redirect, NULL);
+			protect = string_contain(&config->redirect, uri, -1, '?')?EREJECT:ESUCCESS;
 			if (protect == ESUCCESS)
 			{
 				/**
@@ -1517,14 +1507,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
 		{
 			auth_dbg("auth: session already open");
-			httpclient_appendsession(ctx->clt, "issuer", "+", 1);
-			httpclient_appendsession(ctx->clt, "issuer", STRING_INFO(config->token.issuer));
+			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
+			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
 		}
 		else
 		{
 			auth_dbg("auth: set the session");
-			authz->rules->setsession(authz->ctx, user, token, auth_saveinfo, ctx->clt);
-			httpclient_session(ctx->clt, STRING_REF("issuer"), STRING_INFO(config->token.issuer));
+			// The first MFA authenticator must know the group, and status
+			// the next authenticator haven't to modify this values
+			if (authz->rules->setsession)
+				authz->rules->setsession(authz->ctx, user, token, auth_saveinfo, ctx->clt);
+			httpclient_session(ctx->clt, STRING_REF(str_issuer), STRING_INFO(config->token.issuer));
 			if (authz->rules->join)
 			{
 				authz->rules->join(authz->ctx, user, authorization, mod->config->token.expire);
