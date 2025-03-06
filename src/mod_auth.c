@@ -109,6 +109,7 @@ struct _mod_auth_ctx_s
 	http_client_t *clt;
 	char *authenticate;
 	authn_t authn;
+	authz_t authz;
 };
 
 struct _mod_auth_s
@@ -243,7 +244,6 @@ static int _mod_sethash(mod_authn_t *config, const char *algo)
 	return ret;
 }
 
-#ifdef FILE_CONFIG
 struct _authn_s
 {
 	void *(*config)(const config_setting_t *);
@@ -251,6 +251,14 @@ struct _authn_s
 	string_t name;
 };
 
+struct _authz_s
+{
+	void *(*config)(const config_setting_t *);
+	authz_type_t type;
+	string_t name;
+};
+
+#ifdef FILE_CONFIG
 struct _authn_s *authn_list[] =
 {
 #ifdef AUTHN_BASIC
@@ -338,14 +346,6 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 		err("auth: authn '%s' not found", type);
 	return ret;
 }
-
-
-struct _authz_s
-{
-	void *(*config)(const config_setting_t *);
-	authz_type_t type;
-	string_t name;
-};
 
 struct _authz_s *authz_list[] =
 {
@@ -681,6 +681,15 @@ static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 	{
 		ctx->authn.ctx = mod->authn->rules->setup(mod->authn->ctx, clt, addr, addrsize);
 		ctx->authn.rules = mod->authn->rules;
+		ctx->authn.type = mod->authn->type;
+		ctx->authn.config = mod->authn->config;
+	}
+
+	if(mod->authz->ctx && mod->authz->rules->setup)
+	{
+		ctx->authz.ctx = mod->authz->rules->setup(mod->authz->ctx, clt, addr, addrsize);
+		ctx->authz.rules = mod->authz->rules;
+		ctx->authz.type = mod->authz->type;
 	}
 
 	return ctx;
@@ -692,6 +701,8 @@ static void _mod_auth_freectx(void *vctx)
 
 	if(ctx->authn.ctx && ctx->authn.rules->cleanup)
 		ctx->authn.rules->cleanup(ctx->authn.ctx);
+	if(ctx->authz.ctx && ctx->authz.rules->cleanup)
+		ctx->authz.rules->cleanup(ctx->authz.ctx);
 	free(ctx->authenticate);
 	free(ctx);
 }
@@ -1408,14 +1419,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	/**
 	 * authz may need setup the user setting for each message
 	 **/
-	authz_t ctx_authz = {0};
 	authz_t *authz = mod->authz;
-	if(mod->authz->rules->setup)
+	if(ctx->authz.ctx)
 	{
-		ctx_authz.ctx = mod->authz->rules->setup(mod->authz->ctx);
-		ctx_authz.rules = mod->authz->rules;
-		ctx_authz.type = mod->authz->type;
-		authz = &ctx_authz;
+		authz = &ctx->authz;
 	}
 
 	const char *user = NULL;
