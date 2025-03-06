@@ -1080,7 +1080,6 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 static const char * _authn_checkauthorization(_mod_auth_ctx_t *ctx, authn_t *authn, authz_t *authz,
 		const char *authorization, size_t authorizationlen, http_message_t *request)
 {
-	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 	const char *authentication = strchr(authorization, ' ');
@@ -1106,8 +1105,11 @@ static const char * _authn_checkauthorization(_mod_auth_ctx_t *ctx, authn_t *aut
 	 * WARNING: It is incorrect to use this method for security.
 	 * The authorization is always acceptable and it is dangerous.
 	 */
-	if (config->redirect.data)
+	if (!string_empty(&config->redirect))
+	{
 		method = str_head;
+		methodlen = sizeof(str_head) - 1;
+	}
 	const char *user = authn->rules->check(authn->ctx, authz, method, methodlen, uri, urilen, authentication, authorizationlen);
 	return user;
 }
@@ -1145,14 +1147,14 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
-	httpmessage_addheader(response, str_location, config->redirect.data, config->redirect.length);
-
 	const char *uri = NULL;
 	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
 	const char *query = NULL;
 	size_t querylen = httpmessage_REQUEST2(request, "query", &query);
 	if (utils_searchexp(query, "noredirect", NULL) == ESUCCESS)
 		return ret;
+
+	httpmessage_addheader(response, str_location, string_toc(&config->redirect), string_length(&config->redirect));
 
 	// if redirect_uri is present, the next one must not be added
 	char sep = '?';
