@@ -37,6 +37,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
+
 #include <sqlite3.h>
 
 #include "ouistiti/httpserver.h"
@@ -629,7 +631,7 @@ static int authz_sqlite_join(void *arg, const char *user, const char *token, int
 #define authz_sqlite_join NULL
 #endif
 
-static size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t length)
+size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t length)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int userid = authz_sqlite_userid(ctx, user);
@@ -655,8 +657,10 @@ static size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, siz
 	{
 		if (sqlite3_column_type(statement, 0) == SQLITE_TEXT)
 		{
-			strncpy(issuer, sqlite3_column_text(statement, 0), length);
-			length = sqlite3_column_bytes(statement, 0);
+			int len = sqlite3_column_bytes(statement, 0);
+			const char *data = sqlite3_column_text(statement, 0);
+			snprintf(issuer, length, "%.*s", len, data); 
+			length = len;
 		}
 		ret = sqlite3_step(statement);
 	}
