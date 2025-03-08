@@ -318,46 +318,29 @@ int authz_sqlite_getuser_byName(authz_sqlite_t *ctx, const char * user, storeinf
 }
 
 #define GETUSER_ONID 1
+#ifdef GETUSER_ONID
 int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback, void *cbarg)
 {
 	int ret;
-#ifdef GETUSER_ONID
 	const char *sql = "select users.name as \"user\", groups.name as \"group\", status.name as \"status\", home " \
 						"from users " \
 						"inner join groups on groups.id=users.groupid " \
 						"inner join status on status.id=users.statusid " \
 						"where users.id=@ID;";
-#else
-	const char *sql = "select users.name as \"user\", groups.name as \"group\", status.name as \"status\", home " \
-						"from users " \
-						"inner join groups on groups.id=users.groupid " \
-						"inner join status on status.id=users.statusid;";
-#endif
 
 	sqlite3_stmt *statement = NULL; /// use a specific statement
 	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
-#ifdef GETUSER_ONID
 	int index = 0;
 	index = sqlite3_bind_parameter_index(statement, "@ID");
 	ret = sqlite3_bind_int(statement, index, id);
 	SQLITE3_CHECK(ret, EREJECT, sql);
-#endif
 
 	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
 	ret = sqlite3_step(statement);
-	int j = 1;
-	while (ret == SQLITE_ROW)
+	if (ret == SQLITE_ROW)
 	{
-#ifndef GETUSER_ONID
-		if (j != id)
-		{
-			ret = sqlite3_step(statement);
-			j++;
-			continue;
-		}
-#endif
 		ret = _authz_sqlite_storeuser(ctx, statement, callback, cbarg);
 		sqlite3_finalize(statement);
 		return ret;
@@ -366,6 +349,36 @@ int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback,
 	sqlite3_finalize(statement);
 	return EREJECT;
 }
+#else
+int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback, void *cbarg)
+{
+	int ret;
+	const char *sql = "select users.name as \"user\", groups.name as \"group\", status.name as \"status\", home " \
+						"from users " \
+						"inner join groups on groups.id=users.groupid " \
+						"inner join status on status.id=users.statusid;";
+
+	sqlite3_stmt *statement = NULL; /// use a specific statement
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
+	ret = sqlite3_step(statement);
+	for (int j = 0; ret == SQLITE_ROW) && j != id; j++
+	{
+		ret = sqlite3_step(statement);
+	}
+	if (ret == SQLITE_ROW)
+	{
+		ret = _authz_sqlite_storeuser(ctx, statement, callback, cbarg);
+		sqlite3_finalize(statement);
+		return ret;
+	}
+	err("auth: user (%d) not found", id);
+	sqlite3_finalize(statement);
+	return EREJECT;
+}
+#endif
 
 static int authz_sqlite_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
