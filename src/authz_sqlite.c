@@ -287,15 +287,16 @@ int authz_sqlite_getuser_byName(authz_sqlite_t *ctx, const char * user, storeinf
 	return EREJECT;
 }
 
+#define GETUSER_ONID 1
 int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback, void *cbarg)
 {
 	int ret;
-#if 0
+#ifdef GETUSER_ONID
 	const char *sql = "select users.name as \"user\", groups.name as \"group\", status.name as \"status\", home " \
 						"from users " \
 						"inner join groups on groups.id=users.groupid " \
 						"inner join status on status.id=users.statusid " \
-						"where users.ROWID=@ID;";
+						"where users.id=@ID;";
 #else
 	const char *sql = "select users.name as \"user\", groups.name as \"group\", status.name as \"status\", home " \
 						"from users " \
@@ -307,7 +308,7 @@ int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback,
 	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
-#if 0
+#ifdef GETUSER_ONID
 	int index = 0;
 	index = sqlite3_bind_parameter_index(statement, "@ID");
 	ret = sqlite3_bind_int(statement, index, id);
@@ -319,17 +320,19 @@ int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback,
 	int j = 1;
 	while (ret == SQLITE_ROW)
 	{
+#ifndef GETUSER_ONID
 		if (j != id)
 		{
 			ret = sqlite3_step(statement);
 			j++;
 			continue;
 		}
+#endif
 		ret = _authz_sqlite_storeuser(ctx, statement, callback, cbarg);
 		sqlite3_finalize(statement);
 		return ret;
 	}
-	err("auth: getuser error %s", sqlite3_errmsg(ctx->db));
+	err("auth: user (%d) not found", id);
 	sqlite3_finalize(statement);
 	return EREJECT;
 }
