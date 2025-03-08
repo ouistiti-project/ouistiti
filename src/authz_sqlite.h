@@ -81,5 +81,6 @@ typedef int (*storeinfo_t)(void *arg, const char *key, size_t keylen, const char
 int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int length, int group);
 int authz_sqlite_getuser_byID(authz_sqlite_t *ctx, int id, storeinfo_t callback, void *cbarg);
 int authz_sqlite_getuser_byName(authz_sqlite_t *ctx, const char * user, storeinfo_t callback, void *cbarg);
+size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t length);
 
 #endif
