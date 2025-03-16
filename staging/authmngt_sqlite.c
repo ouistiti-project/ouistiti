@@ -49,7 +49,7 @@
 
 #define auth_dbg(...)
 
-static void *authmngt_sqlite_create(http_server_t *UNUSED(server), void *arg)
+static void *authmngt_sqlite_create(http_client_t *UNUSED(client), void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
 	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
