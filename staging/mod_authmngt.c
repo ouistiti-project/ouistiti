@@ -149,7 +149,7 @@ static const struct _authmngt_s *authmngt_list[] =
 
 static int authmngt_setrules(const config_setting_t *configauth, mod_authmngt_t *mngtconfig)
 {
-	for (int i = 0; i < (sizeof(authmngt_list) / sizeof(*authmngt_list)); i++)
+	for (int i = 0; i < (sizeof(authmngt_list) / sizeof(*authmngt_list)) && authmngt_list[i]; i++)
 	{
 		mngtconfig->mngt.config = authmngt_list[i]->config(configauth);
 		if (mngtconfig->mngt.config != NULL)
