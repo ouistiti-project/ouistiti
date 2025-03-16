@@ -62,6 +62,8 @@ typedef int (*authmngt_rule_adduser_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changepasswd_t)(void *arg, authsession_t *newuser);
 typedef int (*authmngt_rule_changeinfo_t)(void *arg, authsession_t *user);
 typedef int (*authmngt_rule_removeuser_t)(void *arg, authsession_t *olduser);
+typedef size_t (*authz_sqlite_issuer_t)(void *arg, const char *user, char *issuer, size_t length);
+typedef int (*authmngt_sqlite_setissuer_t)(void *arg, const char * user, const char *issuer, size_t length);
 typedef void (*authmngt_rule_destroy_t)(void *arg);
 typedef struct authmngt_rules_s authmngt_rules_t;
 struct authmngt_rules_s
@@ -73,6 +75,8 @@ struct authmngt_rules_s
 	authmngt_rule_changepasswd_t changepasswd;
 	authmngt_rule_changeinfo_t changeinfo;
 	authmngt_rule_removeuser_t removeuser;
+	authz_sqlite_issuer_t issuer;
+	authmngt_sqlite_setissuer_t setissuer;
 	authmngt_rule_destroy_t destroy;
 };
 
