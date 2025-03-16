@@ -222,7 +222,7 @@ static void mod_authmngt_destroy(void *arg)
 	free(mod);
 }
 
-static int authmngt_jsonifyuser(_mod_authmngt_ctx_t *UNUSED(ctx), http_message_t *response, const authsession_t *info)
+static int authmngt_jsonifyuser(_mod_authmngt_ctx_t *ctx, http_message_t *response, const authsession_t *info)
 {
 	if (info->user[0] == '\0')
 		return EREJECT;
@@ -254,6 +254,16 @@ static int authmngt_jsonifyuser(_mod_authmngt_ctx_t *UNUSED(ctx), http_message_t
 		httpmessage_appendcontent(response, info->token, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
+	_mod_authmngt_t *mod = ctx->mod;
+	char issuer[254];
+	size_t length = mod->config->mngt.rules->setissuer(ctx->ctx, info->user, issuer, sizeof(issuer));
+	if (length > 0)
+	{
+		httpmessage_appendcontent(response, STRING_REF(",\"issuer\":\""));
+		httpmessage_appendcontent(response, issuer, length);
+		httpmessage_appendcontent(response, STRING_REF("\""));
+	}
+
 	httpmessage_appendcontent(response, "}", -1);
 	return ESUCCESS;
 }
@@ -360,14 +370,45 @@ static int _authmngt_parsestatus(http_message_t *request, authsession_t *session
 	return ret;
 }
 
-static int _authmngt_parsesession(_mod_authmngt_ctx_t *ctx, const char *user, http_message_t *request, authsession_t *session)
+static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 {
-	int ret = ESUCCESS;
+	int ret = EREJECT;
+	const char *data = NULL;
+	size_t length = httpmessage_parameter(request, str_issuer, &data);
+	if (length > 0)
+	{
+		char *decode = utils_urldecode(data, length);
+		if (decode != NULL)
+		{
+			string_cpy(issuer, decode, -1);
+			free(decode);
+		}
+		else
+			string_cpy(issuer, data, length);
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+
+static int _authmngt_parsesession(_mod_authmngt_ctx_t *ctx, const char *user,
+	http_message_t *request, authsession_t *session, string_t *issuer)
+{
+	int isuser = 0;
 
 	if (user == NULL)
 	{
 		httpmessage_parameter(request, str_user, &user);
 	}
+	else
+	{
+		const char *tmpuser = NULL;
+		size_t length = httpmessage_parameter(request, str_user, &tmpuser);
+		if (length > 0)
+			isuser = !strncmp(user, tmpuser, length);
+		else
+			isuser = 1;
+	}
+
 	if (user != NULL)
 	{
 		char *decode = utils_urldecode(user, -1);
@@ -401,6 +442,9 @@ static int _authmngt_parsesession(_mod_authmngt_ctx_t *ctx, const char *user, ht
 		_authmngt_parsepasswd(request, session) == ESUCCESS &&
 		!ctx->isuser)
 		ret = EREJECT;
+
+	if (isuser || ctx->isroot)
+		_authmngt_parseissuer(request, issuer);
 
 	return ret;
 }
@@ -533,7 +577,8 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	ctx->isuser = 1;
 
 	authsession_t info = {0};
-	ret = _authmngt_parsesession(ctx, user, request, &info);
+	string_t *issuer = string_create(254);
+	ret = _authmngt_parsesession(ctx, user, request, &info, issuer);
 	if (ret == ESUCCESS && mod->config->mngt.rules->adduser != NULL)
 	{
 		ret = mod->config->mngt.rules->adduser(ctx->ctx, &info);
@@ -546,12 +591,21 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 				ctx->error = error_usernotfound;
 		}
 		else
+			ctx->error = error_userexists;
+		if (ret == ESUCCESS && mod->config->mngt.rules->setissuer != NULL)
+		{
+			ret = mod->config->mngt.rules->setissuer(ctx->ctx, info.user, string_toc(issuer), string_length(issuer));
+		}
+		else
 			ctx->error = error_badvalue;
+		if (ret == ESUCCESS)
+			ret = _authmngt_userresponse(ctx, &info, request, response);
 		if (ret == ESUCCESS)
 			httpmessage_result(response, 201);
 	}
 	else
 		ctx->error = error_accessdenied;
+	string_destroy(issuer);
 	return ret;
 }
 
@@ -566,7 +620,10 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 	}
 
 	authsession_t info = {0};
-	ret = _authmngt_parsesession(ctx, user, request, &info);
+	const char data[254];
+	string_t issuer = {0};
+	string_store(&issuer, STRING_REF(data));
+	ret = _authmngt_parsesession(ctx, user, request, &info, &issuer);
 
 	if (ret == ESUCCESS && ctx->isroot && mod->config->mngt.rules->changeinfo != NULL)
 	{
@@ -584,6 +641,10 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 			strncpy(info.status, str_status_activated, FIELD_MAX);
 			ret = mod->config->mngt.rules->changeinfo(ctx->ctx, &info);
 		}
+	}
+	if (ret == ESUCCESS && (ctx->isuser || ctx->isroot) && mod->config->mngt.rules->setissuer != NULL)
+	{
+		ret = mod->config->mngt.rules->setissuer(ctx->ctx, user,string_toc(&issuer), string_length(&issuer));
 	}
 	if (ret == EREJECT)
 		ctx->error = error_badvalue;
