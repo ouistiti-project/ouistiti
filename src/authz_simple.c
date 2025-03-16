@@ -86,15 +86,20 @@ static void *authz_simple_create(http_server_t *UNUSED(server), void *config)
 	return config;
 }
 
-static int authz_simple_passwd(void *arg,const  char *user, const char **passwd)
+static int authz_simple_passwd(void *arg, const string_t *user, string_t *passwd)
 {
+	int ret = EREJECT;
 	const authz_simple_t *ctx = (const authz_simple_t *)arg;
-	if (!string_cmp(&ctx->user, user, -1))
+	if (string_is(&ctx->user, user))
 	{
-		*passwd = ctx->passwd.data;
-		return ctx->passwd.length;
+		if (passwd)
+		{
+			ret = string_cpy(passwd, string_toc(&ctx->passwd), string_length(&ctx->passwd));
+		}
+		else
+			ret = string_length(&ctx->passwd);
 	}
-	return 0;
+	return ret;
 }
 
 static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *token)
@@ -125,11 +130,18 @@ static int authz_simple_setsession(void *arg, const char *user, const char *toke
 	return ESUCCESS;
 }
 
+static void authz_destroy(void *arg)
+{
+	authz_simple_t *ctx = (authz_simple_t *)arg;
+
+	string_cleansafe(&ctx->passwd);
+}
+
 authz_rules_t authz_simple_rules =
 {
 	.create = &authz_simple_create,
 	.check = &authz_simple_check,
 	.passwd = &authz_simple_passwd,
 	.setsession = &authz_simple_setsession,
-	.destroy = NULL,
+	.destroy = authz_destroy,
 };
