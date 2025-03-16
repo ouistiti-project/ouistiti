@@ -486,7 +486,7 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 		ret = ESUCCESS;
 	}
 	else
-		string_cpy(issuer, data, 0);
+		string_cleansafe(issuer);
 	return ret;
 }
 
