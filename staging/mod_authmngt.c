@@ -168,11 +168,14 @@ static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int
 {
 	int conf_ret = ESUCCESS;
 	mod_authmngt_t *mngtconfig = NULL;
+	static mod_authmngt_issuer_t *issuers = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	const config_setting_t *config = config_setting_get_member(iterator, "auth");
 #else
 	const config_setting_t *config = config_setting_lookup(iterator, "auth");
 #endif
+	if (index == 0)
+		issuers = NULL;
 	if (config && config_setting_is_list(config))
 	{
 			if (index >= config_setting_length(config))
@@ -183,19 +186,30 @@ static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int
 
 	if (config)
 	{
-		const char *mode = NULL;
-		config_setting_lookup_string(config, "options", &mode);
-		if (utils_searchexp("management", mode, NULL) != ESUCCESS)
-			return EREJECT;
-		mngtconfig = calloc(1, sizeof(*mngtconfig));
-		if (authmngt_setrules(config, mngtconfig) != ESUCCESS)
+		const char *issuername = NULL;
+		if (config_setting_lookup_string(config, "issuer", &issuername) == CONFIG_TRUE)
 		{
-			free(mngtconfig);
-			mngtconfig = NULL;
-			conf_ret = EREJECT;
+			mod_authmngt_issuer_t *issuer = calloc(1, sizeof(*issuer));
+			string_store(&issuer->name, issuername, -1);
+			issuer->next = issuers;
+			issuers = issuer;
+		}
+
+		const char *mode = NULL;
+		int ret = config_setting_lookup_string(config, "options", &mode);
+		if ((ret == CONFIG_TRUE) &&
+			(utils_searchexp("management", mode, NULL) == ESUCCESS))
+		{
+			mngtconfig = calloc(1, sizeof(*mngtconfig));
+			mngtconfig->issuers = issuers;
+			if (authmngt_setrules(config, mngtconfig) != ESUCCESS)
+			{
+				free(mngtconfig);
+				mngtconfig = NULL;
+			}
 		}
 	}
-	else
+	if ((mngtconfig == NULL) && (conf_ret == ESUCCESS)) //the config is an object
 		conf_ret = EREJECT;
 	*modconfig = (void *)mngtconfig;
 	return conf_ret;
@@ -263,6 +277,12 @@ static void mod_authmngt_destroy(void *arg)
 {
 	_mod_authmngt_t *mod = (_mod_authmngt_t *)arg;
 #ifdef FILE_CONFIG
+	mod_authmngt_issuer_t *next;
+	for (mod_authmngt_issuer_t *issuer = mod->config->issuers; issuer != NULL; issuer = next)
+	{
+		next = issuer->next;
+		free(issuer);
+	}
 	free(mod->config);
 #endif
 	free(mod);
@@ -306,13 +326,25 @@ static int authmngt_jsonifyuser(_mod_authmngt_ctx_t *ctx, http_message_t *respon
 		httpmessage_appendcontent(response, STRING_REF(",\"passwdchanged\":true"));
 	}
 	_mod_authmngt_t *mod = ctx->mod;
-	char issuer[254];
-	size_t length = mod->config->mngt.rules->setissuer(ctx->ctx, info->user, issuer, sizeof(issuer));
+	char issuers[254] = {0};
+	size_t length = mod->config->mngt.rules->issuer(ctx->ctx, info->user, issuers, sizeof(issuers));
 	if (length > 0)
 	{
-		httpmessage_appendcontent(response, STRING_REF(",\"issuer\":\""));
-		httpmessage_appendcontent(response, issuer, length);
+		httpmessage_appendcontent(response, STRING_REF(",\"issuers\":{"));
+		const char *issuer = issuers;
+		const char *end = strchr(issuer, '+');
+		for (; end != NULL; end = strchr(end + 1, '+'))
+		{
+			httpmessage_appendcontent(response, STRING_REF("\""));
+			httpmessage_appendcontent(response, issuer, end - issuer);
+			httpmessage_appendcontent(response, STRING_REF("\":false,"));
+			length -= end - issuer + 1;
+			issuer = end + 1;
+		}
 		httpmessage_appendcontent(response, STRING_REF("\""));
+		httpmessage_appendcontent(response, issuer, length);
+		httpmessage_appendcontent(response, STRING_REF("\":false"));
+		httpmessage_appendcontent(response, STRING_REF("}"));
 	}
 
 	httpmessage_appendcontent(response, STRING_REF("}"));
