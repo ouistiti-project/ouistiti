@@ -183,9 +183,9 @@ static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int
 	if (config)
 	{
 		const char *mode = NULL;
-		config_setting_lookup_string(configauth, "options", &mode);
+		config_setting_lookup_string(config, "options", &mode);
 		if (utils_searchexp("management", mode, NULL) != ESUCCESS)
-			return NULL;
+			return EREJECT;
 		mngtconfig = calloc(1, sizeof(*mngtconfig));
 		if (authmngt_setrules(config, mngtconfig) != ESUCCESS)
 		{
@@ -299,6 +299,10 @@ static int authmngt_jsonifyuser(_mod_authmngt_ctx_t *ctx, http_message_t *respon
 		httpmessage_appendcontent(response, info->token, -1);
 		httpmessage_appendcontent(response, "\"", -1);
 	}
+	if (info->passwd[0] != '\0')
+	{
+		httpmessage_appendcontent(response, ",\"passwdchanged\":true", -1);
+	}
 	_mod_authmngt_t *mod = ctx->mod;
 	char issuer[254];
 	size_t length = mod->config->mngt.rules->setissuer(ctx->ctx, info->user, issuer, sizeof(issuer));
@@ -397,6 +401,8 @@ static int _authmngt_parsepasswd(http_message_t *request, authsession_t *session
 			strncpy(session->passwd, decode, TOKEN_MAX);
 			free(decode);
 		}
+		else
+			strncpy(session->passwd, passwd, TOKEN_MAX);
 		ret = ESUCCESS;
 	}
 	return ret;
