@@ -55,7 +55,7 @@ typedef struct authsession_s
 
 typedef int (*authmngt_userlist_t)(void*arg, int nfields, char** values,char** keys);
 
-typedef void *(*authmngt_rule_create_t)(http_server_t *server, void *config);
+typedef void *(*authmngt_rule_create_t)(http_client_t *client, void *config);
 typedef int (*authmngt_rule_setsession_t)(void* arg, const char *user, authsession_t *info);
 typedef int (*authmngt_rule_getuser_t)(void* arg, int id, authsession_t *info);
 typedef int (*authmngt_rule_adduser_t)(void *arg, authsession_t *newuser);
