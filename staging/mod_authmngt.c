@@ -272,36 +272,37 @@ static int authmngt_jsonifyuser(_mod_authmngt_ctx_t *ctx, http_message_t *respon
 	if (info->user[0] == '\0')
 		return EREJECT;
 
-	httpmessage_appendcontent(response, "{\"user\":\"", -1);
+	httpmessage_appendcontent(response, STRING_REF("{"));
+	httpmessage_appendcontent(response, STRING_REF("\"user\":\""));
 	httpmessage_appendcontent(response, info->user, -1);
-	httpmessage_appendcontent(response, "\"", -1);
+	httpmessage_appendcontent(response, STRING_REF("\""));
 	if (info->group[0] != '\0')
 	{
-		httpmessage_appendcontent(response, ",\"group\":\"", -1);
+		httpmessage_appendcontent(response, STRING_REF(",\"group\":\""));
 		httpmessage_appendcontent(response, info->group, -1);
-		httpmessage_appendcontent(response, "\"", -1);
+		httpmessage_appendcontent(response, STRING_REF("\""));
 	}
 	if (info->status[0] != '\0')
 	{
-		httpmessage_appendcontent(response, ",\"status\":\"", -1);
+		httpmessage_appendcontent(response, STRING_REF(",\"status\":\""));
 		httpmessage_appendcontent(response, info->status, -1);
-		httpmessage_appendcontent(response, "\"", -1);
+		httpmessage_appendcontent(response, STRING_REF("\""));
 	}
 	if (info->home[0] != '\0')
 	{
-		httpmessage_appendcontent(response, ",\"home\":\"", -1);
+		httpmessage_appendcontent(response, STRING_REF(",\"home\":\""));
 		httpmessage_appendcontent(response, info->home, -1);
-		httpmessage_appendcontent(response, "\"", -1);
+		httpmessage_appendcontent(response, STRING_REF("\""));
 	}
 	if (info->token[0] != '\0')
 	{
-		httpmessage_appendcontent(response, ",\"token\":\"", -1);
+		httpmessage_appendcontent(response, STRING_REF(",\"token\":\""));
 		httpmessage_appendcontent(response, info->token, -1);
-		httpmessage_appendcontent(response, "\"", -1);
+		httpmessage_appendcontent(response, STRING_REF("\""));
 	}
 	if (info->passwd[0] != '\0')
 	{
-		httpmessage_appendcontent(response, ",\"passwdchanged\":true", -1);
+		httpmessage_appendcontent(response, STRING_REF(",\"passwdchanged\":true"));
 	}
 	_mod_authmngt_t *mod = ctx->mod;
 	char issuer[254];
@@ -313,7 +314,7 @@ static int authmngt_jsonifyuser(_mod_authmngt_ctx_t *ctx, http_message_t *respon
 		httpmessage_appendcontent(response, STRING_REF("\""));
 	}
 
-	httpmessage_appendcontent(response, "}", -1);
+	httpmessage_appendcontent(response, STRING_REF("}"));
 	return ESUCCESS;
 }
 
@@ -322,38 +323,51 @@ static int authmngt_stringifyuser(_mod_authmngt_ctx_t *UNUSED(ctx), http_message
 	if (info->user[0] == '\0')
 		return EREJECT;
 
-	httpmessage_appendcontent(response, "user=", -1);
-
+	httpmessage_appendcontent(response, STRING_REF(str_user));
+	httpmessage_appendcontent(response, STRING_REF("="));
 	httpmessage_appendcontent(response, info->user, -1);
 	if (info->group[0] != '\0')
 	{
-		httpmessage_appendcontent(response, "&group=", -1);
+		httpmessage_appendcontent(response, STRING_REF("&"));
+		httpmessage_appendcontent(response, STRING_REF(str_group));
+		httpmessage_appendcontent(response, STRING_REF("="));
 		httpmessage_appendcontent(response, info->group, -1);
 	}
 	if (info->status[0] != '\0')
 	{
-		httpmessage_appendcontent(response, "&status=", -1);
+		httpmessage_appendcontent(response, STRING_REF("&"));
+		httpmessage_appendcontent(response, STRING_REF(str_status));
+		httpmessage_appendcontent(response, STRING_REF("="));
 		httpmessage_appendcontent(response, info->status, -1);
 	}
 	if (info->home[0] != '\0')
 	{
-		httpmessage_appendcontent(response, "&home=", -1);
+		httpmessage_appendcontent(response, STRING_REF("&"));
+		httpmessage_appendcontent(response, STRING_REF(str_home));
+		httpmessage_appendcontent(response, STRING_REF("="));
 		httpmessage_appendcontent(response, info->home, -1);
 	}
 	if (info->token[0] != '\0')
 	{
-		httpmessage_appendcontent(response, "&token=", -1);
+		httpmessage_appendcontent(response, STRING_REF("&"));
+		httpmessage_appendcontent(response, STRING_REF(str_token));
+		httpmessage_appendcontent(response, STRING_REF("="));
 		httpmessage_appendcontent(response, info->token, -1);
+	}
+	if (info->passwd[0] != '\0')
+	{
+		httpmessage_appendcontent(response, STRING_REF("&"));
+		httpmessage_appendcontent(response, STRING_REF("passwdchanged=true"));
 	}
 	return 0;
 }
 
 static int _authmngt_checkrights(_mod_authmngt_ctx_t *ctx, const char *user, http_message_t *request)
 {
-	const char *auth = auth_info(request, STRING_REF("user"));
+	const char *auth = auth_info(request, STRING_REF(str_user));
 	if (auth && user)
 		ctx->isuser = !strcmp(auth, user);
-	const char *group = auth_info(request, STRING_REF("group"));
+	const char *group = auth_info(request, STRING_REF(str_group));
 	if (group && !strcmp(group, "root"))
 	{
 		ctx->isroot = 1;
