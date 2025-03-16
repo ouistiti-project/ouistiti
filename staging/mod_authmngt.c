@@ -472,7 +472,7 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 {
 	int ret = EREJECT;
 	const char *data = NULL;
-	size_t length = httpmessage_parameter(request, str_issuer, &data);
+	size_t length = httpmessage_parameter(request, "issuers", &data);
 	if (length > 0)
 	{
 		char *decode = utils_urldecode(data, length);
@@ -485,6 +485,8 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 			string_cpy(issuer, data, length);
 		ret = ESUCCESS;
 	}
+	else
+		string_cpy(issuer, data, 0);
 	return ret;
 }
 
@@ -704,7 +706,7 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 	}
 
 	authsession_t info = {0};
-	const char data[254];
+	const char data[256];
 	string_t issuer = {0};
 	string_store(&issuer, STRING_REF(data));
 	ret = _authmngt_parsesession(ctx, user, request, &info, &issuer);
