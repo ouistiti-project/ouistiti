@@ -394,7 +394,9 @@ static int authmngt_sqlite_addissuer(void *arg, int userid, const char *issuer, 
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int ret;
 	const char *sql = NULL;
-	if (insert)
+	if (length == 0)
+		sql = "delete from issuers where userid=@USERID;";
+	else if (insert)
 		sql = "insert into issuers (\"userid\",\"issuer\") values (@USERID,@ISSUER);";
 	else
 		sql = "update issuers set issuer=@ISSUER where userid=@USERID;";
@@ -410,7 +412,6 @@ static int authmngt_sqlite_addissuer(void *arg, int userid, const char *issuer, 
 
 	index = sqlite3_bind_parameter_index(statement, "@ISSUER");
 	ret = sqlite3_bind_text(statement, index, issuer, length, SQLITE_STATIC);
-	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
 	ret = sqlite3_step(statement);
@@ -418,7 +419,7 @@ static int authmngt_sqlite_addissuer(void *arg, int userid, const char *issuer, 
 
 	if (ret != SQLITE_DONE)
 	{
-		err("authmngt: impossible to change issuer");
+		err("authmngt: impossible to change issuer (%d)", ret);
 	}
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
@@ -444,7 +445,7 @@ static int authmngt_sqlite_setissuer(void *arg, const char * user, const char *i
 	ret = sqlite3_bind_int(statement, index, userid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
-	dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
+	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
 	ret = sqlite3_step(statement);
 	sqlite3_finalize(statement);
 
