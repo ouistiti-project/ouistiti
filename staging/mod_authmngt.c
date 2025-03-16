@@ -80,6 +80,7 @@ static void mod_authmngt_freectx(void *arg);
 static const char str_mngtpath[] = "^/auth/mngt*";
 
 static const char error_usernotfound[] = "user not found";
+static const char error_userexists[] = "user existing";
 static const char error_accessdenied[] = "access denied";
 static const char error_badvalue[] = "bad value";
 
@@ -488,30 +489,22 @@ static int _authmngt_parsesession(_mod_authmngt_ctx_t *ctx, const char *user,
 	else
 		return EREJECT;
 
-	if (ret == ESUCCESS &&
-		_authmngt_parsegroup(request, session) == ESUCCESS &&
-		!ctx->isroot)
-		ret = EREJECT;
+	if (ctx->isroot)
+		_authmngt_parsegroup(request, session);
 
-	if (ret == ESUCCESS &&
-		_authmngt_parsehome(request, session) == ESUCCESS &&
-		!ctx->isroot)
-		ret = EREJECT;
+	if (ctx->isroot)
+		_authmngt_parsehome(request, session);
 
-	if (ret == ESUCCESS &&
-		_authmngt_parsestatus(request, session) == ESUCCESS &&
-		!ctx->isroot)
-		ret = EREJECT;
+	if (ctx->isroot)
+		_authmngt_parsestatus(request, session);
 
-	if (ret == ESUCCESS &&
-		_authmngt_parsepasswd(request, session) == ESUCCESS &&
-		!ctx->isuser)
-		ret = EREJECT;
+	if (isuser || ctx->isroot)
+		_authmngt_parsepasswd(request, session);
 
 	if (isuser || ctx->isroot)
 		_authmngt_parseissuer(request, issuer);
 
-	return ret;
+	return ESUCCESS;
 }
 
 static int _authmngt_listresponse(_mod_authmngt_ctx_t *ctx, http_message_t *response)
@@ -648,13 +641,7 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	{
 		ret = mod->config->mngt.rules->adduser(ctx->ctx, &info);
 		if (ret == ESUCCESS && mod->config->mngt.rules->setsession != NULL)
-		{
 			ret = mod->config->mngt.rules->setsession(ctx->ctx, info.user, &info);
-			if (ret == ESUCCESS)
-				ret = _authmngt_userresponse(ctx, &info, request, response);
-			else
-				ctx->error = error_usernotfound;
-		}
 		else
 			ctx->error = error_userexists;
 		if (ret == ESUCCESS && mod->config->mngt.rules->setissuer != NULL)
@@ -695,7 +682,7 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 		authmngt_dbg("authmngt: userinfo\n\tuser: %s\n\tstatus: %s\n\tgroup: %s", info.user, info.status, info.group);
 		ret = mod->config->mngt.rules->changeinfo(ctx->ctx, &info);
 	}
-	if (ret == ESUCCESS && ctx->isuser && mod->config->mngt.rules->changepasswd != NULL)
+	if (ret == ESUCCESS && ctx->isuser && info.passwd[0] != '\0' && mod->config->mngt.rules->changepasswd != NULL)
 	{
 		int checkreapproving = 1;
 		if (info.status[0] != '\0')
