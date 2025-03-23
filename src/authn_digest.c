@@ -29,6 +29,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <limits.h>
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/hash.h"
@@ -50,7 +51,7 @@ struct authn_digest_s
 	const hash_t *hash;
 	char _nonce[MAXNONCE];
 	string_t nonce;
-	char *user;
+	string_t user;
 	int stale;
 	int encode;
 };
@@ -79,13 +80,13 @@ void *authn_digest_config(const config_setting_t *configauth)
 }
 #endif
 
-static size_t utils_stringify(const unsigned char *data, size_t len, char **result)
+static size_t utils_stringify(const char *data, size_t len, char **result)
 {
 	size_t length = 0;
 	*result = calloc(2, len + 1);
 	for (size_t i = 0; i < len; i++)
 	{
-		length += snprintf(*result + i * 2, 3, "%02x", data[i]);
+		length += snprintf(*result + i * 2, 3, "%02x", (unsigned char)data[i]);
 	}
 	return length;
 }
@@ -190,7 +191,7 @@ static void * authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct s
 static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)
 {
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Digest "));
-	if (mod->authn->config->realm.data != NULL && mod->authn->config->realm.data[0] != 0)
+	if (!string_empty(&mod->authn->config->realm))
 	{
 		httpmessage_appendheader(response, str_authenticate, STRING_REF("realm=\""));
 		httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->authn->config->realm));
