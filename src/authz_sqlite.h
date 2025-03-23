@@ -73,7 +73,6 @@ struct authz_sqlite_s
 	int ref;
 	sqlite3 *db;
 	sqlite3 *dbjoin;
-	sqlite3_stmt *statement;
 	int userid;
 };
 
