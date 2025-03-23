@@ -43,6 +43,7 @@
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
 #include "ouistiti/hash.h"
+#include "ouistiti/utils.h"
 #include "mod_auth.h"
 #include "authz_totp.h"
 
@@ -68,8 +69,7 @@ typedef struct authz_totp_s authz_totp_t;
 struct authz_totp_s
 {
 	authz_totp_config_t *config;
-	char _userkey[HASH_MAX_SIZE];
-	string_t userkey;
+	string_t *userkey;
 	char passwd[OTP_MAXDIGITS + 1];
 	http_server_t *server;
 };
@@ -104,16 +104,17 @@ static void *authz_totp_create(http_server_t *server, void *arg)
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
 	ctx->server = server;
-	ctx->userkey.data = ctx->_userkey;
-	ctx->userkey.length = HASH_MAX_SIZE;
+	ctx->userkey = string_create(HASH_MAX_SIZE + 1);
 	return ctx;
 }
 
-static unsigned long hotp_generator(const hash_t *hash, const char* key, size_t keylen, unsigned long modulus, uint64_t counter)
+static uint32_t hotp_generator(const hash_t *hash, const string_t* key, unsigned long modulus, uint64_t counter)
 {
 	uint64_t t = counter;
 	char T[17] = {0};
-//	int Tlen = snprintf(T, 17, "%.016X", (unsigned int)t);
+#if 0
+	int Tlen = snprintf(T, 17, "%.016X", (unsigned int)t);
+#endif
 	for (int i = sizeof(t) - 1; i >= 0; i--)
 	{
 		if ( t == 0) break;
@@ -122,7 +123,7 @@ static unsigned long hotp_generator(const hash_t *hash, const char* key, size_t 
 	}
 	T[0] &= 0x7f;
 	int Tlen = sizeof(t);
-	void *hmac = hash->initkey(key, keylen);
+	void *hmac = hash->initkey(string_toc(key), string_length(key));
 	hash->update(hmac, T, Tlen);
 
 	char longpassd[HASH_MAX_SIZE];
@@ -136,23 +137,23 @@ static unsigned long hotp_generator(const hash_t *hash, const char* key, size_t 
 	return otp;
 }
 
-static unsigned long totp_generator(const hash_t *hash, const char* key, size_t keylen, unsigned long modulus, int period)
+static uint32_t totp_generator(const hash_t *hash, const string_t* key, unsigned long modulus, int period)
 {
+#ifndef DEBUG
 	long t0 = 0;
 	long x = period;
-#ifndef DEBUG
 	long t = (time(NULL) - t0 ) / x;
 #else
 	time_t t = 56666053;
 #endif
-	return hotp_generator(hash, key, keylen, modulus, t);
+	return hotp_generator(hash, key, modulus, t);
 }
 
-size_t otp_url(const unsigned char* key, unsigned int keylen, const char *user, const char *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL])
+size_t otp_url(const string_t* key, const char *user, const char *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL])
 {
 	void *base32state = base32->encoder.init();
-	char *keyb32 = malloc((int)keylen * 2);
-	size_t keyb32len = base32->encoder.update(base32state, keyb32, key, keylen);
+	char *keyb32 = malloc((int)string_length(key) * 2);
+	size_t keyb32len = base32->encoder.update(base32state, keyb32, string_toc(key), string_length(key));
 	keyb32len += base32->encoder.finish(base32state, keyb32 + keyb32len);
 	free(base32state);
 	while (keyb32[keyb32len - 1] == '=') keyb32len --;
@@ -163,63 +164,64 @@ size_t otp_url(const unsigned char* key, unsigned int keylen, const char *user, 
 	length += snprintf(output + length, OTP_MAXURL - length, "secret=%.*s&", (int)keyb32len, keyb32);
 	if (issuer != NULL)
 		length += snprintf(output + length, OTP_MAXURL - length, "issuer=%s&", issuer);
-	if (hash && hash != hash_macsha1)
+	if (hash && strncmp(hash->name, "hmac-sha1", 9))
 		length += snprintf(output + length, OTP_MAXURL - length, "algorithm=%s&", hash->name);
 	length += snprintf(output + length, OTP_MAXURL - length, "digits=%d", digits);
 	free(keyb32);
 	return length;
 }
 
-static int authz_totp_generateK(const authz_totp_config_t *config, string_t *user, string_t *output)
+static int authz_totp_generateK(const authz_totp_config_t *config, const string_t *user, string_t *output)
 {
 	void *hmac = hash_macsha256->initkey(config->key.data, config->key.length);
 	hash_macsha256->update(hmac, user->data, user->length);
 	hash_macsha256->update(hmac, config->key.data, config->key.length);
 
-	if (output->length < HASH_MAX_SIZE)
+	if (output->size < HASH_MAX_SIZE)
 		return EREJECT;
-	output->length = hash_macsha256->finish(hmac, (char *)output->data);
+	char value[HASH_MAX_SIZE];
+	size_t length = hash_macsha256->finish(hmac, value);
+	string_cpy(output, value, length);
 	return ESUCCESS;
 }
 
-static int _authz_totp_passwdstr(authz_totp_t *ctx, string_t *user, const char **passwd)
+static int authz_totp_passwd(void *arg, const string_t *user, string_t *passwd)
 {
-	const authz_totp_config_t *config = ctx->config;
-
-	authz_totp_generateK(config, user, &ctx->userkey);
-
-	uint32_t totp = totp_generator(config->hash, ctx->userkey.data, ctx->userkey.length, config->digitsmodulus, config->period);
-	int length = snprintf(ctx->passwd, sizeof(ctx->passwd), "%u", totp);
-	auth_dbg("auth: totp user %s passwd %s", user->data, ctx->passwd);
-	*passwd = ctx->passwd;
-	return length;
-}
-
-static int authz_totp_passwd(void *arg, const char *user, const char **passwd)
-{
+	int ret = EREJECT;
 	authz_totp_t *ctx = (authz_totp_t *)arg;
-	string_t userstr = {0};
-	string_store(&userstr, user, -1);
-	return _authz_totp_passwdstr(ctx, &userstr, passwd);
+	const authz_totp_config_t *config = ctx->config;
+	if (passwd == NULL)
+		return config->digits;
+
+	authz_totp_generateK(config, user, ctx->userkey);
+
+	uint32_t totp = totp_generator(config->hash, ctx->userkey, config->digitsmodulus, config->period);
+	ret = string_printf(passwd, "%.*u", config->digits, totp);
+	auth_dbg("auth: totp user %s passwd %s", string_toc(user), string_toc(passwd));
+	return ret;
 }
 
 static int _authz_totp_checkpasswd(authz_totp_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
+	const authz_totp_config_t *config = ctx->config;
 
-	const char *checkpasswd = NULL;
 	string_t userstr = {0};
 	string_store(&userstr, user, -1);
-	_authz_totp_passwdstr(ctx, &userstr, &checkpasswd);
-	if (checkpasswd != NULL)
+
+	string_t *checkpasswd = string_create(config->digitsmodulus + 1);
+	ret = authz_totp_passwd(ctx, &userstr, checkpasswd);
+	if (ret == ESUCCESS)
 	{
 		string_t passwdstr = {0};
 		string_store(&passwdstr, passwd, -1);
-		if (authz_checkpasswd(checkpasswd, &userstr, NULL,  &passwdstr) == ESUCCESS)
-			return 1;
+		if (authz_checkpasswd(string_toc(checkpasswd), &userstr, NULL,  &passwdstr) == ESUCCESS)
+			ret = 1;
 	}
 	else
 		err("auth: user %s not found in file", user);
+	string_cleansafe(checkpasswd);
+	string_destroy(checkpasswd);
 	return ret;
 }
 

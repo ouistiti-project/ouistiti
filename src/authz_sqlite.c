@@ -391,14 +391,12 @@ static int authz_sqlite_setsession(void *arg, const char *user, const char *toke
 	return ret;
 }
 
-static int authz_sqlite_passwd(void *arg, const char *user, const char **passwd)
+static int authz_sqlite_passwd(void *arg, const string_t *user, string_t *passwd)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	*passwd = (const char *)authz_sqlite_search(ctx, user, STRING_REF("passwd"));
-	if (*passwd)
-		return strlen(*passwd);
-	return 0;
+	int ret = authz_sqlite_search(ctx, user, STRING_REF("passwd"), passwd);
+	return ret;
 }
 
 #ifdef AUTH_TOKEN
@@ -439,23 +437,23 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	const char *checkpasswd = NULL;
-	authz_sqlite_passwd(ctx, user, &checkpasswd);
+	string_t userstr = {0};
+	string_store(&userstr, user, -1);
+	ret = authz_sqlite_passwd(ctx, &userstr, NULL);
+	string_t *checkpasswd = string_create(ret);
+	ret = authz_sqlite_passwd(ctx, &userstr, checkpasswd);
 	auth_dbg("auth: check password for %s => %s (%s)", user, passwd, checkpasswd);
-	if (checkpasswd != NULL)
+	if (ret == ESUCCESS)
 	{
-		string_t userstr = {0};
-		string_store(&userstr, user, -1);
 		string_t passwdstr = {0};
 		string_store(&passwdstr, passwd, -1);
-		if (authz_checkpasswd(checkpasswd, &userstr, NULL, &passwdstr) == ESUCCESS)
+		if (authz_checkpasswd(string_toc(checkpasswd), &userstr, NULL, &passwdstr) == ESUCCESS)
 			ret = 1;
 	}
 	else
 		err("auth: user %s not found in DB", user);
-	if (ctx->statement != NULL)
-		sqlite3_finalize(ctx->statement);
-	ctx->statement = NULL;
+	string_cleansafe(checkpasswd);
+	string_destroy(checkpasswd);
 	return ret;
 }
 
