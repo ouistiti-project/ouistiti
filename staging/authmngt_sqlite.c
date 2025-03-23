@@ -62,13 +62,14 @@ static void *authmngt_sqlite_create(http_client_t *UNUSED(client), void *arg)
 		return NULL;
 	}
 
-	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL);
+	ret = sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL);
 	if (ret != SQLITE_OK)
 	{
 		err("authmngt: database %s error: %s", config->dbname, sqlite3_errstr(ret));
 		return NULL;
 	}
-
+	if (sqlite3_db_readonly(db, config->dbname))
+		err("authmngt: impossible to open %s database in read/write mode (check directory rights)", config->dbname);
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->db = db;
 	ctx->config = config;
@@ -79,7 +80,6 @@ static void authmngt_sqlite_destroy(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	sqlite3_close_v2(ctx->db);
-	free(ctx->config);
 	free(ctx);
 }
 
@@ -417,7 +417,7 @@ static int authmngt_sqlite_addissuer(void *arg, int userid, const char *issuer, 
 
 	if (ret != SQLITE_DONE)
 	{
-		err("authmngt: impossible to change issuer (%d)", ret);
+		err("authmngt: impossible to change issuer (%d) %s", ret, sqlite3_errmsg(ctx->db));
 	}
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
