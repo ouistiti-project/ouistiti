@@ -179,7 +179,10 @@ static int authz_file_passwd(void *arg, const string_t *user, string_t *passwd)
 			break;
 		}
 	}
-	fclose(file);
+	if (file)
+		fclose(file);
+	else
+		err("authz: password file not found");
 #endif
 	return ret;
 }
