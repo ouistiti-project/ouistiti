@@ -478,7 +478,6 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	 */
 	if (config_setting_lookup_string(config, "secret", &data) != CONFIG_FALSE)
 		string_store(&auth->token.secret, data, -1);
-
 	const char *mode = NULL;
 	config_setting_lookup_string(config, "options", &mode);
 	if (ouistiti_issecure(server))
@@ -506,10 +505,8 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 		err("config: authz is not set");
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
-
 	if (auth->authz.type & AUTHZ_JWT_E)
 		auth->token.type = E_JWT;
-
 	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
 		string_store(&auth->token.issuer, data, -1);
 	else if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
@@ -1333,30 +1330,37 @@ static int auth_saveinfo(void *arg, const char *key, size_t keylen, const char *
 }
 
 static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response,
-					const char *authorization, const char *token)
+					const char *cauthorization, const char *ctoken)
 {
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
+	string_t authorization = {0};
+	string_store(&authorization, cauthorization, -1);
+	string_t token = {0};
+	string_store(&token, ctoken, -1);
+	string_t sign = {0};
+
 	char *ttoken = NULL;
-	size_t tokenlen = -1;
+	size_t ttokenlen = -1;
 	char *tsign = NULL;
-	size_t tsignlen = 0;
+	size_t tsignlen = -1;
 #ifdef AUTH_TOKEN
-	if (token == NULL && config->authz.type & AUTHZ_TOKEN_E)
+	if (string_empty(&token) && config->authz.type & AUTHZ_TOKEN_E)
 	{
-		size_t ttokenlen = -1;
+		ttokenlen = mod->generatetoken(&mod->config->token, request, &ttoken);
+		string_store(&token, ttoken, ttokenlen);
+
 		tsignlen = (int)(HASH_MAX_SIZE * 1.5) + 1;
 		tsign = calloc(1, tsignlen);
 
-		ttokenlen = mod->generatetoken(&mod->config->token, request, &ttoken);
 		const char *key = mod->config->token.secret.data;
 		size_t keylen = mod->config->token.secret.length;
 		tsignlen = _authn_signtoken(key, keylen, ttoken, ttokenlen, tsign, tsignlen);
 		if (tsign == NULL)
-			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, tsignlen);
+			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, ttokenlen);
 		else
 			httpclient_session(ctx->clt, STRING_REF(str_token), tsign, tsignlen);
-		token = ttoken;
+		string_store(&sign, tsign, tsignlen);
 
 		char strexpire[100];
 		size_t lenexpire = snprintf(strexpire, 100, "max-age=%lu, must-revalidate", config->token.expire * 60);
@@ -1366,27 +1370,11 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
-		string_t tauthorization = {0};
-		string_store(&tauthorization, authorization, -1);
-		string_t ttoken = {0};
-		if (token != NULL)
-			string_store(&ttoken, token, -1);
-		string_t sign = {0};
-		if (tsign != NULL)
-			string_store(&sign, tsign, tsignlen);
-		_authn_setauthorization_header(ctx, &tauthorization, &ttoken, &sign, response);
+		_authn_setauthorization_header(ctx, &authorization, &token, &sign, response);
 	}
 	else if (mod->authn->type & AUTHN_COOKIE_E)
 	{
-		string_t tauthorization = {0};
-		string_store(&tauthorization, authorization, -1);
-		string_t ttoken = {0};
-		if (token != NULL)
-			string_store(&ttoken, token, -1);
-		string_t sign = {0};
-		if (tsign != NULL)
-			string_store(&sign, tsign, tsignlen);
-		_authn_setauthorization_cookie(ctx, &tauthorization, &ttoken, &sign, response);
+		_authn_setauthorization_cookie(ctx, &authorization, &token, &sign, response);
 	}
 
 	if (mod->authz->type & AUTHZ_CHOWN_E)
@@ -1453,7 +1441,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		 * allows to disconnect the user.
 		 */
 		authorization = httpmessage_REQUEST(request, str_authenticate);
-		if (ret == ECONTINUE && authorization != NULL && authorization[0] != '\0')
+		if (authorization != NULL && authorization[0] != '\0')
 		{
 			ret = ESUCCESS;
 		}
