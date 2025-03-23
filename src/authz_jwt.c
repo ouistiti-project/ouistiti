@@ -66,7 +66,7 @@ void *authz_jwt_config(const config_setting_t *configauth)
 	authz_token_config_t *authz_config = calloc(1, sizeof(*authz_config));
 	const char *issuer = NULL;
 
-	int ret = config_setting_lookup_string(configauth, "issuer", &issuer);
+	int ret = config_setting_lookup_string(configauth, str_issuer, &issuer);
 	if (ret == CONFIG_TRUE)
 	{
 		string_store(&authz_config->issuer, issuer, -1);
@@ -90,29 +90,31 @@ size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
 	size_t theaderlen = sizeof(theader) - 1;
 #endif
 
+	size_t len = 0;
 	json_t *jtoken = json_object();
-	const char *user = auth_info(request, STRING_REF(str_user));
-	if (user)
+	const char *info = NULL;
+	len = auth_info2(request, str_user, &info);
+	if (len > 0)
 	{
-		json_t *juser = json_string(user);
+		json_t *juser = json_stringn(info, len);
 		json_object_set(jtoken, str_user, juser);
 	}
-	const char *home = auth_info(request, STRING_REF(str_home));
-	if (home)
+	len = auth_info2(request, str_home, &info);
+	if (len > 0)
 	{
-		json_t *jhome = json_string(home);
+		json_t *jhome = json_stringn(info, len);
 		json_object_set(jtoken, str_home, jhome);
 	}
-	const char *status = auth_info(request, STRING_REF(str_status));
-	if (status)
+	len = auth_info2(request, str_status, &info);
+	if (len > 0)
 	{
-		json_t *jstatus = json_string(status);
+		json_t *jstatus = json_stringn(info, len);
 		json_object_set(jtoken, str_status, jstatus);
 	}
-	const char *group = auth_info(request, STRING_REF(str_group));
-	if (group)
+	len = auth_info2(request, str_group, &info);
+	if (len > 0)
 	{
-		json_t *jroles = json_string(group);
+		json_t *jroles = json_stringn(info, len);
 		json_object_set(jtoken, "roles", jroles);
 	}
 #ifndef DEBUG
@@ -128,9 +130,11 @@ size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
 	else
 		jexpire = json_integer((30 * 60) + now);
 	json_object_set(jtoken, "exp", jexpire);
-	const char *issuer = auth_info(request, STRING_REF("issuer"));
+	const char *issuer = NULL;
+	len = auth_info2(request, str_issuer, &issuer);
+
 	if (issuer)
-		json_object_set(jtoken, "iss", json_string(issuer));
+		json_object_set(jtoken, "iss", json_stringn(issuer, len));
 #ifdef AUTH_OPENID
 	json_object_set(jtoken, "sub", juser);
 	json_object_set(jtoken, "preferred_username", juser);
@@ -216,7 +220,7 @@ static json_t *jwt_decode_json(const char *id_token, int header)
 	return jpayload;
 }
 
-static int _jwt_checkexpiration(json_t *jinfo)
+static int _jwt_checkexpiration(const json_t *jinfo)
 {
 	const json_t *jexpire = json_object_get(jinfo, "exp");
 	if (jexpire && json_is_integer(jexpire))
@@ -274,7 +278,7 @@ const char *authz_jwt_get(const char *id_token, const char *key)
 		return NULL;
 	if (!strcmp(key, str_user))
 		return _jwt_getuser(jinfo);
-	if (!strcmp(key, "issuer"))
+	if (!strcmp(key, str_issuer))
 		return _jwt_get(jinfo, "iss");
 	return _jwt_get(jinfo, key);
 }
@@ -315,7 +319,7 @@ static int _authn_jwt_checktoken(const authz_token_config_t *config, const char 
 		string_store(&strissuer, issuer, -1);
 		if (issuer && string_contain(&strissuer, string_toc(&config->issuer), string_length(&config->issuer), '+'))
 		{
-			err("auth: token with bad issuer: %s '%s'", issuer, string_toc(config->issuer));
+			err("auth: token with bad issuer: %s / %s", issuer, string_toc(&config->issuer));
 			return EREJECT;
 		}
 		ret = ESUCCESS;
