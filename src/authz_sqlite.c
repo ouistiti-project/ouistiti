@@ -228,36 +228,41 @@ static void *authz_sqlite_setup(void *arg, http_client_t *clt, struct sockaddr *
 						"inner join status on status.id=users.statusid " \
 						"where users.name=@NAME;"
 
-static const unsigned char *authz_sqlite_search(authz_sqlite_t *ctx, const char *user, char *field, int fieldlen)
+static int authz_sqlite_search(authz_sqlite_t *ctx, const string_t *user, char *field, int fieldlen, string_t *passwd)
 {
 	int ret;
 	const unsigned char *value = NULL;
+	int length = 0;
 
 	size_t size = sizeof(SEARCH_QUERY) + fieldlen;
 	char *sql = sqlite3_malloc(size);
 	snprintf(sql, size, SEARCH_QUERY, field);
 
-	if (ctx->statement != NULL)
-		sqlite3_finalize(ctx->statement);
-	sqlite3_prepare_v2(ctx->db, sql, -1, &ctx->statement, NULL);
+	sqlite3_stmt *statement = NULL; /// use a specific statement
+	sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
 
 	int index;
-	index = sqlite3_bind_parameter_index(ctx->statement, "@NAME");
+	index = sqlite3_bind_parameter_index(statement, "@NAME");
 	if (index > 0)
-		sqlite3_bind_text(ctx->statement, index, user, -1, SQLITE_STATIC);
-	ret = sqlite3_step(ctx->statement);
+		sqlite3_bind_text(statement, index, string_toc(user), string_length(user), SQLITE_STATIC);
+	ret = sqlite3_step(statement);
 	while (ret == SQLITE_ROW)
 	{
 		int i = 0;
-		if (sqlite3_column_type(ctx->statement, i) == SQLITE_TEXT)
+		if (sqlite3_column_type(statement, i) == SQLITE_TEXT)
 		{
-			value = sqlite3_column_text(ctx->statement, i);
+			value = sqlite3_column_text(statement, i);
+			length = sqlite3_column_bytes(statement, i);
 			break;
 		}
-		ret = sqlite3_step(ctx->statement);
+		ret = sqlite3_step(statement);
 	}
 	sqlite3_free(sql);
-	return value;
+	ret = length;
+	if (value && passwd)
+		ret = string_cpy(passwd, (const char *)value, length);
+	sqlite3_finalize(statement);
+	return ret;
 }
 
 static int _authz_sqlite_storeuser(const authz_sqlite_t *UNUSED(ctx), sqlite3_stmt *statement, storeinfo_t callback, void *cbarg)
@@ -672,9 +677,6 @@ static void authz_sqlite_cleanup(void *arg)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	if (ctx->statement != NULL)
-		sqlite3_finalize(ctx->statement);
-	ctx->statement = NULL;
 	ctx->ref--;
 #ifdef AUTHZ_SQLITE_CONTEXTSETUP
 	free(ctx);
