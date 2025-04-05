@@ -160,7 +160,7 @@ static int _python_configscript(config_setting_t *setting, mod_python_config_t *
 	if (data == NULL)
 		return EREJECT;
 	mod_cgi_config_script_t *script = calloc(1, sizeof(*script));
-	string_store(&script->path, data, -1);;
+	string_store(&script->path, data, -1);
 	script->next = python->scripts;
 	python->scripts = script;
 	return ESUCCESS;
