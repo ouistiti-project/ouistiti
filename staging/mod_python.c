@@ -257,30 +257,30 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		 * function name.
 		 * /test.python/function => /test.python and  function
 		 */
-		if (function != NULL && (size_t)(function - uri) < urilen)
+		if (function != NULL && (size_t)(function - uri.data) < uri.length)
 		{
-			urilen = function - uri;
+			uri.length = function - uri.data;
 		}
 		else
-			function = uri + urilen;
+			function = uri.data + uri.length;
 
-		while (*uri == '/' && *uri != '\0')
+		while (*uri.data == '/' && *uri.data != '\0')
 		{
-			uri++;
-			urilen--;
+			uri.data++;
+			uri.length--;
 		}
 		while (*function == '/' && *function != '\0')
 		{
 			function++;
 		}
 
-		python_dbg("python: new uri %.*s", (int)urilen, uri);
+		python_dbg("python: new uri %.*s", (int)uri.length, uri.data);
 		python_dbg("python: function %s", function);
 		PyObject *pymodule = NULL;
 		_mod_python_script_t *script = mod->scripts;
 		while (script)
 		{
-			if (((size_t)urilen == script->path.length) && !strncasecmp(script->path.data, uri, urilen))
+			if (((size_t)uri.length == script->path.length) && !_string_cmp(&script->path, uri.data, uri.length))
 			{
 				pymodule = script->pymodule;
 				break;
@@ -289,7 +289,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		}
 		if (pymodule == NULL)
 		{
-			pymodule = _mod_python_modulize(uri, urilen);
+			pymodule = _mod_python_modulize(uri.data, uri.length);
 		}
 		PyObject *pyfunc = NULL;
 		if (pymodule != NULL)
