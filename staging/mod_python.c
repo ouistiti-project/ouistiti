@@ -360,9 +360,16 @@ static PyObject *_python_createPyRequest(PyObject *pymodule, const mod_python_co
 	PyObject *pylatin1value = PyUnicode_AsLatin1String(pymodulefile);
 	if (pylatin1value)
 	{
-		uri->data = PyBytes_AsString(pylatin1value);
-		python_dbg("python: module file %s", uri->data);
-		uri->length = strlen(uri->data);
+		string_store(uri, PyBytes_AsString(pylatin1value), -1);
+		/// getenv of PWD env may be different of get_current_dir_name
+		char *pwd = getcwd(NULL, 0);
+		if (pwd && (string_contain(uri, pwd, -1, ' ')))
+		{
+			size_t len = strnlen(pwd, string_length(uri));
+			string_slice(uri, len + 1, -1);
+		}
+		free(pwd);
+		python_dbg("python: module file %s", string_toc(uri));
 	}
 	char **env = (char **)cgi_buildenv(config, request, uri, path_info, PyMem_Calloc);
 	int count = 0;
@@ -804,7 +811,7 @@ static void __attribute__ ((destructor)) _mod_python_finalize(void);
 
 static void _mod_python_init(void)
 {
-	Py_SetProgramName(L"ouistiti");
+	// Py_SetProgramName L"ouistiti"
 	Py_Initialize();
 }
 
