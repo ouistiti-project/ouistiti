@@ -467,9 +467,9 @@ static void *_webstream_main(void *arg)
 	int client = info->modctx->client;
 	int socket = info->modctx->socket;
 	int end = 0;
-	unsigned int waittime = WEBSTREAM_DEFAULT_WAITTIME;
+	struct timespec waittime = { .tv_sec = 0, .tv_nsec = (WEBSTREAM_DEFAULT_WAITTIME * 1000),};
 	if (mod->config->fps > 0)
-		waittime = 1000000 / mod->config->fps;
+		waittime.tv_nsec = 1000000000 / mod->config->fps;
 
 	while (!end)
 	{
@@ -491,7 +491,7 @@ static void *_webstream_main(void *arg)
 			end = _webstream_transferdata(info, config->options & (WEBSTREAM_MULTIPART | WEBSTREAM_MULTIPART_DATE));
 			if (config->options & WEBSTREAM_MULTIPART)
 			{
-				usleep(waittime);
+				nanosleep(&waittime, NULL);
 			}
 			ret--;
 		}
