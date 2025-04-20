@@ -357,18 +357,20 @@ static int _mod_redirect_hsts(_mod_redirect_t *mod, http_message_t *request, htt
 {
 	const char *host = NULL;
 	size_t hostlen = httpmessage_REQUEST2(request, "host", &host);
-	if (hostlen != EREJECT)
+	if (hostlen > 0)
 	{
-		httpmessage_addheader(response, str_location, scheme, -1);
+		httpmessage_addheader(response, str_location, scheme, schemelen);
 		httpmessage_appendheader(response, str_location, STRING_REF("://"));
 		httpmessage_appendheader(response, str_location, host, hostlen);
+#if 0
 		const char *port = NULL;
 		size_t portlen = httpmessage_REQUEST2(request, "port", &port);
-		if (portlen != EREJECT)
+		if (portlen >0)
 		{
 			httpmessage_appendheader(response, str_location, STRING_REF(":"));
 			httpmessage_appendheader(response, str_location, port, portlen);
 		}
+#endif
 		httpmessage_appendheader(response, str_location, uri, urilen);
 		httpmessage_addheader(response, "Vary", STRING_REF(str_upgrade_insec_req));
 		httpmessage_result(response, RESULT_301);
