@@ -186,9 +186,8 @@ static int _tlsserver_start(void *arg)
 			ret = SSL_accept(ctx->ssl);
 			continue;
 		}
-		err("tls: create error %d %s", error, ERR_reason_error_string(error));
-		_tls_disconnect(ctx);
-		_tls_destroy(ctx);
+		else
+			err("tls: create error %d", error);
 		return EREJECT;
 	}
 	warn("tls: connection accepted for %p", ctx->clt);
@@ -275,7 +274,7 @@ static int _tls_send(void *vctx, const char *data, size_t size)
 		tls_dbg("tls: send %d %.*s", ret, (int)size, data);
 		if (ret < 0)
 		{
-			warn("tls: send %d %.*s", ret, (int)size, data);
+			dbg("tls: send %d %.*s", ret, (int)size, data);
 			int error = SSL_get_error(ctx->ssl, ret);
 			if ((error == SSL_ERROR_WANT_WRITE ||
 				error == SSL_ERROR_WANT_READ ||
@@ -283,7 +282,7 @@ static int _tls_send(void *vctx, const char *data, size_t size)
 				try < MAX_TRIES)
 			{
 				try++;
-				err("tls: send error(%d) WANT_DATA %ums", error, try * WANT_TIME);
+				dbg("tls: send error(%d) WANT_DATA %ums", error, try * WANT_TIME);
 				ret = EINCOMPLETE;
 				struct timespec waittime = {0};
 				waittime.tv_nsec = try * WANT_TIME * 1000000;
