@@ -120,7 +120,7 @@ static int _websocket_tty(int fdroot, const char *filepath, const char *path_inf
 static int _websocket_fifo(int fdroot, const char *filepath);
 static int _websocket_tcp(const char *host, const char *port);
 
-static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_message_t *request, http_message_t *response)
+static int _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_message_t *request, http_message_t *response)
 {
 	const char *key = NULL;
 	size_t keylen = httpmessage_REQUEST2(request, str_sec_ws_key, &key);
@@ -138,7 +138,10 @@ static void _mod_websocket_handshake(_mod_websocket_ctx_t *UNUSED(ctx), http_mes
 		websocket_dbg("websocket: handshake %s", out);
 
 		httpmessage_addheader(response, str_sec_ws_accept, out, outlen);
+		return ESUCCESS;
 	}
+	err("websocket: handshake error");
+	return EREJECT;
 }
 
 static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *protocol)
@@ -152,7 +155,7 @@ static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *pr
 	}
 	if (fdfile == -1)
 	{
-		warn("websocket: uri %s not found", uri);
+		dbg("websocket: uri %s not found", uri);
 		return EREJECT;
 	}
 
@@ -167,7 +170,7 @@ static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *pr
 			fdfile = -1;
 		if (fdfile == -1)
 		{
-			warn("websocket: protocol %s not found", protocol);
+			dbg("websocket: protocol %s not found", protocol);
 			close(fdroot);
 			return EREJECT;
 		}
@@ -182,6 +185,8 @@ static int _checkfile(_mod_websocket_ctx_t *ctx, const char *uri, const char *pr
 			return EREJECT;
 		}
 		ctx->fdfile  = _websocket_unix(uri);
+		if (ctx->fdfile < 0)
+			return EREJECT;
 		if (fchdir(fddir) < 0)
 			return EREJECT;
 		close(fddir);
@@ -210,7 +215,7 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	const char *uri = httpmessage_REQUEST(request, "uri");
 	if (htaccess_check(&mod->config->htaccess, uri, &path_info) != ESUCCESS)
 	{
-		warn("websocket: %s forbidden", uri);
+		dbg("websocket: %s forbidden", uri);
 		return EREJECT;
 	}
 	if (path_info == uri)
@@ -260,6 +265,7 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 			}
 			break;
 			}
+			uri = it->destination.data;
 		}
 		else
 			return EREJECT;
@@ -269,6 +275,8 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 		return EREJECT;
 	}
 
+	if (ctx->fdfile < 0)
+		ret = EREJECT;
 	if (ret == EREJECT)
 	{
 		httpmessage_result(response, RESULT_403);
@@ -281,13 +289,27 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 		warn("websocket: protocol returns %s", protocol);
 	}
 
-	_mod_websocket_handshake(ctx, request, response);
+	if (_mod_websocket_handshake(ctx, request, response) == EREJECT)
+	{
+		httpmessage_result(response, RESULT_400);
+		return ESUCCESS;
+	}
+
+	ctx->socket = httpmessage_lock(response);
+	if (ctx->socket < 1)
+	{
+		err("websocket: Internal client error");
+		httpmessage_result(response, RESULT_500);
+		return ESUCCESS;
+	}
+
 	httpmessage_addheader(response, str_connection, STRING_REF(str_upgrade));
 	httpmessage_addheader(response, str_upgrade, STRING_REF(str_websocket));
 	/** disable Content-Type and Content-Length inside the headers **/
 	httpmessage_addcontent(response, "none", NULL, -1);
 	httpmessage_result(response, RESULT_101);
-	ctx->socket = httpmessage_lock(response);
+	warn("websocket: connect %s", uri);
+
 	return ECONTINUE;
 }
 
@@ -484,7 +506,7 @@ static int _websocket_unix(const char *filepath)
 	addr.sun_family = AF_UNIX;
 	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", filepath);
 
-	warn("websocket: open %s", addr.sun_path);
+	dbg("websocket: open %s", addr.sun_path);
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock > 0)
 	{
@@ -551,7 +573,9 @@ static int _websocket_tcp(const char *host, const char *port)
 		err("websocket: open error (%s)", strerror(errno));
 	}
 	else
-		warn("websocket: open %s", host);
+	{
+		dbg("websocket: open %s", host);
+	}
 
 	return sock;
 }
