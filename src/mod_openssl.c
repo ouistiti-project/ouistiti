@@ -157,9 +157,19 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 		free(ctx);
 		return NULL;
 	}
+	return ctx;
+}
 
-	ctx->ssl = SSL_new(mod->openssl_ctx);
-	int sock = httpclient_socket(clt);
+static int _tlsserver_start(void *arg)
+{
+	_mod_openssl_ctx_t *ctx = (_mod_openssl_ctx_t *)arg;
+	ctx->ssl = SSL_new(ctx->mod->openssl_ctx);
+	if (ctx->ssl == NULL)
+	{
+		free(ctx);
+		return EREJECT;
+	}
+	int sock = httpclient_socket(ctx->clt);
 
 	SSL_set_fd(ctx->ssl, sock);
 	int ret = SSL_accept(ctx->ssl);
@@ -179,10 +189,10 @@ static void *_tlsserver_create(void *arg, http_client_t *clt)
 		err("tls: create error %d %s", error, ERR_reason_error_string(error));
 		_tls_disconnect(ctx);
 		_tls_destroy(ctx);
-		return NULL;
+		return EREJECT;
 	}
-	warn("tls: connection accepted for %p", clt);
-	return ctx;
+	warn("tls: connection accepted for %p", ctx->clt);
+	return ECONTINUE;
 }
 
 #ifdef TLS_CONNECT
@@ -326,6 +336,7 @@ static const httpclient_ops_t *tlsserver_ops = &(httpclient_ops_t)
 	.default_port = 443,
 	.type = HTTPCLIENT_TYPE_SECURE,
 	.create = &_tlsserver_create,
+	.start = &_tlsserver_start,
 	.recvreq = &_tls_recv,
 	.sendresp = &_tls_send,
 	.wait = &tls_wait,
