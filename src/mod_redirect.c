@@ -413,7 +413,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 	}
 	if (config->options & REDIRECT_GENERATE204)
 	{
-		if (utils_searchexp(uri, "generate_204", NULL) == ESUCCESS)
+		if (utils_searchexp(uri, "generate_204,^/true", NULL) == ESUCCESS)
 		{
 			httpmessage_result(response, RESULT_204);
 			return ESUCCESS;
