@@ -326,7 +326,15 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 		else if (link->options & REDIRECT_TEMPORARY)
 			result = RESULT_307;
 
-		if (link->destination != NULL &&
+		string_t query = {0};
+		ouimessage_REQUEST(request, "query", &query);
+		if (!string_empty(&query) &&
+				!string_contain(&query, "noredirect*", 11, '&'))
+		{
+			result = RESULT_204;
+			ret = ESUCCESS;
+		}
+		else if (link->destination != NULL &&
 				utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
 		{
 			ret = _mod_redirect_destination(mod, link, request, response, path_info);
