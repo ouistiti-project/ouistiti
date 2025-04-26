@@ -112,8 +112,7 @@ static int _python_configscript(config_setting_t *setting, mod_python_config_t *
 	if (data == NULL)
 		return EREJECT;
 	mod_cgi_config_script_t *script = calloc(1, sizeof(*script));
-	script->path.data = data;
-	script->path.length = strlen(script->path.data);
+	string_store(&script->path, data, -1);;
 	script->next = python->scripts;
 	python->scripts = script;
 	return ESUCCESS;
@@ -206,7 +205,7 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 		{
 			_mod_python_script_t *pscript = calloc(1, sizeof(*pscript));
 			pscript->pymodule = pymodule;
-			_string_store(&pscript->path, script->path.data, script->path.length);
+			string_store(&pscript->path, script->path.data, script->path.length);
 			pscript->next = mod->scripts;
 			mod->scripts = pscript;
 		}

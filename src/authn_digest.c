@@ -74,7 +74,7 @@ void *authn_digest_config(const config_setting_t *configauth)
 	}
 
 	authn_config = calloc(1, sizeof(*authn_config));
-	_string_store(&authn_config->opaque, opaque, -1);
+	string_store(&authn_config->opaque, opaque, -1);
 	return authn_config;
 }
 #endif
@@ -104,10 +104,10 @@ static void *authn_digest_create(const authn_t *authn, void *config)
 	mod->config = (authn_digest_config_t *)config;
 	mod->authn = authn;
 	mod->hash = authn->config->authn.hash;
-	_string_store(&mod->nonce, mod->_nonce, 0);
+	string_store(&mod->nonce, mod->_nonce, 0);
 #ifdef DEBUG
 	err("Auth DIGEST is not secure in DEBUG mode, rebuild!!!");
-	if (! _string_cmp(&mod->config->opaque, STRING_REF(str_opaque_rfc7616)))
+	if (! string_cmp(&mod->config->opaque, STRING_REF(str_opaque_rfc7616)))
 		mod->nonce.length = snprintf(STRING_REF(mod->_nonce), "%s", str_nonce_rfc7616); //RFC7616
 	else
 		mod->nonce.length = snprintf(STRING_REF(mod->_nonce), "%s", str_nonce_rfc2617); //RFC2617
@@ -431,7 +431,7 @@ static int authn_digest_checkrealm(void *data, const char *value, size_t length)
 	checkstring_t *info = (checkstring_t *)data;
 	const authn_digest_t *mod = info->mod;
 
-	if (value != NULL && !_string_cmp(&mod->authn->config->realm, value, length))
+	if (value != NULL && !string_cmp(&mod->authn->config->realm, value, length))
 	{
 		info->value = value;
 		info->length = length;
@@ -447,7 +447,7 @@ static int authn_digest_checknonce(void *data, const char *value, size_t length)
 	checkstring_t *info = (checkstring_t *)data;
 	authn_digest_t *mod = info->mod;
 
-	if (value != NULL && !_string_cmp(&mod->nonce, value, length))
+	if (value != NULL && !string_cmp(&mod->nonce, value, length))
 	{
 		info->value = value;
 		info->length = length;
@@ -465,7 +465,7 @@ static int authn_digest_checkopaque(void *data, const char *value, size_t length
 	checkstring_t *info = (checkstring_t *)data;
 	const authn_digest_t *mod = info->mod;
 
-	if (value != NULL && !_string_cmp(&mod->config->opaque, value, length))
+	if (value != NULL && !string_cmp(&mod->config->opaque, value, length))
 	{
 		info->value = value;
 		info->length = length;
