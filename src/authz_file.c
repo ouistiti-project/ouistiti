@@ -54,7 +54,7 @@ typedef struct authz_file_s authz_file_t;
 struct authz_file_s
 {
 	authz_file_config_t *config;
-	char *storage;
+	string_t *storage;
 	string_t user;
 	string_t passwd;
 	string_t group;
@@ -115,7 +115,7 @@ static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
 		ctx = calloc(1, sizeof(*ctx));
 		ctx->config = config;
 #ifndef FILE_MMAP
-		ctx->storage = calloc(1, MAXLENGTH + 1);
+		ctx->storage = string_create(MAXLENGTH + 1);
 #else
 		ctx->map = addr;
 		ctx->map_size = sb.st_size;
@@ -130,46 +130,15 @@ static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
 	return ctx;
 }
 
-static int _authz_file_parsestring(char *string, int length,
-			string_t *puser,
-			string_t *ppasswd,
-			string_t *pgroup,
-			string_t *phome)
-{
-	char *endline = strchr(string, '\n');
-	if (endline != NULL)
-		endline[0] = '\0';
-	else
-		endline = string + length;
-
-	string_t *setters[4] = {puser, ppasswd, pgroup, phome};
-
-	puser->data = string;
-	for (int current = 0; current < (sizeof(setters) / sizeof(string_t*)) - 1; current++)
-	{
-		setters[current + 1]->data = strchr(setters[current]->data, ':');
-		if (setters[current + 1]->data)
-		{
-			setters[current]->length = setters[current + 1]->data - setters[current]->data;
-			setters[current + 1]->data += 1;
-		}
-		else
-		{
-			setters[current + 1]->data = endline;
-			setters[current]->length = endline - setters[current]->data;
-		}
-	}
-	return 0;
-}
-
-static int authz_file_passwd(void *arg, const char *user, const char **passwd)
+static int authz_file_passwd(void *arg, const string_t *user, string_t *passwd)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 	const authz_file_config_t *config = ctx->config;
+	int ret = EREJECT;
 
 #ifdef FILE_MMAP
 	char *line;
-	line = strstr(ctx->map, user);
+	line = strstr(ctx->map, string_toc(user));
 	if (line)
 	{
 		size_t len = 0;
@@ -183,70 +152,74 @@ static int authz_file_passwd(void *arg, const char *user, const char **passwd)
 		end = strchr(line, ':');
 		if (end == NULL)
 			end = line + 1;
-		if (!strncmp(line, user, end - line))
+		if (!string_cmp(&user, line, end - line))
 		{
-			_authz_file_parsestring(line, len, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
-			*passwd = ctx->passwd.data;
-			return ctx->passwd.length;
+			ret = _authz_file_parsestring(line, len, &ctx->user, passwd, &ctx->group, &ctx->home);
 		}
 	}
 #else
 	FILE *file = fopen(config->path, "r");
 	while(file && !feof(file))
 	{
-		size_t len = 0;
-		memset(ctx->storage, 0, MAXLENGTH);
-		if (fgets(ctx->storage, MAXLENGTH, file) == NULL)
+		if (string_fgetline(ctx->storage, file) == EREJECT)
 			break;
-		const char *end = strchr(ctx->storage, ':');
-		if (end == NULL)
-			continue;
-		len = end - ctx->storage;
-		if (!strncmp(user, ctx->storage, len))
+		string_t usertest = {0};
+		string_t passwdtest = {0};
+		ret = string_split(ctx->storage, ':', &usertest, &passwdtest, NULL);
+		if (ret == 2 && string_is(&usertest, user))
 		{
-			// storage is MAXLENGTH + 1 length and the last byte is always 0
-			int linelen = strlen(ctx->storage);
-			_authz_file_parsestring(ctx->storage, linelen, &ctx->user, &ctx->passwd, &ctx->group, &ctx->home);
-			fclose(file);
-			*passwd = ctx->passwd.data;
-			return ctx->passwd.length;
+			if (passwd)
+			{
+				ret = EREJECT;
+				if (string_split(ctx->storage, ':', &ctx->user, passwd, &ctx->group, &ctx->home, NULL) > 1)
+					ret = ESUCCESS;
+			}
+			else
+				ret = string_length(&passwdtest);
+			break;
 		}
 	}
-	if (file) fclose(file);
-#endif
-	return 0;
-}
-
-static int _authz_file_checkpasswd(authz_file_t *ctx, const char *user, const char *passwd)
-{
-	int ret = 0;
-
-	const char *checkpasswd = NULL;
-	authz_file_passwd(ctx, user, &checkpasswd);
-	if (checkpasswd != NULL)
-	{
-		string_t userstr = {0};
-		string_store(&userstr, user, -1);
-		string_t passwdstr = {0};
-		string_store(&passwdstr, passwd, -1);
-		if (authz_checkpasswd(checkpasswd, &userstr, NULL,  &passwdstr) == ESUCCESS)
-			return 1;
-	}
+	if (file)
+		fclose(file);
 	else
-		err("auth: user %s not found in file", user);
+		err("authz: password file not found");
+#endif
 	return ret;
 }
 
-static const char *authz_file_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))
+static int _authz_file_checkpasswd(authz_file_t *ctx, string_t *user, string_t *passwd)
+{
+	int ret = EREJECT;
+
+	string_t *checkpasswd = string_create(1024);
+	ret = authz_file_passwd(ctx, user, checkpasswd);
+	if (ret == ESUCCESS)
+	{
+		ret = EREJECT;
+		if (authz_checkpasswd(string_toc(checkpasswd), user, NULL,  passwd) == ESUCCESS)
+			ret = 1;
+	}
+	else
+		err("auth: user %s not found in file", string_toc(user));
+	string_cleansafe(checkpasswd);
+	string_destroy(checkpasswd);
+	return ret;
+}
+
+static const char *authz_file_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	authz_file_t *ctx = (authz_file_t *)arg;
 
-	if (user != NULL && passwd != NULL && _authz_file_checkpasswd(ctx, user, passwd))
+	string_t userstr = {0};
+	string_store(&userstr, user, -1);
+	string_t passwdstr = {0};
+	string_store(&passwdstr, passwd, -1);
+	if (!string_empty(&userstr) && !string_empty(&passwdstr) && _authz_file_checkpasswd(ctx, &userstr, &passwdstr))
 		return user;
 	return NULL;
 }
 
-static int authz_file_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
+static int authz_file_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
 	const authz_file_t *ctx = (const authz_file_t *)arg;
 
@@ -260,6 +233,8 @@ static int authz_file_setsession(void *arg, const char *user, auth_saveinfo_t cb
 	if (ctx->home.data && ctx->home.length > 0)
 		cb(cbarg, STRING_REF(str_home), STRING_INFO(ctx->home));
 	cb(cbarg, STRING_REF(str_status), STRING_REF(str_status_activated));
+	if (token)
+		cb(cbarg, STRING_REF(str_token), STRING_REF(token));
 
 	return ESUCCESS;
 }
@@ -272,8 +247,10 @@ static void authz_file_destroy(void *arg)
 	munmap(ctx->map, ctx->map_size);
 	close(ctx->fd);
 #else
-	free(ctx->storage);
+	if (ctx->storage)
+		string_destroy(ctx->storage);
 #endif
+	free(ctx->config);
 	free(ctx);
 }
 

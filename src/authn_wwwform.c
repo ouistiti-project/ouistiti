@@ -47,13 +47,13 @@ struct authn_wwwform_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_wwwform_config(const config_setting_t *configauth)
+void *authn_wwwform_config(const config_setting_t *UNUSED(configauth))
 {
 	return (void *)1;
 }
 #endif
 
-static void *authn_wwwform_create(const authn_t *authn, void *arg)
+static void *authn_wwwform_create(const authn_t *authn, void *UNUSED(arg))
 {
 	if (authn->config->token_ep.length == 0)
 	{
@@ -71,7 +71,13 @@ static int authn_wwwform_challenge(void *arg, http_message_t *UNUSED(request), h
 	const authn_wwwform_t *mod = (authn_wwwform_t *)arg;
 	const mod_auth_t *config = mod->authn->config;
 
-	httpmessage_addheader(response, str_authenticate, STRING_REF("x-www-form-urlencoded"));
+	httpmessage_addheader(response, str_authenticate, STRING_REF("WWW-Form"));
+	if (!string_empty(&config->realm))
+	{
+		httpmessage_appendheader(response, str_authenticate, STRING_REF(" realm=\""));
+		httpmessage_appendheader(response, str_authenticate, STRING_INFO(config->realm));
+		httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
+	}
 	return ret;
 }
 
@@ -83,11 +89,11 @@ static const char *authn_wwwform_checkrequest(void *arg, authz_t *authz, http_me
 
 	const char *uri = NULL;
 	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
-	if (strcmp(uri, config->token_ep.data))
+	if (string_contain(&config->token_ep, uri, urilen, '?'))
 		return NULL;
 
 	const char *content_type = NULL;
-	size_t content_typelen = httpmessage_REQUEST2(request, "content_type", &content_type);
+	size_t content_typelen = httpmessage_REQUEST2(request, str_contenttype, &content_type);
 	if (! strncmp(content_type, str_form_urlencoded, content_typelen))
 	{
 		const char *username = NULL;

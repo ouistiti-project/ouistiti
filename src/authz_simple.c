@@ -86,18 +86,23 @@ static void *authz_simple_create(http_server_t *UNUSED(server), void *config)
 	return config;
 }
 
-static int authz_simple_passwd(void *arg,const  char *user, const char **passwd)
+static int authz_simple_passwd(void *arg, const string_t *user, string_t *passwd)
 {
+	int ret = EREJECT;
 	const authz_simple_t *ctx = (const authz_simple_t *)arg;
-	if (!string_cmp(&ctx->user, user, -1))
+	if (string_is(&ctx->user, user))
 	{
-		*passwd = ctx->passwd.data;
-		return ctx->passwd.length;
+		if (passwd)
+		{
+			ret = string_cpy(passwd, string_toc(&ctx->passwd), string_length(&ctx->passwd));
+		}
+		else
+			ret = string_length(&ctx->passwd);
 	}
-	return 0;
+	return ret;
 }
 
-static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *UNUSED(token))
+static const char *authz_simple_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	const authz_simple_t *ctx = (const authz_simple_t *)arg;
 
@@ -110,17 +115,26 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 	return NULL;
 }
 
-static int authz_simple_setsession(void *arg, const char *user, auth_saveinfo_t cb, void *cbarg)
+static int authz_simple_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
 	const authz_simple_t *config = (const authz_simple_t *)arg;
 
-	cb(cbarg, STRING_REF(str_user), config->user.data, config->user.length);
+	cb(cbarg, STRING_REF(str_user), STRING_INFO(config->user));
 	if (!string_empty(&config->group))
-		cb(cbarg, STRING_REF(str_group), config->group.data, config->group.length);
+		cb(cbarg, STRING_REF(str_group), STRING_INFO(config->group));
 	if (!string_empty(&config->home))
-		cb(cbarg, STRING_REF(str_home), config->home.data, config->home.length);
+		cb(cbarg, STRING_REF(str_home), STRING_INFO(config->home));
 	cb(cbarg, STRING_REF(str_status), STRING_REF(str_status_activated));
+	if (token)
+		cb(cbarg, STRING_REF(str_token), STRING_REF(token));
 	return ESUCCESS;
+}
+
+static void authz_destroy(void *arg)
+{
+	authz_simple_t *ctx = (authz_simple_t *)arg;
+
+	string_cleansafe(&ctx->passwd);
 }
 
 authz_rules_t authz_simple_rules =
@@ -129,5 +143,5 @@ authz_rules_t authz_simple_rules =
 	.check = &authz_simple_check,
 	.passwd = &authz_simple_passwd,
 	.setsession = &authz_simple_setsession,
-	.destroy = NULL,
+	.destroy = authz_destroy,
 };

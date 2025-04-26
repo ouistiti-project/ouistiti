@@ -69,6 +69,7 @@ const char str_user[] = "user";
 const char str_group[] = "group";
 const char str_home[] = "home";
 const char str_status[] = "status";
+const char str_issuer[] = "issuer";
 
 const char str_status_approving[] = "approving";
 const char str_status_reapproving[] = "reapproving";
@@ -84,3 +85,4 @@ const string_t string_xgroup = STRING_DCL(str_xgroup);
 const string_t string_xhome = STRING_DCL(str_xhome);
 
 const string_t string_dot = STRING_DCL(".");
+
