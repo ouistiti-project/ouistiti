@@ -416,10 +416,8 @@ static PyObject *_python_createPyRequest(PyObject *pymodule, const mod_python_co
 static int _python_start(_mod_python_t *mod, http_message_t *request, http_message_t *response)
 {
 	const mod_python_config_t *config = mod->config;
-	const char *data = NULL;
-	size_t datalen = httpmessage_REQUEST2(request,"uri", &data);
-	string_t uri;
-	string_store(&uri, data, datalen);
+	string_t uri = {0};
+	ouimessage_REQUEST(request,"uri", &uri);
 	if (!string_empty(&uri) && !string_empty(&config->docroot))
 	{
 		const char *function = NULL;
