@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PATH=./utils/
+PATH=${BUILDDIR}/utils/
 SERVICE=streamer
 OPTIONS="-R /tmp"
 OPTIONS="${OPTIONS} -s 10 -t"

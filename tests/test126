@@ -2,6 +2,10 @@ if [ "$WEBSTREAM" != "y" ]; then
 	echo "webstream module disabled"
 	DISABLED=1
 fi
+if [ "$TESTDIR" != "./tests/" ]; then
+	echo "test must run from SRC directory"
+	DISABLED=1
+fi
 DESC="open webstream socket"
 #PREPARE_ASYNC="./utils/streamer -R /tmp -n dummy2 -u $USER -s 10 -t"
 CONFIG=test5.conf

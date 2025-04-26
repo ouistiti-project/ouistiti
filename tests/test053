@@ -1,4 +1,8 @@
-DESC="Auth Basic from database: good password"
+if [ "$AUTHZ_TOTP" != "y" ]; then
+	echo "TOTP checking disabled"
+	DISABLED=1
+fi
+DESC="Auth MFA: Basic/database + wwwform/totpi: good password"
 CONFIG=test12.conf
 TESTREQUEST="test053_rq.txt test053b_rq.txt"
 TESTCODE=307

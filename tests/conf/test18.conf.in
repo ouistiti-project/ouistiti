@@ -14,7 +14,7 @@ servers= ({
 			passwd="bar";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs/vhost";
+			docroot = "htdocs/vhost";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.cgi,*.php";
 			options = "dirlisting,range,rest";
