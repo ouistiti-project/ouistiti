@@ -36,8 +36,12 @@
 #include <libgen.h>
 #include <sched.h>
 #include <dirent.h>
+#include <limits.h>
 #ifdef BACKTRACE
 #include <execinfo.h> // for backtrace
+#endif
+#ifdef USE_STDARG
+#include <stdarg.h>
 #endif
 
 #ifndef WIN32
@@ -70,37 +74,346 @@
 
 char str_hostname[HOST_NAME_MAX + 7];
 
-#define MAX_STRING 256
+#define MAX_STRING 1024
 
-static size_t _string_len(string_t *str, const char *pointer)
+string_t *string_create(size_t size)
 {
-	if (str->size == 0) str->size = MAX_STRING;
-	return strnlen(pointer, str->size);
+	string_t *str = calloc(1, sizeof(*str) + size);
+	str->ddata = (void *)str + sizeof(*str);
+	str->data = str->ddata;
+	str->size = size;
+	return str;
 }
 
-int _string_store(string_t *str, const char *pointer, size_t length)
+void string_debug(string_t *str, const char *name)
 {
+	dbg("string: %s %.*s", name, (int)(str->length & INT_MAX), str->data);
+}
+
+size_t string_length(const string_t *str)
+{
+	if (str->data && str->length == (size_t) -1)
+		((string_t*)str)->length = strnlen(str->data, MAX_STRING);
+	return str->length;
+}
+
+size_t string_size(const string_t *str)
+{
+	return str->size;
+}
+
+int string_store(string_t *str, const char *pointer, size_t length)
+{
+	if (str->ddata)
+	{
+		return string_cpy(str, pointer, length);
+	}
 	str->data = pointer;
-	if (pointer && length == (size_t) -1)
-		str->length = _string_len(str, pointer);
-	else
-		str->length = length;
+	/// set length and check if value is -1
+	str->length = length;
+	str->length = string_length(str);
 	str->size = str->length + 1;
+	if (str->data == NULL)
+	{
+		str->length = 0;
+		str->size = 0;
+	}
 	return ESUCCESS;
 }
 
-int _string_cmp(const string_t *str, const char *cmp, size_t length)
+int string_cmp(const string_t *str, const char *cmp, size_t length)
 {
+	if (cmp == NULL)
+		return -1;
 	if ((length != (size_t) -1) && (length != str->length))
-		return EREJECT;
+		return (length - str->length);
 	return strncasecmp(str->data, cmp, str->length);
 }
 
-int _string_empty(const string_t *str)
+#if 1
+int string_contain(const string_t *stack, const char *nail, size_t length, const char sep)
 {
-	return ! (str->data != NULL && str->data[0] != '\0');
+	int ret = -1;
+	if (nail == NULL)
+		return -1;
+	if (length == (size_t) -1)
+		length = strnlen(nail, stack->length);
+	if (nail[length - 1] == '*')
+		length--;
+	const char *offset = stack->data;
+	while (offset && offset[0] != '\0')
+	{
+		if (!strncasecmp(offset, nail, length))
+		{
+			if (nail[length] == '*')
+				ret = 0;
+			/// a string_t may not be a null terminated array
+			if (((offset + length) == (stack->data + stack->length)) || offset[length] == sep)
+				ret = 0;
+		}
+		if (ret == 0)
+			break;
+		offset = strchr(offset, sep);
+		if (offset)
+			offset++;
+	}
+	return ret;
+}
+#else
+int string_contain(const string_t *stack, const char *nailorig, size_t length, const char sep)
+{
+	int ret = -1;
+	const char *nail = nailorig;
+	if (nail == NULL)
+		return -1;
+	if (length == (size_t) -1)
+		length = strnlen(nail, stack->length);
+	if (nail[length - 1] == '*')
+		length--;
+	const char *offset = stack->data;
+	while (offset && offset[0] != '\0')
+	{
+		int wildcard = 0;
+		if (offset[0] == '*')
+			wildcard = 1;
+		do
+		{
+			if (wildcard)
+			{
+				while (*nail != offset[1] && nail < nailorig + length) nail++;
+				offset++;
+			}
+			if (length - (nail - nailorig) == 0)
+				break;
+			if (!strncasecmp(offset, nail, length - (nail - nailorig)))
+			{
+				if (nail[length] == '*')
+					ret = 0;
+				/// a string_t may not be a null terminated array
+				if (((offset + length) == (stack->data + stack->length)) || offset[length] == sep)
+					ret = 0;
+			}
+		} while (ret);
+		if (ret == 0)
+			break;
+		offset = strchr(offset, sep);
+		nail = nailorig;
+		wildcard = 0;
+		if (offset)
+			offset++;
+	}
+	return ret;
+}
+#endif
+
+int string_split(string_t *str, char sep, ...)
+{
+	int ret = 0;
+#ifdef USE_STDARG
+	va_list ap;
+	va_start(ap, sep);
+	for (size_t index = 0; index < str->length; index++)
+	{
+		string_t *arg = va_arg(ap, string_t *);
+		if (arg == NULL || ret > 10) ///10 for max elements
+			break;
+		ret++;
+		arg->data = &str->data[index];
+		while (arg->data[arg->length] != sep &&
+				arg->length < (str->length - (arg->data - str->data)))
+			arg->length++;
+		index += arg->length;
+		if (arg->ddata)
+		{
+			string_cpy(arg, arg->data, arg->length);
+			arg->data = arg->ddata;
+		}
+	}
+	va_end(ap);
+#endif
+	return ret;
 }
 
+int string_is(const string_t *str1, const string_t *str2)
+{
+	if ((str1 == NULL) || (str2 == NULL))
+		return 0;
+	if ((str1->length != str2->length))
+		return 0;
+	if (!strncasecmp(str1->data, str2->data, str1->length))
+		return 1;
+	return 0;
+}
+
+int string_startwith(const string_t *str1, const string_t *str2)
+{
+	if ((str1 == NULL) || (str2 == NULL))
+		return 0;
+	if ((str1->length < str2->length))
+		return 0;
+	if (!strncasecmp(str1->data, str2->data, str2->length))
+		return 1;
+	return 0;
+}
+
+int string_empty(const string_t *str)
+{
+	return ! (str->data != NULL && str->data[0] != '\0' && str->length > 0);
+}
+
+int string_cpy(string_t *str, const char *source, size_t length)
+{
+	if (str->ddata == NULL)
+		return EREJECT;
+	if ((length == (size_t) -1) || (length > INT_MAX))
+		str->length = snprintf(str->ddata, str->size, "%s", source);
+	else
+		str->length = snprintf(str->ddata, str->size, "%.*s", (int)length, source);
+	if (str->length == str->size)
+		return EREJECT;
+	return ESUCCESS;
+}
+
+int string_printf(string_t *str, void *fmt,...)
+{
+	if (str->ddata != NULL)
+	{
+#ifdef USE_STDARG
+		va_list ap;
+		va_start(ap, fmt);
+		str->length = vsnprintf(str->ddata, str->size, fmt, ap);
+		va_end(ap);
+		if (str->length < str->size)
+			return ESUCCESS;
+#endif
+	}
+	return EREJECT;
+}
+
+int string_dup(string_t *dst, string_t *src)
+{
+	if (string_empty(src))
+		return EREJECT;
+	dst->ddata = strndup(src->data, src->length);
+	dst->data = dst->ddata;
+	dst->size = src->length + 1;
+	dst->length = src->length;
+	return ESUCCESS;
+}
+
+size_t string_slice(string_t *str, int start, int length)
+{
+	if (start > 0)
+	{
+		str->data += start;
+		str->length -= start;
+	}
+	if (length > 0 && length < str->length)
+		str->length = length;
+	return str->length;
+}
+
+int string_fgetline(string_t *str, FILE *file)
+{
+	if (str->ddata == NULL)
+		return EREJECT;
+	size_t length = 0;
+#if 1
+	do
+	{
+		char c = fgetc(file);
+		if (c == EOF || c == '\n')
+			break;
+		str->ddata[length++] = c;
+	} while (length < str->size);
+#elif 0
+	while (((str->ddata[length] = fgetc(file)) != EOF) &&
+			(str->ddata[length] != '\n') &&
+			(length < str->size)) length++;
+#else
+	ssize_t ret = getline(&str->ddata, &str->size, file);
+	if (ret == -1)
+		return EREJECT;
+#endif
+	if (str->ddata[length] == '\n')
+		length--;
+	if (length == 0)
+		return EREJECT;
+	str->length = length;
+	return ESUCCESS;
+}
+
+const char *string_toc(const string_t *str)
+{
+	return str->data;
+}
+
+void string_cleansafe(string_t *str)
+{
+	volatile char *p = str->ddata;
+	if (p == NULL)
+	{
+		warn("string: clean safe a static string");
+		str->length = 0;
+		return;
+	}
+	while (str->length--)
+	{
+		*p++ = (char)random();
+	}
+}
+
+void string_destroy(string_t *str)
+{
+	if (str->ddata && ((void*)str->ddata != ((void *)str + sizeof(*str))))
+		free(str->ddata);
+	str->ddata = NULL;
+	str->data = NULL;
+	str->length = 0;
+	str->size = 0;
+	free(str);
+}
+
+int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value)
+{
+	const char *data = NULL;
+	size_t datalen = httpmessage_REQUEST2(message, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+
+int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value)
+{
+	void *data = NULL;
+	size_t datalen = httpmessage_SESSION2(message, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+
+int ouimessage_parameter(http_message_t *message, const char *key, string_t *value)
+{
+	const char *data = NULL;
+	size_t datalen = httpmessage_parameter(message, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+
+int ouiserver_INFO(http_server_t *server, const char *key, string_t *value)
+{
+	const char *data = NULL;
+	size_t datalen = httpserver_INFO2(server, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+/******************************************************************************/
 const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 {
 	return httpclient_session(httpmessage_client(request), key, keylen, NULL, -1);
@@ -187,7 +500,10 @@ static int main_initat(int rootfd, const char *path, int action)
 {
 	struct stat filestat = {0};
 	if (fstatat(rootfd, path, &filestat, 0) != 0)
+	{
+		err("main: file %s not found %m", path);
 		return EREJECT;
+	}
 	if (S_ISDIR(filestat.st_mode))
 	{
 		struct dirent **namelist;
@@ -204,14 +520,16 @@ static int main_initat(int rootfd, const char *path, int action)
 			}
 			free(namelist[n]);
 		}
+		free(namelist);
 		close(newrootfd);
-
 	}
 	else if (faccessat(rootfd, path, X_OK, 0) == 0)
 	{
-		warn("%s %s script", actions[action], path);
+		warn("main: %s %s script", actions[action], path);
 		main_exec(rootfd, path, action);
 	}
+	else
+		err("main: %s is not executable", path);
 
 	return ESUCCESS;
 }
@@ -254,7 +572,7 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-D \t\tto daemonize the server\n");
 	fprintf(stderr, "\t-K \t\tto kill other instances of the server\n");
 	fprintf(stderr, "\t-s <server num>\tselect a server into the configuration file\n");
-	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
+	fprintf(stderr, "\t-W <directory>\tset the working directory as chroot\n");
 }
 
 static int _ouistiti_chown(int fd, const char *owner)
@@ -477,20 +795,28 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 	server->server = httpserver;
 	server->config = config;
 	server->id = id;
-	char *cwd = NULL;
+	char cwd[PATH_MAX] = {0};
 	if (config->root != NULL && config->root[0] != '\0' )
 	{
-		cwd = getcwd(NULL, 0);
+		getcwd(cwd, PATH_MAX);
 		if (chdir(config->root))
-			err("main: change directory error !");
+			err("main: change %s directory error !", config->root);
 	}
-	ouistiti_setmodules(server, NULL, config->modulesconfig);
-	if (cwd != NULL)
+#ifdef DEBUG
+	char pwd[PATH_MAX];
+	dbg("main: ouistiti running environment %s", getcwd(pwd, PATH_MAX));
+	struct dirent **namelist;
+	int n = scandir(".", &namelist, NULL, alphasort);
+	while (n-- > 0)
 	{
-		if (chdir(cwd))
-			err("main: change directory error !");
-		free(cwd);
+		dbg("\t%s", namelist[n]->d_name);
+		free(namelist[n]);
 	}
+	free(namelist);
+#endif
+	ouistiti_setmodules(server, NULL, config->modulesconfig);
+	if (cwd[0] && chdir(cwd))
+		err("main: change directory error !");
 
 	return server;
 }
@@ -686,12 +1012,6 @@ int main(int argc, char * const *argv)
 		return 0;
 	}
 
-	if (workingdir != NULL && chdir(workingdir) != 0)
-	{
-		err("%s directory is not accessible", workingdir);
-		return 1;
-	}
-
 	ouistiti_initmodules(pkglib);
 #ifdef MODULES
 	const char *modules_path = getenv("OUISTITI_MODULES_PATH");
@@ -711,6 +1031,19 @@ int main(int argc, char * const *argv)
 	{
 		display_configuration(configfile, pidfile);
 		return 0;
+	}
+
+	if (workingdir != NULL)
+	{
+		if (chroot(workingdir) == 0)
+		{
+			warn("main: daemon run inside sandbox");
+		}
+		else if (chdir(workingdir) != 0)
+		{
+			err("%s directory is not accessible", workingdir);
+			return 1;
+		}
 	}
 
 	if (ouistiticonfig->init_d != NULL)

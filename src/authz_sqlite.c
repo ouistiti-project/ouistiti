@@ -394,9 +394,9 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 	if (checkpasswd != NULL)
 	{
 		string_t userstr = {0};
-		_string_store(&userstr, user, -1);
+		string_store(&userstr, user, -1);
 		string_t passwdstr = {0};
-		_string_store(&passwdstr, passwd, -1);
+		string_store(&passwdstr, passwd, -1);
 		if (authz_checkpasswd(checkpasswd, &userstr, NULL, &passwdstr) == ESUCCESS)
 			ret = 1;
 	}
