@@ -179,7 +179,6 @@ int authn_checksignature(const char *key, size_t keylen,
 
 const char *auth_info(http_message_t *request, const char *key, size_t keylen);
 size_t auth_info2(http_message_t *request, const char *key, const char **value);
-int auth_setowner(const char *user);
 
 #ifdef __cplusplus
 }
