@@ -111,7 +111,7 @@ size_t auth_info2(http_message_t *request, const char *key, const char **value)
 	return httpmessage_SESSION2(request, key, (void **)value);
 }
 
-int auth_setowner(const char *user)
+int ouistiti_setprocessowner(const char *user)
 {
 	int ret = EREJECT;
 #ifdef HAVE_PWD
@@ -257,6 +257,50 @@ void display_help(char * const *argv)
 	fprintf(stderr, "\t-W <directory>\tset the working directory\n");
 }
 
+static int _ouistiti_chown(int fd, const char *owner)
+{
+#ifdef HAVE_PWD
+	struct passwd *pw;
+	pw = getpwnam(owner);
+	if (pw != NULL)
+	{
+		return fchown(fd, pw->pw_uid, pw->pw_gid);
+	}
+#endif
+	return -1;
+}
+static const char *g_logfile = NULL;
+static int g_logfd = 0;
+size_t g_logmax = LOG_MAXFILESIZE;
+int ouistiti_setlogfile(const char *logfile, size_t logmax, const char *owner)
+{
+	if (g_logfile != NULL)
+		logfile = g_logfile;
+	if (logfile != NULL && logfile[0] != '\0' && logfile[0] != '-')
+	{
+		const char *logmaxenv = getenv("LOG_MAXFILESIZE");
+		if (logmaxenv)
+			logmax = strtoul(logmaxenv, NULL, 10);
+		if (logmax)
+			g_logmax = logmax;
+		g_logfile = logfile;
+		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00660);
+		if (g_logfd > 0)
+		{
+			if (owner && _ouistiti_chown(g_logfd, owner) == -1)
+				warn("main: impossible to change logfile owner");
+			dup2(g_logfd, 1);
+			dup2(g_logfd, 2);
+			close(g_logfd);
+		}
+		else
+			err("log file error %s", strerror(errno));
+	}
+	else
+		g_logfile = NULL;
+	return (g_logfd > 0);
+}
+
 #undef BACKTRACE
 static server_t *g_first = NULL;
 static char run = 0;
@@ -287,7 +331,8 @@ static void handler(int sig)
 		exit(1);
 #endif
 	}
-	run = 'q';
+	if (sig != SIGPIPE)
+		run = 'q';
 }
 
 http_server_t *ouistiti_httpserver(server_t *server)
@@ -492,10 +537,18 @@ static int main_run(server_t *first)
 		httpserver_connect(server->server);
 	}
 
-	while(run != 'q')
+	while(run != 'q' && first != NULL && first->server != NULL)
 	{
-		if (first == NULL || first->server == NULL || httpserver_run(first->server) == ESUCCESS)
+		if (httpserver_run(first->server) != ECONTINUE)
 			break;
+#if LOG_MAXFILESIZE != -1
+		struct stat logstat = {0};
+		if (g_logfile && !stat(g_logfile, &logstat) && (logstat.st_size > g_logmax))
+		{
+			ouistiti_setlogfile(g_logfile, g_logmax, NULL);
+			warn("main: reset logfile");
+		}
+#endif
 	}
 	return 0;
 }
@@ -571,7 +624,7 @@ int main(int argc, char * const *argv)
 	int opt;
 	do
 	{
-		opt = getopt(argc, argv, "s:f:p:P:hDKCVM:W:");
+		opt = getopt(argc, argv, "s:f:p:P:hDKCVM:W:L:");
 		switch (opt)
 		{
 			case 's':
@@ -606,6 +659,9 @@ int main(int argc, char * const *argv)
 			break;
 			case 'W':
 				 workingdir = optarg;
+			break;
+			case 'L':
+				 g_logfile = optarg;
 			break;
 			default:
 			break;
@@ -676,11 +732,10 @@ int main(int argc, char * const *argv)
 	sigaction(SIGSEGV, &action, NULL);
 #endif
 
-#if 0
+	/// ignore sigpipe for multithreading
 	struct sigaction unaction;
 	unaction.sa_handler = SIG_IGN;
-#endif
-	sigaction(SIGPIPE, &action, NULL);
+	sigaction(SIGPIPE, &unaction, NULL);
 #else
 	signal(SIGTERM, handler);
 	signal(SIGINT, handler);
@@ -691,7 +746,7 @@ int main(int argc, char * const *argv)
 	signal(SIGPIPE, SIG_IGN);
 #endif
 
-	if (ouistiticonfig->user == NULL || auth_setowner(ouistiticonfig->user) == EREJECT)
+	if (ouistiticonfig->user == NULL || ouistiti_setprocessowner(ouistiticonfig->user) == EREJECT)
 		err("Error: user %s not found", ouistiticonfig->user);
 	else
 		warn("%s run as %s", argv[0], ouistiticonfig->user);
@@ -707,5 +762,7 @@ int main(int argc, char * const *argv)
 	}
 	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
+	if (g_logfd > 0)
+		close(g_logfd);
 	return 0;
 }

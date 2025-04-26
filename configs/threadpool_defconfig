@@ -7,7 +7,13 @@ MAXCHUNKS_CONTENT=3
 MAXCHUNKS_SESSION=70
 MAXCHUNKS_URI=2
 HTTPMESSAGE_CHUNKSIZE=128
+HTTPMESSAGE_KEEPALIVE_ENABLED=y
+HTTPMESSAGE_QUERY_UNLIMITED=n
 HTTPCLIENT_FEATURES=y
+HTTPCLIENT_DUMPSOCKET=n
+
+#define string API value
+STRING_MAXLENGTH=HTTPMESSAGE_CHUNKSIZE*MAXCHUNKS_URI
 
 #select FILE_CONFIG to use a configuration file
 #or modify src/config.h
@@ -24,6 +30,7 @@ MAX_SERVERS=4
 #if mono thread only one server may run
 VTHREAD=y
 VTHREAD_TYPE=threadpool
+THREADPOOL_TIMED=n
 
 BACKTRACE=y
 
@@ -32,6 +39,9 @@ USE_REENTRANT=y
 # USE_EXECVEAT is not set
 USE_POLL=y
 USE_PTHREAD=y
+USE_IPV6=y
+
+LOG_MAXFILESIZE=1048576
 
 # libraries  configuration:
 LIBWEBSOCKET=y
@@ -108,9 +118,13 @@ UPGRADE_INET=n
 #support for filter uri select by user
 USERFILTER=y
 #support of simple python scripts (staging)
-PYTHON=y
+PYTHON=n
 #support of request forwarding
 FORWARD=y
+#support date field
+DATE=y
+#support of response's signature rfc9421
+SIGNATURE=y
 
 CERTIFICATE=n
 
