@@ -14,7 +14,7 @@ servers= ({
 			group = "user";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 			options = "dirlisting,rest";

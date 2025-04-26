@@ -45,6 +45,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <time.h>
+#include <limits.h>
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
@@ -96,8 +97,8 @@ static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _forbidden_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
-#ifndef AUTHZ_JWT
-static size_t authz_generatetoken(const mod_auth_t *mod, http_message_t *request, char **token);
+#ifdef AUTH_TOKEN
+static size_t _mod_auth_generatetoken(void *arg, http_message_t *UNUSED(request), char **token);
 #endif
 
 static const char str_auth[] = "auth";
@@ -108,6 +109,7 @@ struct _mod_auth_ctx_s
 	http_client_t *clt;
 	char *authenticate;
 	authn_t authn;
+	authz_t authz;
 };
 
 struct _mod_auth_s
@@ -116,11 +118,8 @@ struct _mod_auth_s
 	string_t type;
 	authn_t *authn;
 	authz_t *authz;
+	authz_rule_generatetoken_t generatetoken;
 };
-
-const char str_authenticate[] = "WWW-Authenticate";
-const char str_authorization[] = "Authorization";
-const char str_anonymous[] = "anonymous";
 
 authn_rules_t *authn_rules[] = {
 #ifdef AUTHN_NONE
@@ -245,7 +244,6 @@ static int _mod_sethash(mod_authn_t *config, const char *algo)
 	return ret;
 }
 
-#ifdef FILE_CONFIG
 struct _authn_s
 {
 	void *(*config)(const config_setting_t *);
@@ -253,6 +251,14 @@ struct _authn_s
 	string_t name;
 };
 
+struct _authz_s
+{
+	void *(*config)(const config_setting_t *);
+	authz_type_t type;
+	string_t name;
+};
+
+#ifdef FILE_CONFIG
 struct _authn_s *authn_list[] =
 {
 #ifdef AUTHN_BASIC
@@ -272,14 +278,14 @@ struct _authn_s *authn_list[] =
 #ifdef AUTHN_BEARER
 	&(struct _authn_s){
 		.config = &authn_bearer_config,
-		.type = AUTHN_BEARER_E | AUTHN_REDIRECT_E,
+		.type = AUTHN_BEARER_E | AUTHN_REDIRECT_E | AUTHN_TOKEN_E,
 		.name = STRING_DCL("Bearer"),
 	},
 #endif
 #ifdef AUTHN_OAUTH2
 	&(struct _authn_s){
 		.config = &authn_oauth2_config,
-		.type = AUTHN_OAUTH2_E | AUTHN_REDIRECT_E,
+		.type = AUTHN_OAUTH2_E | AUTHN_REDIRECT_E | AUTHN_TOKEN_E,
 		.name = STRING_DCL("oAuth2"),
 	},
 #endif
@@ -304,16 +310,16 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 	int ret = EREJECT;
 
 	char *type = NULL;
-	config_setting_lookup_string(configauth, "type", (const char **)&type);
-	if (type == NULL)
+	if (config_setting_lookup_string(configauth, "type", (const char **)&type) != CONFIG_TRUE)
 	{
+		err("auth: authn type is not set");
 		return ret;
 	}
 
 	const struct _authn_s *authn = NULL;
 	for (int i = 0; i < (sizeof(authn_list) / sizeof(*authn_list)); i++)
 	{
-		if (!strcmp(type, authn_list[i]->name.data))
+		if (!string_cmp(&authn_list[i]->name, type, -1))
 			mod->config = authn_list[i]->config(configauth);
 		if (mod->config != NULL)
 		{
@@ -336,16 +342,10 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 
 		ret = ESUCCESS;
 	}
+	else
+		err("auth: authn '%s' not found", type);
 	return ret;
 }
-
-
-struct _authz_s
-{
-	void *(*config)(const config_setting_t *);
-	authz_type_t type;
-	string_t name;
-};
 
 struct _authz_s *authz_list[] =
 {
@@ -400,7 +400,15 @@ static void authz_optionscb(void *arg, const char *option)
 	if (utils_searchexp("home", option, NULL) == ESUCCESS)
 		auth->authz.type |= AUTHZ_HOME_E;
 	if (utils_searchexp("token", option, NULL) == ESUCCESS)
+	{
 		auth->authz.type |= AUTHZ_TOKEN_E;
+		auth->token.type = E_OUITOKEN;
+	}
+	if (utils_searchexp("jwt", option, NULL) == ESUCCESS)
+	{
+		auth->authz.type |= AUTHZ_TOKEN_E;
+		auth->token.type = E_JWT;
+	}
 	if (utils_searchexp("chown", option, NULL) == ESUCCESS)
 		auth->authz.type |= AUTHZ_CHOWN_E;
 
@@ -469,8 +477,7 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	 * secret is the secret used during the token generation. (see authz_jwt.c)
 	 */
 	if (config_setting_lookup_string(config, "secret", &data) != CONFIG_FALSE)
-		string_store(&auth->secret, data, -1);
-
+		string_store(&auth->token.secret, data, -1);
 	const char *mode = NULL;
 	config_setting_lookup_string(config, "options", &mode);
 	if (ouistiti_issecure(server))
@@ -479,12 +486,18 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	{
 		authz_optionscb(auth, mode);
 	}
-	config_setting_lookup_int(config, "expire", &auth->expire);
-
-	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_FALSE)
-		string_store(&auth->realm, hostname, -1);
+	int int_expire = 0;
+	if (config_setting_lookup_int(config, "expire", &int_expire) == CONFIG_FALSE)
+		auth->token.expire = 30;
 	else
+		auth->token.expire = (time_t)int_expire;
+
+	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
 		string_store(&auth->realm, data, -1);
+	else if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
+		string_store(&auth->realm, data, -1);
+	else
+		string_store(&auth->realm, hostname, -1);
 
 	ret = authz_config(config, &auth->authz);
 	if (ret == EREJECT)
@@ -492,20 +505,22 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 		err("config: authz is not set");
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
-
-	if (config_setting_lookup_string(config, "issuer", &data) == CONFIG_FALSE)
-		string_store(&auth->issuer, STRING_INFO(auth->authz.name));
+	if (auth->authz.type & AUTHZ_JWT_E)
+		auth->token.type = E_JWT;
+	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
+		string_store(&auth->token.issuer, data, -1);
+	else if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
+		string_store(&auth->token.issuer, data, -1);
 	else
-		string_store(&auth->issuer, data, -1);
+		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
 
 	ret = authn_config(config, &auth->authn);
 	if (ret == EREJECT)
 	{
-		err("config: authn type is not set");
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
 
-	if (auth->secret.data == NULL && auth->authz.type & AUTHZ_TOKEN_E)
+	if (auth->token.secret.data == NULL && auth->authz.type & AUTHZ_TOKEN_E)
 	{
 		err("auth: to enable the token, set the \"secret\" into configuration");
 		auth->authn.type = AUTHN_FORBIDDEN_E;
@@ -584,31 +599,20 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->authz->rules = authz_rules[config->authz.type & AUTHZ_TYPE_MASK];
 	if (mod->authz->rules == NULL)
 	{
-		err("authentication storage not set, change configuration");
+		err("auth: storage not set, change configuration");
 		free(mod->authz);
 		free(mod);
 		return NULL;
 	}
-
-#ifdef AUTHZ_JWT
-	/**
-	 * jwt token contains user information
-	 * it is useless to "join" the token to the user.
-	 */
-	mod->authz->generatetoken = authz_generatejwtoken;
-#else
-	if ((config->authz.type & AUTHZ_TOKEN_E) &&  (authz_rules[config->authz.type & AUTHZ_TYPE_MASK])->join == NULL)
-	{
-		err("Please use other authz module (sqlite) to enable token");
-		config->authz.type &= ~AUTHZ_TOKEN_E;
-	}
-	else
-		mod->authz->generatetoken = authz_generatetoken;
-#endif
+	if (config->token.type == E_OUITOKEN)
+		mod->generatetoken = &_mod_auth_generatetoken;
+	else if (config->token.type == E_JWT)
+		mod->generatetoken = &authz_jwt_generatetoken;
 
 	mod->authz->ctx = mod->authz->rules->create(server, config->authz.config);
 	if (mod->authz->ctx == NULL)
 	{
+		err("auth: authz %s not supported", string_toc(&mod->authz->name));
 		free(mod->authz);
 		free(mod);
 		return NULL;
@@ -678,6 +682,15 @@ static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 	{
 		ctx->authn.ctx = mod->authn->rules->setup(mod->authn->ctx, clt, addr, addrsize);
 		ctx->authn.rules = mod->authn->rules;
+		ctx->authn.type = mod->authn->type;
+		ctx->authn.config = mod->authn->config;
+	}
+
+	if(mod->authz->ctx && mod->authz->rules->setup)
+	{
+		ctx->authz.ctx = mod->authz->rules->setup(mod->authz->ctx, clt, addr, addrsize);
+		ctx->authz.rules = mod->authz->rules;
+		ctx->authz.type = mod->authz->type;
 	}
 
 	return ctx;
@@ -689,6 +702,8 @@ static void _mod_auth_freectx(void *vctx)
 
 	if(ctx->authn.ctx && ctx->authn.rules->cleanup)
 		ctx->authn.rules->cleanup(ctx->authn.ctx);
+	if(ctx->authz.ctx && ctx->authz.rules->cleanup)
+		ctx->authz.rules->cleanup(ctx->authz.ctx);
 	free(ctx->authenticate);
 	free(ctx);
 }
@@ -810,12 +825,13 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 	return ret;
 }
 
-#ifndef AUTHZ_JWT
-static size_t authz_generatetoken(const mod_auth_t *config, http_message_t *UNUSED(request), char **token)
+#ifdef AUTH_TOKEN
+static size_t _mod_auth_generatetoken(void *arg, http_message_t *request, char **token)
 {
+	const authz_token_config_t *config = (const authz_token_config_t *)arg;
 	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
 	size_t tokenlen = _noncelen + (_noncelen + 2) / 3;
-	*token = calloc(1, tokenlen + 1);
+	*token = calloc(2, tokenlen + 1);
 	char *_nonce = calloc(1, _noncelen + 1);
 	int i;
 	for (i = 0; i < (24 / sizeof(int)); i++)
@@ -831,15 +847,34 @@ static size_t authz_generatetoken(const mod_auth_t *config, http_message_t *UNUS
 	if (config->issuer.data != NULL)
 	{
 		_nonce[25 + sizeof(time_t)] = '.';
-		memcpy(&_nonce[25 + sizeof(time_t) + 1], onfig->issuer.data, onfig->issuer.length);
+		memcpy(&_nonce[25 + sizeof(time_t) + 1], config->issuer.data, config->issuer.length);
 	}
 	tokenlen = base64_urlencoding->encode(_nonce, _noncelen, *token, tokenlen);
 	free(_nonce);
 	return tokenlen;
 }
-#endif
 
-#ifdef AUTH_TOKEN
+static int _authn_checktoken(const authz_token_config_t *config, const char *token)
+{
+	if (config->type  == E_JWT)
+		return authn_jwt_checktoken(config, token);
+
+	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
+	char *_nonce = calloc(1, _noncelen + 1);
+	size_t tokenlen = _noncelen + (_noncelen + 2) / 3;
+	tokenlen = strnlen(token, tokenlen);
+	_noncelen = base64_urlencoding->decode(token, tokenlen, _nonce, _noncelen);
+	time_t expire;
+	memcpy(&expire, &_nonce[25], sizeof(time_t));
+	free(_nonce);
+	if (expire < time(NULL))
+	{
+		err("auth: token expired");
+		return EREJECT;
+	}
+	return ESUCCESS;
+}
+
 static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request, const char **token, size_t *tokenlen)
 {
 	const _mod_auth_t *mod = ctx->mod;
@@ -852,9 +887,9 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 	{
 		*tokenlen = httpmessage_REQUEST2(request, str_xtoken, token);
 	}
-	if (*token == NULL)
+	if (*tokenlen == 0)
 		*tokenlen = httpmessage_cookie(request, str_xtoken, token);
-	if (*token != NULL && *token[0] != '\0')
+	if (*tokenlen > 0)
 	{
 		authorization = strrchr(*token, '.');
 		if (authorization == NULL)
@@ -864,6 +899,24 @@ static const char *_authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *r
 		return authorization;
 	}
 	return NULL;
+}
+
+static const char *_authn_gettokenuser(const _mod_auth_ctx_t *ctx, http_message_t *request)
+{
+	const _mod_auth_t *mod = ctx->mod;
+	const char *user = NULL;
+	size_t length = 0;
+	/**
+	 * The authorization may be accepted and replaced by a token.
+	 * This token is available inside the cookie.
+	 */
+	if (mod->authn->type & AUTHN_HEADER_E)
+		length = httpmessage_REQUEST2(request, str_xuser, &user);
+	if (length == 0)
+		length = httpmessage_cookie(request, str_xuser, &user);
+	if (length == 0)
+		user = str_anonymous;
+	return user;
 }
 
 static size_t _authn_signtoken(const char *key, size_t keylen,
@@ -886,7 +939,7 @@ static size_t _authn_signtoken(const char *key, size_t keylen,
 				return -1;
 			}
 			length = base64_urlencoding->encode(signature, signlen, b64signature, b64signaturelen);
-			auth_dbg("auth: signature %s / %.*s", b64signature, (int)signlen, signature);
+			auth_dbg("auth: signature %s", b64signature);
 		}
 	}
 	return length;
@@ -900,7 +953,10 @@ int authn_checksignature(const char *key, size_t keylen,
 	size_t len =_authn_signtoken(key, keylen, data, datalen, b64signature, sizeof(b64signature));
 	if (len == (size_t)-1)
 		return EREJECT;
-	if (strncmp(b64signature, sign, signlen))
+	string_t signature = {0};
+	string_store(&signature, b64signature, len);
+	dbg("auth: signature should be '%.*s'", (int)(len & INT_MAX), b64signature);
+	if (string_cmp(&signature, sign, signlen))
 		return EREJECT;
 	return ESUCCESS;
 }
@@ -910,35 +966,19 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const char *to
 	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 
-	const char *key = mod->config->secret.data;
-	size_t keylen = mod->config->secret.length;
+	const char *key = mod->config->token.secret.data;
+	size_t keylen = mod->config->token.secret.length;
 	ret = authn_checksignature(key, keylen, token, tokenlen, sign, signlen);
 	if (ret == ESUCCESS)
 	{
-		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
-#ifdef AUTHZ_JWT
-		const char *issuer = NULL;
-		const char *tuser = NULL;
-		authz_jwt_getinfo(token, &tuser, &issuer);
-		if (issuer && strstr(issuer, mod->config->issuer.data) == NULL)
-		{
-			warn("auth: token with bad issuer");
-			ret = EREJECT;
-		}
-		if (tuser && (*user == NULL || strcmp(tuser, *user)))
-		{
-			*user = tuser;
-		}
-#else
-		if (*user == NULL)
-		{
-			*user = str_anonymous;
-		}
-#endif
+		ret = _authn_checktoken(&mod->config->token, token);
 	}
 	else
-	{
 		err("auth: token with bad signature %.*s", (int)signlen, sign);
+	if (ret == ESUCCESS)
+	{
+		/// some authz may join a token to an user
+		*user = authz->rules->check(authz->ctx, NULL, NULL, token);
 	}
 	return ret;
 }
@@ -960,13 +1000,16 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 	 */
 	if (authorizationlen == 0)
 	{
-		*authorization = cookie_get(request, str_authorization);
-		if (*authorization)
-			authorizationlen = strlen(*authorization);
+		string_t cookie = {0};
+		if (cookie_get2(request, &string_authorization, &cookie) == ESUCCESS);
+		{
+			authorizationlen = string_length(&cookie);
+			*authorization = string_toc(&cookie);
+		}
 		auth_dbg("auth: cookie get %p", *authorization);
 	}
 
-	if (authorizationlen != 0 && strncmp(*authorization, mod->type.data, mod->type.length))
+	if (authorizationlen != 0 && string_cmp(&mod->type, *authorization, -1))
 	{
 		err("auth: type mismatch %.*s, %.*s", (int)mod->type.length, *authorization, (int)mod->type.length, mod->type.data);
 		*authorization = NULL;
@@ -976,53 +1019,57 @@ static size_t _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t
 }
 
 static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
-			const char *authorization,
-			const char *token, int tokenlen, const char *sign, int signlen,
+			const string_t *authorization,
+			const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
-	_mod_auth_t *mod = ctx->mod;
-	if (mod->authz->type & AUTHZ_TOKEN_E && sign == NULL)
+	string_t tsecure = STRING_DCL("; Secure");
+	string_t tsamesitelax = STRING_DCL("; Samesite=Lax");
+
+	if (!string_empty(token))
 	{
-		cookie_set(response, str_xtoken, token, NULL);
+		if (string_empty(sign))
+			cookie_set(response, &string_xtoken, token, &tsecure, &tsamesitelax, NULL);
+		else
+			cookie_set(response, &string_xtoken, token, &string_dot, sign, &tsecure, &tsamesitelax, NULL);
 	}
-	else if (mod->authz->type & AUTHZ_TOKEN_E && sign != NULL)
+
+	const char *user = NULL;
+	size_t userlen = auth_info2(response, str_user, &user);
+	string_t tuser = {0};
+	string_store(&tuser, user, userlen);
+	cookie_set(response, &string_xuser, &tuser, NULL);
+	const char *group = NULL;
+	size_t grouplen = auth_info2(response, str_group, &group);
+	string_t tgroup = {0};
+	string_store(&tgroup, group, grouplen);
+	if (!string_empty(&tgroup))
+		cookie_set(response, &string_xgroup, &tgroup, NULL);
+	const char *home = NULL;
+	size_t homelen = auth_info2(response, str_home, &home);
+	string_t thome = {0};
+	string_store(&thome, home, homelen);
+	if (!string_empty(&thome))
 	{
-		cookie_set(response, str_xtoken, token, ".", sign, NULL);
+		string_t string_tylde = STRING_DCL("~/");
+		cookie_set(response, &string_xhome, &string_tylde, NULL);
 	}
-	else if (authorization != NULL)
-	{
-		cookie_set(response, str_authorization, authorization, NULL);
-	}
-	const char *user = auth_info(response, STRING_REF(str_user));
-	cookie_set(response, str_xuser, user, NULL);
-	const char *group = auth_info(response, STRING_REF(str_group));
-	if (group && group[0] != '\0')
-		cookie_set(response, str_xgroup, group, NULL);
-	const char *home = auth_info(response, STRING_REF(str_home));
-	if (home && home[0] != '\0')
-		cookie_set(response, str_xhome, "~/", NULL);
 	return ESUCCESS;
 }
 
 static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
-			const char *authorization,
-			const char *token, int tokenlen, const char *sign, int signlen,
+			const string_t *authorization,
+			const string_t *token, const string_t *sign,
 			http_message_t *response)
 {
-	_mod_auth_t *mod = ctx->mod;
-
-	if (mod->authz->type & AUTHZ_TOKEN_E)
+	if (!string_empty(token))
 	{
-		httpmessage_addheader(response, str_xtoken, token, tokenlen);
-		if (sign && signlen > 0)
+		httpmessage_addheader(response, str_xtoken, string_toc(token), string_length(token));
+		if (!string_empty(sign))
 		{
 			httpmessage_appendheader(response, str_xtoken, STRING_REF("."));
-			httpmessage_appendheader(response, str_xtoken, sign, signlen);
+			httpmessage_appendheader(response, str_xtoken, string_toc(sign), string_length(sign));
 		}
-	}
-	else if (authorization != NULL)
-	{
-		httpmessage_addheader(response, str_authorization, authorization, -1);
 	}
 	const char *user = NULL;
 	size_t userlen = auth_info2(response, str_user, &user);
@@ -1046,7 +1093,6 @@ static int _authn_setauthorization_header(const _mod_auth_ctx_t *ctx,
 static const char * _authn_checkauthorization(_mod_auth_ctx_t *ctx, authn_t *authn, authz_t *authz,
 		const char *authorization, size_t authorizationlen, http_message_t *request)
 {
-	int ret = ECONTINUE;
 	_mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 	const char *authentication = strchr(authorization, ' ');
@@ -1072,9 +1118,13 @@ static const char * _authn_checkauthorization(_mod_auth_ctx_t *ctx, authn_t *aut
 	 * WARNING: It is incorrect to use this method for security.
 	 * The authorization is always acceptable and it is dangerous.
 	 */
-	if (config->redirect.data)
+	if (!string_empty(&config->redirect))
+	{
 		method = str_head;
-	return authn->rules->check(authn->ctx, authz, method, methodlen, uri, urilen, authentication, authorizationlen);
+		methodlen = sizeof(str_head) - 1;
+	}
+	const char *user = authn->rules->check(authn->ctx, authz, method, methodlen, uri, urilen, authentication, authorizationlen);
+	return user;
 }
 
 static int _authn_check(_mod_auth_ctx_t *ctx, authz_t *authz, http_message_t *request, const char **authorization, const char **user)
@@ -1110,23 +1160,28 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
-	httpmessage_addheader(response, str_cachecontrol, STRING_REF("no-cache"));
-	httpmessage_addheader(response, str_location, config->redirect.data, config->redirect.length);
-
 	const char *uri = NULL;
-	int urilen = httpmessage_REQUEST2(request, "uri", &uri);
+	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
 	const char *query = NULL;
-	int querylen = httpmessage_REQUEST2(request, "query", &query);
+	size_t querylen = httpmessage_REQUEST2(request, "query", &query);
 	if (utils_searchexp(query, "noredirect", NULL) == ESUCCESS)
 		return ret;
 
-	if (config->authn.type & AUTHN_REDIRECT_E)
+	httpmessage_addheader(response, str_location, string_toc(&config->redirect), string_length(&config->redirect));
+
+	// if redirect_uri is present, the next one must not be added
+	char sep = '?';
+	if (strchr(config->redirect.data, sep))
+		sep = '&';
+	if ((config->authn.type & AUTHN_REDIRECT_E) &&
+		(utils_searchexp(query, "redirect_uri", NULL) != ESUCCESS))
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
-		if (strchr(config->redirect.data, '?'))
-			httpmessage_appendheader(response, str_location, STRING_REF("&redirect_uri="));
-		else
-			httpmessage_appendheader(response, str_location, STRING_REF("?redirect_uri="));
+		httpmessage_appendheader(response, str_location, &sep, 1);
+		sep = '&';
+		httpmessage_appendheader(response, str_location, STRING_REF("redirect_uri"));
+		httpmessage_appendheader(response, str_location, STRING_REF("="));
+		/// append redirect_uri if not exist other with it will append later with query part
 		const char *scheme = NULL;
 		size_t schemelen = httpserver_INFO2(server, "scheme", &scheme);
 		httpmessage_appendheader(response, str_location, scheme, schemelen);
@@ -1149,10 +1204,7 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	}
 	if (query && query[0] != '\0')
 	{
-		if (strchr(config->redirect.data, '?'))
-			httpmessage_appendheader(response, str_location, STRING_REF("&"));
-		else
-			httpmessage_appendheader(response, str_location, STRING_REF("?"));
+		httpmessage_appendheader(response, str_location, &sep, 1);
 		httpmessage_appendheader(response, str_location, query, querylen);
 	}
 
@@ -1188,7 +1240,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 #if 0
 		/// ---reset the Cookie to remove it on the client---
 		if (mod->authn->type & AUTHN_COOKIE_E)
-			cookie_set(response, "X-Auth-Token", "", ";Max-Age=0", NULL);
+			cookie_set(response, &string_xtoken, "", ";Max-Age=0", NULL);
 #endif
 
 		ret = ESUCCESS;
@@ -1200,23 +1252,13 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			/// The page tried an authentication and want to stay on top.
 			httpmessage_result(response, RESULT_403);
 		}
-		else if (config->redirect.data)
+		else if (!string_empty(&config->redirect))
 		{
 			int protect = 1;
 			/**
 			 * check the url redirection
 			 */
-			const char *redirect = strstr(config->redirect.data, "://");
-			if (redirect != NULL)
-			{
-				redirect += 3;
-				redirect = strchr(redirect, '/');
-			}
-			else
-				redirect = config->redirect.data;
-			if (redirect[0] == '/')
-				redirect++;
-			protect = utils_searchexp(uri, redirect, NULL);
+			protect = string_contain(&config->redirect, uri, -1, '?')?EREJECT:ESUCCESS;
 			if (protect == ESUCCESS)
 			{
 				/**
@@ -1288,37 +1330,51 @@ static int auth_saveinfo(void *arg, const char *key, size_t keylen, const char *
 }
 
 static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response,
-					const char *authorization, const char *token)
+					const char *cauthorization, const char *ctoken)
 {
 	const _mod_auth_t *mod = ctx->mod;
+	const mod_auth_t *config = mod->config;
+	string_t authorization = {0};
+	string_store(&authorization, cauthorization, -1);
+	string_t token = {0};
+	string_store(&token, ctoken, -1);
+	string_t sign = {0};
+
 	char *ttoken = NULL;
-	size_t tokenlen = -1;
+	size_t ttokenlen = -1;
 	char *tsign = NULL;
-	size_t tsignlen = 0;
-	if (token == NULL)
+	size_t tsignlen = -1;
+#ifdef AUTH_TOKEN
+	if (string_empty(&token) && config->authz.type & AUTHZ_TOKEN_E)
 	{
-		size_t ttokenlen = -1;
+		ttokenlen = mod->generatetoken(&mod->config->token, request, &ttoken);
+		string_store(&token, ttoken, ttokenlen);
+
 		tsignlen = (int)(HASH_MAX_SIZE * 1.5) + 1;
 		tsign = calloc(1, tsignlen);
 
-		ttokenlen = mod->authz->generatetoken(mod->config, request, &ttoken);
-		const char *key = mod->config->secret.data;
-		size_t keylen = mod->config->secret.length;
+		const char *key = mod->config->token.secret.data;
+		size_t keylen = mod->config->token.secret.length;
 		tsignlen = _authn_signtoken(key, keylen, ttoken, ttokenlen, tsign, tsignlen);
 		if (tsign == NULL)
-			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, tsignlen);
+			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, ttokenlen);
 		else
 			httpclient_session(ctx->clt, STRING_REF(str_token), tsign, tsignlen);
-		token = ttoken;
+		string_store(&sign, tsign, tsignlen);
+
+		char strexpire[100];
+		size_t lenexpire = snprintf(strexpire, 100, "max-age=%lu, must-revalidate", config->token.expire * 60);
+		httpmessage_addheader(response, str_cachecontrol, strexpire, lenexpire);
 	}
+#endif
 
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
-		_authn_setauthorization_header(ctx, authorization, token, tokenlen, tsign, tsignlen, response);
+		_authn_setauthorization_header(ctx, &authorization, &token, &sign, response);
 	}
 	else if (mod->authn->type & AUTHN_COOKIE_E)
 	{
-		_authn_setauthorization_cookie(ctx, authorization, token, tokenlen, tsign, tsignlen, response);
+		_authn_setauthorization_cookie(ctx, &authorization, &token, &sign, response);
 	}
 
 	if (mod->authz->type & AUTHZ_CHOWN_E)
@@ -1345,19 +1401,16 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	/**
 	 * authz may need setup the user setting for each message
 	 **/
-	authz_t ctx_authz = {0};
 	authz_t *authz = mod->authz;
-	if(mod->authz->rules->setup)
+	if(ctx->authz.ctx)
 	{
-		ctx_authz.ctx = mod->authz->rules->setup(mod->authz->ctx);
-		ctx_authz.rules = mod->authz->rules;
-		ctx_authz.type = mod->authz->type;
-		authz = &ctx_authz;
+		authz = &ctx->authz;
 	}
 
+	auth_dbg("auth: check for %s", string_toc(&config->token.issuer));
 	const char *user = NULL;
 #ifdef AUTH_TOKEN
-	if (authz->type & AUTHZ_TOKEN_E)
+	if (mod->authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
 	{
 		size_t tokenlen = 0;
 		authorization = _authn_gettoken(ctx, request, &token, &tokenlen);
@@ -1377,6 +1430,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				token = NULL;
 			auth_dbg("auth: checktoken %d", ret);
 		}
+		if (ret == EREJECT)
+			user = _authn_gettokenuser(ctx, request);
 	}
 #endif
 	if (ret == ECONTINUE)
@@ -1386,7 +1441,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		 * allows to disconnect the user.
 		 */
 		authorization = httpmessage_REQUEST(request, str_authenticate);
-		if (ret == ECONTINUE && authorization != NULL && authorization[0] != '\0')
+		if (authorization != NULL && authorization[0] != '\0')
 		{
 			ret = ESUCCESS;
 		}
@@ -1397,6 +1452,23 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		ret = _authn_check(ctx, authz, request, &authorization, &user);
 		auth_dbg("auth: checkauthorization %d", ret);
+	}
+	string_t issuer = {0};
+	if (ret != EREJECT)
+	{
+		const char *issuerdata = NULL;
+		size_t length = auth_info2(request, str_issuer, &issuerdata);
+		string_store(&issuer, issuerdata, length);
+		if (!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
+		{
+			warn("auth: session's issuer (%s) already set, by-pass the token checking", string_toc(&config->token.issuer));
+			auth_info2(request, str_user, &user);
+			authorization = issuerdata;
+			ret = EREJECT;
+		}
+		else
+			string_cleansafe(&issuer);
+		auth_dbg("auth: check issuer %d", ret);
 	}
 	if (ret == EREJECT)
 	{
@@ -1424,35 +1496,32 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else if (authorization != NULL)
 	{
-		if (httpclient_setsession(ctx->clt, authorization, -1) == EREJECT)
+		if (httpclient_setsession(ctx->clt, authorization, -1) >= 0)
 		{
-			auth_dbg("auth: session already open");
-			const char *expire_str = auth_info(request, STRING_REF("expire"));
-			int expire = 0;
-			if (expire_str)
-				expire = strtol(expire_str, NULL, 10);
-#ifndef DEBUG
-			time_t now = time(NULL);
-			if (mod->config->expire > 0 &&
-				(expire < now ||
-				(expire + mod->config->expire) > now))
-			{
-				httpclient_dropsession(ctx->clt);
-				return _authn_challenge(ctx, request, response);
-			}
-#endif
-			httpclient_appendsession(ctx->clt, "issuer", "+", 1);
-			httpclient_appendsession(ctx->clt, "issuer", STRING_INFO(config->issuer));
-		}
-		else
-		{
-			auth_dbg("auth: ser the session");
-			authz->rules->setsession(authz->ctx, user, auth_saveinfo, ctx->clt);
-			httpclient_session(ctx->clt, STRING_REF("issuer"), STRING_INFO(config->issuer));
+			auth_dbg("auth: set the session");
+			// The first MFA authenticator must know the group, and status
+			// the next authenticator haven't to modify this values
+			if (authz->rules->setsession)
+				authz->rules->setsession(authz->ctx, user, token, auth_saveinfo, ctx->clt);
+			httpclient_session(ctx->clt, STRING_REF(str_issuer), STRING_INFO(config->token.issuer));
 			if (authz->rules->join)
 			{
-				authz->rules->join(authz->ctx, user, authorization, mod->config->expire);
+				authz->rules->join(authz->ctx, user, authorization, mod->config->token.expire);
 			}
+		}
+		else if (string_empty(&issuer))
+		{
+			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
+			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
+		}
+		char issuerdata[254];
+		size_t length = 0;
+		if (authz->rules->issuer)
+			length = authz->rules->issuer(authz->ctx, user, issuerdata, sizeof(issuerdata));
+		if (length > 0)
+		{
+			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
+			httpclient_appendsession(ctx->clt, str_issuer, issuerdata, length);
 		}
 		dbg("auth: type %s", (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0));
 		const char *user = auth_info(request, STRING_REF(str_user));
@@ -1465,7 +1534,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else if (status && strcmp(status, str_status_activated) != 0)
 		{
-			err("auth: user \"%s\" is not yet activated (%s)", user, status);
+			err("auth: user \"%s\" is not yet activated (%s) from %p", user, status, ctx->clt);
 			httpclient_dropsession(ctx->clt);
 			return _authn_challenge(ctx, request, response);
 		}
@@ -1478,7 +1547,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else
 	{
-		warn("auth: accepted without authorization (unprotect files, shortcut,...)");
+		warn("auth: accepted without authorization (unprotect files, shortcut,...) from %p", ctx->clt);
 	}
 	/**
 	 * As the setup, the authz may need to cleanup between each message
@@ -1486,6 +1555,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (authz->ctx  && authz->rules->cleanup)
 	{
 		authz->rules->cleanup(authz->ctx);
+		authz->ctx = NULL;
 	}
 	return ret;
 }
