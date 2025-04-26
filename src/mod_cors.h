@@ -39,7 +39,7 @@ extern "C"
 typedef struct mod_cors_s mod_cors_t;
 struct mod_cors_s
 {
-	char *origin;
+	string_t origin;
 };
 
 extern const module_t mod_cors;
