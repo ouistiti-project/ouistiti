@@ -14,7 +14,7 @@ servers= ({
 			token_ep = "/token";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "/htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 		};

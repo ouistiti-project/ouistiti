@@ -479,7 +479,13 @@ static int main_exec(int rootfd,  const char *scriptpath, int stop)
                 setlinebuf(stdout);
                 sched_yield();
 
+#ifdef DEBUG
+#define XSTRINGIFY(str) STRINGIFY(str)
+#define STRINGIFY(str) #str
+				char * const env[2] = { "BUILDDIR="XSTRINGIFY(BUILDDIR), NULL };
+#else
                 char * const env[1] = { NULL };
+#endif
 #ifdef USE_EXECVEAT
                 execveat(rootfd, scriptpath, argv, env);
 #elif defined(USE_EXECVE)

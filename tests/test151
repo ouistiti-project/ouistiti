@@ -1,0 +1,4 @@
+DESC="redirection on generate_204"
+CONFIG=test15.conf
+TESTCODE=204
+TESTRESPONSE=result204_rs.txt

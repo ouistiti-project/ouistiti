@@ -1,7 +1,7 @@
 #!/bin/sh
 
 TESTDIR=$(dirname $0)/
-SRCDIR=src/
+BUILDDIR=$(pwd)/
 PWD=$(pwd)
 DEFAULTPORT=8080
 LOGFILE=/tmp/ouistiti.log
@@ -78,9 +78,9 @@ WGET=wget
 #USER=$(ls -l $0 | ${AWK} '{print $3}')
 USER=$(ps -p $$ -o user --no-headers)
 TESTCLIENT="./host/utils/testclient"
-LD_LIBRARY_PATH=${SRCDIR}:libhttpserver/src/:libhttpserver/src/httpserver/:utils/
+LD_LIBRARY_PATH=${BUILDDIR}/src:${BUILDDIR}libhttpserver/src/:${BUILDDIR}libhttpserver/src/httpserver/:utils/
 
-export LD_LIBRARY_PATH
+export LD_LIBRARY_PATH BUILDDIR
 
 TESTERROR=""
 
@@ -111,12 +111,12 @@ start () {
 	ARGUMENTS=$ARGUMENTS" -M ./staging:./src"
 	ARGUMENTS=$ARGUMENTS" -W "$TESTDIR
 	if [ -n "$INFO" ]; then
-		echo ${SRCDIR}${TARGET} ${ARGUMENTS}
+		echo ${BUILDDIR}src/${TARGET} ${ARGUMENTS}
 		echo "******************************"
 		cat ${TESTDIR}conf/${CONFIG}
 	fi
-	echo "${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS}"
-	${ENV} ${SRCDIR}${TARGET} ${ARGUMENTS} &
+	echo "${ENV} ${BUILDDIR}src/${TARGET} ${ARGUMENTS}"
+	${ENV} ${BUILDDIR}src/${TARGET} ${ARGUMENTS} &
 	PID=$!
 	echo "${TARGET} started with pid ${PID}"
 	echo "config ${TESTDIR}conf/${CONFIG}"
@@ -320,14 +320,14 @@ done
 
 if [ ${ALL} -eq 1 ]; then
 	ARGUMENTS=" -M ./src:./staging"
-	${SRCDIR}${TARGET} ${ARGUMENTS} -h
-	${SRCDIR}${TARGET} ${ARGUMENTS} -V
-	${SRCDIR}${TARGET} ${ARGUMENTS} -C -f ${TESTDIR}conf/test1.conf
-	${SRCDIR}${TARGET} ${ARGUMENTS} -W ${TESTDIR} -f ${TESTDIR}conf/test.conf -p $TMPRESPONSE.pid -D
+	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -h
+	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -V
+	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -C -f ${TESTDIR}conf/test1.conf
+	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -W ${TESTDIR} -f ${TESTDIR}conf/test.conf -p $TMPRESPONSE.pid -D
 	sleep 1
 	$WGET --no-check-certificate -S -q -O - http://127.0.0.1:8080/index.html 2> $TMPRESPONSE.tmp
 	sleep 1
-	${SRCDIR}${TARGET} ${ARGUMENTS} -p $TMPRESPONSE.pid -K
+	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -p $TMPRESPONSE.pid -K
 fi
 if [ ${GCOV} -eq 1 ]; then
 	make DEBUG=y gcov

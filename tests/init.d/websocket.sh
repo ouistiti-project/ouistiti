@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PATH=./utils/
+PATH=${BUILDDIR}/utils/
 SERVICE=websocket_echo
 OPTIONS="-R /tmp"
 OPTIONS="${OPTIONS} -t"
