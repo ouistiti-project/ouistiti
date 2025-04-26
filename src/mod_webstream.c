@@ -52,8 +52,6 @@
 #include "mod_document.h"
 #include "mod_webstream.h"
 
-extern int ouistiti_websocket_run(void *arg, int sock, int wssock, http_message_t *request);
-
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
 #ifdef DEBUG
