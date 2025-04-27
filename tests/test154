@@ -1,0 +1,15 @@
+#if curl -V > /dev/null ; then
+#	echo "Test needs curl"
+#	DISABLED=1
+#fi
+DESC="test to PUT file on the server with www-urlencoded"
+TEST153_FILE=ouistiti.jpg
+TEST153_MIME=image/jpeg
+TEST153_FILESIZE=$(stat -c%s ${TESTDIR}/${TEST153_FILE})
+PREPARE="rm -f ${TESTDIR}/htdocs/${TEST153_FILE}"
+CURLURL="http://localhost:8080/${TEST153_FILE}"
+CURLPARAM="-X PUT --data-binary @${TESTDIR}/${TEST153_FILE} -u test:test"
+CONFIG=test10.conf
+TESTCODE=400
+TESTTIMEOUT=2
+TESTRESPONSE=error400_rs.txt

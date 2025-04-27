@@ -1,0 +1,4 @@
+DESC="redirect: disable uri with noredirect query"
+CONFIG=test12.conf
+TESTCODE=204
+TESTRESPONSE=result204_rs.txt

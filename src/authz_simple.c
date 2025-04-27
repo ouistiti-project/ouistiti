@@ -34,7 +34,6 @@
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
-#include "authz_simple.h"
 
 #define auth_dbg(...)
 
@@ -50,7 +49,8 @@ struct authz_simple_config_s
 typedef authz_simple_config_t authz_simple_t;
 
 #ifdef FILE_CONFIG
-void *authz_simple_config(const config_setting_t *configauth)
+#include <libconfig.h>
+void *authz_simple_config(const void *configauth, authz_type_t *type)
 {
 	authz_simple_config_t *authz_config = NULL;
 
@@ -139,9 +139,16 @@ static void authz_destroy(void *arg)
 
 authz_rules_t authz_simple_rules =
 {
+	.config = authz_simple_config,
 	.create = &authz_simple_create,
 	.check = &authz_simple_check,
 	.passwd = &authz_simple_passwd,
 	.setsession = &authz_simple_setsession,
 	.destroy = authz_destroy,
 };
+
+static const string_t authz_name = STRING_DCL("simple");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthz(&authz_name, &authz_simple_rules);
+}

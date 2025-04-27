@@ -22,7 +22,7 @@ servers= ({
 			secret = "ouistiti is a marmoset";
 		};
 		document = {
-			docroot = "%PWD%/tests/htdocs";
+			docroot = "htdocs";
 			allow = ".html,.htm,.css,.js,.txt,*";
 			deny = ".htaccess,.php";
 			options = "rest,dirlisting";

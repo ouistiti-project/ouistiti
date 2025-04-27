@@ -89,7 +89,8 @@ struct authn_oauth2_config_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_oauth2_config(const config_setting_t *configauth)
+#include <libconfig.h>
+void *authn_oauth2_config(const void *configauth, authn_type_t *type)
 {
 	authn_oauth2_config_t *authn_config = NULL;
 	const char *auth_ep = NULL;
@@ -117,6 +118,7 @@ void *authn_oauth2_config(const config_setting_t *configauth)
 	if (authn_config->iss == NULL)
 		authn_config->iss = authn_config->realm;
 
+	*type = AUTHN_REDIRECT_E | AUTHN_TOKEN_E;
 	return authn_config;
 }
 #endif
@@ -496,6 +498,7 @@ static const char *authn_oauth2_check(void *arg, const char *method, size_t meth
 
 authn_rules_t authn_oauth2_rules =
 {
+	.config = authn_oauth2_config,
 	.create = &authn_oauth2_create,
 	.setup = &authn_oauth2_setup,
 	.cleanup = &authn_oauth2_cleanup,
@@ -503,3 +506,9 @@ authn_rules_t authn_oauth2_rules =
 	.check = &authn_oauth2_check,
 	.destroy = &authn_oauth2_destroy,
 };
+
+static const string_t authn_name = STRING_DCL("oAuth2");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthn(&authn_name, &authn_oauth2_rules);
+}
