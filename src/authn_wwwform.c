@@ -35,7 +35,6 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
-#include "authn_wwwform.h"
 
 #define auth_dbg(...)
 
@@ -47,7 +46,8 @@ struct authn_wwwform_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_wwwform_config(const config_setting_t *UNUSED(configauth))
+#include <libconfig.h>
+void *authn_wwwform_config(const void *configauth, authn_type_t *type)
 {
 	return (void *)1;
 }
@@ -115,8 +115,15 @@ static void authn_wwwform_destroy(void *arg)
 
 authn_rules_t authn_wwwform_rules =
 {
+	.config = authn_wwwform_config,
 	.create = &authn_wwwform_create,
 	.challenge = &authn_wwwform_challenge,
 	.checkrequest = &authn_wwwform_checkrequest,
 	.destroy = &authn_wwwform_destroy,
 };
+
+static const string_t authn_name = STRING_DCL("wwwform");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthn(&authn_name, &authn_wwwform_rules);
+}

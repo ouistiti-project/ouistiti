@@ -61,12 +61,18 @@ struct authz_jwt_s
 };
 
 #ifdef FILE_CONFIG
-void *authz_jwt_config(const config_setting_t *configauth)
+#include <libconfig.h>
+void *authz_jwt_config(const void *configauth, authz_type_t *type)
 {
+	const char *authn = NULL;
+	int ret = config_setting_lookup_string(configauth, "type", &authn);
+	if (ret == CONFIG_TRUE && strncasecmp(authn,"bearer",6) != 0)
+		return NULL;
+
 	authz_token_config_t *authz_config = calloc(1, sizeof(*authz_config));
 	const char *issuer = NULL;
 
-	int ret = config_setting_lookup_string(configauth, str_issuer, &issuer);
+	ret = config_setting_lookup_string(configauth, str_issuer, &issuer);
 	if (ret == CONFIG_TRUE)
 	{
 		string_store(&authz_config->issuer, issuer, -1);
@@ -440,6 +446,7 @@ static void authz_jwt_destroy(void *arg)
 
 authz_rules_t authz_jwt_rules =
 {
+	.config = authz_jwt_config,
 	.create = &authz_jwt_create,
 	.check = &authz_jwt_check,
 	.passwd = NULL,
@@ -447,3 +454,9 @@ authz_rules_t authz_jwt_rules =
 	.join = &authz_jwt_join,
 	.destroy = &authz_jwt_destroy,
 };
+
+static const string_t authz_name = STRING_DCL("jwt");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthz(&authz_name, &authz_jwt_rules);
+}

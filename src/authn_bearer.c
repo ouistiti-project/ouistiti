@@ -35,7 +35,6 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
-#include "authn_bearer.h"
 
 #define auth_dbg(...)
 
@@ -46,12 +45,11 @@ struct authn_bearer_s
 	http_client_t *clt;
 };
 
-#ifdef FILE_CONFIG
-void *authn_bearer_config(const config_setting_t *configauth)
+void *authn_bearer_config(const void *configauth, authn_type_t *type)
 {
-	return (void *)1;
+	*type = AUTHN_REDIRECT_E | AUTHN_TOKEN_E;
+	return (void *)(long)1;
 }
-#endif
 
 static void *authn_bearer_create(const authn_t *authn, void *arg)
 {
@@ -111,8 +109,15 @@ static void authn_bearer_destroy(void *arg)
 
 authn_rules_t authn_bearer_rules =
 {
+	.config = &authn_bearer_config,
 	.create = &authn_bearer_create,
 	.challenge = &authn_bearer_challenge,
 	.check = &authn_bearer_check,
 	.destroy = &authn_bearer_destroy,
 };
+
+static const string_t authn_name = STRING_DCL("Bearer");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthn(&authn_name, &authn_bearer_rules);
+}

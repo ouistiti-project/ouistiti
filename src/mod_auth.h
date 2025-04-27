@@ -47,6 +47,17 @@ typedef struct mod_auth_s mod_auth_t;
 
 typedef int (*auth_saveinfo_t)(void *arg, const char *key, size_t keylen, const char *value, size_t valuelen);
 
+typedef enum
+{
+	AUTHZ_TYPE_MASK = 0x0F,
+	AUTHZ_HOME_E = 0x10,
+	AUTHZ_TOKEN_E = 0x80,
+	AUTHZ_JWT_E,
+	AUTHZ_CHOWN_E = 0x100,
+	AUTHZ_TLS_E = 0x200,
+} authz_type_t;
+
+typedef void *(*authz_rule_config_t)(const void *, authz_type_t *type);
 typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
 typedef void *(*authz_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
@@ -62,6 +73,7 @@ typedef void (*authz_rule_destroy_t)(void *arg);
 typedef struct authz_rules_s authz_rules_t;
 struct authz_rules_s
 {
+	authz_rule_config_t config;
 	authz_rule_create_t create;
 	authz_rule_setup_t setup;
 	authz_rule_check_t check;
@@ -72,20 +84,6 @@ struct authz_rules_s
 	authz_rule_cleanup_t cleanup;
 	authz_rule_destroy_t destroy;
 };
-typedef enum
-{
-	AUTHZ_SIMPLE_E = 1,
-	AUTHZ_FILE_E,
-	AUTHZ_UNIX_E,
-	AUTHZ_SQLITE_E,
-	AUTHZ_JWT_E,
-	AUTHZ_TOTP_E,
-	AUTHZ_TYPE_MASK = 0x0F,
-	AUTHZ_HOME_E = 0x10,
-	AUTHZ_TOKEN_E = 0x80,
-	AUTHZ_CHOWN_E = 0x100,
-	AUTHZ_TLS_E = 0x200,
-} authz_type_t;
 typedef struct mod_authz_s mod_authz_t;
 typedef struct authz_s authz_t;
 struct authz_s
@@ -99,11 +97,23 @@ struct authz_s
 struct mod_authz_s
 {
 	void *config;
+	authz_rules_t *rules;
 	authz_type_t type;
 	string_t name;
 };
 
 typedef struct authn_s authn_t;
+typedef enum
+{
+	AUTHN_FORBIDDEN_E = -1,
+	AUTHN_TYPE_MASK = 0x0F,
+	AUTHN_REDIRECT_E = 0x10,
+	AUTHN_COOKIE_E = 0x20,
+	AUTHN_HEADER_E = 0x40,
+	AUTHN_TOKEN_E = 0x80,
+} authn_type_t;
+
+typedef void *(*authn_rule_config_t)(const void *, authn_type_t *type);
 typedef void *(*authn_rule_create_t)(const authn_t *authn, void *config);
 typedef void *(*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 typedef void (*authn_rule_cleanup_t)(void *arg);
@@ -114,6 +124,7 @@ typedef void (*authn_rule_destroy_t)(void *arg);
 typedef struct authn_rules_s authn_rules_t;
 struct authn_rules_s
 {
+	authn_rule_config_t config;
 	authn_rule_create_t create;
 	authn_rule_setup_t setup;
 	authn_rule_cleanup_t cleanup;
@@ -122,21 +133,6 @@ struct authn_rules_s
 	authn_rule_checkrequest_t checkrequest;
 	authn_rule_destroy_t destroy;
 };
-typedef enum
-{
-	AUTHN_FORBIDDEN_E = -1,
-	AUTHN_NONE_E = 0,
-	AUTHN_BASIC_E = 1,
-	AUTHN_DIGEST_E,
-	AUTHN_BEARER_E,
-	AUTHN_OAUTH2_E,
-	AUTHN_WWWFORM_E,
-	AUTHN_TYPE_MASK = 0x0F,
-	AUTHN_REDIRECT_E = 0x10,
-	AUTHN_COOKIE_E = 0x20,
-	AUTHN_HEADER_E = 0x40,
-	AUTHN_TOKEN_E = 0x80,
-} authn_type_t;
 
 typedef struct hash_s hash_t;
 
@@ -152,6 +148,7 @@ struct authn_s
 struct mod_authn_s
 {
 	void *config;
+	authn_rules_t *rules;
 	authn_type_t type;
 	string_t name;
 	const hash_t *hash;
@@ -194,6 +191,9 @@ int authn_checksignature(const char *key, size_t keylen,
 
 const char *auth_info(http_message_t *request, const char *key, size_t keylen);
 size_t auth_info2(http_message_t *request, const char *key, const char **value);
+
+void auth_registerauthn(const string_t *name, authn_rules_t *rules);
+void auth_registerauthz(const string_t *name, authz_rules_t *rules);
 
 #ifdef __cplusplus
 }
