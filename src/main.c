@@ -290,7 +290,7 @@ int string_printf(string_t *str, void *fmt,...)
 	return EREJECT;
 }
 
-int string_dup(string_t *dst, string_t *src)
+int string_dup(string_t *dst, const string_t *src)
 {
 	if (string_empty(src))
 		return EREJECT;

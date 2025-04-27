@@ -41,7 +41,6 @@
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
-#include "authz_file.h"
 
 
 #define auth_dbg(...)
@@ -72,7 +71,8 @@ struct authz_file_config_s
 };
 
 #ifdef FILE_CONFIG
-void *authz_file_config(const config_setting_t *configauth)
+#include <libconfig.h>
+void *authz_file_config(const void *configauth, authz_type_t * type)
 {
 	authz_file_config_t *authz_config = NULL;
 	const char *path = NULL;
@@ -256,9 +256,16 @@ static void authz_file_destroy(void *arg)
 
 authz_rules_t authz_file_rules =
 {
+	.config = authz_file_config,
 	.create = &authz_file_create,
 	.check = &authz_file_check,
 	.passwd = &authz_file_passwd,
 	.setsession = &authz_file_setsession,
 	.destroy = &authz_file_destroy,
 };
+
+static const string_t authz_name = STRING_DCL("file");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthz(&authz_name, &authz_file_rules);
+}

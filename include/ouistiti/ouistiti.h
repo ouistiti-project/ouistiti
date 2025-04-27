@@ -136,7 +136,7 @@ size_t string_length(const string_t *str);
 size_t string_size(const string_t *str);
 int string_split(string_t *str, char sep, ...);
 size_t string_slice(string_t *str, int start, int length);
-int string_dup(string_t *dst, string_t *src);
+int string_dup(string_t *dst, const string_t *src);
 void string_cleansafe(string_t *str);
 void string_destroy(string_t *str);
 

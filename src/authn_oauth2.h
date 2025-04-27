@@ -31,18 +31,11 @@
 
 #include "mod_auth.h"
 
-#ifdef FILE_CONFIG
-#include <libconfig.h>
-void *authn_oauth2_config(const config_setting_t *configauth);
-#endif
-
 struct oauth2_session_s
 {
 	char token[TOKEN_MAX];
 	int expires_in;
 };
 typedef struct oauth2_session_s oauth2_session_t;
-
-extern authn_rules_t authn_oauth2_rules;
 
 #endif

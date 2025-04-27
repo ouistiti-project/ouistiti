@@ -41,7 +41,6 @@
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
-#include "authn_none.h"
 
 #define auth_dbg(...)
 
@@ -60,7 +59,8 @@ struct authn_none_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_none_config(const config_setting_t *configauth)
+#include <libconfig.h>
+void *authn_none_config(const void *configauth, authn_type_t *type)
 {
 	authn_none_config_t *authn_config = NULL;
 	const char *user = NULL;
@@ -108,8 +108,15 @@ static void authn_none_destroy(void *arg)
 
 authn_rules_t authn_none_rules =
 {
+	.config = authn_none_config,
 	.create = &authn_none_create,
 	.challenge = &authn_none_challenge,
 	.check = &authn_none_check,
 	.destroy = &authn_none_destroy,
 };
+
+static const string_t authn_name = STRING_DCL("None");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthn(&authn_name, &authn_none_rules);
+}
