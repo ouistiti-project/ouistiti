@@ -290,7 +290,7 @@ int string_printf(string_t *str, void *fmt,...)
 	return EREJECT;
 }
 
-int string_dup(string_t *dst, string_t *src)
+int string_dup(string_t *dst, const string_t *src)
 {
 	if (string_empty(src))
 		return EREJECT;
@@ -479,7 +479,13 @@ static int main_exec(int rootfd,  const char *scriptpath, int stop)
                 setlinebuf(stdout);
                 sched_yield();
 
+#ifdef DEBUG
+#define XSTRINGIFY(str) STRINGIFY(str)
+#define STRINGIFY(str) #str
+				char * const env[2] = { "BUILDDIR="XSTRINGIFY(BUILDDIR), NULL };
+#else
                 char * const env[1] = { NULL };
+#endif
 #ifdef USE_EXECVEAT
                 execveat(rootfd, scriptpath, argv, env);
 #elif defined(USE_EXECVE)

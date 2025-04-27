@@ -34,7 +34,6 @@
 #include "ouistiti/hash.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
-#include "authn_basic.h"
 
 #define auth_dbg(...)
 
@@ -45,12 +44,10 @@ struct authn_basic_s
 	char *challenge;
 };
 
-#ifdef FILE_CONFIG
-void *authn_basic_config(const config_setting_t *configauth)
+void *authn_basic_config(const void *configauth, authn_type_t *type)
 {
-	return (void *)1;
+	return (void *)(long)1;
 }
-#endif
 
 #define FORMAT "Basic realm=\"%s\""
 static void *authn_basic_create(const authn_t *authn, void *arg)
@@ -109,8 +106,15 @@ static void authn_basic_destroy(void *arg)
 
 authn_rules_t authn_basic_rules =
 {
+	.config = &authn_basic_config,
 	.create = &authn_basic_create,
 	.challenge = &authn_basic_challenge,
 	.check = &authn_basic_check,
 	.destroy = &authn_basic_destroy,
 };
+
+static const string_t authn_name = STRING_DCL("Basic");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthn(&authn_name, &authn_basic_rules);
+}

@@ -1,0 +1,11 @@
+DESC="simple HTTPS request"
+CONFIG=test17.conf
+LD_LIBRARY_PATH=libhttpserver/src ./host/utils/ouipasswd -u test -g user -p test -R "welcome to ouistiti" -A MD5 > tests/conf/passwd
+
+CURLURL="https://localhost:8443/dirlisting/"
+CURLPARAM="-H X-Requested-With:XMLHttpRequest -u test:test"
+
+TESTDEFAULTPORT=8443
+TESTCODE=200
+TESTRESPONSE=result200_rs.txt
+TESTCONTENTLEN=40

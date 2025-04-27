@@ -47,34 +47,17 @@
 #include <time.h>
 #include <limits.h>
 
+#ifdef HAVE_LIBCONFIG
+#include <libconfig.h>
+#endif
+
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
 #include "ouistiti/hash.h"
 #include "ouistiti/log.h"
 #include "mod_cookie.h"
 #include "mod_auth.h"
-#include "authn_none.h"
-#ifdef AUTHN_BASIC
-#include "authn_basic.h"
-#endif
-#ifdef AUTHN_DIGEST
-#include "authn_digest.h"
-#endif
-#ifdef AUTHN_BEARER
-#include "authn_bearer.h"
-#endif
-#ifdef AUTHN_OAUTH2
-#include "authn_oauth2.h"
-#endif
-#ifdef AUTHN_WWWFORM
-#include "authn_wwwform.h"
-#endif
-#include "authz_simple.h"
-#include "authz_file.h"
-#include "authz_unix.h"
-#include "authz_sqlite.h"
 #include "authz_jwt.h"
-#include "authz_totp.h"
 
 #define auth_dbg(...)
 
@@ -119,73 +102,6 @@ struct _mod_auth_s
 	authn_t *authn;
 	authz_t *authz;
 	authz_rule_generatetoken_t generatetoken;
-};
-
-authn_rules_t *authn_rules[] = {
-#ifdef AUTHN_NONE
-	&authn_none_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHN_BASIC
-	&authn_basic_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHN_DIGEST
-	&authn_digest_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHN_BEARER
-	&authn_bearer_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHN_OAUTH2
-	&authn_oauth2_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHN_WWWFORM
-	&authn_wwwform_rules,
-#else
-	NULL,
-#endif
-};
-
-authz_rules_t *authz_rules[] = {
-	NULL,
-#ifdef AUTHZ_SIMPLE
-	&authz_simple_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHZ_FILE
-	&authz_file_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHZ_UNIX
-	&authz_unix_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHZ_SQLITE
-	&authz_sqlite_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHZ_JWT
-	&authz_jwt_rules,
-#else
-	NULL,
-#endif
-#ifdef AUTHZ_TOTP
-	&authz_totp_rules,
-#else
-	NULL,
-#endif
 };
 
 static const hash_t *_mod_findhash(const char *name, int nameid)
@@ -246,65 +162,47 @@ static int _mod_sethash(mod_authn_t *config, const char *algo)
 
 struct _authn_s
 {
-	void *(*config)(const config_setting_t *);
+	authn_rule_config_t config;
 	authn_type_t type;
 	string_t name;
+	authn_rules_t *rules;
+	struct _authn_s *next;
 };
 
 struct _authz_s
 {
-	void *(*config)(const config_setting_t *);
+	authz_rule_config_t config;
 	authz_type_t type;
 	string_t name;
+	authz_rules_t *rules;
+	struct _authz_s *next;
 };
+
+static struct _authn_s *authn_list = NULL;
+static struct _authz_s *authz_list = NULL;
+
+void auth_registerauthn(const string_t *name, authn_rules_t *rules)
+{
+	struct _authn_s *entry = calloc(1, sizeof(*entry));
+	string_dup(&entry->name, name);
+	entry->rules = rules;
+	entry->config = rules->config;
+	entry->next = authn_list;
+	authn_list = entry;
+}
+
+void auth_registerauthz(const string_t *name, authz_rules_t *rules)
+{
+	struct _authz_s *entry = calloc(1, sizeof(*entry));
+	string_dup(&entry->name, name);
+	entry->rules = rules;
+	entry->config = rules->config;
+	entry->next = authz_list;
+	authz_list = entry;
+}
+
 
 #ifdef FILE_CONFIG
-struct _authn_s *authn_list[] =
-{
-#ifdef AUTHN_BASIC
-	&(struct _authn_s){
-		.config = &authn_basic_config,
-		.type = AUTHN_BASIC_E,
-		.name = STRING_DCL("Basic"),
-	},
-#endif
-#ifdef AUTHN_DIGEST
-	&(struct _authn_s){
-		.config = &authn_digest_config,
-		.type = AUTHN_DIGEST_E,
-		.name = STRING_DCL("Digest"),
-	},
-#endif
-#ifdef AUTHN_BEARER
-	&(struct _authn_s){
-		.config = &authn_bearer_config,
-		.type = AUTHN_BEARER_E | AUTHN_REDIRECT_E | AUTHN_TOKEN_E,
-		.name = STRING_DCL("Bearer"),
-	},
-#endif
-#ifdef AUTHN_OAUTH2
-	&(struct _authn_s){
-		.config = &authn_oauth2_config,
-		.type = AUTHN_OAUTH2_E | AUTHN_REDIRECT_E | AUTHN_TOKEN_E,
-		.name = STRING_DCL("oAuth2"),
-	},
-#endif
-#ifdef AUTHN_NONE
-	&(struct _authn_s){
-		.config = &authn_none_config,
-		.type = AUTHN_NONE_E,
-		.name = STRING_DCL("None"),
-	},
-#endif
-#ifdef AUTHN_WWWFORM
-	&(struct _authn_s){
-		.config = &authn_wwwform_config,
-		.type = AUTHN_WWWFORM_E,
-		.name = STRING_DCL("wwwform"),
-	},
-#endif
-};
-
 static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 {
 	int ret = EREJECT;
@@ -316,20 +214,20 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 		return ret;
 	}
 
-	const struct _authn_s *authn = NULL;
-	for (int i = 0; i < (sizeof(authn_list) / sizeof(*authn_list)); i++)
+	struct _authn_s *authn = NULL;
+	for (authn = authn_list; authn != NULL; authn = authn->next)
 	{
-		if (!string_cmp(&authn_list[i]->name, type, -1))
-			mod->config = authn_list[i]->config(configauth);
+		if (!string_cmp(&authn->name, type, -1))
+			mod->config = authn->config(configauth, &authn->type);
 		if (mod->config != NULL)
 		{
-			authn = authn_list[i];
 			break;
 		}
 	}
 
 	if (authn != NULL)
 	{
+		mod->rules = authn->rules;
 		mod->type |= authn->type;
 		string_store(&mod->name, authn->name.data, authn->name.length);
 
@@ -346,52 +244,6 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 		err("auth: authn '%s' not found", type);
 	return ret;
 }
-
-struct _authz_s *authz_list[] =
-{
-#ifdef AUTHZ_UNIX
-	&(struct _authz_s){
-		.config = &authz_unix_config,
-		.type = AUTHZ_UNIX_E,
-		.name = STRING_DCL("unix"),
-	},
-#endif
-#ifdef AUTHZ_FILE
-	&(struct _authz_s){
-		.config = &authz_file_config,
-		.type = AUTHZ_FILE_E,
-		.name = STRING_DCL("file"),
-	},
-#endif
-#ifdef AUTHZ_SQLITE
-	&(struct _authz_s){
-		.config = &authz_sqlite_config,
-		.type = AUTHZ_SQLITE_E,
-		.name = STRING_DCL("sqlite"),
-	},
-#endif
-#ifdef AUTHZ_SIMPLE
-	&(struct _authz_s){
-		.config = &authz_simple_config,
-		.type = AUTHZ_SIMPLE_E,
-		.name = STRING_DCL("simple"),
-	},
-#endif
-#ifdef AUTHZ_JWT
-	&(struct _authz_s){
-		.config = &authz_jwt_config,
-		.type = AUTHZ_JWT_E,
-		.name = STRING_DCL("jwt"),
-	},
-#endif
-#ifdef AUTHZ_TOTP
-	&(struct _authz_s){
-		.config = &authz_totp_config,
-		.type = AUTHZ_TOTP_E,
-		.name = STRING_DCL("totp"),
-	},
-#endif
-};
 
 static void authz_optionscb(void *arg, const char *option)
 {
@@ -423,28 +275,33 @@ static void authz_optionscb(void *arg, const char *option)
 static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 {
 	int ret = EREJECT;
-	const struct _authz_s *authz = NULL;
+	struct _authz_s *authz = NULL;
 	const char *name = NULL;
 	ret = config_setting_lookup_string(configauth, "authz", &name);
 	if (ret == CONFIG_FALSE)
 		name = NULL;
-	for (int i = 0; i < (sizeof(authz_list) / sizeof(*authz_list)); i++)
+	for (authz = authz_list; authz != NULL; authz = authz->next)
 	{
 		if (name != NULL)
 		{
-			if (! string_cmp(&authz_list[i]->name, name, -1))
-				mod->config = authz_list[i]->config(configauth);
+			if (! string_cmp(&authz->name, name, -1))
+			{
+				mod->config = authz->config(configauth, &authz->type);
+				break;
+			}
 		}
-		else if (authz_list[i]->config != NULL)
-			mod->config = authz_list[i]->config(configauth);
+		else if (authz->config != NULL)
+		{
+			mod->config = authz->config(configauth, &authz->type);
+		}
 		if (mod->config != NULL)
 		{
-			authz = authz_list[i];
 			break;
 		}
 	}
 	if (authz != NULL)
 	{
+		mod->rules = authz->rules;
 		mod->type |= authz->type;
 		string_store(&mod->name, authz->name.data, authz->name.length);
 		ret = ESUCCESS;
@@ -565,10 +422,12 @@ static const mod_auth_t g_auth_config =
 		},
 		.type = AUTHZ_SQLITE_E,
 		.name = "sqlite",
+		.rules = &authz_sqlite_rules,
 	},
 	.authn = &(mod_authn_t){
 		.type = AUTHN_BASIC_E,
 		.name = "Basic",
+		.rules = &authn_basic_rules,
 	},
 	.realm = NULL,
 };
@@ -596,7 +455,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->authz->type = config->authz.type;
 	string_store(&mod->authz->name,config->authz.name.data,config->authz.name.length);
 
-	mod->authz->rules = authz_rules[config->authz.type & AUTHZ_TYPE_MASK];
+	mod->authz->rules = config->authz.rules;
 	if (mod->authz->rules == NULL)
 	{
 		err("auth: storage not set, change configuration");
@@ -624,7 +483,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	{
 		mod->authn->server = server;
 		mod->authn->type = config->authn.type;
-		mod->authn->rules = authn_rules[config->authn.type & AUTHN_TYPE_MASK];
+		mod->authn->rules = config->authn.rules;
 	}
 	if (mod->authn->rules == NULL)
 		err("authentication type is not availlable, change configuration");

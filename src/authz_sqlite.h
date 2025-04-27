@@ -58,13 +58,6 @@ struct authz_sqlite_config_s
 	const hash_t *hash;
 };
 
-#ifdef FILE_CONFIG
-#include <libconfig.h>
-void *authz_sqlite_config(const config_setting_t *configauth);
-#endif
-
-extern authz_rules_t authz_sqlite_rules;
-
 #include <sqlite3.h>
 typedef struct authz_sqlite_s authz_sqlite_t;
 struct authz_sqlite_s

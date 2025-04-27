@@ -36,7 +36,6 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
-#include "authn_digest.h"
 
 #define auth_dbg(...)
 
@@ -62,7 +61,8 @@ struct authn_digest_config_s
 };
 
 #ifdef FILE_CONFIG
-void *authn_digest_config(const config_setting_t *configauth)
+#include <libconfig.h>
+void *authn_digest_config(const void *configauth, authn_type_t *type)
 {
 	authn_digest_config_t *authn_config = NULL;
 
@@ -663,9 +663,16 @@ static void authn_digest_destroy(void *arg)
 
 authn_rules_t authn_digest_rules =
 {
+	.config = authn_digest_config,
 	.create = &authn_digest_create,
 	.setup = &authn_digest_setup,
 	.challenge = &authn_digest_challenge,
 	.check = &authn_digest_check,
 	.destroy = &authn_digest_destroy,
 };
+
+static const string_t authn_name = STRING_DCL("Digest");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthn(&authn_name, &authn_digest_rules);
+}

@@ -45,7 +45,6 @@
 #include "ouistiti/hash.h"
 #include "ouistiti/utils.h"
 #include "mod_auth.h"
-#include "authz_totp.h"
 
 #define auth_dbg(...)
 
@@ -83,7 +82,8 @@ size_t otp_url(const string_t* key, const char *user, const char *issuer, const 
 static int authz_totp_generateK(const authz_totp_config_t *config, const string_t *user, string_t *output);
 
 #ifdef FILE_CONFIG
-void *authz_totp_config(const config_setting_t *configauth)
+#include <libconfig.h>
+void *authz_totp_config(const void *configauth, authz_type_t *type)
 {
 	authz_totp_config_t *authz_config = NULL;
 	const char *key = NULL;
@@ -334,6 +334,7 @@ static void authz_totp_destroy(void *arg)
 
 authz_rules_t authz_totp_rules =
 {
+	.config = authz_totp_config,
 	.create = &authz_totp_create,
 	.setup = &authz_totp_setup,
 	.check = &authz_totp_check,
@@ -341,3 +342,9 @@ authz_rules_t authz_totp_rules =
 	.setsession = &authz_totp_setsession,
 	.destroy = &authz_totp_destroy,
 };
+
+static const string_t authz_name = STRING_DCL("totp");
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registerauthz(&authz_name, &authz_totp_rules);
+}
