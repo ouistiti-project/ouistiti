@@ -186,6 +186,9 @@ extern const char str_form_urlencoded[34];
 extern const char str_multipart_replace[26];
 extern const char str_multipart_form_data[20];
 extern const char str_mime_inode_directory[16];
+extern const char str_mime_inode_symlink[14];
+extern const char str_mime_inode_socket[13];
+extern const char str_mime_inode_fifo[11];
 
 extern const char str_boundary[6];
 

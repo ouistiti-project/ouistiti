@@ -77,6 +77,9 @@ const char str_status_activated[] = "activated";
 const char str_status_repudiated[] = "repudiated";
 
 const char str_mime_inode_directory[] = "inode/directory";
+const char str_mime_inode_symlink[] = "inode/symlink";
+const char str_mime_inode_socket[] = "inode/socket";
+const char str_mime_inode_fifo[] = "inode/fifo";
 
 const string_t string_authorization = STRING_DCL(str_authorization);
 const string_t string_xtoken = STRING_DCL(str_xtoken);
