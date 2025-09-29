@@ -289,6 +289,7 @@ static int _authz_totp_checkpasswd(authz_totp_t *ctx, const char *user, const ch
 	{
 		string_t passwdstr = {0};
 		string_store(&passwdstr, passwd, -1);
+		auth_dbg("auth: totp %s / %s", string_toc(checkpasswd), string_toc(&passwdstr));
 		if (authz_checkpasswd(string_toc(checkpasswd), &userstr, NULL,  &passwdstr) == ESUCCESS)
 			ret = 1;
 	}

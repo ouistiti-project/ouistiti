@@ -305,6 +305,8 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 		string_store(&mod->name, authz->name.data, authz->name.length);
 		ret = ESUCCESS;
 	}
+	else
+		err("auth: password engine not found");
 	return ret;
 }
 
@@ -470,7 +472,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->authz->ctx = mod->authz->rules->create(server, config->authz.config);
 	if (mod->authz->ctx == NULL)
 	{
-		err("auth: authz %s not supported", string_toc(&mod->authz->name));
+		err("auth: authz %s not supported", string_toc(mod->authz->name));
 		free(mod->authz);
 		free(mod);
 		return NULL;
@@ -1234,6 +1236,8 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	{
 		_authn_setauthorization_cookie(ctx, &authorization, &token, &sign, response);
 	}
+	else if (ttoken != NULL) /// token was generated but not sent
+		warn("auth: token not sent. Configure (%s) header or cookie as options", string_toc(&config->token.issuer));
 
 	if (mod->authz->type & AUTHZ_CHOWN_E)
 	{
@@ -1265,14 +1269,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		authz = &ctx->authz;
 	}
 
-	auth_dbg("auth: check for %s", string_toc(&config->token.issuer));
+	auth_dbg("auth: check for %s (%s %s)", string_toc(&config->token.issuer), string_toc(&authz->name), string_toc(&config->authz.name));
 	const char *user = NULL;
 #ifdef AUTH_TOKEN
 	if (mod->authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
 	{
 		size_t tokenlen = 0;
 		authorization = _authn_gettoken(ctx, request, &token, &tokenlen);
-		auth_dbg("auth: gettoken %s", token);
+		auth_dbg("auth: gettoken %s / %s", token, authorization);
 		if (mod->authn->ctx && authorization != NULL && authorization[0] != '\0' &&
 					token != NULL)
 		{
@@ -1291,6 +1295,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		if (ret == EREJECT)
 			user = _authn_gettokenuser(ctx, request);
 	}
+	else
+		warn("auth: token not checked. Configure (%s) token or jwt", string_toc(&config->token.issuer));
 #endif
 	if (ret == ECONTINUE)
 	{
@@ -1317,6 +1323,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		const char *issuerdata = NULL;
 		size_t length = auth_info2(request, str_issuer, &issuerdata);
 		string_store(&issuer, issuerdata, length);
+		auth_dbg("auth: check issuer %s/%s", issuerdata, string_toc(&config->token.issuer));
 		if (!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
 		{
 			warn("auth: session's issuer (%s) already set, by-pass the token checking", string_toc(&config->token.issuer));
@@ -1350,6 +1357,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ret != EREJECT)
 	{
 		httpclient_dropsession(ctx->clt);
+		err("auth: %s rejects autorization for %s", string_toc(&config->token.issuer), user);
 		ret = _authn_challenge(ctx, request, response);
 	}
 	else if (authorization != NULL)
@@ -1398,7 +1406,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else
 		{
-			warn("auth: user \"%s\" accepted from %p", user, ctx->clt);
+			const char *issuerdata = httpclient_session(ctx->clt, str_issuer, -1, NULL, 0);
+			warn("auth: user \"%s\" accepted for %s from %p", user, issuerdata, ctx->clt);
 			ret = EREJECT;
 		}
 		_auth_prepareresponse(ctx, request, response, authorization, token);
