@@ -923,7 +923,8 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 	char cwd[PATH_MAX] = {0};
 	if (config->root != NULL && config->root[0] != '\0' )
 	{
-		getcwd(cwd, PATH_MAX);
+		if (getcwd(cwd, PATH_MAX) == NULL)
+			cwd[0] = '\0';
 		if (chdir(config->root))
 			err("main: change %s directory error !", config->root);
 	}
