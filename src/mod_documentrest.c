@@ -186,8 +186,9 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 	if (url[urllen - 1] == '/' ||
 		(!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_mime_inode_directory))))
 	{
-		err("document: %s found dir", url);
-		fdfile = mkdirat(fdroot, url, 0777);
+		fdfile = mkdirat(fdroot, url, 0755);
+		if (fdfile == -1)
+			err("document: Directory creation error(%m). Check parent directory access.");
 		restheader_connector(request, response, errno);
 		fdfile = 0; /// The request is complete by this connector even on error
 	}
@@ -209,6 +210,8 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 			while (target[0] == '/') target++;
 			dbg("PUT symlink %s => %s", url, target);
 			fdfile = symlinkat(target, fdroot, url);
+			if (fdfile == -1)
+				err("Document: Symbolic Link creation error(%m). Check parent directory access.");
 		}
 		else
 			errno = EINVAL;
@@ -224,6 +227,7 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 		fdfile = openat(fdroot, url, O_WRONLY | O_CREAT | O_EXCL, 0640);
 		if (fdfile < 0)
 		{
+			err("Document: File creation error(%m). Check parent file access.");
 			restheader_connector(request, response, errno);
 			fdfile = 0; /// The request is complete by this connector
 		}
