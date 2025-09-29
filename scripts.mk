@@ -61,14 +61,18 @@ export srcdir
 #ARCH=$(shell echo $(CFLAGS) 2>&1 | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
 #buildpath=$(join $(srcdir),$(ARCH))
 #endif
+ifneq ($(CROSS_COMPILE),)
+ifeq ($(BUILDDIR),)
+  triplet=$(notdir $(CROSS_COMPILE:%-=%))
+  BUILDDIR:=$(srcdir)$(triplet)/
+endif
+endif
 ifneq ($(BUILDDIR),)
-  buildpath:=$(if $(findstring ./,$(dir $(BUILDDIR:%/=%))),$(PWD)/)$(BUILDDIR:%/=%)/
-  builddir:=$(buildpath)
+  builddir:=$(if $(findstring ./,$(dir $(BUILDDIR:%/=%))),$(PWD)/)$(BUILDDIR:%/=%)/
+  objdir:=$(builddir)$(cwdir)
 else
   builddir:=$(srcdir)
-endif
-ifneq ($(CROSS_COMPILE),)
-  buildpath:=$(builddir)$(CROSS_COMPILE:%-=%)/
+  objdir:=
 endif
 
 # internal configuration to install HEADERS file or not
@@ -92,11 +96,6 @@ ifneq ($(wildcard $(PATHCACHE)),)
   include $(PATHCACHE)
 endif
 
-ifneq ($(buildpath),)
-  objdir:=$(buildpath)$(cwdir)
-else
-  objdir:=
-endif
 hostbuilddir:=$(builddir)host/
 hostobjdir:=$(hostbuilddir)$(cwdir)
 
@@ -455,7 +454,10 @@ objs-target+=$(foreach t, $(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$(a
 objs-target+=$(foreach t, $(sysconf-y) $(data-y),$(addprefix $(objdir),$($(t)_GENERATED)))
 hostobjs-target:=$(foreach t, $(hostbin-y) $(hostslib-y),                    $(addprefix $(hostobjdir),$($(t)_GENERATED))	$(addprefix $(hostobjdir),$($(t)-objs)))
 
-lib-deps-target:=$(sort $(LIBRARY:%=deps_%) $(sort $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY:%=deps_%))))
+lib-deps-target:=$(sort $(LIBRARY:%=deps_%))
+lib-deps-target+=$(sort $(sort $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y),$($(t)_LIBRARY:%=deps_%))))
+lib-deps-target+=$(sort $(sort $(foreach t,$(slib-) $(lib-) $(bin-) $(sbin-) $(modules-),$($(t)_LIBRARY:%=deps_%))))
+lib-deps-target:=$(sort $(lib-deps-target))
 
 ifeq (STATIC,y)
 lib-static-target:=$(addprefix $(objdir),$(addsuffix $(slib-ext:%=.%),$(addprefix $(library_prefix),$(slib-y) $(lib-y))))
@@ -715,7 +717,7 @@ quiet_cmd_generate_makefile=MAKEFILE $(notdir $@/Makefile)
 # build rules
 ##
 .SECONDEXPANSION:
-$(sort $(hostobjdir) $(objdir) $(builddir) $(buildpath)): $(builddir)%: $(file)
+$(sort $(hostobjdir) $(objdir) $(builddir) $(buildpath)): $(file)
 	$(Q)$(call cmd,mkdir,$@)
 
 $(builddir)/Makefile: | $(builddir)
@@ -996,7 +998,7 @@ endef
 quiet_cmd_generate_config_h=CONFIG $(notdir $@)
 define cmd_generate_config_h
   $(file >> $@,$(call config_header_h))
-  $(foreach config,$2,$(if $(findstring n,$($(config))),,$(if $($(config)),$(file >> $@,#define $(config) $($(config)) $(newline)))))
+  $(foreach config,$2,$(if $(findstring $($(config)),n),,$(if $($(config)),$(file >> $@,#define $(config) $($(config)) $(newline)))))
   $(file >> $@)
   $(file >> $@,$(call config_footer_h))
 endef
