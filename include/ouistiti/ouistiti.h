@@ -130,6 +130,7 @@ int string_startwith(const string_t *str1, const string_t *str2);
 int string_printf(string_t *str, void *fmt,...);
 int string_fgetline(string_t *str, FILE *f);
 int string_cpy(string_t *str, const char *source, size_t length);
+int string_append(string_t *str, const char *source, size_t length);
 int string_empty(const string_t *str);
 const char *string_toc(const string_t *str);
 size_t string_length(const string_t *str);
