@@ -215,9 +215,12 @@ int string_split(string_t *str, char sep, ...)
 	for (size_t index = 0; index < str->length; index++)
 	{
 		string_t *arg = va_arg(ap, string_t *);
-		if (arg == NULL || ret > 10) ///10 for max elements
+		if (ret > 10) ///10 for max elements
 			break;
 		ret++;
+		/// return nb elements if string are not available
+		if (arg == NULL)
+			continue;
 		arg->data = &str->data[index];
 		while (arg->data[arg->length] != sep &&
 				arg->length < (str->length - (arg->data - str->data)))
@@ -225,7 +228,7 @@ int string_split(string_t *str, char sep, ...)
 		index += arg->length;
 		if (arg->ddata)
 		{
-			string_cpy(arg, arg->data, arg->length);
+			string_store(arg, arg->data, arg->length);
 			arg->data = arg->ddata;
 		}
 	}
