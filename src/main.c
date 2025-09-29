@@ -277,6 +277,21 @@ int string_cpy(string_t *str, const char *source, size_t length)
 	return ESUCCESS;
 }
 
+int string_append(string_t *str, const char *source, size_t length)
+{
+	if (str->ddata == NULL || (length == (size_t) -1) || (length > INT_MAX))
+		return EREJECT;
+	if ((str->length + length) > str->size)
+	{
+		str->size = str->length + length + 1;
+		str->ddata = realloc(str->ddata, str->size);
+	}
+	str->length += snprintf(str->ddata + str->length, str->size, "%.*s", (int)length, source);
+	if (str->length == str->size)
+		return EREJECT;
+	return ESUCCESS;
+}
+
 int string_printf(string_t *str, void *fmt,...)
 {
 	if (str->ddata != NULL)
