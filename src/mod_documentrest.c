@@ -55,6 +55,8 @@
 
 #define HAVE_SYMLINK
 
+static int _document_delete(_mod_document_mod_t *mod, int fdroot, const char *url, int urllen);
+
 static int restheader_connector(http_message_t *request, http_message_t *response, int error)
 {
 	const char *uri = NULL;
@@ -334,36 +336,47 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 	return fdfile;
 }
 
+static int _document_delete(_mod_document_mod_t *mod,
+		int fdroot, const char *url, int urllen)
+{
+	errno = 0;
+	if (faccessat(fdroot, url, F_OK, 0) == -1)
+	{
+		err("document: delete error. File is doesn't exist'");
+		return -1;
+	}
+	if (faccessat(fdroot, url, W_OK, AT_EACCESS | AT_SYMLINK_NOFOLLOW ))
+	{
+		err("document: delete error. File is not writeable");
+		return 0;
+	}
+	struct stat filestat;
+	if (fstatat(fdroot, url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW) == -1)
+	{
+		return 0;
+	}
+	int flags = 0;
+	if (S_ISDIR(filestat.st_mode))
+		flags |= AT_REMOVEDIR;
+	if (unlinkat(fdroot, url, flags) == -1)
+	{
+		err("document: delete error. Check directory access");
+		return 0;
+	}
+	return 1;
+}
+
 int _document_getconnnectordelete(_mod_document_mod_t *mod,
 		int fdroot, const char *url, int urllen, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
-	int error = 0;
-	int fdfile = -1;
-	errno = 0;
-	if (faccessat(fdroot, url, F_OK, 0) == -1)
-		return fdfile;
-	if (faccessat(fdroot, url, W_OK, AT_EACCESS | AT_SYMLINK_NOFOLLOW ))
+	int fdfile;
+	fdfile = _document_delete(mod, fdroot, url, urllen);
+	if (fdfile >= 0)
 	{
-		error = errno;
+		restheader_connector(request, response, errno);
 		fdfile = 0; /// The request is complete by this connector
 	}
-	struct stat filestat;
-	if (fdfile && fstatat(fdroot, url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW) == -1)
-	{
-		error = errno;
-		fdfile = 0; /// The request is complete by this connector
-	}
-	int flags = 0;
-	if (S_ISDIR(filestat.st_mode))
-		flags |= AT_REMOVEDIR;
-	if (fdfile)
-	{
-		fdfile = unlinkat(fdroot, url, flags);
-		error = errno;
-	}
-	restheader_connector(request, response, error);
-	fdfile = 0; /// The request is complete by this connector
 	return fdfile;
 }
