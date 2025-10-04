@@ -23,6 +23,8 @@ endif
 
 mod_auth_SOURCES-y+=authn_wwwform.c
 
+mod_auth_SOURCES-$(AUTHZ_TOTP)+=authz_totp.c
+
 mod_auth_SOURCES-$(AUTHZ_SIMPLE)+=authz_simple.c
 
 mod_auth_SOURCES-$(AUTHZ_FILE)+=authz_file.c
@@ -35,8 +37,6 @@ mod_auth_LIBRARY-$(AUTHZ_SQLITE)+=sqlite3
 
 mod_auth_SOURCES-$(AUTHZ_JWT)+=authz_jwt.c
 mod_auth_LIBRARY-$(AUTHZ_JWT)+=jansson
-
-mod_auth_SOURCES-$(AUTHZ_TOTP)+=authz_totp.c
 
 mod_auth_CFLAGS-$(MBEDTLS)+=-DTLS
 mod_auth_CFLAGS-$(WOLFSSL)+=-DTLS

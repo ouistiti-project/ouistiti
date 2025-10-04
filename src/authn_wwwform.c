@@ -87,14 +87,11 @@ static const char *authn_wwwform_checkrequest(void *arg, authz_t *authz, http_me
 	const mod_auth_t *config = mod->authn->config;
 	const char *user = NULL;
 
-	const char *uri = NULL;
-	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
-	if (string_contain(&config->token_ep, uri, urilen, '?'))
-		return NULL;
-
 	const char *content_type = NULL;
 	size_t content_typelen = httpmessage_REQUEST2(request, str_contenttype, &content_type);
-	if (! strncmp(content_type, str_form_urlencoded, content_typelen))
+	string_t contenttype = {0};
+	string_store(&contenttype, content_type, content_typelen);
+	if (! string_cmp(&contenttype, str_form_urlencoded, -1))
 	{
 		const char *username = NULL;
 		httpmessage_parameter(request, "username", &username);
