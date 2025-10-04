@@ -57,6 +57,7 @@ typedef struct authz_jwt_s authz_jwt_t;
 struct authz_jwt_s
 {
 	authz_token_config_t *config;
+	string_t *issuer;
 	const char *token;
 };
 
@@ -300,13 +301,14 @@ int authz_jwt_getinfo(const char *id_token, const char **user, const char **issu
 	return 0;
 }
 
-static void *authz_jwt_create(http_server_t *UNUSED(server), void *arg)
+static void *authz_jwt_create(http_server_t *UNUSED(server), string_t *issuer, void *arg)
 {
 	authz_jwt_t *ctx = NULL;
 	authz_token_config_t *config = (authz_token_config_t *)arg;
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
+	ctx->issuer = issuer;
 
 	return ctx;
 }

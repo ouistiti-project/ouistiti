@@ -43,6 +43,7 @@ struct authn_bearer_s
 {
 	const authn_t *authn;
 	http_client_t *clt;
+	string_t *issuer;
 };
 
 void *authn_bearer_config(const void *configauth, authn_type_t *type)
@@ -51,10 +52,11 @@ void *authn_bearer_config(const void *configauth, authn_type_t *type)
 	return (void *)(long)1;
 }
 
-static void *authn_bearer_create(const authn_t *authn, void *arg)
+static void *authn_bearer_create(const authn_t *authn, string_t *issuer, void *arg)
 {
 	authn_bearer_t *mod = calloc(1, sizeof(*mod));
 	mod->authn = authn;
+	mod->issuer = issuer;
 	return mod;
 }
 
@@ -65,7 +67,10 @@ static int authn_bearer_challenge(void *arg, http_message_t *UNUSED(request), ht
 	const mod_auth_t *config = mod->authn->config;
 
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Bearer realm=\""));
-	httpmessage_appendheader(response, str_authenticate, config->realm.data, config->realm.length);
+	const string_t *realm = mod->issuer;
+	if (!string_empty(&config->realm))
+		realm = &config->realm;
+	httpmessage_appendheader(response, str_authenticate, string_toc(realm), string_length(realm));
 	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	return ret;
 }
