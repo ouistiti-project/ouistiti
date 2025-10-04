@@ -91,7 +91,7 @@ struct authz_s
 	void *ctx;
 	authz_rules_t *rules;
 	authz_type_t type;
-	string_t name;
+	string_t *name;
 };
 
 struct mod_authz_s
