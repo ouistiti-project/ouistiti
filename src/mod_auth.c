@@ -440,6 +440,15 @@ static int auth_config(void *iterator, server_t *server, int index, void **confi
 }
 #endif
 
+static authz_t *_authz_dup(mod_authz_t *authz)
+{
+	authz_t *newauthz = calloc(1, sizeof(*newauthz));
+	newauthz->type = authz->type;
+	newauthz->rules = authz->rules;
+	newauthz->name = &authz->name;
+	return newauthz;
+}
+
 static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
@@ -447,23 +456,17 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	srandom(time(NULL));
 
 	if (!config)
+	if (!config || config->authz.rules == NULL)
+	{
+		err("auth: storage not set, change configuration");
 		return NULL;
+	}
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 
-	mod->authz = calloc(1, sizeof(*mod->authz));
-	mod->authz->type = config->authz.type;
-	string_store(&mod->authz->name,config->authz.name.data,config->authz.name.length);
+	mod->authz = _authz_dup(&config->authz);
 
-	mod->authz->rules = config->authz.rules;
-	if (mod->authz->rules == NULL)
-	{
-		err("auth: storage not set, change configuration");
-		free(mod->authz);
-		free(mod);
-		return NULL;
-	}
 	if (config->token.type == E_OUITOKEN)
 		mod->generatetoken = &_mod_auth_generatetoken;
 	else if (config->token.type == E_JWT)
