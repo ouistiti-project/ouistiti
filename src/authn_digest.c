@@ -47,6 +47,7 @@ struct authn_digest_s
 {
 	authn_digest_config_t *config;
 	const authn_t *authn;
+	string_t *issuer;
 	const hash_t *hash;
 	char _nonce[MAXNONCE];
 	string_t nonce;
@@ -97,13 +98,14 @@ static char str_nonce_rfc7616[] = "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v"
 static char str_nonce_rfc2617[] = "dcd98b7102dd2f0e8b11d0f600bfb0c093";
 #endif
 
-static void *authn_digest_create(const authn_t *authn, void *config)
+static void *authn_digest_create(const authn_t *authn, string_t *issuer, void *config)
 {
 	if (authn->config->authn.hash == NULL)
 		return NULL;
 	authn_digest_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_digest_config_t *)config;
 	mod->authn = authn;
+	mod->issuer = issuer;
 	mod->hash = authn->config->authn.hash;
 	string_store(&mod->nonce, mod->_nonce, 0);
 #ifdef DEBUG
@@ -191,12 +193,13 @@ static void * authn_digest_setup(void *arg, http_client_t *UNUSED(ctl), struct s
 static void authn_digest_www_authenticate(authn_digest_t *mod, http_message_t * response)
 {
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Digest "));
+	string_t *realm = mod->issuer;
 	if (!string_empty(&mod->authn->config->realm))
-	{
-		httpmessage_appendheader(response, str_authenticate, STRING_REF("realm=\""));
-		httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->authn->config->realm));
-		httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
-	}
+		realm = &mod->authn->config->realm;
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("realm=\""));
+	httpmessage_appendheader(response, str_authenticate, string_toc(realm), string_length(realm));
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
+
 	httpmessage_appendheader(response, str_authenticate, STRING_REF(",qop=\"auth\",nonce=\""));
 	httpmessage_appendheader(response, str_authenticate, STRING_INFO(mod->nonce));
 	httpmessage_appendheader(response, str_authenticate, STRING_REF("\",opaque=\""));

@@ -58,7 +58,7 @@ typedef enum
 } authz_type_t;
 
 typedef void *(*authz_rule_config_t)(const void *, authz_type_t *type);
-typedef void *(*authz_rule_create_t)(http_server_t *server, void *config);
+typedef void *(*authz_rule_create_t)(http_server_t *server, string_t *issuer, void *config);
 typedef void *(*authz_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 typedef const char *(*authz_rule_check_t)(void *arg, const char *user, const char *passwd, const char *token);
 typedef const int (*authz_rule_join_t)(void *arg, const char *user, const char *token, int expire);
@@ -114,7 +114,7 @@ typedef enum
 } authn_type_t;
 
 typedef void *(*authn_rule_config_t)(const void *, authn_type_t *type);
-typedef void *(*authn_rule_create_t)(const authn_t *authn, void *config);
+typedef void *(*authn_rule_create_t)(const authn_t *authn, string_t *issuer, void *config);
 typedef void *(*authn_rule_setup_t)(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize);
 typedef void (*authn_rule_cleanup_t)(void *arg);
 typedef int (*authn_rule_challenge_t)(void *arg, http_message_t *request, http_message_t *response);

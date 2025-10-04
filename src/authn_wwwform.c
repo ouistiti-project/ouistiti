@@ -42,6 +42,7 @@ typedef struct authn_wwwform_s authn_wwwform_t;
 struct authn_wwwform_s
 {
 	const authn_t *authn;
+	string_t *issuer;
 	http_client_t *clt;
 };
 
@@ -53,7 +54,7 @@ void *authn_wwwform_config(const void *configauth, authn_type_t *type)
 }
 #endif
 
-static void *authn_wwwform_create(const authn_t *authn, void *UNUSED(arg))
+static void *authn_wwwform_create(const authn_t *authn, string_t *issuer, void *UNUSED(arg))
 {
 	if (authn->config->token_ep.length == 0)
 	{
@@ -62,6 +63,7 @@ static void *authn_wwwform_create(const authn_t *authn, void *UNUSED(arg))
 	}
 	authn_wwwform_t *mod = calloc(1, sizeof(*mod));
 	mod->authn = authn;
+	mod->issuer = issuer;
 	return mod;
 }
 
@@ -72,12 +74,14 @@ static int authn_wwwform_challenge(void *arg, http_message_t *UNUSED(request), h
 	const mod_auth_t *config = mod->authn->config;
 
 	httpmessage_addheader(response, str_authenticate, STRING_REF("WWW-Form"));
+	const string_t *realm = mod->issuer;
 	if (!string_empty(&config->realm))
-	{
-		httpmessage_appendheader(response, str_authenticate, STRING_REF(" realm=\""));
-		httpmessage_appendheader(response, str_authenticate, STRING_INFO(config->realm));
-		httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
-	}
+		realm = &config->realm;
+
+	httpmessage_appendheader(response, str_authenticate, STRING_REF(" realm=\""));
+	httpmessage_appendheader(response, str_authenticate, string_toc(realm), string_length(realm));
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
+
 	return ret;
 }
 

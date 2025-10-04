@@ -76,6 +76,7 @@ typedef struct authz_unix_s authz_unix_t;
 struct authz_unix_s
 {
 	authz_file_config_t *config;
+	string_t *issuer;
 	struct passwd pwstore;
 	char passwd[NSS_BUFLEN_PASSWD];
 	string_t status;
@@ -98,13 +99,14 @@ void *authz_unix_config(const void *configauth, authz_type_t * type)
 }
 #endif
 
-static void *authz_unix_create(http_server_t *UNUSED(server), void *arg)
+static void *authz_unix_create(http_server_t *UNUSED(server), string_t *issuer, void *arg)
 {
 	authz_unix_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
+	ctx->issuer = issuer;
 	return ctx;
 }
 

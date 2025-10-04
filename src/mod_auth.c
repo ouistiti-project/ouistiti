@@ -472,7 +472,10 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	else if (config->token.type == E_JWT)
 		mod->generatetoken = &authz_jwt_generatetoken;
 
-	mod->authz->ctx = mod->authz->rules->create(server, config->authz.config);
+	string_t *issuer = mod->authz->name;
+	if (!string_empty(&config->token.issuer))
+		issuer = &config->token.issuer;
+	mod->authz->ctx = mod->authz->rules->create(server, issuer, config->authz.config);
 	if (mod->authz->ctx == NULL)
 	{
 		err("auth: authz %s not supported", string_toc(mod->authz->name));
@@ -493,7 +496,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		err("authentication type is not availlable, change configuration");
 	else
 	{
-		mod->authn->ctx = mod->authn->rules->create(mod->authn, config->authn.config);
+		mod->authn->ctx = mod->authn->rules->create(mod->authn, issuer, config->authn.config);
 	}
 	if (mod->authn->ctx)
 	{

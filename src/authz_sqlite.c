@@ -182,7 +182,7 @@ static sqlite3 * _authz_sqlite_opendb(const char *dbname)
 	return db;
 }
 
-static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
+static void *authz_sqlite_create(http_server_t *UNUSED(server), string_t *issuer, void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
 	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
@@ -197,6 +197,7 @@ static void *authz_sqlite_create(http_server_t *UNUSED(server), void *arg)
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
+	ctx->issuer = issuer;
 	ctx->db = _authz_sqlite_opendb(config->dbname);
 	return ctx;
 }

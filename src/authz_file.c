@@ -53,6 +53,7 @@ typedef struct authz_file_s authz_file_t;
 struct authz_file_s
 {
 	authz_file_config_t *config;
+	string_t *issuer;
 	string_t *storage;
 	string_t user;
 	string_t passwd;
@@ -87,7 +88,7 @@ void *authz_file_config(const void *configauth, authz_type_t * type)
 }
 #endif
 
-static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
+static void *authz_file_create(http_server_t *UNUSED(server), string_t *issuer, void *arg)
 {
 	authz_file_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;
@@ -114,6 +115,7 @@ static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
 #endif
 		ctx = calloc(1, sizeof(*ctx));
 		ctx->config = config;
+		ctx->issuer = issuer;
 #ifndef FILE_MMAP
 		ctx->storage = string_create(MAXLENGTH + 1);
 #else
