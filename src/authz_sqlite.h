@@ -63,6 +63,7 @@ typedef struct authz_sqlite_s authz_sqlite_t;
 struct authz_sqlite_s
 {
 	authz_sqlite_config_t *config;
+	string_t *issuer;
 	int ref;
 	sqlite3 *db;
 	sqlite3 *dbjoin;

@@ -58,6 +58,7 @@ struct authn_oauth2_s
 {
 	authn_oauth2_config_t *config;
 	authz_t *authz;
+	string_t *issuer;
 	http_client_t *clt;
 	void *vhost;
 	int state;
@@ -391,13 +392,14 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 	return ret;
 }
 
-static void *authn_oauth2_create(const authn_t *authn, void *config)
+static void *authn_oauth2_create(const authn_t *authn, string_t *issuer, void *config)
 {
 	if (authn->hash == NULL)
 		return NULL;
 	authn_oauth2_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_oauth2_config_t *)config;
 	mod->state = 0;
+	mod->issuer = issuer;
 	if (mod->config->realm == NULL)
 		mod->config->realm = httpserver_INFO(authn->server, "host");
 

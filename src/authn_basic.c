@@ -42,6 +42,7 @@ struct authn_basic_s
 {
 	authz_t *authz;
 	char *challenge;
+	string_t *issuer;
 };
 
 void *authn_basic_config(const void *configauth, authn_type_t *type)
@@ -50,15 +51,19 @@ void *authn_basic_config(const void *configauth, authn_type_t *type)
 }
 
 #define FORMAT "Basic realm=\"%s\""
-static void *authn_basic_create(const authn_t *authn, void *arg)
+static void *authn_basic_create(const authn_t *authn, string_t *issuer, void *arg)
 {
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
-	size_t length = sizeof(FORMAT) - 2
+	mod->issuer = issuer;
+	string_t *realm = issuer;
+	if (!string_empty(&authn->config->realm))
+		realm = &authn->config->realm;
+	size_t length = sizeof(FORMAT) - 2;
 					+ authn->config->realm.length + 1;
 	mod->challenge = calloc(1, length);
-	if (mod->challenge)
-		snprintf(mod->challenge, length, FORMAT, authn->config->realm.data);
-
+	if (mod->challenge == NULL)
+		return mod;
+	snprintf(mod->challenge, length, FORMAT, string_toc(realm));
 	return mod;
 }
 

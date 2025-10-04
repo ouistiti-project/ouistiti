@@ -72,6 +72,7 @@ typedef struct authz_totp_s authz_totp_t;
 struct authz_totp_s
 {
 	authz_totp_config_t *config;
+	string_t *issuer;
 	string_t *userkey;
 	char passwd[OTP_MAXDIGITS + 1];
 	http_server_t *server;
@@ -162,13 +163,14 @@ static int _authz_totp_connector(void *arg, http_message_t *request, http_messag
 	return EREJECT;
 }
 
-static void *authz_totp_create(http_server_t *server, void *arg)
+static void *authz_totp_create(http_server_t *server, string_t *issuer, void *arg)
 {
 	authz_totp_t *ctx = NULL;
 	authz_totp_config_t *config = (authz_totp_config_t *)arg;
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
+	ctx->issuer = issuer;
 	ctx->server = server;
 	ctx->userkey = string_create(HASH_MAX_SIZE + 1);
 	return ctx;
