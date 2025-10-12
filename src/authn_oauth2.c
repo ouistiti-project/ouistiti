@@ -422,6 +422,7 @@ static void *authn_oauth2_setup(void *arg, authz_t *authz, http_client_t *clt, s
 	cltmod->clt = clt;
 	cltmod->authz = authz;
 	cltmod->config = mod->config;
+	cltmod->issuer = mod->issuer;
 	httpclient_addconnector(clt, _oauth2_authresp_connector, cltmod, CONNECTOR_AUTH, str_oauth2);
 	return cltmod;
 }
