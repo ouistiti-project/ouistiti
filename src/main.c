@@ -130,6 +130,15 @@ int string_cmp(const string_t *str, const char *cmp, size_t length)
 	return strncasecmp(str->data, cmp, str->length);
 }
 
+int string_compare(const string_t *str1, const string_t *str2)
+{
+	if (str2 == NULL)
+		return -1;
+	if (str2->length != str1->length)
+		return (str2->length - str1->length);
+	return strncasecmp(str1->data, str2->data, str1->length);
+}
+
 #if 1
 int string_contain(const string_t *stack, const char *nail, size_t length, const char sep)
 {
@@ -212,25 +221,24 @@ int string_split(string_t *str, char sep, ...)
 #ifdef USE_STDARG
 	va_list ap;
 	va_start(ap, sep);
+	string_t *arg = va_arg(ap, string_t *);
 	for (size_t index = 0; index < str->length; index++)
 	{
-		string_t *arg = va_arg(ap, string_t *);
 		if (ret > 10) ///10 for max elements
 			break;
 		ret++;
-		/// return nb elements if string are not available
+		if (arg != NULL)
+			arg->data = &str->data[index];
+		while (str->data[index] != sep && index < str->length) index++;
 		if (arg == NULL)
 			continue;
-		arg->data = &str->data[index];
-		while (arg->data[arg->length] != sep &&
-				arg->length < (str->length - (arg->data - str->data)))
-			arg->length++;
-		index += arg->length;
+		arg->length = &str->data[index] - arg->data;
 		if (arg->ddata)
 		{
 			string_store(arg, arg->data, arg->length);
 			arg->data = arg->ddata;
 		}
+		arg = va_arg(ap, string_t *);
 	}
 	va_end(ap);
 #endif
@@ -301,6 +309,7 @@ int string_printf(string_t *str, void *fmt,...)
 		va_start(ap, fmt);
 		str->length = vsnprintf(str->ddata, str->size, fmt, ap);
 		va_end(ap);
+		str->data = str->ddata;
 		if (str->length < str->size)
 			return ESUCCESS;
 #endif

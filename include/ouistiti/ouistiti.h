@@ -125,6 +125,7 @@ void string_debug(string_t *str, const char *name);
 int string_store(string_t *str, const char *pointer, size_t length);
 int string_cmp(const string_t *str, const char *cmp, size_t length);
 int string_contain(const string_t *str, const char *cmp, size_t length, const char sep);
+int string_compare(const string_t *str1, const string_t *str2);
 int string_is(const string_t *str1, const string_t *str2);
 int string_startwith(const string_t *str1, const string_t *str2);
 int string_printf(string_t *str, void *fmt,...);
