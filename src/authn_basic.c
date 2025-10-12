@@ -40,8 +40,8 @@
 typedef struct authn_basic_s authn_basic_t;
 struct authn_basic_s
 {
+	const authn_t *authn;
 	authz_t *authz;
-	char *challenge;
 	string_t *issuer;
 };
 
@@ -50,20 +50,11 @@ void *authn_basic_config(const void *configauth, authn_type_t *type)
 	return (void *)(long)1;
 }
 
-#define FORMAT "Basic realm=\"%s\""
 static void *authn_basic_create(const authn_t *authn, string_t *issuer, void *arg)
 {
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
 	mod->issuer = issuer;
-	string_t *realm = issuer;
-	if (!string_empty(&authn->config->realm))
-		realm = &authn->config->realm;
-	size_t length = sizeof(FORMAT) - 2;
-					+ authn->config->realm.length + 1;
-	mod->challenge = calloc(1, length);
-	if (mod->challenge == NULL)
-		return mod;
-	snprintf(mod->challenge, length, FORMAT, string_toc(realm));
+	mod->authn = authn;
 	return mod;
 }
 
@@ -71,8 +62,14 @@ static int authn_basic_challenge(void *arg, http_message_t *UNUSED(request), htt
 {
 	int ret;
 	const authn_basic_t *mod = (authn_basic_t *)arg;
+	const mod_auth_t *config = mod->authn->config;
 
-	httpmessage_addheader(response, str_authenticate, mod->challenge, -1);
+	httpmessage_addheader(response, str_authenticate, STRING_REF("Basic realm=\""));
+	const string_t *realm = mod->issuer;
+	if (!string_empty(&config->realm))
+		realm = &config->realm;
+	httpmessage_appendheader(response, str_authenticate, string_toc(realm), string_length(realm));
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	ret = ECONTINUE;
 	return ret;
 }
@@ -104,8 +101,6 @@ static const char *authn_basic_check(void *arg, authz_t *authz, const char *meth
 static void authn_basic_destroy(void *arg)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
-	if (mod->challenge)
-		free(mod->challenge);
 	free(mod);
 }
 

@@ -210,6 +210,7 @@ static void *authz_sqlite_setup(void *arg, http_client_t *clt, struct sockaddr *
 #ifdef AUTHZ_SQLITE_CONTEXTSETUP
 	cltctx = calloc(1, sizeof(*cltctx));
 	cltctx->config = ctx->config;
+	cltctx->issuer = ctx->issuer;
 	cltctx->ref = ctx->ref;
 	if (ctx->db == NULL && config)
 	{
@@ -640,10 +641,9 @@ size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t len
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 	int userid = authz_sqlite_userid(ctx, user);
-
 	if (userid == EREJECT)
 	{
-		return EREJECT;
+		return 0;
 	}
 
 	size_t len = 0;

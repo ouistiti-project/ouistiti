@@ -1368,6 +1368,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else if (authorization != NULL)
 	{
+		string_t currentissuer = {0};
+		ouimessage_SESSION(request, str_issuer, &currentissuer);
 		if (httpclient_setsession(ctx->clt, authorization, -1) >= 0)
 		{
 			auth_dbg("auth: set the session");
@@ -1381,30 +1383,34 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				authz->rules->join(authz->ctx, user, authorization, mod->config->token.expire);
 			}
 		}
-		else if (string_empty(&issuer))
+		else if (string_empty(&issuer) &&
+			string_contain(&currentissuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
 		{
 			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
 			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
 		}
-		char issuerdata[254];
+		ouimessage_SESSION(request, str_issuer, &currentissuer);
+		char issuerdata[254] = {0};
 		size_t length = 0;
 		if (authz->rules->issuer)
 			length = authz->rules->issuer(authz->ctx, user, issuerdata, sizeof(issuerdata));
-		if (length > 0)
+		if (length > 0 &&
+			string_contain(&currentissuer, issuerdata, length, '+'))
 		{
 			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
 			httpclient_appendsession(ctx->clt, str_issuer, issuerdata, length);
 		}
 		dbg("auth: type %s", (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0));
 		const char *user = auth_info(request, STRING_REF(str_user));
-		const char *status = auth_info(request, STRING_REF(str_status));
-		if (status && !strcmp(status, str_status_reapproving))
+		string_t status = {0};
+		ouimessage_SESSION(request, str_status, &status);
+		if (!string_cmp(&status, str_status_reapproving, -1))
 		{
 			warn("auth: user \"%s\" accepted from %p to change password", user, ctx->clt);
 			httpclient_session(ctx->clt, STRING_REF(str_group), STRING_REF(str_status_reapproving));
 			ret = EREJECT;
 		}
-		else if (status && strcmp(status, str_status_activated) != 0)
+		else if (string_cmp(&status, str_status_activated, -1) != 0)
 		{
 			err("auth: user \"%s\" is not yet activated (%s) from %p", user, status, ctx->clt);
 			httpclient_dropsession(ctx->clt);
@@ -1412,8 +1418,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 		else
 		{
-			const char *issuerdata = httpclient_session(ctx->clt, str_issuer, -1, NULL, 0);
-			warn("auth: user \"%s\" accepted for %s from %p", user, issuerdata, ctx->clt);
+			string_t tempo = {0};
+			ouimessage_SESSION(request, str_issuer, &tempo);
+			warn("auth: user \"%s\" accepted for %s from %p", user, string_toc(&tempo), ctx->clt);
 			ret = EREJECT;
 		}
 		_auth_prepareresponse(ctx, request, response, authorization, token);
