@@ -1182,6 +1182,19 @@ int main(int argc, char * const *argv)
 		ouistiti_initmodules(modules_path);
 #endif
 
+	if (workingdir != NULL)
+	{
+		if (chroot(workingdir) == 0)
+		{
+			warn("main: daemon run inside sandbox");
+		}
+		else if (chdir(workingdir) != 0)
+		{
+			err("%s directory is not accessible", workingdir);
+			return 1;
+		}
+	}
+
 	ouistiticonfig_t *ouistiticonfig = NULL;
 	ouistiticonfig = ouistiticonfig_create(configfile);
 	if (ouistiticonfig == NULL)
@@ -1194,19 +1207,6 @@ int main(int argc, char * const *argv)
 	{
 		display_configuration(configfile, pidfile);
 		return 0;
-	}
-
-	if (workingdir != NULL)
-	{
-		if (chroot(workingdir) == 0)
-		{
-			warn("main: daemon run inside sandbox");
-		}
-		else if (chdir(workingdir) != 0)
-		{
-			err("%s directory is not accessible", workingdir);
-			return 1;
-		}
 	}
 
 	if (ouistiticonfig->init_d != NULL)
