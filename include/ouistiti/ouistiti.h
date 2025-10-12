@@ -128,6 +128,7 @@ int string_contain(const string_t *str, const char *cmp, size_t length, const ch
 int string_compare(const string_t *str1, const string_t *str2);
 int string_is(const string_t *str1, const string_t *str2);
 int string_startwith(const string_t *str1, const string_t *str2);
+string_t *string_rest(string_t *str1, const string_t *str2);
 int string_printf(string_t *str, void *fmt,...);
 int string_fgetline(string_t *str, FILE *f);
 int string_cpy(string_t *str, const char *source, size_t length);
@@ -136,7 +137,7 @@ int string_empty(const string_t *str);
 const char *string_toc(const string_t *str);
 size_t string_length(const string_t *str);
 size_t string_size(const string_t *str);
-int string_split(string_t *str, char sep, ...);
+int string_split(const string_t *str, char sep, ...);
 size_t string_slice(string_t *str, int start, int length);
 int string_dup(string_t *dst, const string_t *src);
 void string_cleansafe(string_t *str);

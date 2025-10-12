@@ -215,7 +215,7 @@ int string_contain(const string_t *stack, const char *nailorig, size_t length, c
 }
 #endif
 
-int string_split(string_t *str, char sep, ...)
+int string_split(const string_t *str, char sep, ...)
 {
 	int ret = 0;
 #ifdef USE_STDARG
@@ -233,9 +233,9 @@ int string_split(string_t *str, char sep, ...)
 		if (arg == NULL)
 			continue;
 		arg->length = &str->data[index] - arg->data;
-		if (arg->ddata)
+		if (arg->ddata && arg != str)
 		{
-			string_store(arg, arg->data, arg->length);
+			string_cpy(arg, arg->data, arg->length);
 			arg->data = arg->ddata;
 		}
 		arg = va_arg(ap, string_t *);
@@ -265,6 +265,19 @@ int string_startwith(const string_t *str1, const string_t *str2)
 	if (!strncasecmp(str1->data, str2->data, str2->length))
 		return 1;
 	return 0;
+}
+
+string_t *string_rest(string_t *str1, const string_t *str2)
+{
+	if ((str1 == NULL) || (str2 == NULL))
+		return NULL;
+	if ((str1->length < str2->length))
+		return NULL;
+	if (strncasecmp(str1->data, str2->data, str2->length))
+		return NULL;
+	str1->data += str2->length;
+	str1->length -= str2->length;
+	return str1;
 }
 
 int string_empty(const string_t *str)
@@ -330,12 +343,15 @@ int string_dup(string_t *dst, const string_t *src)
 
 size_t string_slice(string_t *str, int start, int length)
 {
+	size_t offset = str->data - str->ddata;
 	if (start > 0)
 	{
 		str->data += start;
 		str->length -= start;
+		if (str->ddata == NULL)
+			str->size -= start;
 	}
-	if (length > 0 && length < str->length)
+	if (length > 0 && ((str->data - str->ddata + length) < (offset + str->size)))
 		str->length = length;
 	return str->length;
 }
@@ -400,6 +416,8 @@ void string_destroy(string_t *str)
 	str->size = 0;
 	free(str);
 }
+
+/******************************************************************************/
 
 int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value)
 {
