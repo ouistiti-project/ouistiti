@@ -975,18 +975,8 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 		if (chdir(config->root))
 			err("main: change %s directory error !", config->root);
 	}
-#ifdef DEBUG
 	char pwd[PATH_MAX];
 	dbg("main: ouistiti running environment %s", getcwd(pwd, PATH_MAX));
-	struct dirent **namelist;
-	int n = scandir(".", &namelist, NULL, alphasort);
-	while (n-- > 0)
-	{
-		dbg("\t%s", namelist[n]->d_name);
-		free(namelist[n]);
-	}
-	free(namelist);
-#endif
 	ouistiti_setmodules(server, NULL, config->modulesconfig);
 	if (cwd[0] && chdir(cwd))
 		err("main: change directory error !");
