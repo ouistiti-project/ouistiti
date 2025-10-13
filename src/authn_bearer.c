@@ -46,6 +46,8 @@ struct authn_bearer_s
 	string_t *issuer;
 };
 
+static string_t string_bearer = STRING_DCL("Bearer ");
+
 void *authn_bearer_config(const void *configauth, authn_type_t *type)
 {
 	*type = AUTHN_REDIRECT_E | AUTHN_TOKEN_E;
@@ -81,28 +83,36 @@ static const char *authn_bearer_check(void *arg, authz_t *authz, const char *met
 	(void) method;
 	(void) uri;
 
-	if (!strncmp(string, "Bearer ", 7))
-		string += 7;
-	const char *user = NULL;
-	const char *data = string;
-	const char *sign = strrchr(string, '.');
-	if (sign != NULL)
+	string_t tempo = {0};
+	string_store(&tempo, string, stringlen);
+	string_t *authorization = &tempo;
+	authorization = string_rest(authorization, &string_bearer);
+	if (authorization == NULL)
+		return NULL;
+
+	/**
+	 * authorization format may be:
+	 *  <data>.<sign>
+	 * or
+	 *  <header>.<data>.<sign>
+	 */
+	string_t data[2] = {0};
+	string_t sign = {0};
+	string_split(authorization, '.', &data[0], &data[1], &sign, NULL);
+	if (string_empty(&sign))
 	{
-		size_t signlen = stringlen;
-		size_t datalen = sign - data;
-		sign++;
-		signlen -= sign - string;
-		const char *key = mod->authn->config->token.secret.data;
-		size_t keylen = mod->authn->config->token.secret.length;
-		if (authn_checksignature(key, keylen, data, datalen, sign, signlen) == ESUCCESS)
-		{
-			user = authz->rules->check(authz->ctx, NULL, NULL, string);
-		}
-		else
-			err("auth: bearer token with bad signature");
+		string_store(&sign, string_toc(&data[1]), string_length(&data[1]));
+	}
+	string_slice(authorization, 0, string_length(authorization) - string_length(&sign) - 1);
+
+	const char *user = NULL;
+	if (!string_empty(&sign) &&
+		authn_checksignature(&mod->authn->config->token.secret, authorization, &sign) == ESUCCESS)
+	{
+		user = authz->rules->check(authz->ctx, NULL, NULL, string_toc(authorization));
 	}
 	else
-		err("auth: bearer unsigned token");
+		err("auth: bearer token with bad signature");
 	return user;
 }
 

@@ -45,6 +45,8 @@ struct authn_basic_s
 	string_t *issuer;
 };
 
+static string_t string_basic = STRING_DCL("Basic ");
+
 void *authn_basic_config(const void *configauth, authn_type_t *type)
 {
 	return (void *)(long)1;
@@ -82,9 +84,16 @@ static const char *authn_basic_check(void *arg, authz_t *authz, const char *meth
 	(void) method;
 	(void) uri;
 
+	string_t data = {0};
+	string_store(&data, string, stringlen);
+	string_t *authorization = &data;
+	authorization = string_rest(authorization, &string_basic);
+	if (authorization == NULL)
+		return NULL;
+
 	memset(user, 0, 256);
 	auth_dbg("auth: basic check: %s", string);
-	base64->decode(string, stringlen, user, 256);
+	base64->decode(string_toc(authorization), string_length(authorization), user, 256);
 	passwd = strchr(user, ':');
 	if (passwd != NULL)
 	{
@@ -93,7 +102,7 @@ static const char *authn_basic_check(void *arg, authz_t *authz, const char *meth
 		found = authz->rules->check(authz->ctx, user, passwd, NULL);
 	}
 	else
-		found = authz->rules->check(authz->ctx, NULL, NULL, string);
+		found = authz->rules->check(authz->ctx, NULL, NULL, string_toc(authorization));
 	auth_dbg("auth: basic check: %s %s", user, passwd);
 	return found;
 }

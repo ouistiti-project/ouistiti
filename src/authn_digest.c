@@ -61,6 +61,8 @@ struct authn_digest_config_s
 	string_t opaque;
 };
 
+static string_t string_digest = STRING_DCL("digest ");
+
 #ifdef FILE_CONFIG
 #include <libconfig.h>
 void *authn_digest_config(const void *configauth, authn_type_t *type)
@@ -578,7 +580,7 @@ static int authn_digest_checkuser(void *data, const char *user, size_t length)
 			ret = ESUCCESS;
 		}
 		else
-			warn("auth: user %.*s is unknown", (int)(length * INT_MAX), user);
+			warn("auth: user %.*s is unknown", (int)(length & INT_MAX), user);
 	}
 	else
 		warn("auth: user is unset");
@@ -614,6 +616,10 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 		{.field = "opaque", .cb = authn_digest_checkopaque, .cbdata = &opaque},
 	};
 
+	string_t authorization = {0};
+	string_store(&authorization, string, stringlen);
+	if (!string_startwith(&authorization, &string_digest))
+		return NULL;
 	int ret = utils_parsestring(string, stringlen, 10, parser);
 	if (ret == ESUCCESS && authn_digest_computing)
 	{

@@ -226,13 +226,13 @@ static int authz_file_setsession(void *arg, const char *user, const char *token,
 	const authz_file_t *ctx = (const authz_file_t *)arg;
 
 	cb(cbarg, STRING_REF(str_user), STRING_INFO(ctx->user));
-	if (!strcmp(ctx->user.data, str_anonymous))
+	if (!string_cmp(&ctx->user, str_anonymous, -1))
 		cb(cbarg, STRING_REF(str_group), STRING_REF(str_anonymous));
-	else if (ctx->group.data && ctx->group.length > 0)
+	else if (!string_empty(&ctx->group))
 		cb(cbarg, STRING_REF(str_group), STRING_INFO(ctx->group));
 	else
 		cb(cbarg, STRING_REF(str_group), STRING_REF("users"));
-	if (ctx->home.data && ctx->home.length > 0)
+	if (!string_empty(&ctx->home))
 		cb(cbarg, STRING_REF(str_home), STRING_INFO(ctx->home));
 	cb(cbarg, STRING_REF(str_status), STRING_REF(str_status_activated));
 	if (token)
