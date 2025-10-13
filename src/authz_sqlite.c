@@ -107,10 +107,11 @@ static int _authz_sqlite_createdb(const char *dbname)
 					"\"name\" TEXT UNIQUE NOT NULL,"
 					"\"groupid\" INTEGER DEFAULT " STRINGIFY(DEFAULT_GROUPID) ","
 					"\"statusid\" INTEGER DEFAULT 1,"
-					"\"passwd\" TEXT,"
 					"\"home\" TEXT,"
 					"FOREIGN KEY (groupid) REFERENCES groups(id) ON UPDATE SET NULL,"
 					"FOREIGN KEY (statusid) REFERENCES status(id) ON UPDATE SET NULL);",
+		"create table passwds (\"userid\" INTEGER NOT NULL,\"passwd\" TEXT,\"issuer\" TEXT,"
+					"FOREIGN KEY (userid) REFERENCES users(id) ON DELETE CASCADE);",
 		"create table session (\"token\" TEXT PRIMARY KEY, \"userid\" INTEGER NOT NULL,\"expire\" INTEGER,"
 					"FOREIGN KEY (userid) REFERENCES users(id) ON DELETE CASCADE);",
 		"create table issuers (\"userid\" INTEGER NOT NULL,\"issuer\" TEXT,"
@@ -122,21 +123,29 @@ static int _authz_sqlite_createdb(const char *dbname)
 		"insert into groups (id, name) values(0, \"root\");",
 		"insert into groups (id, name) values(1, \"anonymous\");",
 		"insert into groups (id, name) values(2, \"users\");",
-		"insert into users (name,groupid, statusid,passwd,home)"
+		"insert into users (name,groupid, statusid,home)"
 #ifdef DEBUG
-			"values(\"root\",(select id from groups where name=\"root\"),(select id from status where name=\"activated\"),\"root\",\"/home/root\");",
+			"values(\"root\",(select id from groups where name=\"root\"),(select id from status where name=\"activated\"),\"/home/root\");",
 #else
-			"values(\"root\",(select id from groups where name=\"root\"),(select id from status where name=\"reapproving\"),\"root\",\"/home/root\");",
+			"values(\"root\",(select id from groups where name=\"root\"),(select id from status where name=\"reapproving\"),\"/home/root\");",
 #endif
+		"insert into passwds (userid,passwd)"
+			"values((select id from users where name=\"root\"),\"root\");",
 #ifdef AUTH_ANONYMOUS
-		"insert into users (name,groupid, statusid,passwd,home)"
-			"values(\"anonymous\",(select id from groups where name=\"anonymous\"),(select id from status where name=\"activated\"),\"\",\"null\");",
+		"insert into users (name,groupid, statusid,home)"
+			"values(\"anonymous\",(select id from groups where name=\"anonymous\"),(select id from status where name=\"activated\"),\"null\");",
+		"insert into passwds (userid,passwd)"
+			"values((select id from users where name=\"anonymous\"),\"\");",
 #endif
 #ifdef DEBUG
-		"insert into users (name,groupid, statusid,passwd,home)"
-			"values(\"foo\",(select id from groups where name=\"users\"),(select id from status where name=\"activated\"),\"bar\",\"/home/foo\");",
-		"insert into users (name,groupid, statusid,passwd,home)"
-			"values(\"johnDoe\",(select id from groups where name=\"users\"),(select id from status where name=\"activated\"),\"jane\",\"/home/john\");",
+		"insert into users (name,groupid, statusid,home)"
+			"values(\"foo\",(select id from groups where name=\"users\"),(select id from status where name=\"activated\"),\"/home/foo\");",
+		"insert into passwds (userid,passwd)"
+			"values((select id from users where name=\"foo\"),\"bar\");",
+		"insert into users (name,groupid, statusid,home)"
+			"values(\"johnDoe\",(select id from groups where name=\"users\"),(select id from status where name=\"activated\"),\"/home/john\");",
+		"insert into passwds (userid,passwd)"
+			"values((select id from users where name=\"johnDoe\"),\"jane\");",
 		"insert into issuers (userid,issuer)"
 			"values((select id from users where name=\"johnDoe\"),\"totp\");",
 #endif
@@ -320,9 +329,7 @@ int authz_sqlite_getuser_byName(authz_sqlite_t *ctx, const char * user, storeinf
 	if (ret == SQLITE_DONE)
 		err("auth: setsession error %s", sqlite3_errmsg(ctx->db));
 	else
-	{
-		dbg("auth: user %s not found in database", user);
-	}
+		warn("auth: user %s not found in database", user);
 	sqlite3_finalize(statement);
 	return EREJECT;
 }
@@ -399,11 +406,52 @@ static int authz_sqlite_setsession(void *arg, const char *user, const char *toke
 	return ret;
 }
 
+static int authz_sqlite_passwd_from_ID(authz_sqlite_t *ctx, int userid, string_t *issuer, string_t *passwd)
+{
+	int ret = -1;
+	const char *sql = "select passwd from passwds where userid=@USERID & issuer=@ISSUER;";
+
+	sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@USERID");
+	ret = sqlite3_bind_int(statement, index, userid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@ISSUER");
+	ret = sqlite3_bind_text(statement, index, string_toc(issuer), string_length(issuer), SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	ret = sqlite3_step(statement);
+	if (ret == SQLITE_ROW)
+	{
+		if (sqlite3_column_type(statement, 0) == SQLITE_TEXT)
+		{
+			int len = sqlite3_column_bytes(statement, 0);
+			const unsigned char *data = sqlite3_column_text(statement, 0);
+			if (data[0] == '\0')
+				len = 0;
+			string_cpy(passwd, data, len);
+		}
+	}
+	sqlite3_finalize(statement);
+	return ret;
+}
+
 static int authz_sqlite_passwd(void *arg, const string_t *user, string_t *passwd)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-
-	int ret = authz_sqlite_search(ctx, user, STRING_REF("passwd"), passwd);
+	int userid = authz_sqlite_userid(ctx, string_toc(user));
+	int ret = -1;
+	if (userid)
+		ret = authz_sqlite_passwd_from_ID(ctx, userid, ctx->issuer, passwd);
+	if (ret != SQLITE_ROW && userid)
+	{
+		string_t empty = STRING_DCL("");
+		ret = authz_sqlite_passwd_from_ID(ctx, userid, &empty, passwd);
+	}
 	return ret;
 }
 
@@ -702,15 +750,15 @@ static void authz_sqlite_destroy(void *arg)
 authz_rules_t authz_sqlite_rules =
 {
 	.config = authz_sqlite_config,
-	.create = &authz_sqlite_create,
-	.setup = &authz_sqlite_setup,
-	.check = &authz_sqlite_check,
-	.passwd = &authz_sqlite_passwd,
-	.issuer = &authz_sqlite_issuer,
-	.setsession = &authz_sqlite_setsession,
-	.join = &authz_sqlite_join,
-	.cleanup = &authz_sqlite_cleanup,
-	.destroy = &authz_sqlite_destroy,
+	.create = authz_sqlite_create,
+	.setup = authz_sqlite_setup,
+	.check = authz_sqlite_check,
+	.passwd = authz_sqlite_passwd,
+	.issuer = authz_sqlite_issuer,
+	.setsession = authz_sqlite_setsession,
+	.join = authz_sqlite_join,
+	.cleanup = authz_sqlite_cleanup,
+	.destroy = authz_sqlite_destroy,
 };
 
 static const string_t authz_name = STRING_DCL("sqlite");
