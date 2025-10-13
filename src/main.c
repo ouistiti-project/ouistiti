@@ -532,6 +532,17 @@ int ouiserver_INFO(http_server_t *server, const char *key, string_t *value)
 	string_store(value, data, datalen);
 	return ESUCCESS;
 }
+
+int ouimessage_cookie(http_message_t *request, const char *key, string_t *cookie)
+{
+	const char *data = NULL;
+	size_t datalen = httpmessage_cookie(request, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(cookie, data, datalen);
+	return ESUCCESS;
+}
+
 /******************************************************************************/
 const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 {

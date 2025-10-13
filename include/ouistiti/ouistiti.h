@@ -153,6 +153,7 @@ int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value
 int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value);
 int ouimessage_parameter(http_message_t *message, const char *key, string_t *value);
 int ouiserver_INFO(http_server_t *server, const char *key, string_t *value);
+int ouimessage_cookie(http_message_t *request, const char *key, string_t *cookie);
 
 extern const char str_servername[9];
 
