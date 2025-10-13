@@ -163,7 +163,7 @@ static int _oauth2_checkidtoken(authn_oauth2_t *mod, json_t *json_idtoken, auths
 	{
 		size_t datalen = sign - data;
 		sign++;
-		if (authn_checksignature(config->client_passwd, data, datalen, sign, strlen(sign)) == ESUCCESS)
+		if (authn_checksignature(&config->client_passwd, data, datalen, sign, strlen(sign)) == ESUCCESS)
 		{
 			jwt_decode(id_token, authinfo);
 			auth_dbg("oAuth2 id_token: %s", id_token);

@@ -442,24 +442,20 @@ static const char *_authz_sqlite_checktoken(authz_sqlite_t *ctx, const char *tok
 }
 #endif
 
-static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, const char *passwd)
+static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const string_t *user, const string_t *passwd)
 {
 	int ret = 0;
-	string_t userstr = {0};
-	string_store(&userstr, user, -1);
-	ret = authz_sqlite_passwd(ctx, &userstr, NULL);
+	ret = authz_sqlite_passwd(ctx, user, NULL);
 	string_t *checkpasswd = string_create(ret);
-	ret = authz_sqlite_passwd(ctx, &userstr, checkpasswd);
-	auth_dbg("auth: check password for %s => %s (%s)", user, passwd, checkpasswd);
+	ret = authz_sqlite_passwd(ctx, user, checkpasswd);
+	auth_dbg("auth: check password for %s => %s (%s)", string_toc(user), passwd, checkpasswd);
 	if (ret == ESUCCESS)
 	{
-		string_t passwdstr = {0};
-		string_store(&passwdstr, passwd, -1);
-		if (authz_checkpasswd(string_toc(checkpasswd), &userstr, NULL, &passwdstr) == ESUCCESS)
+		if (authz_checkpasswd(string_toc(checkpasswd), user, NULL, passwd) == ESUCCESS)
 			ret = 1;
 	}
 	else
-		err("auth: user %s not found in DB", user);
+		err("auth: user %s not found in DB", string_toc(user));
 	string_cleansafe(checkpasswd);
 	string_destroy(checkpasswd);
 	return ret;
@@ -468,6 +464,10 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const char *user, cons
 static const char *authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+	string_t userstr = {0};
+	string_store(&userstr, user, -1);
+	string_t passwdstr = {0};
+	string_store(&passwdstr, passwd, -1);
 
 #ifdef AUTH_TOKEN
 	if (token != NULL)
@@ -481,8 +481,8 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 			return user;
 	}
 #endif
-	if (user != NULL && passwd != NULL &&
-		!_authz_sqlite_checkpasswd(ctx, user, passwd))
+	if (!string_empty(&userstr) && !string_empty(&passwdstr) &&
+		!_authz_sqlite_checkpasswd(ctx, &userstr, &passwdstr))
 	{
 		user = NULL;
 	}
