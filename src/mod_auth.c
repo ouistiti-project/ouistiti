@@ -55,7 +55,6 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/hash.h"
 #include "ouistiti/log.h"
-#include "mod_cookie.h"
 #include "mod_auth.h"
 #include "authz_jwt.h"
 
@@ -888,22 +887,22 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 	if (!string_empty(token))
 	{
 		if (string_empty(sign))
-			cookie_set(response, &string_xtoken, token, &tsecure, &tsamesitelax, NULL);
+			ouimessage_setcookie(response, str_xtoken, token, &tsecure, &tsamesitelax, NULL);
 		else
-			cookie_set(response, &string_xtoken, token, &string_dot, sign, &tsecure, &tsamesitelax, NULL);
+			ouimessage_setcookie(response, str_xtoken, token, &string_dot, sign, &tsecure, &tsamesitelax, NULL);
 	}
 
 	const char *user = NULL;
 	size_t userlen = auth_info2(response, str_user, &user);
 	string_t tuser = {0};
 	string_store(&tuser, user, userlen);
-	cookie_set(response, &string_xuser, &tuser, NULL);
+	ouimessage_setcookie(response, str_xuser, &tuser, NULL);
 	const char *group = NULL;
 	size_t grouplen = auth_info2(response, str_group, &group);
 	string_t tgroup = {0};
 	string_store(&tgroup, group, grouplen);
 	if (!string_empty(&tgroup))
-		cookie_set(response, &string_xgroup, &tgroup, NULL);
+		ouimessage_setcookie(response, str_xgroup, &tgroup, NULL);
 	const char *home = NULL;
 	size_t homelen = auth_info2(response, str_home, &home);
 	string_t thome = {0};
@@ -911,7 +910,7 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 	if (!string_empty(&thome))
 	{
 		string_t string_tylde = STRING_DCL("~/");
-		cookie_set(response, &string_xhome, &string_tylde, NULL);
+		ouimessage_setcookie(response, str_xhome, &string_tylde, NULL);
 	}
 	return ESUCCESS;
 }
@@ -1099,7 +1098,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 #if 0
 		/// ---reset the Cookie to remove it on the client---
 		if (mod->authn->type & AUTHN_COOKIE_E)
-			cookie_set(response, &string_xtoken, "", ";Max-Age=0", NULL);
+			ouimessage_setcookie(response, str_xtoken, "", ";Max-Age=0", NULL);
 #endif
 
 		ret = ESUCCESS;
