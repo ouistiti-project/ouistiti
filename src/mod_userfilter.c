@@ -76,7 +76,7 @@ struct _mod_userfilter_s
 	int line;
 };
 
-int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
+static int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
 				const char *user, const char *group, const char *home,
 				const char *uri)
 {
@@ -175,27 +175,30 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 	sqlite3_stmt *statement;
 	const char *sql = "select exp from rules " \
 		"where methodid=@METHODID and " \
-		"(roleid=@USERID or roleid=@GROUPID or roleid=2);";
+		"(roleid=@USERID or roleid=@GROUPID or roleid=10);";
 	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	int index;
+	if (methodid == -4)
+		methodid = 0;
 	index = sqlite3_bind_parameter_index(statement, "@METHODID");
 	ret = sqlite3_bind_int(statement, index, methodid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
+	if (userid == -4)
+		userid = 1;
 	index = sqlite3_bind_parameter_index(statement, "@USERID");
 	ret = sqlite3_bind_int(statement, index, userid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
+	if (groupid == -4)
+		groupid = 1;
 	index = sqlite3_bind_parameter_index(statement, "@GROUPID");
 	ret = sqlite3_bind_int(statement, index, groupid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
-	userfilter_dbg("select exp from rules " \
-			"where methodid=%ld and " \
-			"(roleid=%ld or roleid=%ld or roleid=2);",
-			methodid, userid, groupid);
+	userfilter_dbg("userfilter: sql %s", sqlite3_expanded_sql(statement));
 	ret = EREJECT;
 	int step = sqlite3_step(statement);
 	while (step == SQLITE_ROW)
@@ -274,8 +277,7 @@ static int _insert_rule(_mod_userfilter_t *ctx, int64_t methodid, int64_t roleid
 	ret = sqlite3_bind_text(statement, index, exp, length, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
-	userfilter_dbg("userfilter: insert into rules (exp,methodid,roleid) values(%s,%ld,%ld);",
-		exp, methodid, roleid);
+	userfilter_dbg("userfilter: sql %s", sqlite3_expanded_sql(statement));
 	int step = sqlite3_step(statement);
 	if (step == SQLITE_DONE)
 	{
