@@ -543,6 +543,42 @@ int ouimessage_cookie(http_message_t *request, const char *key, string_t *cookie
 	return ESUCCESS;
 }
 
+int ouimessage_setcookie(http_message_t *response, const char *key, const string_t *value, ...)
+{
+	int ret = 0;
+	const char *domain = NULL;
+	size_t domainlen = httpmessage_REQUEST2(response, "domain", &domain);
+	ret = httpmessage_addheader(response, str_setcookie, key, -1);
+	if (ret == EREJECT)
+		return EREJECT;
+	httpmessage_appendheader(response, str_setcookie, STRING_REF("="));
+#ifdef USE_STDARG
+	va_list ap;
+	va_start(ap, value);
+	while (value != NULL)
+	{
+#endif
+		ret = httpmessage_appendheader(response, str_setcookie, string_toc(value), string_length(value));
+#ifdef USE_STDARG
+		value = va_arg(ap, const string_t *);
+	}
+	va_end(ap);
+#endif
+	const char sameSite[] = "strict";
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; SameSite="));
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF(sameSite));
+	const char path[] = "/";
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Path="));
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF(path));
+
+	if (domain != NULL && strncmp(domain, "local", 5))
+	{
+		ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Domain=."));
+		ret = httpmessage_appendheader(response, str_setcookie, domain, domainlen);
+	}
+	return ret;
+}
+
 /******************************************************************************/
 const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 {
