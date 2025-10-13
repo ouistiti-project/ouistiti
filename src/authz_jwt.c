@@ -43,6 +43,7 @@
 #include <jansson.h>
 
 #include "ouistiti/httpserver.h"
+#include "ouistiti/utils.h"
 #include "ouistiti/hash.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
@@ -65,13 +66,16 @@ struct authz_jwt_s
 #include <libconfig.h>
 void *authz_jwt_config(const void *configauth, authz_type_t *type)
 {
-	const char *authn = NULL;
-	int ret = config_setting_lookup_string(configauth, "type", &authn);
-	if (ret == CONFIG_TRUE && strncasecmp(authn,"bearer",6) != 0)
+	const char *name = NULL;
+	int ret = config_setting_lookup_string(configauth, "authz", &name);
+	if (ret != CONFIG_TRUE)
+		ret = config_setting_lookup_string(configauth, "options", &name);
+	if (ret != CONFIG_TRUE || utils_searchexp("jwt", name, NULL) != ESUCCESS)
 		return NULL;
 
 	authz_token_config_t *authz_config = calloc(1, sizeof(*authz_config));
 	const char *issuer = NULL;
+	*type |= AUTHZ_JWT_E;
 
 	ret = config_setting_lookup_string(configauth, str_issuer, &issuer);
 	if (ret == CONFIG_TRUE)
