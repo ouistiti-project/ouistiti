@@ -251,7 +251,7 @@ int string_is(const string_t *str1, const string_t *str2)
 		return 0;
 	if ((str1->length != str2->length))
 		return 0;
-	if (!strncasecmp(str1->data, str2->data, str1->length))
+	if (!strncmp(str1->data, str2->data, str1->length))
 		return 1;
 	return 0;
 }
@@ -282,13 +282,16 @@ string_t *string_rest(string_t *str1, const string_t *str2)
 
 int string_empty(const string_t *str)
 {
-	return ! (str->data != NULL && str->data[0] != '\0' && str->length > 0);
+	return ! (str != NULL && str->data != NULL && str->data[0] != '\0' && str->length > 0);
 }
 
 int string_cpy(string_t *str, const char *source, size_t length)
 {
 	if (str->ddata == NULL)
+	{
+		dbg("string: fgetline requires a dynamic string");
 		return EREJECT;
+	}
 	if ((length == (size_t) -1) || (length > INT_MAX))
 		str->length = snprintf(str->ddata, str->size, "%s", source);
 	else
@@ -327,6 +330,7 @@ int string_printf(string_t *str, void *fmt,...)
 			return ESUCCESS;
 #endif
 	}
+	dbg("string: printf requires a dynamic string");
 	return EREJECT;
 }
 
@@ -351,15 +355,38 @@ size_t string_slice(string_t *str, int start, int length)
 		if (str->ddata == NULL)
 			str->size -= start;
 	}
-	if (length > 0 && ((str->data - str->ddata + length) < (offset + str->size)))
+	if (((str->data - str->ddata + length) < (offset + str->size)))
 		str->length = length;
 	return str->length;
+}
+
+void string_unquote(string_t *str)
+{
+	if (str->data[0] == '\"')
+	{
+		str->data++;
+		str->length--;
+	}
+	if (str->data[str->length - 1] == '\"')
+		str->length--;
+}
+
+string_t *string_value(string_t *str, const char *header, size_t length)
+{
+	string_t key = {0};
+	string_store(&key, header, length);
+	string_t *value = string_rest(str, &key);
+	string_unquote(value);
+	return value;
 }
 
 int string_fgetline(string_t *str, FILE *file)
 {
 	if (str->ddata == NULL)
+	{
+		dbg("string: fgetline requires a dynamic string");
 		return EREJECT;
+	}
 	size_t length = 0;
 #if 1
 	do
@@ -388,7 +415,9 @@ int string_fgetline(string_t *str, FILE *file)
 
 const char *string_toc(const string_t *str)
 {
-	return str->data;
+	if (str)
+		return str->data;
+	return NULL;
 }
 
 void string_cleansafe(string_t *str)
