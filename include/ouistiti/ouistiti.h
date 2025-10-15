@@ -205,6 +205,9 @@ extern const char str_home[5];
 extern const char str_status[7];
 extern const char str_issuer[7];
 
+extern const char str_group_users[6];
+extern const char *str_group_anonymous;
+
 extern const char str_status_approving[10];
 extern const char str_status_reapproving[12];
 extern const char str_status_activated[10];
