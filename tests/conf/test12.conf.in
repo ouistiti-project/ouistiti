@@ -21,8 +21,9 @@ servers= ({
 			};
 			redirect = {
 				links = ({
-					options = "query,temporary";
+					options = "temporary";
 					origin = "^/token";
+					destination = "https://totp.ouistiti.local:8080";
 				});
 			};
 			document = {
@@ -35,7 +36,12 @@ servers= ({
 			};
 		},{
 			service = "totp";
-			auth = {
+			auth = ({
+				type = "None";
+				options = "jwt,cookie";
+				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
+				issuer = "sqlite";
+			},{
 				type = "Basic";
 				authz = "totp";
 				options = "jwt,cookie";
@@ -44,7 +50,7 @@ servers= ({
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html";
 				token_ep = "/token_totp";
-			};
+			});
 			redirect = {
 				links = ({
 					options = "query,temporary";
