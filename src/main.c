@@ -298,6 +298,7 @@ int string_cpy(string_t *str, const char *source, size_t length)
 		str->length = snprintf(str->ddata, str->size, "%.*s", (int)length, source);
 	if (str->length == str->size)
 		return EREJECT;
+	str->data = str->ddata;
 	return ESUCCESS;
 }
 

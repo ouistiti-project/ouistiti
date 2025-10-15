@@ -71,6 +71,9 @@ const char str_home[] = "home";
 const char str_status[] = "status";
 const char str_issuer[] = "issuer";
 
+const char str_group_users[] = "users";
+const char *str_group_anonymous = str_anonymous;
+
 const char str_status_approving[] = "approving";
 const char str_status_reapproving[] = "reapproving";
 const char str_status_activated[] = "activated";
