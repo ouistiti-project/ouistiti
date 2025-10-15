@@ -156,6 +156,7 @@ static int authmngt_setrules(const config_setting_t *configauth, mod_authmngt_t 
 		{
 			authmngt_dbg("authmngt: manager %s", authmngt_list[i]->name);
 			mngtconfig->mngt.rules = authmngt_list[i]->rules;
+			mngtconfig->mngt.name = authmngt_list[i]->name;
 			break;
 		}
 	}
@@ -196,7 +197,7 @@ static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int
 				return EREJECT;
 			}
 			const char *issuername = NULL;
-			if (config_setting_lookup_string(config, "issuer", &issuername) == CONFIG_TRUE)
+			if (config_setting_lookup_string(config, "issuer", &issuername) != CONFIG_TRUE)
 			{
 				issuername = mngtconfig->mngt.name;
 			}
@@ -658,19 +659,23 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	authsession_t info = {0};
 	string_t *issuer = string_create(254);
 	ret = _authmngt_parsesession(ctx, user, request, &info, issuer);
+	string_t currentrole = {0};
+	ouimessage_SESSION(request, str_group, &currentrole);
+	if (string_cmp(&currentrole, "root", -1) && !strncmp(info.group, "root", 4))
+		strncpy(info.group, str_group_users, sizeof(info.group));
+	if (info.group[0] == '\0')
+		strncpy(info.group, str_group_anonymous, sizeof(info.group));
 	if (ret == ESUCCESS && mod->config->mngt.rules->adduser != NULL && info.user[0] != '\0')
 	{
 		ret = mod->config->mngt.rules->adduser(ctx->ctx, &info);
 		if (ret == ESUCCESS && mod->config->mngt.rules->setsession != NULL)
-			ret = mod->config->mngt.rules->setsession(ctx->ctx, info.user, &info);
-		else
-			ctx->error = error_userexists;
-		if (ret == ESUCCESS && mod->config->mngt.rules->setissuer != NULL)
 		{
-			ret = mod->config->mngt.rules->setissuer(ctx->ctx, info.user, string_toc(issuer), string_length(issuer));
+			ret = mod->config->mngt.rules->setsession(ctx->ctx, info.user, &info);
+			if (ret != ESUCCESS)
+				ctx->error = error_badvalue;
 		}
 		else
-			ctx->error = error_badvalue;
+			ctx->error = error_userexists;
 		if (ret == ESUCCESS)
 			ret = _authmngt_userresponse(ctx, &info, request, response);
 		if (ret == ESUCCESS)
@@ -697,6 +702,13 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 	authsession_t info = {0};
 	string_t *issuer = string_create(256);
 	ret = _authmngt_parsesession(ctx, user, request, &info, issuer);
+
+	string_t currentrole = {0};
+	ouimessage_SESSION(request, str_group, &currentrole);
+	if (string_cmp(&currentrole, "root", -1) && !strncmp(info.group, "root", 4))
+		strncpy(info.group, str_group_users, sizeof(info.group));
+	if (info.group[0] == '\0')
+		strncpy(info.group, str_group_anonymous, sizeof(info.group));
 
 	if (ret == ESUCCESS && ctx->isroot && mod->config->mngt.rules->changeinfo != NULL)
 	{
