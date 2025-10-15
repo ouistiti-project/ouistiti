@@ -1177,7 +1177,7 @@ static int auth_saveinfo(void *arg, const char *key, size_t keylen, const char *
 }
 
 static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response,
-					const string_t *authorization, string_t *token, string_t *sign)
+					const string_t *authorization, string_t *token)
 {
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
@@ -1191,7 +1191,10 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	{
 		ttokenlen = mod->generatetoken(&mod->config->token, request, &ttoken);
 		string_store(token, ttoken, ttokenlen);
-
+	}
+	string_t sign = {0};
+	if (!string_empty(token) && config->authz.type & AUTHZ_TOKEN_E)
+	{
 		tsignlen = (int)(HASH_MAX_SIZE * 1.5) + 1;
 		tsign = calloc(1, tsignlen);
 
@@ -1200,7 +1203,7 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, ttokenlen);
 		else
 			httpclient_session(ctx->clt, STRING_REF(str_token), tsign, tsignlen);
-		string_store(sign, tsign, tsignlen);
+		string_store(&sign, tsign, tsignlen);
 
 		char strexpire[100];
 		size_t lenexpire = snprintf(strexpire, 100, "max-age=%lu, must-revalidate", config->token.expire * 60);
@@ -1210,11 +1213,11 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
-		_authn_setauthorization_header(ctx, authorization, token, sign, response);
+		_authn_setauthorization_header(ctx, authorization, token, &sign, response);
 	}
 	else if (mod->authn->type & AUTHN_COOKIE_E)
 	{
-		_authn_setauthorization_cookie(ctx, authorization, token, sign, response);
+		_authn_setauthorization_cookie(ctx, authorization, token, &sign, response);
 	}
 	else if (ttoken != NULL) /// token was generated but not sent
 		warn("auth: token not sent. Configure (%s) header or cookie as options", string_toc(&config->token.issuer));
@@ -1306,7 +1309,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			ret = EREJECT;
 		}
 		else
-			string_cleansafe(&issuer);
+		{
+			string_slice(&issuer, 0, 0);
+			string_slice(&token, 0, 0);
+		}
 		auth_dbg("auth: check issuer %d", ret);
 	}
 	if (ret == EREJECT)
@@ -1391,7 +1397,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			warn("auth: user \"%s\" accepted for %s from %p", user, string_toc(&tempo), ctx->clt);
 			ret = EREJECT;
 		}
-		_auth_prepareresponse(ctx, request, response, &authorization, &token, &authorization);
+		_auth_prepareresponse(ctx, request, response, &authorization, &token);
 	}
 	else
 	{
