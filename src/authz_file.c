@@ -65,11 +65,11 @@ typedef struct authz_ctx_s authz_ctx_t;
 struct authz_ctx_s
 {
 	authz_mod_t *mod;
-	string_t *storage;
 	string_t user;
 	string_t passwd;
 	string_t group;
 	string_t home;
+	string_t *storage;
 };
 
 struct authz_file_config_s
@@ -136,7 +136,7 @@ static void *authz_file_create(http_server_t *UNUSED(server), string_t *issuer, 
 	return mod;
 }
 
-static void *authz_file_setup(void *arg)
+static void *authz_file_setup(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	authz_mod_t *mod = (authz_mod_t *)arg;
 	string_t *storage = NULL;
@@ -145,7 +145,7 @@ static void *authz_file_setup(void *arg)
 	if (storage == NULL)
 		return NULL;
 #endif
-	authz_ctx_t *ctx = calloc(1, sizeof(ctx));
+	authz_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	ctx->mod = mod;
 	ctx->storage = storage;
 	return ctx;
@@ -203,7 +203,7 @@ static int authz_file_passwd(void *arg, const string_t *user, string_t *passwd)
 	if (file)
 		fclose(file);
 	else
-		err("authz: password file not found");
+		err("authz: password file %s not found", config->path);
 #endif
 	return ret;
 }
@@ -284,11 +284,13 @@ static void authz_file_destroy(void *arg)
 authz_rules_t authz_file_rules =
 {
 	.config = authz_file_config,
-	.create = &authz_file_create,
-	.check = &authz_file_check,
-	.passwd = &authz_file_passwd,
-	.setsession = &authz_file_setsession,
-	.destroy = &authz_file_destroy,
+	.create = authz_file_create,
+	.setup = authz_file_setup,
+	.check = authz_file_check,
+	.passwd = authz_file_passwd,
+	.setsession = authz_file_setsession,
+	.cleanup = authz_file_cleanup,
+	.destroy = authz_file_destroy,
 };
 
 static const string_t authz_name = STRING_DCL("file");
