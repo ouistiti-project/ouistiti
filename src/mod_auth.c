@@ -785,10 +785,9 @@ static const char *_authn_gettokenuser(const _mod_auth_ctx_t *ctx, http_message_
 	return user;
 }
 
-static size_t _authn_signtoken(const string_t *key,	const string_t *data,
-		char *b64signature, size_t b64signaturelen)
+static string_t *_authn_signtoken(const string_t *key,	const string_t *data)
 {
-	size_t length = 0;
+	string_t *sign = NULL;
 
 	if (hash_macsha256 != NULL && key != NULL)
 	{
@@ -798,30 +797,25 @@ static size_t _authn_signtoken(const string_t *key,	const string_t *data,
 			hash_macsha256->update(ctx, string_toc(data), string_length(data));
 			char signature[HASH_MAX_SIZE];
 			size_t signlen = hash_macsha256->finish(ctx, signature);
-			if (b64signaturelen < signlen)
-			{
-				err("auth: signature buffer too small");
-				return -1;
-			}
-			length = base64_urlencoding->encode(signature, signlen, b64signature, b64signaturelen);
-			auth_dbg("auth: signature %s", b64signature);
+			sign = string_create((int)(HASH_MAX_SIZE * 1.5) + 1);
+			size_t length = 0;
+			length = base64_urlencoding->encode(signature, signlen, string_storage(sign), string_size(sign));
+			string_slice(sign, 0, length);
+			auth_dbg("auth: signature %.*s", string_size(sign), string_toc(sign));
 		}
 	}
-	return length;
+	return sign;
 }
 
 int authn_checksignature(const string_t *key, const string_t *data, const string_t *sign)
 {
-	char b64signature[(int)(HASH_MAX_SIZE * 1.5) + 1];
-	size_t len =_authn_signtoken(key, data, b64signature, sizeof(b64signature));
-	if (len == (size_t)-1)
+	string_t *signature = NULL;
+	signature = _authn_signtoken(key, data);
+	if (signature == NULL)
 		return EREJECT;
-	string_t signature = {0};
-	string_store(&signature, b64signature, len);
-	dbg("auth: signature should be '%.*s'", (int)(len & INT_MAX), b64signature);
-	if (string_compare(&signature, sign))
-		return EREJECT;
-	return ESUCCESS;
+	int ret = string_compare(signature, sign);
+	string_destroy(signature);
+	return ret?EREJECT:ESUCCESS;
 }
 
 static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const string_t *token, const string_t *sign, const char **user)
@@ -1184,26 +1178,16 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 
 	char *ttoken = NULL;
 	size_t ttokenlen = -1;
-	char *tsign = NULL;
-	size_t tsignlen = -1;
+	string_t *sign = NULL;
 #ifdef AUTH_TOKEN
-	if (string_empty(token) && config->authz.type & AUTHZ_TOKEN_E)
+	if (config->authz.type & AUTHZ_TOKEN_E)
 	{
 		ttokenlen = mod->generatetoken(&mod->config->token, request, &ttoken);
 		string_store(token, ttoken, ttokenlen);
 	}
-	string_t sign = {0};
 	if (!string_empty(token) && config->authz.type & AUTHZ_TOKEN_E)
 	{
-		tsignlen = (int)(HASH_MAX_SIZE * 1.5) + 1;
-		tsign = calloc(1, tsignlen);
-
-		tsignlen = _authn_signtoken(&mod->config->token.secret, token, tsign, tsignlen);
-		if (tsignlen == 0)
-			httpclient_session(ctx->clt, STRING_REF(str_token), ttoken, ttokenlen);
-		else
-			httpclient_session(ctx->clt, STRING_REF(str_token), tsign, tsignlen);
-		string_store(&sign, tsign, tsignlen);
+		sign = _authn_signtoken(&mod->config->token.secret, token);
 
 		char strexpire[100];
 		size_t lenexpire = snprintf(strexpire, 100, "max-age=%lu, must-revalidate", config->token.expire * 60);
@@ -1213,11 +1197,11 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 
 	if (mod->authn->type & AUTHN_HEADER_E)
 	{
-		_authn_setauthorization_header(ctx, authorization, token, &sign, response);
+		_authn_setauthorization_header(ctx, authorization, token, sign, response);
 	}
 	else if (mod->authn->type & AUTHN_COOKIE_E)
 	{
-		_authn_setauthorization_cookie(ctx, authorization, token, &sign, response);
+		_authn_setauthorization_cookie(ctx, authorization, token, sign, response);
 	}
 	else if (ttoken != NULL) /// token was generated but not sent
 		warn("auth: token not sent. Configure (%s) header or cookie as options", string_toc(&config->token.issuer));
@@ -1229,8 +1213,8 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	}
 	if (ttoken)
 		free(ttoken);
-	if (tsign)
-		free(tsign);
+	if (sign)
+		string_destroy(sign);
 	return ESUCCESS;
 }
 
