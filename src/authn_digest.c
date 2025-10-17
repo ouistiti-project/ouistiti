@@ -51,7 +51,7 @@ struct authn_digest_s
 	const hash_t *hash;
 	char _nonce[MAXNONCE];
 	string_t nonce;
-	string_t user;
+	string_t *user;
 	int stale;
 	int encode;
 };
@@ -644,12 +644,12 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 						a2, a2len);
 
 		auth_dbg("Digest:\n\t%.*s\n\t%s", (int)response.length, response.value, digest);
-		if (!string_empty(&mod->user))
-			string_destroy(&mod->user);
+		if (!string_empty(mod->user))
+			string_destroy(mod->user);
 		if (digest && !strncmp(digest, response.value, response.length))
 		{
-			string_dup(&mod->user, &user.name);
-			user_ret = string_toc(&mod->user);
+			mod->user = string_dup(&user.name);
+			user_ret = string_toc(mod->user);
 		}
 		free (a1);
 		free (a2);
@@ -666,6 +666,8 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 static void authn_digest_destroy(void *arg)
 {
 	authn_digest_t *mod = (authn_digest_t *)arg;
+	if (mod->user)
+		string_destroy(mod->user);
 	free(mod->config);
 	free(mod);
 }

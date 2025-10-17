@@ -57,7 +57,7 @@
 typedef struct authz_jwt_s authz_jwt_t;
 struct authz_jwt_s
 {
-	authz_token_config_t *config;
+	authtoken_config_t *config;
 	string_t *issuer;
 	const char *token;
 };
@@ -73,7 +73,7 @@ void *authz_jwt_config(const void *configauth, authz_type_t *type)
 	if (ret != CONFIG_TRUE || utils_searchexp("jwt", name, NULL) != ESUCCESS)
 		return NULL;
 
-	authz_token_config_t *authz_config = calloc(1, sizeof(*authz_config));
+	authtoken_config_t *authz_config = calloc(1, sizeof(*authz_config));
 	const char *issuer = NULL;
 	*type |= AUTHZ_JWT_E;
 
@@ -86,9 +86,9 @@ void *authz_jwt_config(const void *configauth, authz_type_t *type)
 }
 #endif
 
-string_t *authz_jwt_generatetoken(void *arg, http_message_t *request)
+string_t *authz_jwt_generatetoken(authtoken_ctx_t *ctx, http_message_t *request)
 {
-	const authz_token_config_t *config = (const authz_token_config_t *)arg;
+	const authtoken_config_t *config = ctx->config;
 #ifdef JWT_FORMATHEADER
 	json_t *jheader = json_object();
 	json_object_set(jheader, "alg", json_string("HS256"));
@@ -269,13 +269,13 @@ static const char *_jwt_get(const json_t *jinfo, const char *key)
 static const char *_jwt_getuser(const json_t *jinfo)
 {
 	const char *user = NULL;
-	user = _jwt_get(jinfo, "preferred_username");
+	user = _jwt_get(jinfo, str_user);
+	if (user == NULL)
+		user = _jwt_get(jinfo, "preferred_username");
 	if (user == NULL)
 		user = _jwt_get(jinfo, "name");
 	if (user == NULL)
 		user = _jwt_get(jinfo, "username");
-	if (user == NULL)
-		user = _jwt_get(jinfo, str_user);
 	if (user == NULL || user[0] == '\0')
 		user = str_anonymous;
 	return user;
@@ -308,8 +308,8 @@ int authz_jwt_getinfo(const char *id_token, const char **user, const char **issu
 
 static void *authz_jwt_create(http_server_t *UNUSED(server), string_t *issuer, void *arg)
 {
-	authz_jwt_t *ctx = NULL;
-	authz_token_config_t *config = (authz_token_config_t *)arg;
+	authz_mod_t *ctx = NULL;
+	authtoken_config_t *config = (authtoken_config_t *)arg;
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
@@ -318,7 +318,7 @@ static void *authz_jwt_create(http_server_t *UNUSED(server), string_t *issuer, v
 	return ctx;
 }
 
-static int _authn_jwt_checktoken(const authz_token_config_t *config, const char *token, json_t *jinfo)
+static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json_t *jinfo)
 {
 	int ret = EREJECT;
 	if (jinfo != NULL)
@@ -327,12 +327,12 @@ static int _authn_jwt_checktoken(const authz_token_config_t *config, const char 
 		{
 			return EREJECT;
 		}
-		const char *issuer = _jwt_get(jinfo, "iss");
-		string_t strissuer = {0};
-		string_store(&strissuer, issuer, -1);
-		if (issuer && string_contain(&strissuer, string_toc(&config->issuer), string_length(&config->issuer), '+'))
+		const char *issdata = _jwt_get(jinfo, "iss");
+		string_t iss = {0};
+		string_store(&iss, issdata, -1);
+		if (string_contain(&iss, string_toc(issuer), string_length(issuer), '+'))
 		{
-			err("auth: token with bad issuer: %s / %s", issuer, string_toc(&config->issuer));
+			err("auth: token with bad issuer: %s / %s",  string_toc(&iss), string_toc(issuer));
 			return EREJECT;
 		}
 		ret = ESUCCESS;
@@ -362,10 +362,15 @@ static int _authn_jwt_checktoken(const authz_token_config_t *config, const char 
 	return ret;
 }
 
-int authn_jwt_checktoken(const authz_token_config_t *config, const char *token)
+int authz_jwt_checktoken(authtoken_ctx_t *ctx, const string_t *token, const char **user)
 {
-	json_t *jinfo = jwt_decode_json(token, 0);
-	int ret = _authn_jwt_checktoken(config, token, jinfo);
+	json_t *jinfo = jwt_decode_json(string_toc(token), 0);
+	int ret = _authn_jwt_checktoken(&ctx->config->issuer, string_toc(token), jinfo);
+	string_t tuser = {0};
+	string_store(&tuser, _jwt_getuser(jinfo), -1);
+	ctx->user = string_dup(&tuser);
+	if (user)
+		*user = string_toc(ctx->user);
 	json_decref(jinfo);
 	return ret;
 }
@@ -374,7 +379,7 @@ static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const ch
 {
 	authz_jwt_t *ctx = (authz_jwt_t *)arg;
 	json_t *jinfo = jwt_decode_json(token, 0);
-	if (_authn_jwt_checktoken(ctx->config, token, jinfo) == ESUCCESS)
+	if (_authn_jwt_checktoken(ctx->issuer, token, jinfo) == ESUCCESS)
 	{
 		ctx->token = token;
 		return _jwt_getuser(jinfo);
