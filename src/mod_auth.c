@@ -80,7 +80,7 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 static int _forbidden_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifdef AUTH_TOKEN
-static size_t _mod_auth_generatetoken(void *arg, http_message_t *UNUSED(request), char **token);
+static string_t *_mod_auth_generatetoken(void *arg, http_message_t *UNUSED(request));
 #endif
 
 static const char str_auth[] = "auth";
@@ -693,32 +693,50 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 }
 
 #ifdef AUTH_TOKEN
-static size_t _mod_auth_generatetoken(void *arg, http_message_t *request, char **token)
+static string_t *_mod_auth_generatetoken(void *arg, http_message_t *request)
 {
 	const authz_token_config_t *config = (const authz_token_config_t *)arg;
-	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
-	size_t tokenlen = _noncelen + (_noncelen + 2) / 3;
-	*token = calloc(2, tokenlen + 1);
+
+	string_t user = {0};
+	ouimessage_SESSION(request, str_user, &user);
+	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t) + 1 + string_length(&user);
+	size_t tokenlen = (_noncelen * 5) / 3;
+
+	string_t *token = NULL;
+	token = string_create(tokenlen + 1);
+
+	size_t length = 0;
 	char *_nonce = calloc(1, _noncelen + 1);
 	int i;
 	for (i = 0; i < (24 / sizeof(int)); i++)
 	{
 		*(int *)(_nonce + i * 4) = random();
 	}
-	_nonce[24] = '.';
+	length += 24;
+	_nonce[length] = '.';
+	length++;
 	time_t expire = (config->expire * 60);
 	if (expire == 0)
 		expire = 60 * 30;
 	expire += time(NULL);
-	memcpy(&_nonce[25], &expire, sizeof(time_t));
-	if (config->issuer.data != NULL)
+	memcpy(&_nonce[length], &expire, sizeof(time_t));
+	length += sizeof(time_t);
+	if (!string_empty(&config->issuer))
 	{
-		_nonce[25 + sizeof(time_t)] = '.';
-		memcpy(&_nonce[25 + sizeof(time_t) + 1], config->issuer.data, config->issuer.length);
+		_nonce[length] = '.';
+		length++;
+		memcpy(&_nonce[length], string_toc(&config->issuer), string_length(&config->issuer));
 	}
-	tokenlen = base64_urlencoding->encode(_nonce, _noncelen, *token, tokenlen);
+	if (!string_empty(&user))
+	{
+		_nonce[length] = '.';
+		length++;
+		memcpy(&_nonce[length], string_toc(&user), string_length(&user));
+	}
+	tokenlen = base64_urlencoding->encode(_nonce, length, string_storage(token), string_size(token));
+	string_slice(token, 0, tokenlen);
 	free(_nonce);
-	return tokenlen;
+	return token;
 }
 
 static int _authn_checktoken(const authz_token_config_t *config, const string_t *token)
@@ -729,12 +747,28 @@ static int _authn_checktoken(const authz_token_config_t *config, const string_t 
 	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
 	char *_nonce = calloc(1, _noncelen + 1);
 	_noncelen = base64_urlencoding->decode(string_toc(token), string_length(token), _nonce, _noncelen);
+	size_t length = 0;
+	length += 24; // passthrough the random part of nonce
+	length += 1; // the , separator
 	time_t expire = 0;
-	memcpy(&expire, &_nonce[25], sizeof(time_t));
+	memcpy(&expire, &_nonce[length], sizeof(time_t));
 	free(_nonce);
+	length += sizeof(time_t);
 	if (expire < time(NULL))
 	{
 		err("auth: token expired");
+		free(_nonce);
+		return EREJECT;
+	}
+	length += 1; // the , separator
+	string_t user = {0};
+	string_t issuer = {0};
+	string_store(&issuer, &_nonce[length], _noncelen - length);
+	string_split(&issuer, ',', &issuer, &user, NULL);
+	auth_dbg("auth: check issuer %.*s/%s", string_length(&issuer), string_toc(&issuer), string_toc(&config->issuer));
+	if (string_contain(&issuer, string_toc(&config->issuer), string_length(&config->issuer), '+'))
+	{
+		free(_nonce);
 		return EREJECT;
 	}
 	return ESUCCESS;
@@ -1171,19 +1205,19 @@ static int auth_saveinfo(void *arg, const char *key, size_t keylen, const char *
 }
 
 static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response,
-					const string_t *authorization, string_t *token)
+					const string_t *authorization)
 {
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
 	char *ttoken = NULL;
 	size_t ttokenlen = -1;
+	string_t *token = NULL;
 	string_t *sign = NULL;
 #ifdef AUTH_TOKEN
 	if (config->authz.type & AUTHZ_TOKEN_E)
 	{
-		ttokenlen = mod->generatetoken(&mod->config->token, request, &ttoken);
-		string_store(token, ttoken, ttokenlen);
+		token = mod->generatetoken(&mod->config->token, request);
 	}
 	if (!string_empty(token) && config->authz.type & AUTHZ_TOKEN_E)
 	{
@@ -1211,8 +1245,8 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 		const char *user = auth_info(request, STRING_REF(str_user));
 		ouistiti_setprocessowner(user);
 	}
-	if (ttoken)
-		free(ttoken);
+	if (token)
+		string_destroy(token);
 	if (sign)
 		string_destroy(sign);
 	return ESUCCESS;
@@ -1381,7 +1415,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			warn("auth: user \"%s\" accepted for %s from %p", user, string_toc(&tempo), ctx->clt);
 			ret = EREJECT;
 		}
-		_auth_prepareresponse(ctx, request, response, &authorization, &token);
+		_auth_prepareresponse(ctx, request, response, &authorization);
 	}
 	else
 	{
