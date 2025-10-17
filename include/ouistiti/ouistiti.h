@@ -136,6 +136,7 @@ int string_cpy(string_t *str, const char *source, size_t length);
 int string_append(string_t *str, const char *source, size_t length);
 int string_empty(const string_t *str);
 const char *string_toc(const string_t *str);
+char *string_storage(const string_t *str);
 size_t string_length(const string_t *str);
 size_t string_size(const string_t *str);
 int string_split(const string_t *str, char sep, ...);
