@@ -55,7 +55,7 @@ servers= ({
 				dbname="conf/passwd.db";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				options = "jwt,cookie,management";
-				issuer = "authpass";
+				issuer = "authpass+totp";
 			});
 			redirect = {
 				links = ({
@@ -84,7 +84,7 @@ servers= ({
 			options = "header";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
-			issuer = "authpass";
+			issuer = "authpass+totp";
 			realm = "www.ouistiti.local";
 		};
 		userfilter = {
