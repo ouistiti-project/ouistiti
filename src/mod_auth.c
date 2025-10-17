@@ -80,7 +80,9 @@ static int _home_connector(void *arg, http_message_t *request, http_message_t *r
 static int _forbidden_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
 #ifdef AUTH_TOKEN
-static string_t *_mod_auth_generatetoken(void *arg, http_message_t *UNUSED(request));
+static string_t *_mod_auth_generatetoken(authtoken_ctx_t *ctx, http_message_t *UNUSED(request));
+static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const char **cuser);
+
 #endif
 
 static const char str_auth[] = "auth";
@@ -92,6 +94,12 @@ struct _mod_auth_ctx_s
 	char *authenticate;
 	authn_t authn;
 	authz_t authz;
+	struct
+	{
+		authtoken_ctx_t *ctx;
+		authtoken_rule_generate_t generate;
+		authtoken_rule_check_t check;
+	} token;
 };
 
 struct _mod_auth_s
@@ -100,7 +108,6 @@ struct _mod_auth_s
 	string_t type;
 	authn_t *authn;
 	authz_t *authz;
-	authz_rule_generatetoken_t generatetoken;
 };
 
 static const hash_t *_mod_findhash(const char *name, int nameid)
@@ -163,7 +170,7 @@ struct _authn_s
 {
 	authn_rule_config_t config;
 	authn_type_t type;
-	string_t name;
+	string_t *name;
 	authn_rules_t *rules;
 	struct _authn_s *next;
 };
@@ -172,7 +179,7 @@ struct _authz_s
 {
 	authz_rule_config_t config;
 	authz_type_t type;
-	string_t name;
+	string_t *name;
 	authz_rules_t *rules;
 	struct _authz_s *next;
 };
@@ -183,7 +190,7 @@ static struct _authz_s *authz_list = NULL;
 void auth_registerauthn(const string_t *name, authn_rules_t *rules)
 {
 	struct _authn_s *entry = calloc(1, sizeof(*entry));
-	string_dup(&entry->name, name);
+	entry->name = string_dup(name);
 	entry->rules = rules;
 	entry->config = rules->config;
 	entry->next = authn_list;
@@ -193,7 +200,7 @@ void auth_registerauthn(const string_t *name, authn_rules_t *rules)
 void auth_registerauthz(const string_t *name, authz_rules_t *rules)
 {
 	struct _authz_s *entry = calloc(1, sizeof(*entry));
-	string_dup(&entry->name, name);
+	entry->name = string_dup(name);
 	entry->rules = rules;
 	entry->config = rules->config;
 	entry->next = authz_list;
@@ -216,7 +223,7 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 	struct _authn_s *authn = NULL;
 	for (authn = authn_list; authn != NULL; authn = authn->next)
 	{
-		if (!string_cmp(&authn->name, type, -1))
+		if (!string_cmp(authn->name, type, -1))
 			mod->config = authn->config(configauth, &authn->type);
 		if (mod->config != NULL)
 		{
@@ -228,7 +235,7 @@ static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 	{
 		mod->rules = authn->rules;
 		mod->type |= authn->type;
-		string_store(&mod->name, authn->name.data, authn->name.length);
+		string_store(&mod->name, string_toc(authn->name), string_length(authn->name));
 
 		/**
 		 * algorithm allow to change secret algorithm used during authentication default is md5. (see authn_digest.c)
@@ -283,7 +290,7 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 	{
 		if (name != NULL)
 		{
-			if (! string_cmp(&authz->name, name, -1))
+			if (! string_cmp(authz->name, name, -1))
 			{
 				mod->config = authz->config(configauth, &authz->type);
 				break;
@@ -302,7 +309,7 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 	{
 		mod->rules = authz->rules;
 		mod->type |= authz->type;
-		string_store(&mod->name, string_toc(&authz->name), string_length(&authz->name));
+		string_store(&mod->name, string_toc(authz->name), string_length(authz->name));
 		ret = ESUCCESS;
 	}
 	else
@@ -467,11 +474,6 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 
 	mod->authz = _authz_dup(&config->authz);
 
-	if (config->token.type == E_OUITOKEN)
-		mod->generatetoken = &_mod_auth_generatetoken;
-	else if (config->token.type == E_JWT)
-		mod->generatetoken = &authz_jwt_generatetoken;
-
 	string_t *issuer = mod->authz->name;
 	if (!string_empty(&config->token.issuer))
 		issuer = &config->token.issuer;
@@ -534,9 +536,23 @@ static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 {
 	_mod_auth_ctx_t *ctx = calloc(1, sizeof(*ctx));
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
+	mod_auth_t *config = mod->config;
 
 	ctx->mod = mod;
 	ctx->clt = clt;
+
+	ctx->token.ctx = calloc(1, sizeof(*ctx->token.ctx));
+	ctx->token.ctx->config = &config->token;
+	if (config->token.type == E_OUITOKEN)
+	{
+		ctx->token.generate = _mod_auth_generatetoken;
+		ctx->token.check = _authn_checktoken;
+	}
+	else if (config->token.type == E_JWT)
+	{
+		ctx->token.generate = authz_jwt_generatetoken;
+		ctx->token.check = authz_jwt_checktoken;
+	}
 
 	if (mod->authz->type & AUTHZ_HOME_E)
 		httpclient_addconnector(clt, _home_connector, ctx, CONNECTOR_AUTH, str_auth);
@@ -571,7 +587,10 @@ static void _mod_auth_freectx(void *vctx)
 		ctx->authn.rules->cleanup(ctx->authn.ctx);
 	if(ctx->authz.ctx && ctx->authz.rules->cleanup)
 		ctx->authz.rules->cleanup(ctx->authz.ctx);
-	free(ctx->authenticate);
+	if (ctx->token.ctx)
+		free(ctx->token.ctx);
+	if (ctx->authenticate)
+		free(ctx->authenticate);
 	free(ctx);
 }
 
@@ -693,9 +712,9 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 }
 
 #ifdef AUTH_TOKEN
-static string_t *_mod_auth_generatetoken(void *arg, http_message_t *request)
+static string_t *_mod_auth_generatetoken(authtoken_ctx_t *ctx, http_message_t *request)
 {
-	const authz_token_config_t *config = (const authz_token_config_t *)arg;
+	const authtoken_config_t *config = ctx->config;
 
 	string_t user = {0};
 	ouimessage_SESSION(request, str_user, &user);
@@ -739,10 +758,9 @@ static string_t *_mod_auth_generatetoken(void *arg, http_message_t *request)
 	return token;
 }
 
-static int _authn_checktoken(const authz_token_config_t *config, const string_t *token)
+static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const char **cuser)
 {
-	if (config->type  == E_JWT)
-		return authn_jwt_checktoken(config, string_toc(token));
+	const authtoken_config_t *config = ctx->config;
 
 	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
 	char *_nonce = calloc(1, _noncelen + 1);
@@ -771,6 +789,10 @@ static int _authn_checktoken(const authz_token_config_t *config, const string_t 
 		free(_nonce);
 		return EREJECT;
 	}
+	// the user is stored into _nonce. keep the memory to the freectx function
+	ctx->user = string_dup(&user);
+	if (cuser)
+		*cuser = string_toc(ctx->user);
 	return ESUCCESS;
 }
 
@@ -860,15 +882,15 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const string_t
 	ret = authn_checksignature(&mod->config->token.secret, token, sign);
 	if (ret == ESUCCESS)
 	{
-		ret = _authn_checktoken(&mod->config->token, token);
+		/// some authz may join a token to an user
+		*user = authz->rules->check(authz->ctx, NULL, NULL, string_toc(sign));
+		if (*user == NULL)
+		{
+			ret = ctx->token.check(ctx->token.ctx, token, user);
+		}
 	}
 	else
 		err("auth: token with bad signature %.*s", string_length(sign), string_toc(sign));
-	if (ret == ESUCCESS)
-	{
-		/// some authz may join a token to an user
-		*user = authz->rules->check(authz->ctx, NULL, NULL, string_toc(token));
-	}
 	return ret;
 }
 #endif
@@ -1215,7 +1237,7 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 #ifdef AUTH_TOKEN
 	if (config->authz.type & AUTHZ_TOKEN_E)
 	{
-		token = mod->generatetoken(&mod->config->token, request);
+		token = ctx->token.generate(ctx->token.ctx, request);
 	}
 	if (!string_empty(token) && config->authz.type & AUTHZ_TOKEN_E)
 	{

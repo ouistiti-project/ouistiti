@@ -155,9 +155,8 @@ struct mod_authn_s
 };
 typedef struct mod_authn_s mod_authn_t;
 
-typedef string_t *(*authz_rule_generatetoken_t)(void* arg, http_message_t *request);
-typedef struct authz_token_config_s authz_token_config_t;
-struct authz_token_config_s
+typedef struct authtoken_config_s authtoken_config_t;
+struct authtoken_config_s
 {
 	enum {
 		E_OUITOKEN,
@@ -168,11 +167,21 @@ struct authz_token_config_s
 	time_t expire;
 };
 
+typedef struct authtoken_ctx_s authtoken_ctx_t;
+struct authtoken_ctx_s
+{
+	const authtoken_config_t *config;
+	string_t *user;
+};
+
+typedef string_t *(*authtoken_rule_generate_t)(authtoken_ctx_t *ctx, http_message_t *request);
+typedef int (*authtoken_rule_check_t)(authtoken_ctx_t *ctx, const string_t *token, const char **cuser);
+
 struct mod_auth_s
 {
 	mod_authn_t authn;
 	mod_authz_t authz;
-	authz_token_config_t token;
+	authtoken_config_t token;
 	string_t algo;
 	string_t redirect;
 	string_t token_ep;
