@@ -149,22 +149,34 @@ int string_contain(const string_t *stack, const char *nail, size_t length, const
 		length = strnlen(nail, stack->length);
 	if (nail[length - 1] == '*')
 		length--;
+	size_t naillen = length;
+	for (naillen = 0; naillen < length && nail[naillen] != sep; naillen++);
 	const char *offset = stack->data;
 	while (offset && offset[0] != '\0')
 	{
-		if (!strncasecmp(offset, nail, length))
+		if (!strncasecmp(offset, nail, naillen))
 		{
-			if (nail[length] == '*')
+			if (nail[naillen] == '*')
 				ret = 0;
 			/// a string_t may not be a null terminated array
-			if (((offset + length) == (stack->data + stack->length)) || offset[length] == sep)
+			if (((offset + naillen) == (stack->data + stack->length)) || offset[naillen] == sep)
 				ret = 0;
+		}
+		if (ret == 0 && naillen < length)
+		{
+			offset = stack->data;
+			nail += naillen + 1;
+			length -= naillen + 1;
+			for (naillen = 0; naillen < length && nail[naillen] != sep; naillen++);
+			continue;
 		}
 		if (ret == 0)
 			break;
-		offset = strchr(offset, sep);
-		if (offset)
+		for (offset; offset < (stack->data + stack->size) && offset[0] != sep; offset++);
+		if (offset < stack->data + stack->size)
 			offset++;
+		else
+			offset = NULL;
 	}
 	return ret;
 }
@@ -418,6 +430,13 @@ const char *string_toc(const string_t *str)
 {
 	if (str)
 		return str->data;
+	return NULL;
+}
+
+char *string_storage(const string_t *str)
+{
+	if (str)
+		return str->ddata;
 	return NULL;
 }
 
