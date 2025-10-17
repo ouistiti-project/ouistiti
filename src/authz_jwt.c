@@ -86,7 +86,7 @@ void *authz_jwt_config(const void *configauth, authz_type_t *type)
 }
 #endif
 
-size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
+string_t *authz_jwt_generatetoken(void *arg, http_message_t *request)
 {
 	const authz_token_config_t *config = (const authz_token_config_t *)arg;
 #ifdef JWT_FORMATHEADER
@@ -154,18 +154,18 @@ size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
 #endif
 	size_t ttokenlen = json_dumpb(jtoken, NULL, 0, 0);
 	if (ttokenlen == 0)
-		return 0;
+		return NULL;
 	char *ttoken = malloc(ttokenlen);
 	json_dumpb(jtoken, ttoken, ttokenlen, 0);
 	auth_dbg("jwt: encode %.*s", ttokenlen, ttoken);
 	json_decref(jtoken);
 
 	size_t ret = 0;
-	size_t length = (theaderlen + 1 + ttokenlen + 1) * 3 / 2;
+	size_t length = (theaderlen + 1 + ttokenlen + 1);
 
-	*token = calloc(2, length + 1);
-	char *offset = *token;
-	length *= 2;
+	string_t *token = string_create((length * 5) / 3);
+	char *offset = string_storage(token);
+	length = string_size(token);
 	ret = base64_urlencoding->encode(theader, theaderlen, offset, length);
 	offset += ret;
 	length -= ret;
@@ -180,11 +180,12 @@ size_t authz_jwt_generatetoken(void *arg, http_message_t *request, char **token)
 
 	ret += base64_urlencoding->encode(ttoken, ttokenlen, offset, length);
 	free(ttoken);
-	warn("auth: jwttoken %s", *token);
+	string_slice(token, 0, ret);
+	warn("auth: jwttoken %s", string_toc(token));
 	/**
 	 * the signature is added inside mod_auth
 	 */
-	return ret;
+	return token;
 }
 
 static json_t *jwt_decode_json(const char *id_token, int header)
