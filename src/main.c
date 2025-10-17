@@ -365,15 +365,17 @@ int string_printf(string_t *str, void *fmt,...)
 	return EREJECT;
 }
 
-int string_dup(string_t *dst, const string_t *src)
+string_t *string_dup(const string_t *src)
 {
+	string_t *dst = NULL;
 	if (string_empty(src))
-		return EREJECT;
+		return dst;
+	dst = calloc(1, sizeof(*dst));
 	dst->ddata = strndup(src->data, src->length);
 	dst->data = dst->ddata;
 	dst->size = src->length + 1;
 	dst->length = src->length;
-	return ESUCCESS;
+	return dst;
 }
 
 size_t string_slice(string_t *str, int start, int length)
