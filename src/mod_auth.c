@@ -1210,8 +1210,6 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
-	char *ttoken = NULL;
-	size_t ttokenlen = -1;
 	string_t *token = NULL;
 	string_t *sign = NULL;
 #ifdef AUTH_TOKEN
@@ -1237,8 +1235,6 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	{
 		_authn_setauthorization_cookie(ctx, authorization, token, sign, response);
 	}
-	else if (ttoken != NULL) /// token was generated but not sent
-		warn("auth: token not sent. Configure (%s) header or cookie as options", string_toc(&config->token.issuer));
 
 	if (mod->authz->type & AUTHZ_CHOWN_E)
 	{
