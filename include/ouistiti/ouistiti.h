@@ -121,6 +121,7 @@ struct string_s
 #define STRING_INFO(string) string.data, string.length
 #define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
 string_t *string_create(size_t size);
+string_t *string_dup(const string_t *src);
 void string_debug(string_t *str, const char *name);
 int string_store(string_t *str, const char *pointer, size_t length);
 int string_cmp(const string_t *str, const char *cmp, size_t length);
@@ -145,7 +146,6 @@ int string_chr(const string_t *str, char c);
 int string_rchr(const string_t *str, char c);
 size_t string_slice(string_t *str, int start, int length);
 void string_unquote(string_t *str);
-int string_dup(string_t *dst, const string_t *src);
 void string_cleansafe(string_t *str);
 void string_destroy(string_t *str);
 
