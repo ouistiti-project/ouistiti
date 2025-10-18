@@ -54,12 +54,19 @@
 //#define FILE_MMAP
 #define MAXLENGTH 255
 
-typedef struct authz_jwt_s authz_jwt_t;
-struct authz_jwt_s
+typedef struct authz_mod_s authz_mod_t;
+struct authz_mod_s
 {
 	authtoken_config_t *config;
 	string_t *issuer;
+};
+
+typedef struct authz_ctx_s authz_ctx_t;
+struct authz_ctx_s
+{
+	authz_mod_t *mod;
 	const char *token;
+	string_t *user;
 };
 
 #ifdef FILE_CONFIG
@@ -257,52 +264,53 @@ static int _jwt_checkexpiration(const json_t *jinfo)
 	return ESUCCESS;
 }
 
-static const char *_jwt_get(const json_t *jinfo, const char *key)
+static int _jwt_get(const json_t *jinfo, const char *key, string_t *value)
 {
-	const char *value = NULL;
 	const json_t *jvalue = json_object_get(jinfo, key);
 	if (jvalue && json_is_string(jvalue))
-		value = json_string_value(jvalue);
-	return value;
+	{
+		string_store(value, json_string_value(jvalue), json_string_length(jvalue));
+		return ESUCCESS;
+	}
+	return EREJECT;
 }
 
-static const char *_jwt_getuser(const json_t *jinfo)
+static int _jwt_getuser(const json_t *jinfo, string_t *user)
 {
-	const char *user = NULL;
-	user = _jwt_get(jinfo, str_user);
-	if (user == NULL)
-		user = _jwt_get(jinfo, "preferred_username");
-	if (user == NULL)
-		user = _jwt_get(jinfo, "name");
-	if (user == NULL)
-		user = _jwt_get(jinfo, "username");
-	if (user == NULL || user[0] == '\0')
-		user = str_anonymous;
-	return user;
+	int ret = _jwt_get(jinfo, str_user, user);
+	if (ret == EREJECT)
+		ret = _jwt_get(jinfo, "preferred_username", user);
+	if (ret == EREJECT)
+		ret = _jwt_get(jinfo, "name", user);
+	if (ret == EREJECT)
+		ret = _jwt_get(jinfo, "username", user);
+	if (ret == EREJECT)
+		ret = string_store(user, str_anonymous, -1);
+	return ret;
 }
 
 #if 0
 /// unused function
-const char *authz_jwt_get(const char *id_token, const char *key)
+int authz_jwt_get(const char *id_token, const char *key, string_t *value)
 {
 	const json_t *jinfo = jwt_decode_json(id_token, 0);
 	if (jinfo == NULL)
-		return NULL;
+		return EREJECT;
 	if (!strcmp(key, str_user))
-		return _jwt_getuser(jinfo);
+		return _jwt_getuser(jinfo, value);
 	if (!strcmp(key, str_issuer))
-		return _jwt_get(jinfo, "iss");
-	return _jwt_get(jinfo, key);
+		return _jwt_get(jinfo, "iss", value);
+	return _jwt_get(jinfo, key, value);
 }
 #endif
 
-int authz_jwt_getinfo(const char *id_token, const char **user, const char **issuer)
+int authz_jwt_getinfo(const char *id_token, string_t *user, string_t *issuer)
 {
 	const json_t *jinfo = jwt_decode_json(id_token, 0);
 	if (jinfo == NULL)
-		return -1;
-	*user = _jwt_getuser(jinfo);
-	*issuer = _jwt_get(jinfo, "iss");
+		return EREJECT;
+	_jwt_getuser(jinfo, user);
+	_jwt_get(jinfo, "iss", issuer);
 	return 0;
 }
 
@@ -318,6 +326,15 @@ static void *authz_jwt_create(http_server_t *UNUSED(server), string_t *issuer, v
 	return ctx;
 }
 
+static void *authz_jwt_setup(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
+{
+	authz_mod_t *mod = (authz_mod_t *)arg;
+	authz_ctx_t *ctx = calloc(1, sizeof(*ctx));
+	ctx->mod = mod;
+	ctx->user = string_create(USER_MAX);
+	return ctx;
+}
+
 static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json_t *jinfo)
 {
 	int ret = EREJECT;
@@ -327,9 +344,8 @@ static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json
 		{
 			return EREJECT;
 		}
-		const char *issdata = _jwt_get(jinfo, "iss");
 		string_t iss = {0};
-		string_store(&iss, issdata, -1);
+		_jwt_get(jinfo, "iss", &iss);
 		if (string_contain(&iss, string_toc(issuer), string_length(issuer), '+'))
 		{
 			err("auth: token with bad issuer: %s / %s",  string_toc(&iss), string_toc(issuer));
@@ -367,7 +383,7 @@ int authz_jwt_checktoken(authtoken_ctx_t *ctx, const string_t *token, const char
 	json_t *jinfo = jwt_decode_json(string_toc(token), 0);
 	int ret = _authn_jwt_checktoken(&ctx->config->issuer, string_toc(token), jinfo);
 	string_t tuser = {0};
-	string_store(&tuser, _jwt_getuser(jinfo), -1);
+	_jwt_getuser(jinfo, &tuser);
 	ctx->user = string_dup(&tuser);
 	if (user)
 		*user = string_toc(ctx->user);
@@ -377,12 +393,14 @@ int authz_jwt_checktoken(authtoken_ctx_t *ctx, const string_t *token, const char
 
 static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const char *UNUSED(passwd), const char *token)
 {
-	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
 	json_t *jinfo = jwt_decode_json(token, 0);
-	if (_authn_jwt_checktoken(ctx->issuer, token, jinfo) == ESUCCESS)
+	if (_authn_jwt_checktoken(ctx->mod->issuer, token, jinfo) == ESUCCESS)
 	{
 		ctx->token = token;
-		return _jwt_getuser(jinfo);
+		_jwt_getuser(jinfo, ctx->user);
+		json_decref(jinfo);
+		return string_toc(ctx->user);
 	}
 	json_decref(jinfo);
 	return NULL;
@@ -390,7 +408,7 @@ static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const ch
 
 static int authz_jwt_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
-	const authz_jwt_t *ctx = (const authz_jwt_t *)arg;
+	const authz_ctx_t *ctx = (const authz_ctx_t *)arg;
 	if (token == NULL)
 		token = ctx->token;
 	json_t *jinfo = jwt_decode_json(token, 0);
@@ -421,7 +439,9 @@ static int authz_jwt_setsession(void *arg, const char *user, const char *token, 
 	{
 		cb(cbarg, STRING_REF(str_status), json_string_value(jstatus), -1);
 	}
-	cb(cbarg, STRING_REF(str_user), _jwt_getuser(jinfo), -1);
+	string_t tuser = {0};
+	_jwt_getuser(jinfo, &tuser);
+	cb(cbarg, STRING_REF(str_user), string_toc(&tuser), string_length(&tuser));
 
 	const json_t *jexpire = json_object_get(jinfo, "exp");
 	if (jexpire && json_is_integer(jexpire))
@@ -449,9 +469,15 @@ static int authz_jwt_join(void *arg, const char *user, const char *UNUSED(token)
 #define authz_jwt_join NULL
 #endif
 
+static void authz_jwt_cleanup(void *arg)
+{
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
+	string_destroy(ctx->user);
+	free(ctx);
+}
 static void authz_jwt_destroy(void *arg)
 {
-	authz_jwt_t *ctx = (authz_jwt_t *)arg;
+	authz_mod_t *ctx = (authz_mod_t *)arg;
 	free(ctx->config);
 	free(ctx);
 }
@@ -459,12 +485,14 @@ static void authz_jwt_destroy(void *arg)
 authz_rules_t authz_jwt_rules =
 {
 	.config = authz_jwt_config,
-	.create = &authz_jwt_create,
-	.check = &authz_jwt_check,
+	.create = authz_jwt_create,
+	.setup = authz_jwt_setup,
+	.check = authz_jwt_check,
 	.passwd = NULL,
-	.setsession = &authz_jwt_setsession,
-	.join = &authz_jwt_join,
-	.destroy = &authz_jwt_destroy,
+	.setsession = authz_jwt_setsession,
+	.join = authz_jwt_join,
+	.cleanup = authz_jwt_cleanup,
+	.destroy = authz_jwt_destroy,
 };
 
 static const string_t authz_name = STRING_DCL("jwt");
