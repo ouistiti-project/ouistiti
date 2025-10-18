@@ -72,11 +72,17 @@ struct authz_file_config_s
 	const char *path;
 };
 
-typedef struct authz_unix_s authz_unix_t;
-struct authz_unix_s
+typedef struct authz_mod_s authz_mod_t;
+struct authz_mod_s
 {
 	authz_file_config_t *config;
 	string_t *issuer;
+};
+
+typedef struct authz_ctx_s authz_ctx_t;
+struct authz_ctx_s
+{
+	authz_mod_t *mod;
 	struct passwd pwstore;
 	char passwd[NSS_BUFLEN_PASSWD];
 	string_t status;
@@ -101,7 +107,7 @@ void *authz_unix_config(const void *configauth, authz_type_t * type)
 
 static void *authz_unix_create(http_server_t *UNUSED(server), string_t *issuer, void *arg)
 {
-	authz_unix_t *ctx = NULL;
+	authz_mod_t *ctx = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;
 
 	ctx = calloc(1, sizeof(*ctx));
@@ -110,7 +116,15 @@ static void *authz_unix_create(http_server_t *UNUSED(server), string_t *issuer, 
 	return ctx;
 }
 
-static struct spwd *_authz_getspnam(authz_unix_t *ctx, const char *user, struct spwd *spwdstore, char *shadow, int shadowlen)
+static void *authz_unix_setup(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
+{
+	authz_mod_t *mod = (authz_mod_t *)arg;
+	authz_ctx_t *ctx = calloc(1, sizeof(*ctx));
+	ctx->mod = mod;
+	return ctx;
+}
+
+static struct spwd *_authz_getspnam(authz_ctx_t *ctx, const char *user, struct spwd *spwdstore, char *shadow, int shadowlen)
 {
 	struct spwd *spasswd;
 #ifdef USE_PASSWD_R
@@ -124,7 +138,7 @@ static struct spwd *_authz_getspnam(authz_unix_t *ctx, const char *user, struct 
 	return spasswd;
 }
 
-static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const char *passwd)
+static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
 	string_t status = STRING_DCL(str_status_activated);
@@ -211,7 +225,7 @@ static int _authz_unix_checkpasswd(authz_unix_t *ctx, const char *user, const ch
 
 static const char *authz_unix_check(void *arg, const char *user, const char *passwd, const char *token)
 {
-	authz_unix_t *ctx = (authz_unix_t *)arg;
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
 
 	if (user != NULL && passwd != NULL && _authz_unix_checkpasswd(ctx, user, passwd))
 		return user;
@@ -220,7 +234,7 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 
 static int authz_unix_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
-	const authz_unix_t *ctx = (const authz_unix_t *)arg;
+	const authz_ctx_t *ctx = (const authz_ctx_t *)arg;
 
 	cb(cbarg, STRING_REF(str_user), ctx->pwstore.pw_name, -1);
 
@@ -241,9 +255,15 @@ static int authz_unix_setsession(void *arg, const char *user, const char *token,
 	return ESUCCESS;
 }
 
+static void authz_unix_cleanup(void *arg)
+{
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
+	free(ctx);
+}
+
 static void authz_unix_destroy(void *arg)
 {
-	authz_unix_t *ctx = (authz_unix_t *)arg;
+	authz_mod_t *ctx = (authz_mod_t *)arg;
 	free(ctx->config);
 	free(ctx);
 }
@@ -251,11 +271,13 @@ static void authz_unix_destroy(void *arg)
 authz_rules_t authz_unix_rules =
 {
 	.config = authz_unix_config,
-	.create = &authz_unix_create,
-	.check = &authz_unix_check,
+	.create = authz_unix_create,
+	.setup = authz_unix_setup,
+	.check = authz_unix_check,
 	.passwd = NULL,
-	.setsession = &authz_unix_setsession,
-	.destroy = &authz_unix_destroy,
+	.setsession = authz_unix_setsession,
+	.cleanup = authz_unix_cleanup,
+	.destroy = authz_unix_destroy,
 };
 
 static const string_t authz_name = STRING_DCL("unix");
