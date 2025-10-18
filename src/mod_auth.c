@@ -1277,7 +1277,21 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	const _mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
 	string_t authorization = {0};
+	const char *user = NULL;
 	string_t token = {0};
+	string_t issuer = {0};
+
+	auth_dbg("auth: check for %s (%s)", string_toc(&config->token.issuer),string_toc(&config->authz.name));
+
+	ouimessage_SESSION(request, str_issuer, &issuer);
+	if (!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
+	{
+		ret = EREJECT;
+		auth_info2(request, str_user, &user);
+		string_store(&authorization, string_toc(&config->token.issuer), string_length(&config->token.issuer));
+		dbg("auth: session already set for this %.*s issuer", string_length(&config->token.issuer), string_toc(&config->token.issuer));
+	}
+
 
 	/**
 	 * authz may need setup the user setting for each message
@@ -1288,8 +1302,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		authz = &ctx->authz;
 	}
 
-	auth_dbg("auth: check for %s (%s)", string_toc(&config->token.issuer),string_toc(&config->authz.name));
-	const char *user = NULL;
 #ifdef AUTH_TOKEN
 	if (mod->authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
 	{
@@ -1303,7 +1315,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			if (authn_checktoken( ctx, authz, &token, &authorization, &user) == ESUCCESS)
 			{
 				ret = EREJECT;
-				user = _authn_gettokenuser(ctx, request);
 			}
 			else
 				string_slice(&token, 0, 0);
@@ -1332,25 +1343,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		ret = _authn_check(ctx, authz, request, &authorization, &user);
 		auth_dbg("auth: checkauthorization %d", ret);
 	}
-	string_t issuer = {0};
-	if (ret != EREJECT)
-	{
-		ouimessage_SESSION(request, str_issuer, &issuer);
-		auth_dbg("auth: check issuer %s/%s", string_toc(&issuer), string_toc(&config->token.issuer));
-		if (!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
-		{
-			warn("auth: session's issuer (%s) already set, by-pass the token checking", string_toc(&config->token.issuer));
-			auth_info2(request, str_user, &user);
-			string_store(&authorization, string_toc(&issuer), string_length(&issuer));
-			ret = EREJECT;
-		}
-		else
-		{
-			string_slice(&issuer, 0, 0);
-			string_slice(&token, 0, 0);
-		}
-		auth_dbg("auth: check issuer %d", ret);
-	}
 	if (ret == EREJECT)
 	{
 		const char *sessionuser = NULL;
@@ -1378,8 +1370,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 	else if (!string_empty(&authorization))
 	{
-		string_t currentissuer = {0};
-		ouimessage_SESSION(request, str_issuer, &currentissuer);
 		if (httpclient_setsession(ctx->clt, string_toc(&authorization), -1) >= 0)
 		{
 			auth_dbg("auth: set the session");
@@ -1393,24 +1383,24 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				authz->rules->join(authz->ctx, user, string_toc(&authorization), mod->config->token.expire);
 			}
 		}
-		else if (string_empty(&issuer) &&
-			string_contain(&currentissuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
+		else if (string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
 		{
 			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
 			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
 		}
-		ouimessage_SESSION(request, str_issuer, &currentissuer);
+		ouimessage_SESSION(request, str_issuer, &issuer);
 		char issuerdata[254] = {0};
 		size_t length = 0;
 		if (authz->rules->issuer)
 			length = authz->rules->issuer(authz->ctx, user, issuerdata, sizeof(issuerdata));
 		if (length > 0 &&
-			string_contain(&currentissuer, issuerdata, length, '+'))
+			string_contain(&issuer, issuerdata, length, '+'))
 		{
 			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
 			httpclient_appendsession(ctx->clt, str_issuer, issuerdata, length);
 		}
-		dbg("auth: type %s", (const char *)httpclient_session(ctx->clt, STRING_REF("authtype"), NULL, 0));
+		ouimessage_SESSION(request, str_issuer, &issuer);
+		dbg("auth: type %.*s", string_length(&issuer), string_toc(&issuer));
 		const char *user = auth_info(request, STRING_REF(str_user));
 		string_t status = {0};
 		ouimessage_SESSION(request, str_status, &status);
