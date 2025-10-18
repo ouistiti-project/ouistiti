@@ -55,6 +55,7 @@ static unsigned long otp_modulus[] =
 { (unsigned long)-1, 1000000, 10000000, 100000000, 1000000000, 10000000000};
 
 const char str_totp[] = "totp";
+const char str_totpkey[] = "totpkey";
 
 typedef struct authz_totp_config_s authz_totp_config_t;
 struct authz_totp_config_s
@@ -68,18 +69,24 @@ struct authz_totp_config_s
 	unsigned int period;
 };
 
-typedef struct authz_totp_s authz_totp_t;
-struct authz_totp_s
+typedef struct authz_mod_s authz_mod_t;
+struct authz_mod_s
 {
 	authz_totp_config_t *config;
 	string_t *issuer;
-	string_t *userkey;
-	char passwd[OTP_MAXDIGITS + 1];
 	http_server_t *server;
+};
+
+typedef struct authz_ctx_s authz_ctx_t;
+struct authz_ctx_s
+{
+	authz_mod_t *mod;
+	string_t user;
+	string_t *totpkey;
 	size_t offset;
 };
 
-size_t otp_url(const string_t* key, const char *user, const char *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL]);
+size_t otp_url(const string_t* key, const string_t *user, const string_t *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL]);
 static int authz_totp_generateK(const authz_totp_config_t *config, const string_t *user, string_t *output);
 
 #ifdef FILE_CONFIG
@@ -108,6 +115,8 @@ void *authz_totp_config(const void *configauth, authz_type_t *type)
 		{
 			string_store(&authz_config->issuer, issuer, -1);
 		}
+		else
+			string_store(&authz_config->issuer, str_totp, -1);
 	}
 	return authz_config;
 }
@@ -115,49 +124,34 @@ void *authz_totp_config(const void *configauth, authz_type_t *type)
 
 static int _authz_totp_connector(void *arg, http_message_t *request, http_message_t *response)
 {
-	authz_totp_t *ctx = (authz_totp_t *)arg;
+	authz_mod_t *mod = (authz_mod_t *)arg;
+	authz_totp_config_t *config = mod->config;
 	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (utils_searchexp(uri, string_toc(&ctx->config->token_ep), NULL) == ESUCCESS)
+	if (utils_searchexp(uri, string_toc(&config->token_ep), NULL) == ESUCCESS)
 	{
-		const char *sessionuser = NULL;
-		size_t length = auth_info2(request, str_user, &sessionuser);
-		if (length > 0)
+		string_t otpurl = {0};
+		ouimessage_SESSION(request, "otpauth", &otpurl);
+		string_t totpkey = {0};
+		ouimessage_SESSION(request, str_totpkey, &totpkey);
+		if (string_empty(&totpkey) && string_empty(&otpurl))
 		{
-			const authz_totp_config_t *config = ctx->config;
-			if (string_toc(ctx->userkey)[0] == '\0')
+			err("auth: the totp key is not set, the access should be denied");
+			httpmessage_result(response, RESULT_401);
+			return ESUCCESS;
+		}
+		string_t user = {0};
+		ouimessage_SESSION(request, str_user, &user);
+		if (!string_empty(&user))
+		{
+			char url[OTP_MAXURL] = {0};
+			if (string_empty(&otpurl))
 			{
-				string_t userstr = {0};
-				string_store(&userstr, sessionuser, length);
-				authz_totp_generateK(config, &userstr, ctx->userkey);
+				size_t length = otp_url(&totpkey, &user, &config->issuer, config->hash, config->digits, url);
+				string_store(&otpurl, url, length);
 			}
-
-			const char *issuer = "test";
-			if (!string_empty(&config->issuer))
-				issuer = string_toc(&config->issuer);
-
-			char url[OTP_MAXURL];
-			const char *otpurl = NULL;
-			size_t length = auth_info2(request, "otpauth", &otpurl);
-			if (length == 0)
-			{
-				length = otp_url(ctx->userkey, sessionuser, issuer, config->hash, config->digits, url);
-				otpurl = url;
-			}
-			size_t len = 0;
-			if (!ctx->offset)
-				len = httpmessage_addcontent(response, str_mime_textplain, otpurl, length + 1);
-			else
-				len = httpmessage_appendcontent(response, otpurl + ctx->offset, length - ctx->offset);
-			if (len < (length - ctx->offset))
-			{
-				ctx->offset += len;
-				return ECONTINUE;
-			}
-			else
-			{
-				httpmessage_appendcontent(response, STRING_REF("\n"));
-				return ESUCCESS;
-			}
+			httpmessage_addcontent(response, str_mime_textplain, string_toc(&otpurl), string_length(&otpurl));
+			httpmessage_appendcontent(response, STRING_REF("\n"));
+			return ESUCCESS;
 		}
 	}
 	return EREJECT;
@@ -165,21 +159,23 @@ static int _authz_totp_connector(void *arg, http_message_t *request, http_messag
 
 static void *authz_totp_create(http_server_t *server, string_t *issuer, void *arg)
 {
-	authz_totp_t *ctx = NULL;
+	authz_mod_t *ctx = NULL;
 	authz_totp_config_t *config = (authz_totp_config_t *)arg;
 
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
 	ctx->issuer = issuer;
 	ctx->server = server;
-	ctx->userkey = string_create(HASH_MAX_SIZE + 1);
+	httpserver_addconnector(server, _authz_totp_connector, ctx, CONNECTOR_DOCUMENT, str_totp);
 	return ctx;
 }
 
 static void *authz_totp_setup(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
-	authz_totp_t *ctx = (authz_totp_t *)arg;
-	httpclient_addconnector(clt, _authz_totp_connector, ctx, CONNECTOR_DOCUMENT, str_totp);
+	authz_mod_t *mod = (authz_mod_t *)arg;
+	authz_ctx_t *ctx = calloc(1, sizeof(*ctx));
+	ctx->mod = mod;
+	ctx->totpkey = string_create(HASH_MAX_SIZE + 1);
 	ctx->offset = 0;
 	return ctx;
 }
@@ -225,7 +221,7 @@ static uint32_t totp_generator(const hash_t *hash, const string_t* key, unsigned
 	return hotp_generator(hash, key, modulus, t);
 }
 
-size_t otp_url(const string_t* key, const char *user, const char *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL])
+size_t otp_url(const string_t* key, const string_t *user, const string_t *issuer, const hash_t *hash, int digits, char output[OTP_MAXURL])
 {
 	void *base32state = base32->encoder.init();
 	char *keyb32 = malloc((int)string_length(key) * 2);
@@ -234,12 +230,12 @@ size_t otp_url(const string_t* key, const char *user, const char *issuer, const 
 	free(base32state);
 	while (keyb32[keyb32len - 1] == '=') keyb32len --;
 	size_t length = snprintf(output, OTP_MAXURL, "otpauth://totp/");
-	if (issuer != NULL)
-		length += snprintf(output + length, OTP_MAXURL - length, "%s:", issuer);
-	length += snprintf(output + length, OTP_MAXURL - length, "%s?", user);
+	if (!string_empty(issuer))
+		length += snprintf(output + length, OTP_MAXURL - length, "%.*s:", string_length(issuer), string_toc(issuer));
+	length += snprintf(output + length, OTP_MAXURL - length, "%.*s?", string_length(user), string_toc(user));
 	length += snprintf(output + length, OTP_MAXURL - length, "secret=%.*s&", (int)keyb32len, keyb32);
-	if (issuer != NULL)
-		length += snprintf(output + length, OTP_MAXURL - length, "issuer=%s&", issuer);
+	if (!string_empty(issuer))
+		length += snprintf(output + length, OTP_MAXURL - length, "issuer=%.*s&", string_length(issuer), string_toc(issuer));
 	if (hash && strncmp(hash->name, "hmac-sha1", 9))
 		length += snprintf(output + length, OTP_MAXURL - length, "algorithm=%s&", hash->name);
 	length += snprintf(output + length, OTP_MAXURL - length, "digits=%d", digits);
@@ -264,23 +260,25 @@ static int authz_totp_generateK(const authz_totp_config_t *config, const string_
 static int authz_totp_passwd(void *arg, const string_t *user, string_t *passwd)
 {
 	int ret = EREJECT;
-	authz_totp_t *ctx = (authz_totp_t *)arg;
-	const authz_totp_config_t *config = ctx->config;
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
+	authz_mod_t *mod = ctx->mod;
+	const authz_totp_config_t *config = mod->config;
 	if (passwd == NULL)
 		return config->digits;
 
-	authz_totp_generateK(config, user, ctx->userkey);
+	authz_totp_generateK(config, user, ctx->totpkey);
 
-	uint32_t totp = totp_generator(config->hash, ctx->userkey, config->digitsmodulus, config->period);
+	uint32_t totp = totp_generator(config->hash, ctx->totpkey, config->digitsmodulus, config->period);
 	ret = string_printf(passwd, "%.*u", config->digits, totp);
 	auth_dbg("auth: totp user %s passwd %s", string_toc(user), string_toc(passwd));
 	return ret;
 }
 
-static int _authz_totp_checkpasswd(authz_totp_t *ctx, const char *user, const char *passwd)
+static int _authz_totp_checkpasswd(authz_ctx_t *ctx, const char *user, const char *passwd)
 {
 	int ret = 0;
-	const authz_totp_config_t *config = ctx->config;
+	authz_mod_t *mod = ctx->mod;
+	const authz_totp_config_t *config = mod->config;
 
 	string_t userstr = {0};
 	string_store(&userstr, user, -1);
@@ -293,7 +291,10 @@ static int _authz_totp_checkpasswd(authz_totp_t *ctx, const char *user, const ch
 		string_store(&passwdstr, passwd, -1);
 		auth_dbg("auth: totp %s / %s", string_toc(checkpasswd), string_toc(&passwdstr));
 		if (authz_checkpasswd(string_toc(checkpasswd), &userstr, NULL,  &passwdstr) == ESUCCESS)
+		{
+			string_store(&ctx->user, string_toc(&userstr), string_length(&userstr));
 			ret = 1;
+		}
 	}
 	else
 		err("auth: user %s not found in file", user);
@@ -304,7 +305,9 @@ static int _authz_totp_checkpasswd(authz_totp_t *ctx, const char *user, const ch
 
 static const char *authz_totp_check(void *arg, const char *user, const char *passwd, const char *token)
 {
-	authz_totp_t *ctx = (authz_totp_t *)arg;
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
+	authz_mod_t *mod = ctx->mod;
+	const authz_totp_config_t *config = mod->config;
 
 	if (user != NULL && passwd != NULL && _authz_totp_checkpasswd(ctx, user, passwd))
 		return user;
@@ -313,24 +316,32 @@ static const char *authz_totp_check(void *arg, const char *user, const char *pas
 
 static int authz_totp_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
-#if 0
-	authz_totp_t *ctx = (authz_totp_t *)arg;
-	const authz_totp_config_t *config = ctx->config;
-#endif
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
+	authz_mod_t *mod = ctx->mod;
+	const authz_totp_config_t *config = mod->config;
 
-	cb(cbarg, STRING_REF(str_user), user, -1);
-	cb(cbarg, STRING_REF(str_group), STRING_REF("users"));
+	cb(cbarg, STRING_REF(str_totpkey), string_toc(ctx->totpkey), string_length(ctx->totpkey));
+
+	cb(cbarg, STRING_REF(str_user), string_toc(&ctx->user), string_length(&ctx->user));
+	cb(cbarg, STRING_REF(str_group), STRING_REF(str_group_users));
 	cb(cbarg, STRING_REF(str_status), STRING_REF(str_status_activated));
 	if (token)
 		cb(cbarg, STRING_REF(str_token), STRING_REF(token));
 	return ESUCCESS;
 }
 
+static void authz_totp_cleanup(void *arg)
+{
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
+	string_cleansafe(&ctx->user);
+	string_cleansafe(ctx->totpkey);
+	string_destroy(ctx->totpkey);
+	free(ctx);
+}
+
 static void authz_totp_destroy(void *arg)
 {
-	authz_totp_t *ctx = (authz_totp_t *)arg;
-	string_cleansafe(ctx->userkey);
-	string_destroy(ctx->userkey);
+	authz_mod_t *ctx = (authz_mod_t *)arg;
 	free(ctx->config);
 	free(ctx);
 }
@@ -338,12 +349,13 @@ static void authz_totp_destroy(void *arg)
 authz_rules_t authz_totp_rules =
 {
 	.config = authz_totp_config,
-	.create = &authz_totp_create,
-	.setup = &authz_totp_setup,
-	.check = &authz_totp_check,
-	.passwd = &authz_totp_passwd,
-	.setsession = &authz_totp_setsession,
-	.destroy = &authz_totp_destroy,
+	.create = authz_totp_create,
+	.setup = authz_totp_setup,
+	.check = authz_totp_check,
+	.passwd = authz_totp_passwd,
+	.setsession = authz_totp_setsession,
+	.cleanup = authz_totp_cleanup,
+	.destroy = authz_totp_destroy,
 };
 
 static const string_t authz_name = STRING_DCL("totp");
