@@ -367,6 +367,8 @@ size_t string_slice(string_t *str, int start, int length)
 		str->length -= start;
 		if (str->ddata == NULL)
 			str->size -= start;
+		if (length == 0)
+			length = str->length;
 	}
 	if (((str->data - str->ddata + length) < (offset + str->size)))
 		str->length = length;
