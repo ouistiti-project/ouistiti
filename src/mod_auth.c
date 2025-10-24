@@ -1117,9 +1117,14 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	const mod_auth_t *config = mod->config;
 	const char *uri = httpmessage_REQUEST(request, "uri");
 
-	if (mod->authn->ctx)
+	authn_t *authn = mod->authn;
+	if(ctx->authn.ctx)
 	{
-		ret = mod->authn->rules->challenge(mod->authn->ctx, request, response);
+		authn = &ctx->authn;
+	}
+	if (authn->ctx)
+	{
+		ret = authn->rules->challenge(authn->ctx, request, response);
 	}
 	else
 	{
@@ -1301,13 +1306,18 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		authz = &ctx->authz;
 	}
+	authn_t *authn = mod->authn;
+	if(ctx->authn.ctx)
+	{
+		authn = &ctx->authn;
+	}
 
 #ifdef AUTH_TOKEN
-	if (mod->authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
+	if (authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
 	{
 		_authn_gettoken(ctx, request, &token, &authorization);
 		auth_dbg("auth: gettoken %s / %s", string_toc(&token), string_toc(&authorization));
-		if (mod->authn->ctx && !string_empty(&authorization) && !string_empty(&token))
+		if (authn->ctx && !string_empty(&authorization) && !string_empty(&token))
 		{
 			/// the signature is concated to the end of token
 			/// only the token part must be checked
