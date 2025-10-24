@@ -40,8 +40,7 @@
 typedef struct authn_basic_s authn_basic_t;
 struct authn_basic_s
 {
-	const authn_t *authn;
-	authz_t *authz;
+	const mod_auth_t *config;
 	string_t *issuer;
 };
 
@@ -56,7 +55,7 @@ static void *authn_basic_create(const authn_t *authn, string_t *issuer, void *ar
 {
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
 	mod->issuer = issuer;
-	mod->authn = authn;
+	mod->config = authn->config;
 	return mod;
 }
 
@@ -64,7 +63,7 @@ static int authn_basic_challenge(void *arg, http_message_t *UNUSED(request), htt
 {
 	int ret;
 	const authn_basic_t *mod = (authn_basic_t *)arg;
-	const mod_auth_t *config = mod->authn->config;
+	const mod_auth_t *config = mod->config;
 
 	httpmessage_addheader(response, str_authenticate, STRING_REF("Basic realm=\""));
 	const string_t *realm = mod->issuer;
