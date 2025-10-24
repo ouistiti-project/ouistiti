@@ -257,6 +257,24 @@ int string_split(const string_t *str, char sep, ...)
 	return ret;
 }
 
+int string_chr(const string_t *str, char c)
+{
+	int i;
+	for (i = 0; i < str->length && str->data[i] != c; i++);
+	if (i == str->length)
+		return -1;
+	return i;
+}
+
+int string_rchr(const string_t *str, char c)
+{
+	int i;
+	for (i = str->length; i > 0 && str->data[i - 1] != c; i++);
+	if (i == 0)
+		return -1;
+	return i - 1;
+}
+
 int string_is(const string_t *str1, const string_t *str2)
 {
 	if ((str1 == NULL) || (str2 == NULL))
@@ -384,6 +402,11 @@ void string_unquote(string_t *str)
 	}
 	if (str->data[str->length - 1] == '\"')
 		str->length--;
+}
+
+long int string_tol(const string_t *str, int base)
+{
+	return strtol(str->data, NULL, base);
 }
 
 string_t *string_value(string_t *str, const char *header, size_t length)
