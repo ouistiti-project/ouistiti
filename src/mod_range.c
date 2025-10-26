@@ -54,30 +54,43 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 	if (private == NULL || private->type & DOCUMENT_DIRLISTING || !(private->fdfile > 0))
 		return EREJECT;
 
-	int filesize = private->size;
+	size_t filesize = private->size;
 
-	const char *rangesize = NULL;
-	const char *range = httpmessage_REQUEST(request,"Range");
-	if (range != NULL && range[0] != '\0')
-		rangesize = strstr(range, "bytes=");
+	string_t *rangesize = NULL;
+	string_t range = {0};
+	ouimessage_REQUEST(request,"Range", &range);
+	if (!string_empty(&range))
+		rangesize = string_value(&range, STRING_REF("bytes="));
 
-	if (rangesize)
+	if (!string_empty(rangesize))
 	{
-		int offset;
-		rangesize += 6;
-		offset = atoi(rangesize);
+		long int offset;
+		offset = string_tol(rangesize, 10);
 		if (offset > filesize)
 		{
 			goto NOSATISFIABLE;
 		}
 		private->offset = offset;
-		const char *end = strchr(rangesize, '-');
-		if (end != NULL)
+		string_t first = {0};
+		string_t rest = {0};
+		int ret = string_split(rangesize, '-', &first, &rest, NULL);
+		if (ret == 2)
 		{
-			offset = filesize;
-			if (*(end+1) >= '0' && *(end+1) <= '9')
-				offset = atoi(end+1);
-			if (*(end+1) == '*' || *(end+1) == '\0')
+			if (!string_empty(&rest))
+			{
+				if (string_chr(&rest, '*') != -1)
+				{
+					offset = private->size - 1;
+				}
+				else
+					offset = string_tol(&rest, 10);
+				if (errno == ERANGE)
+				{
+					errno = 0;
+					offset = filesize;
+				}
+			}
+			else
 				offset = private->size - 1;
 			if (offset > (filesize - 1) || offset < private->offset)
 			{
