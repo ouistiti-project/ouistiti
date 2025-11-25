@@ -174,7 +174,8 @@ extern const char str_options[8];
 
 extern const char str_authenticate[17];
 extern const char str_authorization[14];
-extern const char str_Cookie[7];
+extern const char str_cookie[7];
+extern const char str_setcookie[11];
 extern const char str_cachecontrol[14];
 extern const char str_xtoken[13];
 extern const char str_xuser[14];
