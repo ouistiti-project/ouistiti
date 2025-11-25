@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <dirent.h>
+#include <time.h>
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
@@ -62,12 +63,9 @@ typedef struct _document_connector_s document_connector_t;
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
-#define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%s\"},"
+#define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%.48s\",\"ctime\":\"%.32s\"}"
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
-#define DIRLISTING_FOOTER "\
-{}],\
-\"result\":\"%s\"\
-}\n"
+#define DIRLISTING_FOOTER "],\"result\":\"%s\"}"
 
 #ifdef DIRLISTING_MOD
 static const char str_dirlisting[] = "dirlisting";
@@ -137,13 +135,14 @@ static int _dirlisting_getentity(document_connector_t *private, struct dirent *e
 	if (ent == NULL)
 		return EREJECT;
 	document_dbg("dirlisting: dirlisting contains %s", ent->d_name);
-	if (ent->d_name[0] != '.')
 	{
-		unsigned int length = strlen(ent->d_name);
-		if (length > MAX_NAMELENGTH)
+		unsigned int namelength = strlen(ent->d_name);
+		if (namelength > MAX_NAMELENGTH)
 		{
 			warn("dirlisting: %s file name length too long", ent->d_name);
+			namelength = MAX_NAMELENGTH;
 		}
+		unsigned int length = namelength;
 		struct stat filestat;
 		fstatat(private->fdfile, ent->d_name, &filestat, 0);
 		size_t size = filestat.st_size;
@@ -167,12 +166,17 @@ static int _dirlisting_getentity(document_connector_t *private, struct dirent *e
 		}
 		length += mimelen;
 		length += 4 + 2 + 4;
-		char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-		length = snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
-		document_dbg("dirlisting: %s", data);
-		httpmessage_addcontent(response, NULL, data, length);
+		char filetime[32];
+		length += strftime(filetime, sizeof(filetime), "%a, %d %b %Y %T %z", localtime(&filestat.st_ctime));
+		char data[DIRLISTING_LINE_LENGTH + MAX_NAMELENGTH + 48 + 4 + 2 + 4 + sizeof(filetime) + 1];
+		length = snprintf(data, sizeof(data) - 1, DIRLISTING_LINE, namelength, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime, filetime);
+		document_dbg("dirlisting: %.*s", length, data);
+		int sent = httpmessage_addcontent(response, NULL, data, length);
+		if (sent < length)
+		{
+			httpmessage_appendcontent(response, data + sent, length - sent);
+		}
 		document_dbg("dirlisting: next");
-		free(data);
 		ret = ECONTINUE;
 	}
 	free(ent);
@@ -191,24 +195,28 @@ static int _dirlisting_connectorcontent(document_connector_t *private, http_mess
 		/**
 		 * private->ents != NULL checked inside _dirlisting_connector
 		 */
-		if (private->nbents > 0)
+		while (private->nbents > 0 )
 		{
 			ent = private->ents[private->nbents - 1];
 			private->nbents--;
+			if (ent->d_name[0] != '.')
+				break;
 		}
-		else
-			ent = NULL;
-		if (ent)
+		if (private->nbents > 0)
 		{
 			ret = _dirlisting_getentity(private, ent, response);
+			httpmessage_appendcontent(response, ",", 1);
+		}
+		else if (private->nbents == 0)
+		{
+			ret = _dirlisting_getentity(private, ent, response);
+			private->nbents--;
 		}
 		else
 		{
-			int length = sizeof(DIRLISTING_FOOTER);
-			char *data = calloc(1, length);
-			length = snprintf(data, length, DIRLISTING_FOOTER, "OK");
+			char data[sizeof(DIRLISTING_FOOTER) + 1];
+			size_t length = snprintf(data, sizeof(data) -1, DIRLISTING_FOOTER, "OK");
 			httpmessage_addcontent(response, NULL, data, length);
-			free(data);
 			close(private->fdfile);
 			private->fdfile = 0;
 			ret = ECONTINUE;
