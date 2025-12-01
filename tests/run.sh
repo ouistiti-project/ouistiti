@@ -9,12 +9,17 @@ LOGFILE=/tmp/ouistiti.log
 
 CONTINUE=0
 GCOV=0
+INFO=0
+GDB=0
 ALL=0
 NOERROR=0
 while [ -n "$1" ]; do
 case $1 in
 	-D)
 		DEBUG=1
+		;;
+	-G)
+		GDB=1
 		;;
 	-C)
 		CONTINUE=1
@@ -57,6 +62,8 @@ case $1 in
 		printf "\t-I    display information about test and the response\n"
 		printf "\t-C    leave ouistiti running for the next test\n"
 		printf "\t-GCOV run lcov to display the code coverage\n"
+		printf "\t-G    run ouistiti inside GDB\n"
+		printf "\t-V    run ouistiti inside Valgrind\n"
 		exit 1
 		;;
 	*)
@@ -110,7 +117,7 @@ start () {
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
 	ARGUMENTS=$ARGUMENTS" -M ./staging:./src"
 	ARGUMENTS=$ARGUMENTS" -W "$TESTDIR
-	if [ -n "$INFO" ]; then
+	if [ $INFO -eq 1 ]; then
 		echo ${BUILDDIR}src/${TARGET} ${ARGUMENTS}
 		echo "******************************"
 		cat ${TESTDIR}conf/${CONFIG}
@@ -198,18 +205,19 @@ test () {
 	if [ $CONTINUE -eq 0 ] && [ -z $DEBUG ]; then
 		start "$TARGET" $CONFIG
 	fi
+	INFO=$GDB
 
 	echo "----"
 	if [ -n "$CURLURL" ]; then
-		if [ -n "$INFO" ]; then
-			echo "get $CURLURL"
+		if [ $INFO -eq 1 ]; then
+			echo "$CURL -i -k $CURLPARAM $CURLURL"
 			echo "----"
 		fi
 		$CURL -i -k $CURLPARAM $CURLURL > $TMPRESPONSE
 	fi
 	if [ -n "$WGETURL" ]; then
-		if [ -n "$INFO" ]; then
-			echo "get $WGETURL"
+		if [ $INFO -eq 1 ]; then
+			echo "$WGET --no-check-certificate -S -q -O - $WGETPARAM $WGETURL"
 			echo "----"
 		fi
 		$WGET --no-check-certificate -S -q -O - $WGETPARAM $WGETURL 2> $TMPRESPONSE.tmp
@@ -218,26 +226,30 @@ test () {
 	fi
 	for REQUEST in ${TESTREQUEST} ; do
 		if [ -n "$REQUEST" ]; then
-			if [ -n "$INFO" ]; then
-				cat ${TESTDIR}$REQUEST
+			if [ $INFO -eq 1 ]; then
+				echo cat ${TESTDIR}$REQUEST' |' $TESTCLIENT $TESTOPTION
 				echo "----"
 			fi
-			echo cat ${TESTDIR}$REQUEST' |' $TESTCLIENT $TESTOPTION
 			cat ${TESTDIR}$REQUEST | $TESTCLIENT $TESTOPTION >> $TMPRESPONSE
 		fi
 	done
 	if [ -n "$CMDREQUEST" ]; then
-		if [ -n "$INFO" ]; then
-			$CMDREQUEST
+		if [ $INFO -eq 1 ]; then
+			echo $CMDREQUEST' |' $TESTCLIENT $TESTOPTION
 			echo "----"
 		fi
 		$CMDREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
 	fi
+	if [ $GDB -ne 0 ]; then
+		gdb --pid=$PID
+		exit 0
+	fi
+
 	ERR=0
 	if [ $TESTTIMEOUT -ne 0 ]; then
 		sleep $TESTTIMEOUT
 	fi
-	if [ -n "$INFO" ]; then
+	if [ $INFO -eq 1 ]; then
 		cat $TMPRESPONSE
 		echo $TEST
 		echo $DESC
