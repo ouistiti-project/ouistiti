@@ -43,6 +43,7 @@
 
 #define auth_dbg(...)
 
+#error "this module is obsolete and keep only as idea of new development"
 #ifdef TLS
 const httpclient_ops_t *tlsclient_ops;
 #endif
@@ -76,7 +77,6 @@ struct _json_load_s
 	http_client_t *client;
 	http_message_t *request;
 	http_message_t *response;
-	const char *content;
 };
 
 struct authn_oauth2_config_s
@@ -215,37 +215,37 @@ static json_t *_oauth2_authresp_send(authn_oauth2_t *mod, http_message_t *reques
 		};
 
 		http_server_t *server = httpclient_server(mod->clt);
-		_json_load_data.content += httpmessage_addcontent(request2, "application/x-www-form-urlencoded", STRING_REF("grant_type="));
-		_json_load_data.content += httpmessage_appendcontent(request2, type, -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&code="));
-		_json_load_data.content += httpmessage_appendcontent(request2, code, -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&client_id="));
-		_json_load_data.content += httpmessage_appendcontent(request2, config->client_id, -1);
-		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&scope=openid roles profile"));
-		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&redirect_uri="));
+		httpmessage_addcontent(request2, "application/x-www-form-urlencoded", STRING_REF("grant_type="));
+		 httpmessage_appendcontent(request2, type, -1);
+		httpmessage_appendcontent(request2, STRING_REF("&code="));
+		httpmessage_appendcontent(request2, code, -1);
+		httpmessage_appendcontent(request2, STRING_REF("&client_id="));
+		httpmessage_appendcontent(request2, config->client_id, -1);
+		httpmessage_appendcontent(request2, STRING_REF("&scope=openid roles profile"));
+		httpmessage_appendcontent(request2, STRING_REF("&redirect_uri="));
 		const char *scheme = NULL;
 		size_t schemelen = httpserver_INFO2(server, "scheme", &scheme);
-		_json_load_data.content += httpmessage_appendcontent(request2, scheme, schemelen);
-		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("://"));
+		httpmessage_appendcontent(request2, scheme, schemelen);
+		httpmessage_appendcontent(request2, STRING_REF("://"));
 		const char *host = NULL;
 		size_t hostlen = httpserver_INFO2(server, "hostname", &host);
 		if (hostlen == 0)
 		{
 			hostlen = httpserver_REQUEST2(request, "addr", &host);
 		}
-		_json_load_data.content += httpmessage_appendcontent(request2, host, hostlen);
+		httpmessage_appendcontent(request2, host, hostlen);
 		const char *port = NULL;
 		size_t portlen = httpserver_INFO2(server, "port");
 		if (portlen != 0)
 		{
-			_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF(":"));
-			_json_load_data.content += httpmessage_appendcontent(request2, port, portlen);
+			httpmessage_appendcontent(request2, STRING_REF(":"));
+			httpmessage_appendcontent(request2, port, portlen);
 		}
-		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF(str_authresp));
-		_json_load_data.content += httpmessage_appendcontent(request2, STRING_REF("&state="));
+		httpmessage_appendcontent(request2, STRING_REF(str_authresp));
+		httpmessage_appendcontent(request2, STRING_REF("&state="));
 		char state[4] = {0};
 		int statelen = snprintf(state, 4, "%.3d", mod->state);
-		_json_load_data.content += httpmessage_appendcontent(request2, state, statelen);
+		httpmessage_appendcontent(request2, state, statelen);
 
 		/**
 		 * send checking request to the authmanager
