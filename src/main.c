@@ -130,6 +130,15 @@ int string_cmp(const string_t *str, const char *cmp, size_t length)
 	return strncasecmp(str->data, cmp, str->length);
 }
 
+int string_compare(const string_t *str1, const string_t *str2)
+{
+	if (str2 == NULL)
+		return -1;
+	if (str2->length != str1->length)
+		return (str2->length - str1->length);
+	return strncasecmp(str1->data, str2->data, str1->length);
+}
+
 #if 1
 int string_contain(const string_t *stack, const char *nail, size_t length, const char sep)
 {
@@ -140,22 +149,34 @@ int string_contain(const string_t *stack, const char *nail, size_t length, const
 		length = strnlen(nail, stack->length);
 	if (nail[length - 1] == '*')
 		length--;
+	size_t naillen = length;
+	for (naillen = 0; naillen < length && nail[naillen] != sep; naillen++);
 	const char *offset = stack->data;
 	while (offset && offset[0] != '\0')
 	{
-		if (!strncasecmp(offset, nail, length))
+		if (!strncasecmp(offset, nail, naillen))
 		{
-			if (nail[length] == '*')
+			if (nail[naillen] == '*')
 				ret = 0;
 			/// a string_t may not be a null terminated array
-			if (((offset + length) == (stack->data + stack->length)) || offset[length] == sep)
+			if (((offset + naillen) == (stack->data + stack->length)) || offset[naillen] == sep)
 				ret = 0;
+		}
+		if (ret == 0 && naillen < length)
+		{
+			offset = stack->data;
+			nail += naillen + 1;
+			length -= naillen + 1;
+			for (naillen = 0; naillen < length && nail[naillen] != sep; naillen++);
+			continue;
 		}
 		if (ret == 0)
 			break;
-		offset = strchr(offset, sep);
-		if (offset)
+		for (offset; offset < (stack->data + stack->size) && offset[0] != sep; offset++);
+		if (offset < stack->data + stack->size)
 			offset++;
+		else
+			offset = NULL;
 	}
 	return ret;
 }
@@ -206,32 +227,52 @@ int string_contain(const string_t *stack, const char *nailorig, size_t length, c
 }
 #endif
 
-int string_split(string_t *str, char sep, ...)
+int string_split(const string_t *str, char sep, ...)
 {
 	int ret = 0;
 #ifdef USE_STDARG
 	va_list ap;
 	va_start(ap, sep);
+	string_t *arg = va_arg(ap, string_t *);
 	for (size_t index = 0; index < str->length; index++)
 	{
-		string_t *arg = va_arg(ap, string_t *);
-		if (arg == NULL || ret > 10) ///10 for max elements
+		if (ret > 10) ///10 for max elements
 			break;
 		ret++;
-		arg->data = &str->data[index];
-		while (arg->data[arg->length] != sep &&
-				arg->length < (str->length - (arg->data - str->data)))
-			arg->length++;
-		index += arg->length;
-		if (arg->ddata)
+		if (arg != NULL)
+			arg->data = &str->data[index];
+		while (str->data[index] != sep && index < str->length) index++;
+		if (arg == NULL)
+			continue;
+		arg->length = &str->data[index] - arg->data;
+		if (arg->ddata && arg != str)
 		{
 			string_cpy(arg, arg->data, arg->length);
 			arg->data = arg->ddata;
 		}
+		arg = va_arg(ap, string_t *);
 	}
 	va_end(ap);
 #endif
 	return ret;
+}
+
+int string_chr(const string_t *str, char c)
+{
+	int i;
+	for (i = 0; i < str->length && str->data[i] != c; i++);
+	if (i == str->length)
+		return -1;
+	return i;
+}
+
+int string_rchr(const string_t *str, char c)
+{
+	int i;
+	for (i = str->length; i > 0 && str->data[i - 1] != c; i++);
+	if (i == 0)
+		return -1;
+	return i - 1;
 }
 
 int string_is(const string_t *str1, const string_t *str2)
@@ -240,7 +281,7 @@ int string_is(const string_t *str1, const string_t *str2)
 		return 0;
 	if ((str1->length != str2->length))
 		return 0;
-	if (!strncasecmp(str1->data, str2->data, str1->length))
+	if (!strncmp(str1->data, str2->data, str1->length))
 		return 1;
 	return 0;
 }
@@ -256,19 +297,51 @@ int string_startwith(const string_t *str1, const string_t *str2)
 	return 0;
 }
 
+string_t *string_rest(string_t *str1, const string_t *str2)
+{
+	if ((str1 == NULL) || (str2 == NULL))
+		return NULL;
+	if ((str1->length < str2->length))
+		return NULL;
+	if (strncasecmp(str1->data, str2->data, str2->length))
+		return NULL;
+	str1->data += str2->length;
+	str1->length -= str2->length;
+	return str1;
+}
+
 int string_empty(const string_t *str)
 {
-	return ! (str->data != NULL && str->data[0] != '\0' && str->length > 0);
+	return ! (str != NULL && str->data != NULL && str->data[0] != '\0' && str->length > 0);
 }
 
 int string_cpy(string_t *str, const char *source, size_t length)
 {
 	if (str->ddata == NULL)
+	{
+		dbg("string: fgetline requires a dynamic string");
 		return EREJECT;
+	}
 	if ((length == (size_t) -1) || (length > INT_MAX))
 		str->length = snprintf(str->ddata, str->size, "%s", source);
 	else
 		str->length = snprintf(str->ddata, str->size, "%.*s", (int)length, source);
+	if (str->length == str->size)
+		return EREJECT;
+	str->data = str->ddata;
+	return ESUCCESS;
+}
+
+int string_append(string_t *str, const char *source, size_t length)
+{
+	if (str->ddata == NULL || (length == (size_t) -1) || (length > INT_MAX))
+		return EREJECT;
+	if ((str->length + length) > str->size)
+	{
+		str->size = str->length + length + 1;
+		str->ddata = realloc(str->ddata, str->size);
+	}
+	str->length += snprintf(str->ddata + str->length, str->size, "%.*s", (int)length, source);
 	if (str->length == str->size)
 		return EREJECT;
 	return ESUCCESS;
@@ -283,10 +356,12 @@ int string_printf(string_t *str, void *fmt,...)
 		va_start(ap, fmt);
 		str->length = vsnprintf(str->ddata, str->size, fmt, ap);
 		va_end(ap);
+		str->data = str->ddata;
 		if (str->length < str->size)
 			return ESUCCESS;
 #endif
 	}
+	dbg("string: printf requires a dynamic string");
 	return EREJECT;
 }
 
@@ -303,20 +378,53 @@ int string_dup(string_t *dst, const string_t *src)
 
 size_t string_slice(string_t *str, int start, int length)
 {
+	size_t offset = str->data - str->ddata;
 	if (start > 0)
 	{
 		str->data += start;
 		str->length -= start;
+		if (str->ddata == NULL)
+			str->size -= start;
+		if (length == 0)
+			length = str->length;
 	}
-	if (length > 0 && length < str->length)
+	if (((str->data - str->ddata + length) < (offset + str->size)))
 		str->length = length;
 	return str->length;
+}
+
+void string_unquote(string_t *str)
+{
+	if (str->data[0] == '\"')
+	{
+		str->data++;
+		str->length--;
+	}
+	if (str->data[str->length - 1] == '\"')
+		str->length--;
+}
+
+long int string_tol(const string_t *str, int base)
+{
+	return strtol(str->data, NULL, base);
+}
+
+string_t *string_value(string_t *str, const char *header, size_t length)
+{
+	string_t key = {0};
+	string_store(&key, header, length);
+	string_t *value = string_rest(str, &key);
+	string_unquote(value);
+	return value;
 }
 
 int string_fgetline(string_t *str, FILE *file)
 {
 	if (str->ddata == NULL)
+	{
+		dbg("string: fgetline requires a dynamic string");
 		return EREJECT;
+	}
 	size_t length = 0;
 #if 1
 	do
@@ -345,7 +453,16 @@ int string_fgetline(string_t *str, FILE *file)
 
 const char *string_toc(const string_t *str)
 {
-	return str->data;
+	if (str)
+		return str->data;
+	return NULL;
+}
+
+char *string_storage(const string_t *str)
+{
+	if (str)
+		return str->ddata;
+	return NULL;
 }
 
 void string_cleansafe(string_t *str)
@@ -373,6 +490,8 @@ void string_destroy(string_t *str)
 	str->size = 0;
 	free(str);
 }
+
+/******************************************************************************/
 
 int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value)
 {

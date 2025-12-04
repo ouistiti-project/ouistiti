@@ -1,12 +1,5 @@
-if [ "$TESTDIR" != "./tests/" ]; then
-	echo "test must run from SRC directory"
-	DISABLED=1
-fi
 DESC="Vhost: websocket startup on service"
 CONFIG=test20.conf
-#PREPARE_ASYNC="./utils/websocket_echo -R /tmp -u $USER -t -n echo"
-#PREPARE="./utils/websocket_echo -R /tmp -u $USER -t -D -n echo"
-#CLEAN="killall -9 websocket_echo"
 TESTOPTION="-w"
 TESTRESPONSE=test024_rs.txt
 TESTCODE=101
