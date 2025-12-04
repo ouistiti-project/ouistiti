@@ -1,8 +1,4 @@
-if [ "$TESTDIR" != "./tests/" ]; then
-	echo "test must run from SRC directory"
-	DISABLED=1
-fi
 DESC="test userfilter reapproving user"
-PREPARE="rm -f $PWD/tests/conf/filter.db"
+PREPARE="rm -f ${TESTDIR}conf/filter.db"
 CONFIG=test12.conf
 TESTCODE=200

@@ -1,6 +1,6 @@
 DESC="simple HTTPS request"
 CONFIG=test17.conf
-LD_LIBRARY_PATH=libhttpserver/src ./host/utils/ouipasswd -u test -g user -p test -R "welcome to ouistiti" -A MD5 > tests/conf/passwd
+LD_LIBRARY_PATH=libhttpserver/src ./host/utils/ouipasswd -u test -g user -p test -R "welcome to ouistiti" -A MD5 > ${TESTDIR}conf/passwd
 WGETURL="--user test --password test https://127.0.0.1:8443/index.html"
 TESTDEFAULTPORT=8443
 TESTCODE=200
