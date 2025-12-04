@@ -1,0 +1,6 @@
+PUT /test41.link HTTP/1.1
+HOST: 127.0.0.1
+Content-Type: inode/symlink
+Content-Location: /test41.txt
+Authorization: Basic dGVzdDp0ZXN0
+

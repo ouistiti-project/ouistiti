@@ -1,0 +1,4 @@
+DESC="test to PUT symlink on the server"
+PREPARE="rm -f ${TESTDIR}/htdocs/test41.link"
+CONFIG=test10.conf
+TESTCODE=201
