@@ -14,7 +14,7 @@ servers= ({
 				type = "none";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				options = "jwt";
-				issuer = "authpass+totp";
+				issuer = "";
 			},{
 				type = "Basic";
 				dbname="conf/passwd.db";
@@ -25,10 +25,9 @@ servers= ({
 				   as all Basic authentication.
 				   Or here the authentication accept a jwt token.
 				   This may be present inside a X-TOKEN header field or inside a Cookie
-				
+				 */
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				options = "jwt";
-				 */
 				issuer = "authpass";
 				realm = "auth.ouistiti.local";
 			},{
@@ -40,7 +39,7 @@ servers= ({
 				   A JWT may be used for authentication or POST with ww-form-urlencoded.
 				   The cookie option generates the token inside cookie
 				*/
-				options = "jwt,cookie";
+				options = "jwt";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html?step=totp";
@@ -55,7 +54,7 @@ servers= ({
 				type = "none";
 				dbname="conf/passwd.db";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
-				options = "jwt,management";
+				options = "jwt,cookie,management";
 				issuer = "authpass+totp";
 			});
 			redirect = {
@@ -85,7 +84,7 @@ servers= ({
 			options = "header";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 			signin = "http://auth.ouistiti.local:8080/token";
-			issuer = "authpass";
+			issuer = "authpass+totp";
 			realm = "www.ouistiti.local";
 		};
 		userfilter = {

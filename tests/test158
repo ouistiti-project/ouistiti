@@ -1,0 +1,4 @@
+DESC="test a request to list the directory"
+mkdir -p ${TESTDIR}/htdocs/dirlisting2
+CONFIG=test1.conf
+TESTCODE=200

@@ -121,6 +121,7 @@ struct string_s
 #define STRING_INFO(string) string.data, string.length
 #define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
 string_t *string_create(size_t size);
+string_t *string_dup(const string_t *src);
 void string_debug(string_t *str, const char *name);
 int string_store(string_t *str, const char *pointer, size_t length);
 int string_cmp(const string_t *str, const char *cmp, size_t length);
@@ -145,7 +146,6 @@ int string_chr(const string_t *str, char c);
 int string_rchr(const string_t *str, char c);
 size_t string_slice(string_t *str, int start, int length);
 void string_unquote(string_t *str);
-int string_dup(string_t *dst, const string_t *src);
 void string_cleansafe(string_t *str);
 void string_destroy(string_t *str);
 
@@ -153,6 +153,8 @@ int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value
 int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value);
 int ouimessage_parameter(http_message_t *message, const char *key, string_t *value);
 int ouiserver_INFO(http_server_t *server, const char *key, string_t *value);
+int ouimessage_cookie(http_message_t *request, const char *key, string_t *cookie);
+int ouimessage_setcookie(http_message_t *response, const char *key, const string_t *value, ...);
 
 extern const char str_servername[9];
 
@@ -172,7 +174,8 @@ extern const char str_options[8];
 
 extern const char str_authenticate[17];
 extern const char str_authorization[14];
-extern const char str_Cookie[7];
+extern const char str_cookie[7];
+extern const char str_setcookie[11];
 extern const char str_cachecontrol[14];
 extern const char str_xtoken[13];
 extern const char str_xuser[14];

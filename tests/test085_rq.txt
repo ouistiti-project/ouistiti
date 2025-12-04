@@ -1,6 +1,6 @@
 PUT /filter/config HTTP/1.1
 HOST: www.ouistiti.local
-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogInJvb3QiLCAiaG9tZSI6ICIvaG9tZS9yb290IiwgInN0YXR1cyI6ICJhY3RpdmF0ZWQiLCAicm9sZXMiOiAicm9vdCIsICJleHAiOiAxODAwfQ.-A3wP5zOYUU0GdHDwkDKxJp24cbTLEdIjpq-YQPVtiw; SameSite=strict; Path=/; Domain=.ouistiti.local
+Cookie: X-Auth-Token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoicm9vdCIsImhvbWUiOiIvaG9tZS9yb290Iiwic3RhdHVzIjoiYWN0aXZhdGVkIiwicm9sZXMiOiJyb290IiwiZXhwIjoxODAwLCJpc3MiOiJzcWxpdGUifQ.MrfzWqKruabCqgQ2KcltT1cPAobg-169wusrAXBcISM; SameSite=strict; Path=/; Domain=.ouistiti.local
 Origin: http://localhost
 Content-Type: application/x-www-form-urlencoded
 Content-Length: 39

@@ -40,25 +40,22 @@
 typedef struct authn_basic_s authn_basic_t;
 struct authn_basic_s
 {
-	authz_t *authz;
-	char *challenge;
+	const mod_auth_t *config;
+	string_t *issuer;
 };
+
+static string_t string_basic = STRING_DCL("Basic ");
 
 void *authn_basic_config(const void *configauth, authn_type_t *type)
 {
 	return (void *)(long)1;
 }
 
-#define FORMAT "Basic realm=\"%s\""
-static void *authn_basic_create(const authn_t *authn, void *arg)
+static void *authn_basic_create(const authn_t *authn, string_t *issuer, void *arg)
 {
 	authn_basic_t *mod = calloc(1, sizeof(*mod));
-	size_t length = sizeof(FORMAT) - 2
-					+ authn->config->realm.length + 1;
-	mod->challenge = calloc(1, length);
-	if (mod->challenge)
-		snprintf(mod->challenge, length, FORMAT, authn->config->realm.data);
-
+	mod->issuer = issuer;
+	mod->config = authn->config;
 	return mod;
 }
 
@@ -66,8 +63,14 @@ static int authn_basic_challenge(void *arg, http_message_t *UNUSED(request), htt
 {
 	int ret;
 	const authn_basic_t *mod = (authn_basic_t *)arg;
+	const mod_auth_t *config = mod->config;
 
-	httpmessage_addheader(response, str_authenticate, mod->challenge, -1);
+	httpmessage_addheader(response, str_authenticate, STRING_REF("Basic realm=\""));
+	const string_t *realm = mod->issuer;
+	if (!string_empty(&config->realm))
+		realm = &config->realm;
+	httpmessage_appendheader(response, str_authenticate, string_toc(realm), string_length(realm));
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
 	ret = ECONTINUE;
 	return ret;
 }
@@ -80,9 +83,16 @@ static const char *authn_basic_check(void *arg, authz_t *authz, const char *meth
 	(void) method;
 	(void) uri;
 
+	string_t data = {0};
+	string_store(&data, string, stringlen);
+	string_t *authorization = &data;
+	authorization = string_rest(authorization, &string_basic);
+	if (authorization == NULL)
+		return NULL;
+
 	memset(user, 0, 256);
 	auth_dbg("auth: basic check: %s", string);
-	base64->decode(string, stringlen, user, 256);
+	base64->decode(string_toc(authorization), string_length(authorization), user, 256);
 	passwd = strchr(user, ':');
 	if (passwd != NULL)
 	{
@@ -91,7 +101,7 @@ static const char *authn_basic_check(void *arg, authz_t *authz, const char *meth
 		found = authz->rules->check(authz->ctx, user, passwd, NULL);
 	}
 	else
-		found = authz->rules->check(authz->ctx, NULL, NULL, string);
+		found = authz->rules->check(authz->ctx, NULL, NULL, string_toc(authorization));
 	auth_dbg("auth: basic check: %s %s", user, passwd);
 	return found;
 }
@@ -99,8 +109,6 @@ static const char *authn_basic_check(void *arg, authz_t *authz, const char *meth
 static void authn_basic_destroy(void *arg)
 {
 	authn_basic_t *mod = (authn_basic_t *)arg;
-	if (mod->challenge)
-		free(mod->challenge);
 	free(mod);
 }
 

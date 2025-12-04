@@ -61,6 +61,8 @@ typedef struct mod_document_s
 	int options;
 } mod_document_t;
 
+int document_config(void *iterator, server_t *server, int index, void **config);
+
 extern const module_t mod_document;
 
 /**

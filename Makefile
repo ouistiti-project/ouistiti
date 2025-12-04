@@ -38,8 +38,8 @@ ifneq ($(HTTPCLIENT_FEATURES),y)
 override AUTHN_OAUTH2:=n
 endif
 
-include-y+=config.h
-include-y+=version.h
+include-y+=$(objdir)config.h
+include-y+=$(objdir)version.h
 subdir-y+=include/ouistiti
 subdir-y+=staging
 subdir-y+=src

@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <dirent.h>
+#include <time.h>
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
@@ -62,12 +63,13 @@ typedef struct _document_connector_s document_connector_t;
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
-#define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%s\"},"
+#ifdef DIRLISTING_ADD_CTIME
+#define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%.48s\",\"ctime\":\"%.32s\"}"
+#else
+#define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%.48s\"}"
+#endif
 #define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
-#define DIRLISTING_FOOTER "\
-{}],\
-\"result\":\"%s\"\
-}\n"
+#define DIRLISTING_FOOTER "],\"result\":\"%s\"}"
 
 #ifdef DIRLISTING_MOD
 static const char str_dirlisting[] = "dirlisting";
@@ -80,6 +82,61 @@ static const char *_sizeunit[] = {
 	"GB",
 	"TB",
 };
+
+static int _dirlisting_getentity(document_connector_t *private, struct dirent *ent, http_message_t *response)
+{
+	int ret = EREJECT;
+	if (ent == NULL)
+		return EREJECT;
+	document_dbg("dirlisting: dirlisting contains %s", ent->d_name);
+	{
+		unsigned int namelength = strlen(ent->d_name);
+		if (namelength > MAX_NAMELENGTH)
+		{
+			warn("dirlisting: %s file name length too long", ent->d_name);
+			namelength = MAX_NAMELENGTH;
+		}
+		unsigned int length = namelength;
+		struct stat filestat;
+		fstatat(private->fdfile, ent->d_name, &filestat, 0);
+		size_t size = filestat.st_size;
+		if (size == -1)
+		{
+			err("dirlisting: %s stat error %s", ent->d_name, strerror(errno));
+			return EREJECT;
+		}
+		int unit = 0;
+		while (size > 2000)
+		{
+			size /= 1024;
+			unit++;
+		}
+		const char *mime = "inode/directory";
+		size_t mimelen = 15;
+
+		if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
+		{
+			mimelen = utils_getmime2(ent->d_name, &mime);
+		}
+		length += mimelen;
+		length += 4 + 2 + 4;
+		char filetime[32];
+		length += strftime(filetime, sizeof(filetime), "%a, %d %b %Y %T %z", localtime(&filestat.st_ctime));
+		char data[DIRLISTING_LINE_LENGTH + MAX_NAMELENGTH + 48 + 4 + 2 + 4 + sizeof(filetime) + 1];
+		length = snprintf(data, sizeof(data) - 1, DIRLISTING_LINE, namelength, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime, filetime);
+		document_dbg("dirlisting: %.*s", length, data);
+		int sent = httpmessage_appendcontent(response, data, length);
+		while (sent < length)
+		{
+			length -= sent;
+			sent = httpmessage_appendcontent(response, data + sent, length);
+		}
+		document_dbg("dirlisting: next");
+		ret = ECONTINUE;
+	}
+	free(ent);
+	return ret;
+}
 
 static int _dirlisting_connectorheader(document_connector_t *private, http_message_t *request, http_message_t *response)
 {
@@ -118,6 +175,21 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 			httpmessage_appendcontent(response, data, urilen);
 			free(data);
 			ret = ECONTINUE;
+
+			struct dirent *ent;
+			while (private->nbents > 0)
+			{
+				ent = private->ents[private->nbents - 1];
+				if (ent->d_name[0] != '.')
+					break;
+				ent = NULL;
+				private->nbents--;
+			}
+			if (ent)
+			{
+				ret = _dirlisting_getentity(private, ent, response);
+				private->nbents--;
+			}
 		}
 	}
 	else
@@ -128,54 +200,6 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 		httpmessage_result(response, RESULT_400);
 	}
 
-	return ret;
-}
-
-static int _dirlisting_getentity(document_connector_t *private, struct dirent *ent, http_message_t *response)
-{
-	int ret = EREJECT;
-	if (ent == NULL)
-		return EREJECT;
-	document_dbg("dirlisting: dirlisting contains %s", ent->d_name);
-	if (ent->d_name[0] != '.')
-	{
-		unsigned int length = strlen(ent->d_name);
-		if (length > MAX_NAMELENGTH)
-		{
-			warn("dirlisting: %s file name length too long", ent->d_name);
-		}
-		struct stat filestat;
-		fstatat(private->fdfile, ent->d_name, &filestat, 0);
-		size_t size = filestat.st_size;
-		if (size == -1)
-		{
-			err("dirlisting: %s stat error %s", ent->d_name, strerror(errno));
-			return EREJECT;
-		}
-		int unit = 0;
-		while (size > 2000)
-		{
-			size /= 1024;
-			unit++;
-		}
-		const char *mime = "inode/directory";
-		size_t mimelen = 15;
-
-		if (S_ISREG(filestat.st_mode) || S_ISLNK(filestat.st_mode))
-		{
-			mimelen = utils_getmime2(ent->d_name, &mime);
-		}
-		length += mimelen;
-		length += 4 + 2 + 4;
-		char *data = calloc(1, DIRLISTING_LINE_LENGTH + length + 1);
-		length = snprintf(data, DIRLISTING_LINE_LENGTH + length + 1, DIRLISTING_LINE, MAX_NAMELENGTH, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
-		document_dbg("dirlisting: %s", data);
-		httpmessage_addcontent(response, NULL, data, length);
-		document_dbg("dirlisting: next");
-		free(data);
-		ret = ECONTINUE;
-	}
-	free(ent);
 	return ret;
 }
 
@@ -191,24 +215,25 @@ static int _dirlisting_connectorcontent(document_connector_t *private, http_mess
 		/**
 		 * private->ents != NULL checked inside _dirlisting_connector
 		 */
-		if (private->nbents > 0)
+		while (private->nbents > 0)
 		{
 			ent = private->ents[private->nbents - 1];
+			if (ent->d_name[0] != '.')
+				break;
+			ent = NULL;
+			private->nbents--;
+		}
+		if (ent)
+		{
+			httpmessage_addcontent(response, NULL, ",", 1);
+			ret = _dirlisting_getentity(private, ent, response);
 			private->nbents--;
 		}
 		else
-			ent = NULL;
-		if (ent)
 		{
-			ret = _dirlisting_getentity(private, ent, response);
-		}
-		else
-		{
-			int length = sizeof(DIRLISTING_FOOTER);
-			char *data = calloc(1, length);
-			length = snprintf(data, length, DIRLISTING_FOOTER, "OK");
+			char data[sizeof(DIRLISTING_FOOTER) + 1];
+			size_t length = snprintf(data, sizeof(data) -1, DIRLISTING_FOOTER, "OK");
 			httpmessage_addcontent(response, NULL, data, length);
-			free(data);
 			close(private->fdfile);
 			private->fdfile = 0;
 			ret = ECONTINUE;
@@ -236,6 +261,8 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 	int ret = EREJECT;
 	document_connector_t *private = (document_connector_t *)arg;
 
+	if (private->fdfile < 0)
+		return EREJECT;
 	if (private->ents == NULL)
 	{
 		ret = _dirlisting_connectorheader(private, request, response);
@@ -252,6 +279,55 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 }
 
 #ifdef DIRLISTING_MOD
+static int _document_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	document_connector_t *ctx = (document_connector_t *)arg;
+	_mod_document_mod_t *mod = ctx->mod;
+
+	const char *method = httpmessage_REQUEST(request, "method");
+	if (strcmp(method, str_get))
+		return EREJECT;
+
+	const char *uri = NULL;
+	int urilen = httpmessage_REQUEST2(request,"uri", &uri);
+
+	if (htaccess_check(&mod->config->htaccess, uri, NULL) == EREJECT)
+	{
+		document_dbg("document: %s forbidden extension", uri);
+		/**
+		 * Another module may have the same docroot and
+		 * accept the name of the uri.
+		 * The module has not to return an error.
+		 */
+		return  EREJECT;
+	}
+	int fdroot = EREJECT;
+	while (uri[0] == '/')
+	{
+		uri++;
+		urilen--;
+	}
+
+	ctx->url = uri;
+	ctx->fdroot = mod->fdroot;
+	struct stat filestat;
+	if (fstatat(ctx->fdroot, ctx->url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
+	{
+		return EREJECT;
+	}
+	const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
+	if (S_ISDIR(filestat.st_mode) &&
+		(X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
+	{		
+		document_dbg("document: %s is directory", ctx->url);
+		if (ctx->url[0] != '\0')
+			ctx->fdfile = openat(ctx->fdroot, ctx->url, O_DIRECTORY);
+		else
+			ctx->fdfile = openat(ctx->fdroot, ".",  O_DIRECTORY);
+	}
+	return EREJECT;
+}
+
 static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockaddr *addr, int addrsize)
 {
 	_mod_document_mod_t *mod = (_mod_document_mod_t *)arg;
@@ -261,6 +337,8 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 	ctx->mod = mod;
 	ctx->ctl = ctl;
 	httpclient_addconnector(ctl, dirlisting_connector, ctx, CONNECTOR_DOCUMENT, str_dirlisting);
+	httpclient_addconnector(ctl, _document_connector, ctx, CONNECTOR_DOCUMENT, str_dirlisting);
+	ctx->fdfile = -1;
 
 	return ctx;
 }
@@ -268,20 +346,41 @@ static void *_mod_dirlisting_getctx(void *arg, http_client_t *ctl, struct sockad
 static void _mod_dirlisting_freectx(void *vctx)
 {
 	document_connector_t *ctx = vctx;
-	if (ctx->path_info)
-	{
-		free(ctx->path_info);
-		ctx->path_info = NULL;
-	}
 	free(ctx);
 }
 
 void *mod_dirlisting_create(http_server_t *server, mod_document_t *config)
 {
-	_mod_document_mod_t *mod = calloc(1, sizeof(*mod));
-
 	if (config == NULL)
 		return NULL;
+	if (config->options & DOCUMENT_DIRLISTING == 0)
+		return NULL;
+	int fdroot = open(config->docroot, O_DIRECTORY);
+	if (fdroot == -1)
+	{
+		err("dirlisting: docroot %s not found", config->docroot);
+		return NULL;
+	}
+
+	_mod_document_mod_t *mod = calloc(1, sizeof(*mod));
+	mod->config = config;
+	mod->fdroot = fdroot;
+	document_dbg("dirlisting: root directory is %s", config->docroot);
+#ifdef DOCUMENTHOME
+	if (config->options & DOCUMENT_HOME && config->dochome != NULL)
+	{
+		mod->fdhome = open(config->dochome, O_DIRECTORY);
+	}
+	else
+	{
+		mod->fdhome = dup(mod->fdroot);
+		config->dochome = config->docroot;
+	}
+	if (mod->fdhome == -1)
+	{
+		err("document: dochome %s not found %m", config->dochome);
+	}
+#endif
 
 	mod->config = config;
 	httpserver_addmod(server, _mod_dirlisting_getctx, _mod_dirlisting_freectx, mod, str_dirlisting);
@@ -291,13 +390,32 @@ void *mod_dirlisting_create(http_server_t *server, mod_document_t *config)
 
 void mod_dirlisting_destroy(void *data)
 {
+	_mod_document_mod_t *mod = (_mod_document_mod_t *)data;
+	close(mod->fdroot);
+	close(mod->fdhome);
 	free(data);
 }
+
+#include <dlfcn.h>
+int mod_dirlisting_config(void *it, server_t *server, int index, void **modconfig)
+{
+	module_configure_t document_config;
+	void *hdl = dlopen(NULL, RTLD_NOW | RTLD_GLOBAL);
+	document_config = dlsym(hdl, "document_config");
+	if (document_config)
+	{
+		return document_config(it, server, index, modconfig);
+	}
+	return -1;
+}
+
 const module_t mod_dirlisting =
 {
+	.version = 0x01,
 	.name = str_dirlisting,
-	.create = (module_create_t)&mod_dirlisting_create,
-	.destroy = &mod_dirlisting_destroy
+	.configure = (module_configure_t)mod_dirlisting_config,
+	.create = (module_create_t)mod_dirlisting_create,
+	.destroy = mod_dirlisting_destroy
 };
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_dirlisting")));

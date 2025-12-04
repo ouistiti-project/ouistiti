@@ -156,6 +156,7 @@ static int authmngt_setrules(const config_setting_t *configauth, mod_authmngt_t 
 		{
 			authmngt_dbg("authmngt: manager %s", authmngt_list[i]->name);
 			mngtconfig->mngt.rules = authmngt_list[i]->rules;
+			mngtconfig->mngt.name = authmngt_list[i]->name;
 			break;
 		}
 	}
@@ -168,14 +169,11 @@ static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int
 {
 	int conf_ret = ESUCCESS;
 	mod_authmngt_t *mngtconfig = NULL;
-	static mod_authmngt_issuer_t *issuers = NULL;
 #if LIBCONFIG_VER_MINOR < 5
 	const config_setting_t *config = config_setting_get_member(iterator, "auth");
 #else
 	const config_setting_t *config = config_setting_lookup(iterator, "auth");
 #endif
-	if (index == 0)
-		issuers = NULL;
 	if (config && config_setting_is_list(config))
 	{
 			if (index >= config_setting_length(config))
@@ -186,27 +184,24 @@ static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int
 
 	if (config)
 	{
-		const char *issuername = NULL;
-		if (config_setting_lookup_string(config, "issuer", &issuername) == CONFIG_TRUE)
-		{
-			mod_authmngt_issuer_t *issuer = calloc(1, sizeof(*issuer));
-			string_store(&issuer->name, issuername, -1);
-			issuer->next = issuers;
-			issuers = issuer;
-		}
-
 		const char *mode = NULL;
 		int ret = config_setting_lookup_string(config, "options", &mode);
 		if ((ret == CONFIG_TRUE) &&
 			(utils_searchexp("management", mode, NULL) == ESUCCESS))
 		{
 			mngtconfig = calloc(1, sizeof(*mngtconfig));
-			mngtconfig->issuers = issuers;
 			if (authmngt_setrules(config, mngtconfig) != ESUCCESS)
 			{
 				free(mngtconfig);
 				mngtconfig = NULL;
+				return EREJECT;
 			}
+			const char *issuername = NULL;
+			if (config_setting_lookup_string(config, "issuer", &issuername) != CONFIG_TRUE)
+			{
+				issuername = mngtconfig->mngt.name;
+			}
+			string_store(&mngtconfig->issuer, issuername, -1);
 		}
 	}
 	if ((mngtconfig == NULL) && (conf_ret == ESUCCESS)) //the config is an object
@@ -277,12 +272,6 @@ static void mod_authmngt_destroy(void *arg)
 {
 	_mod_authmngt_t *mod = (_mod_authmngt_t *)arg;
 #ifdef FILE_CONFIG
-	mod_authmngt_issuer_t *next;
-	for (mod_authmngt_issuer_t *issuer = mod->config->issuers; issuer != NULL; issuer = next)
-	{
-		next = issuer->next;
-		free(issuer);
-	}
 	free(mod->config);
 #endif
 	free(mod);
@@ -475,6 +464,7 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 	size_t length = httpmessage_parameter(request, "issuers", &data);
 	if (length > 0)
 	{
+#if 0
 		char *decode = utils_urldecode(data, length);
 		if (decode != NULL)
 		{
@@ -482,6 +472,7 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 			free(decode);
 		}
 		else
+#endif
 			string_cpy(issuer, data, length);
 		ret = ESUCCESS;
 	}
@@ -641,7 +632,7 @@ static int _authmngt_deleteconnector(_mod_authmngt_ctx_t *ctx, const char *user,
 {
 	_mod_authmngt_t *mod = ctx->mod;
 	int ret = EREJECT;
-	if (!_authmngt_checkrights(ctx, user, request))
+	if (!ctx->isuser && !ctx->isroot)
 	{
 		ctx->error = error_accessdenied;
 	}
@@ -665,25 +656,26 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	_mod_authmngt_t *mod = ctx->mod;
 	int ret = EREJECT;
 
-	_authmngt_checkrights(ctx, user, request);
-	ctx->isuser = 1;
-
 	authsession_t info = {0};
 	string_t *issuer = string_create(254);
 	ret = _authmngt_parsesession(ctx, user, request, &info, issuer);
+	string_t currentrole = {0};
+	ouimessage_SESSION(request, str_group, &currentrole);
+	if (string_cmp(&currentrole, "root", -1) && !strncmp(info.group, "root", 4))
+		strncpy(info.group, str_group_users, sizeof(info.group));
+	if (info.group[0] == '\0')
+		strncpy(info.group, str_group_anonymous, sizeof(info.group));
 	if (ret == ESUCCESS && mod->config->mngt.rules->adduser != NULL && info.user[0] != '\0')
 	{
 		ret = mod->config->mngt.rules->adduser(ctx->ctx, &info);
 		if (ret == ESUCCESS && mod->config->mngt.rules->setsession != NULL)
-			ret = mod->config->mngt.rules->setsession(ctx->ctx, info.user, &info);
-		else
-			ctx->error = error_userexists;
-		if (ret == ESUCCESS && mod->config->mngt.rules->setissuer != NULL)
 		{
-			ret = mod->config->mngt.rules->setissuer(ctx->ctx, info.user, string_toc(issuer), string_length(issuer));
+			ret = mod->config->mngt.rules->setsession(ctx->ctx, info.user, &info);
+			if (ret != ESUCCESS)
+				ctx->error = error_badvalue;
 		}
 		else
-			ctx->error = error_badvalue;
+			ctx->error = error_userexists;
 		if (ret == ESUCCESS)
 			ret = _authmngt_userresponse(ctx, &info, request, response);
 		if (ret == ESUCCESS)
@@ -699,17 +691,24 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 {
 	_mod_authmngt_t *mod = ctx->mod;
 	int ret = EREJECT;
-	if (!_authmngt_checkrights(ctx, user, request))
+	if (!ctx->isuser && !ctx->isroot)
 	{
+		const char *currentuser = auth_info(request, STRING_REF(str_user));
+		err("authmngt: user %s access denied (%s)", user, currentuser);		
 		ctx->error = error_accessdenied;
 		return ret;
 	}
 
 	authsession_t info = {0};
-	const char data[256];
-	string_t issuer = {0};
-	string_store(&issuer, STRING_REF(data));
-	ret = _authmngt_parsesession(ctx, user, request, &info, &issuer);
+	string_t *issuer = string_create(256);
+	ret = _authmngt_parsesession(ctx, user, request, &info, issuer);
+
+	string_t currentrole = {0};
+	ouimessage_SESSION(request, str_group, &currentrole);
+	if (string_cmp(&currentrole, "root", -1) && !strncmp(info.group, "root", 4))
+		strncpy(info.group, str_group_users, sizeof(info.group));
+	if (info.group[0] == '\0')
+		strncpy(info.group, str_group_anonymous, sizeof(info.group));
 
 	if (ret == ESUCCESS && ctx->isroot && mod->config->mngt.rules->changeinfo != NULL)
 	{
@@ -730,9 +729,10 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 	}
 	if (ret == ESUCCESS && (ctx->isuser || ctx->isroot) && mod->config->mngt.rules->setissuer != NULL)
 	{
-		ret = mod->config->mngt.rules->setissuer(ctx->ctx, user,string_toc(&issuer), string_length(&issuer));
+		ret = mod->config->mngt.rules->setissuer(ctx->ctx, user,string_toc(issuer), string_length(issuer));
 	}
-	if (ret == EREJECT)
+	string_destroy(issuer);
+	if (ret == EREJECT && !ctx->error)
 		ctx->error = error_badvalue;
 	return ret;
 }
@@ -747,13 +747,18 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 
 	authmngt_dbg("authmngt: search %s", str_mngtpath);
 	if (utils_searchexp(uri, str_mngtpath, &user))
+	{
 		return EREJECT;
+	}
+	while (user && user[0] == '/') user++;
+	_authmngt_checkrights(ctx, user, request);
 
 	if (ctx->ctx == NULL)
 	{
-		ctx->ctx = mod->config->mngt.rules->create(ctx->clt, mod->config->mngt.config);
+		ctx->ctx = mod->config->mngt.rules->create(ctx->clt, &mod->config->issuer, mod->config->mngt.config);
 		if (ctx->ctx == NULL)
 		{
+			err("authmngt: %s not supported", mod->config->mngt.name);
 			httpmessage_result(response, RESULT_500);
 			return ESUCCESS;
 		}
@@ -761,7 +766,6 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 
 	const char *method = httpmessage_REQUEST(request, "method");
 
-	while (user && user[0] == '/') user++;
 	authmngt_dbg("authmngt: access to %s %s", uri, user);
 	if (!strcmp(method, str_get))
 	{
@@ -785,7 +789,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 			ret = EREJECT;
 		if (ret == ESUCCESS)
 			ret = _authmngt_userresponse(ctx, &info, request, response);
-		else
+		else if (!ctx->error)
 			ctx->error = error_usernotfound;
 	}
 	if (ret == EREJECT)

@@ -7,6 +7,7 @@ if [ "$AUTHN_WWWFORM" != "y" ]; then
 	DISABLED=1
 fi
 DESC="2FA: authentication with 2 factors"
+PREPARE="rm -f ${TESTDIR}/conf/passwd.db"
 CONFIG=test16.conf
 TESTCODE=200
 TESTREQUEST="test120a_rq.txt test120b_rq.txt test120c_rq.txt test120d_rq.txt test120e_rq.txt test120f_rq.txt test120g_rq.txt"

@@ -42,6 +42,7 @@ typedef struct authn_wwwform_s authn_wwwform_t;
 struct authn_wwwform_s
 {
 	const authn_t *authn;
+	string_t *issuer;
 	http_client_t *clt;
 };
 
@@ -53,7 +54,7 @@ void *authn_wwwform_config(const void *configauth, authn_type_t *type)
 }
 #endif
 
-static void *authn_wwwform_create(const authn_t *authn, void *UNUSED(arg))
+static void *authn_wwwform_create(const authn_t *authn, string_t *issuer, void *UNUSED(arg))
 {
 	if (authn->config->token_ep.length == 0)
 	{
@@ -62,6 +63,7 @@ static void *authn_wwwform_create(const authn_t *authn, void *UNUSED(arg))
 	}
 	authn_wwwform_t *mod = calloc(1, sizeof(*mod));
 	mod->authn = authn;
+	mod->issuer = issuer;
 	return mod;
 }
 
@@ -72,12 +74,14 @@ static int authn_wwwform_challenge(void *arg, http_message_t *UNUSED(request), h
 	const mod_auth_t *config = mod->authn->config;
 
 	httpmessage_addheader(response, str_authenticate, STRING_REF("WWW-Form"));
+	const string_t *realm = mod->issuer;
 	if (!string_empty(&config->realm))
-	{
-		httpmessage_appendheader(response, str_authenticate, STRING_REF(" realm=\""));
-		httpmessage_appendheader(response, str_authenticate, STRING_INFO(config->realm));
-		httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
-	}
+		realm = &config->realm;
+
+	httpmessage_appendheader(response, str_authenticate, STRING_REF(" realm=\""));
+	httpmessage_appendheader(response, str_authenticate, string_toc(realm), string_length(realm));
+	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
+
 	return ret;
 }
 
@@ -87,14 +91,11 @@ static const char *authn_wwwform_checkrequest(void *arg, authz_t *authz, http_me
 	const mod_auth_t *config = mod->authn->config;
 	const char *user = NULL;
 
-	const char *uri = NULL;
-	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
-	if (string_contain(&config->token_ep, uri, urilen, '?'))
-		return NULL;
-
 	const char *content_type = NULL;
 	size_t content_typelen = httpmessage_REQUEST2(request, str_contenttype, &content_type);
-	if (! strncmp(content_type, str_form_urlencoded, content_typelen))
+	string_t contenttype = {0};
+	string_store(&contenttype, content_type, content_typelen);
+	if (! string_cmp(&contenttype, str_form_urlencoded, -1))
 	{
 		const char *username = NULL;
 		httpmessage_parameter(request, "username", &username);

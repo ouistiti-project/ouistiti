@@ -79,9 +79,10 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 
 	if (string_empty(checkorigin))
 		checkorigin = &mod->hostname;
-	if (!string_empty(&origin) && (string_split(&origin, ':', &protocol, &host, &port, NULL) > 1) &&
-		!string_empty(&host) && !string_empty(checkorigin) &&
-		!string_contain(checkorigin, string_toc(&host) + 2, string_length(&host) - 2, ',')) /// remove first "//"
+	if (!string_empty(&origin))
+		string_split(&origin, ':', &protocol, &host, &port, NULL);
+	if (!string_empty(checkorigin) && ((string_chr(checkorigin, '*') != -1) ||
+		((!string_empty(&host) && !string_contain(checkorigin, string_toc(&host) + 2, string_length(&host) - 2, ','))))) /// remove first "//"
 	{
 		httpmessage_addheader(response, "Access-Control-Allow-Origin", STRING_INFO(origin));
 		string_t method = {0};
