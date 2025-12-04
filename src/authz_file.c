@@ -49,20 +49,27 @@
 #define MAXLENGTH 255
 
 typedef struct authz_file_config_s authz_file_config_t;
-typedef struct authz_file_s authz_file_t;
-struct authz_file_s
+typedef struct authz_mod_s authz_mod_t;
+struct authz_mod_s
 {
 	authz_file_config_t *config;
-	string_t *storage;
-	string_t user;
-	string_t passwd;
-	string_t group;
-	string_t home;
+	string_t *issuer;
 #ifdef FILE_MMAP
 	char *map;
 	int map_size;
 	int fd;
 #endif
+};
+
+typedef struct authz_ctx_s authz_ctx_t;
+struct authz_ctx_s
+{
+	authz_mod_t *mod;
+	string_t user;
+	string_t passwd;
+	string_t group;
+	string_t home;
+	string_t *storage;
 };
 
 struct authz_file_config_s
@@ -87,9 +94,9 @@ void *authz_file_config(const void *configauth, authz_type_t * type)
 }
 #endif
 
-static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
+static void *authz_file_create(http_server_t *UNUSED(server), string_t *issuer, void *arg)
 {
-	authz_file_t *ctx = NULL;
+	authz_mod_t *mod = NULL;
 	authz_file_config_t *config = (authz_file_config_t *)arg;
 
 #ifdef FILE_MMAP
@@ -112,14 +119,13 @@ static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
 	if (addr != MAP_FAILED)
 	{
 #endif
-		ctx = calloc(1, sizeof(*ctx));
-		ctx->config = config;
-#ifndef FILE_MMAP
-		ctx->storage = string_create(MAXLENGTH + 1);
-#else
-		ctx->map = addr;
-		ctx->map_size = sb.st_size;
-		ctx->fd = fd;
+		mod = calloc(1, sizeof(*mod));
+		mod->config = config;
+		mod->issuer = issuer;
+#ifdef FILE_MMAP
+		mod->map = addr;
+		mod->map_size = sb.st_size;
+		mod->fd = fd;
 	}
 	else
 	{
@@ -127,18 +133,33 @@ static void *authz_file_create(http_server_t *UNUSED(server), void *arg)
 	}
 #endif
 	dbg("auth: authentication file storage on %s", config->path);
+	return mod;
+}
+
+static void *authz_file_setup(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
+{
+	authz_mod_t *mod = (authz_mod_t *)arg;
+	string_t *storage = NULL;
+#ifndef FILE_MMAP
+	storage = string_create(MAXLENGTH + 1);
+	if (storage == NULL)
+		return NULL;
+#endif
+	authz_ctx_t *ctx = calloc(1, sizeof(*ctx));
+	ctx->mod = mod;
+	ctx->storage = storage;
 	return ctx;
 }
 
 static int authz_file_passwd(void *arg, const string_t *user, string_t *passwd)
 {
-	authz_file_t *ctx = (authz_file_t *)arg;
-	const authz_file_config_t *config = ctx->config;
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
+	const authz_file_config_t *config = ctx->mod->config;
 	int ret = EREJECT;
 
 #ifdef FILE_MMAP
 	char *line;
-	line = strstr(ctx->map, string_toc(user));
+	line = strstr(ctx->mod->map, string_toc(user));
 	if (line)
 	{
 		size_t len = 0;
@@ -182,12 +203,12 @@ static int authz_file_passwd(void *arg, const string_t *user, string_t *passwd)
 	if (file)
 		fclose(file);
 	else
-		err("authz: password file not found");
+		err("authz: password file %s not found", config->path);
 #endif
 	return ret;
 }
 
-static int _authz_file_checkpasswd(authz_file_t *ctx, string_t *user, string_t *passwd)
+static int _authz_file_checkpasswd(authz_ctx_t *ctx, string_t *user, string_t *passwd)
 {
 	int ret = EREJECT;
 
@@ -208,7 +229,7 @@ static int _authz_file_checkpasswd(authz_file_t *ctx, string_t *user, string_t *
 
 static const char *authz_file_check(void *arg, const char *user, const char *passwd, const char *token)
 {
-	authz_file_t *ctx = (authz_file_t *)arg;
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
 
 	string_t userstr = {0};
 	string_store(&userstr, user, -1);
@@ -221,16 +242,16 @@ static const char *authz_file_check(void *arg, const char *user, const char *pas
 
 static int authz_file_setsession(void *arg, const char *user, const char *token, auth_saveinfo_t cb, void *cbarg)
 {
-	const authz_file_t *ctx = (const authz_file_t *)arg;
+	const authz_ctx_t *ctx = (const authz_ctx_t *)arg;
 
 	cb(cbarg, STRING_REF(str_user), STRING_INFO(ctx->user));
-	if (!strcmp(ctx->user.data, str_anonymous))
+	if (!string_cmp(&ctx->user, str_anonymous, -1))
 		cb(cbarg, STRING_REF(str_group), STRING_REF(str_anonymous));
-	else if (ctx->group.data && ctx->group.length > 0)
+	else if (!string_empty(&ctx->group))
 		cb(cbarg, STRING_REF(str_group), STRING_INFO(ctx->group));
 	else
 		cb(cbarg, STRING_REF(str_group), STRING_REF("users"));
-	if (ctx->home.data && ctx->home.length > 0)
+	if (!string_empty(&ctx->home))
 		cb(cbarg, STRING_REF(str_home), STRING_INFO(ctx->home));
 	cb(cbarg, STRING_REF(str_status), STRING_REF(str_status_activated));
 	if (token)
@@ -239,29 +260,37 @@ static int authz_file_setsession(void *arg, const char *user, const char *token,
 	return ESUCCESS;
 }
 
-static void authz_file_destroy(void *arg)
+static void authz_file_cleanup(void *arg)
 {
-	authz_file_t *ctx = (authz_file_t *)arg;
-
-#ifdef FILE_MMAP
-	munmap(ctx->map, ctx->map_size);
-	close(ctx->fd);
-#else
+	authz_ctx_t *ctx = (authz_ctx_t *)arg;
+	
 	if (ctx->storage)
 		string_destroy(ctx->storage);
-#endif
-	free(ctx->config);
 	free(ctx);
+}
+
+static void authz_file_destroy(void *arg)
+{
+	authz_mod_t *mod = (authz_mod_t *)arg;
+
+#ifdef FILE_MMAP
+	munmap(ctx->map, mod->map_size);
+	close(mod->fd);
+#endif
+	free(mod->config);
+	free(mod);
 }
 
 authz_rules_t authz_file_rules =
 {
 	.config = authz_file_config,
-	.create = &authz_file_create,
-	.check = &authz_file_check,
-	.passwd = &authz_file_passwd,
-	.setsession = &authz_file_setsession,
-	.destroy = &authz_file_destroy,
+	.create = authz_file_create,
+	.setup = authz_file_setup,
+	.check = authz_file_check,
+	.passwd = authz_file_passwd,
+	.setsession = authz_file_setsession,
+	.cleanup = authz_file_cleanup,
+	.destroy = authz_file_destroy,
 };
 
 static const string_t authz_name = STRING_DCL("file");

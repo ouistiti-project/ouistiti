@@ -81,7 +81,7 @@ void *authz_simple_config(const void *configauth, authz_type_t *type)
 }
 #endif
 
-static void *authz_simple_create(http_server_t *UNUSED(server), void *config)
+static void *authz_simple_create(http_server_t *UNUSED(server), string_t *issuer, void *config)
 {
 	return config;
 }

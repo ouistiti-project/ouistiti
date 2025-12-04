@@ -41,13 +41,17 @@
 #include "mod_document.h"
 #include "ouistiti.h"
 
+#ifndef BASE64HASH_MAX_SIZE
+#define BASE64HASH_MAX_SIZE ((HASH_MAX_SIZE * 3) / 2 + 1)
+#endif
+
 static const char str_signature[] = "Signature";
 static const char str_signature_input[] = "Signature-Input";
 
 typedef struct mod_signature_s mod_signature_t;
 struct mod_signature_s
 {
-	uint32_t fields;
+	string_t *components;
 	const char *alg;
 	string_t key;
 	htaccess_t htaccess;
@@ -75,9 +79,20 @@ static signature_element_t _default_elemts[] =
 		.field = STRING_DCL("Content-Digest"),
 	},
 	{
+		.component = STRING_DCL("content-location"),
+		.field = STRING_DCL("Content-Location"),
+	},
+	{
 		.component = STRING_DCL("@status"),
 		.field = STRING_DCL("status"),
 	},
+};
+
+typedef struct _signature_component_s _signature_component_t;
+struct _signature_component_s
+{
+	string_t data;
+	_signature_component_t *next;
 };
 
 typedef struct _mod_signature_s _mod_signature_t;
@@ -87,7 +102,7 @@ struct _mod_signature_s
 	mod_signature_t *config;
 	const hash_t *hash;
 	string_t key;
-	uint32_t fields;
+	_signature_component_t *components;
 };
 
 typedef struct _mod_signature_ctx_s _mod_signature_ctx_t;
@@ -103,14 +118,39 @@ static void _mod_signature_freectx(void *arg);
 static int _signature_connectorcheck(void *arg, http_message_t *request, http_message_t *response);
 static int _signature_connectorcomplete(void *arg, http_message_t *request, http_message_t *response);
 
+static int _signature_add_component(_mod_signature_t *signature, const char *component, size_t length)
+{
+	int ret = -1;
+	_signature_component_t *entry = calloc(1, sizeof(*entry));
+	string_store(&entry->data, component, length);
+	entry->next = signature->components;
+	signature->components = entry;
+	return ret;
+}
+
 void *mod_signature_create(http_server_t *server, mod_signature_t *config)
 {
-	if (config == NULL || config->fields == 0)
+	if (config == NULL || config->components == NULL)
 		return NULL;
 	_mod_signature_t *mod = calloc(1, sizeof(*mod));
 	mod->server = server;
 	mod->config = config;
-	mod->fields = config->fields;
+	string_t components[5];
+	int ncomponents = string_split(config->components, ',',
+			&components[0],
+			&components[1],
+			&components[2],
+			&components[3],
+			&components[4],
+			NULL);
+
+	for (int i = 0; i < ncomponents; i++)
+	{
+		_signature_component_t *elem = calloc(1, sizeof(*elem));
+		string_store(&elem->data, string_toc(&components[i]), string_length(&components[i]));
+		elem->next = mod->components;
+		mod->components = elem;
+	}
 	mod->hash = hash_macsha256;
 	string_store(&mod->key, config->key.data, config->key.length);
 	httpserver_addmod(server, _mod_signature_getctx, _mod_signature_freectx, mod, str_signature);
@@ -140,6 +180,57 @@ static void _mod_signature_freectx(void *arg)
 	free(ctx);
 }
 
+static int _signature_sign(_mod_signature_ctx_t *ctx, http_message_t *message, string_t *input, char signature[BASE64HASH_MAX_SIZE])
+{
+	_mod_signature_t *mod = ctx->mod;
+	const hash_t *hash = mod->hash;
+	void *hashctx = NULL;
+	int resultlen = 0;
+
+	string_append(input, "(", 1);
+	for (_signature_component_t *component = mod->components; component != NULL; component = component->next)
+	{
+		string_t field = {0};
+		string_t tmp = {0};
+		string_store(&tmp, "@", 1);
+		if (string_startwith(&component->data, &tmp))
+		{
+			warn("signature: %s filed not yet supported", string_toc(&component->data));
+			continue;
+		}
+		else
+			ouimessage_REQUEST(message, string_toc(&component->data), &field);
+		if (string_empty(&field))
+			continue;
+		if (hashctx == NULL)
+			hashctx = hash->initkey(STRING_INFO(mod->key));
+
+		string_append(input, "\"", 1);
+		string_append(input, string_toc(&component->data), string_length(&component->data));
+		string_append(input, "\" ", 2);
+
+		hash->update(hashctx, "\"", 1);
+		hash->update(hashctx, string_toc(&component->data), string_length(&component->data));
+		hash->update(hashctx, "\": ", 3);
+		hash->update(hashctx, string_toc(&field), string_length(&field));
+		hash->update(hashctx, "\n", 1);
+	}
+	string_append(input, ")", 1);
+
+	if (hashctx != NULL)
+	{
+		hash->update(hashctx, "\"", 1);
+		hash->update(hashctx, "@signature-params", 17);
+		hash->update(hashctx, "\": ", 3);
+		hash->update(hashctx, string_toc(input), string_length(input));
+		hash->update(hashctx, "\n", 1);
+		char hashsign[HASH_MAX_SIZE];
+		size_t signlen = hash->finish(hashctx, hashsign);
+		resultlen = base64->encode(hashsign, signlen, signature, BASE64HASH_MAX_SIZE);
+	}
+	return resultlen;
+}
+
 static int _signature_connectorcheck(void *arg, http_message_t *request, http_message_t *response)
 {
 	_mod_signature_ctx_t *ctx = (_mod_signature_ctx_t *)arg;
@@ -161,50 +252,18 @@ static int _signature_connectorcomplete(void *arg, http_message_t *request, http
 	if (ctx->enabled == 0)
 		return EREJECT;
 	_mod_signature_t *mod = ctx->mod;
-	const hash_t *hash = mod->hash;
-	void *hashctx;
 
 	/*
-	 * TODO this is not the real algo of frc9530
-	 * it's sujst a test
+	 * TODO this is not the real algo of rfc9530
+	 * it's just a test
 	 */
-	hashctx = hash->initkey(STRING_INFO(mod->key));
-	char input[256];
-	char *inputoffset = input;
-	*inputoffset = '(';
-	inputoffset++;
-	for (int i = 0; i < sizeof(_default_elemts)/ sizeof(*_default_elemts); i++)
-	{
-		if (mod->fields & (1<<i))
-		{
-			signature_element_t *elemt = &_default_elemts[i];
-			const char *field = NULL;
-			int len;
-			len = snprintf(inputoffset, 24, "\"%.20s\" ", string_toc(&elemt->component));
-			inputoffset += len;
-			len = httpmessage_REQUEST2(response, string_toc(&elemt->field), &field);
-			hash->update(hashctx, "\"", 1);
-			hash->update(hashctx, string_toc(&elemt->component), string_length(&elemt->component));
-			hash->update(hashctx, "\": ", 3);
-			hash->update(hashctx, field, len);
-			hash->update(hashctx, "\n", 1);
-			if (inputoffset + 24 > input + sizeof(input))
-				break;
-		}
-	}
-	*inputoffset = ')';
-	inputoffset++;
-	hash->update(hashctx, "\"", 1);
-	hash->update(hashctx, "@signature-params", 17);
-	hash->update(hashctx, "\": ", 3);
-	hash->update(hashctx, input, inputoffset - input);
-	hash->update(hashctx, "\n", 1);
-	char signature[32];
-	size_t signlen = hash->finish(hashctx, signature);
-	char result[((HASH_MAX_SIZE * 3) / 2 + 1)] = {0};
-	base64->encode(signature, signlen, result, sizeof(result));
-	httpmessage_addheader(response, str_signature_input, input, -1);
-	httpmessage_addheader(response, str_signature, result, -1);
+	char result[BASE64HASH_MAX_SIZE] = {0};
+	string_t *input = string_create(512);
+	size_t resultlen = _signature_sign(ctx, response, input, result);
+
+	httpmessage_addheader(response, str_signature_input, string_toc(input), string_length(input));
+	string_destroy(input);
+	httpmessage_addheader(response, str_signature, result, resultlen);
 	httpmessage_appendheader(response, str_signature, ";created=", 9);
 	time_t t = time(NULL);
 	char tstr[24];
@@ -216,19 +275,6 @@ static int _signature_connectorcomplete(void *arg, http_message_t *request, http
 	return ESUCCESS;
 }
 
-static int _signature_add_component(mod_signature_t *signature, const char *component)
-{
-	int ret = -1;
-	for (int i = 0; i < sizeof(_default_elemts)/ sizeof(*_default_elemts); i++)
-	{
-		if (! string_cmp(&_default_elemts[i].component, component, -1))
-		{
-			signature->fields |= (1 << i);
-			break;
-		}
-	}
-	return ret;
-}
 #ifdef FILE_CONFIG
 static void * _signature_config(config_setting_t *config, server_t *server)
 {
@@ -244,6 +290,8 @@ static void * _signature_config(config_setting_t *config, server_t *server)
 		signature->key.length = strlen(signature->key.data);
 		config_setting_t *components = NULL;
 		components = config_setting_lookup(config, "components");
+		if (components)
+			signature->components = string_create(256);
 		if (components && config_setting_is_list(components))
 		{
 			int nbelems = 0;
@@ -251,13 +299,19 @@ static void * _signature_config(config_setting_t *config, server_t *server)
 			for (int i = 0; i < nbelems; i++)
 			{
 				config_setting_t *component = config_setting_get_elem(components, i);
-				if (config_setting_type(component) ==  CONFIG_TYPE_STRING &&
-					_signature_add_component(signature, config_setting_get_string(component)))
+				if (component && config_setting_type(component) ==  CONFIG_TYPE_STRING)
 				{
-					warn("signature: component %s is not supported",config_setting_get_string(component));
+					const char *value = config_setting_get_string(component);
+					string_append(signature->components, value, -1);
 				}
 			}
 		}
+		else if (components && config_setting_is_scalar(components))
+		{
+			const char *value = config_setting_get_string(components);
+			string_cpy(signature->components, value, -1);
+		}
+
 		config_setting_lookup_string(config, "algorithm", &signature->alg);
 		htaccess_config(config, &signature->htaccess);
 	}

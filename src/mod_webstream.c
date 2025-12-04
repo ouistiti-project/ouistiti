@@ -440,12 +440,20 @@ static int _webstream_transferdata(_webstream_main_t *info, int multipart)
 		/// ret is always <= length
 		length -= ret;
 		ssize_t size = 0;
+		int tries = 0;
 		while (size < ret)
 		{
 			int outlength = 0;
 			outlength = info->sendresp(info->ctx, buffer, ret);
 			if (outlength == EINCOMPLETE)
-				continue;
+			{
+				tries++;
+				warn("webstream: send incomplete packet (%d bytes)", ret);
+				if (tries < 4)
+					continue;
+				else
+					outlength = EREJECT;
+			}
 			if (outlength == EREJECT)
 			{
 				err("webstream: send error %s", strerror(errno));

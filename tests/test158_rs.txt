@@ -1,0 +1,4 @@
+HTTP/1.1 200 OK
+Content-Type: text/json
+
+{"method":"GET","name":"/dirlisting2","content":[],"result":"OK"}

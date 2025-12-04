@@ -365,15 +365,17 @@ int string_printf(string_t *str, void *fmt,...)
 	return EREJECT;
 }
 
-int string_dup(string_t *dst, const string_t *src)
+string_t *string_dup(const string_t *src)
 {
+	string_t *dst = NULL;
 	if (string_empty(src))
-		return EREJECT;
+		return dst;
+	dst = calloc(1, sizeof(*dst));
 	dst->ddata = strndup(src->data, src->length);
 	dst->data = dst->ddata;
 	dst->size = src->length + 1;
 	dst->length = src->length;
-	return ESUCCESS;
+	return dst;
 }
 
 size_t string_slice(string_t *str, int start, int length)
@@ -532,6 +534,53 @@ int ouiserver_INFO(http_server_t *server, const char *key, string_t *value)
 	string_store(value, data, datalen);
 	return ESUCCESS;
 }
+
+int ouimessage_cookie(http_message_t *request, const char *key, string_t *cookie)
+{
+	const char *data = NULL;
+	size_t datalen = httpmessage_cookie(request, key, &data);
+	if (data == NULL)
+		return EREJECT;
+	string_store(cookie, data, datalen);
+	return ESUCCESS;
+}
+
+int ouimessage_setcookie(http_message_t *response, const char *key, const string_t *value, ...)
+{
+	int ret = 0;
+	const char *domain = NULL;
+	size_t domainlen = httpmessage_REQUEST2(response, "domain", &domain);
+	ret = httpmessage_addheader(response, str_setcookie, key, -1);
+	if (ret == EREJECT)
+		return EREJECT;
+	httpmessage_appendheader(response, str_setcookie, STRING_REF("="));
+#ifdef USE_STDARG
+	va_list ap;
+	va_start(ap, value);
+	while (value != NULL)
+	{
+#endif
+		ret = httpmessage_appendheader(response, str_setcookie, string_toc(value), string_length(value));
+#ifdef USE_STDARG
+		value = va_arg(ap, const string_t *);
+	}
+	va_end(ap);
+#endif
+	const char sameSite[] = "strict";
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; SameSite="));
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF(sameSite));
+	const char path[] = "/";
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Path="));
+	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF(path));
+
+	if (domain != NULL && strncmp(domain, "local", 5))
+	{
+		ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Domain=."));
+		ret = httpmessage_appendheader(response, str_setcookie, domain, domainlen);
+	}
+	return ret;
+}
+
 /******************************************************************************/
 const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 {
@@ -923,22 +972,13 @@ static server_t *ouistiti_loadserver(serverconfig_t *config, int id)
 	char cwd[PATH_MAX] = {0};
 	if (config->root != NULL && config->root[0] != '\0' )
 	{
-		getcwd(cwd, PATH_MAX);
+		if (getcwd(cwd, PATH_MAX) == NULL)
+			cwd[0] = '\0';
 		if (chdir(config->root))
 			err("main: change %s directory error !", config->root);
 	}
-#ifdef DEBUG
 	char pwd[PATH_MAX];
 	dbg("main: ouistiti running environment %s", getcwd(pwd, PATH_MAX));
-	struct dirent **namelist;
-	int n = scandir(".", &namelist, NULL, alphasort);
-	while (n-- > 0)
-	{
-		dbg("\t%s", namelist[n]->d_name);
-		free(namelist[n]);
-	}
-	free(namelist);
-#endif
 	ouistiti_setmodules(server, NULL, config->modulesconfig);
 	if (cwd[0] && chdir(cwd))
 		err("main: change directory error !");
@@ -1144,6 +1184,19 @@ int main(int argc, char * const *argv)
 		ouistiti_initmodules(modules_path);
 #endif
 
+	if (workingdir != NULL)
+	{
+		if (chroot(workingdir) == 0)
+		{
+			warn("main: daemon run inside sandbox");
+		}
+		else if (chdir(workingdir) != 0)
+		{
+			err("%s directory is not accessible", workingdir);
+			return 1;
+		}
+	}
+
 	ouistiticonfig_t *ouistiticonfig = NULL;
 	ouistiticonfig = ouistiticonfig_create(configfile);
 	if (ouistiticonfig == NULL)
@@ -1156,19 +1209,6 @@ int main(int argc, char * const *argv)
 	{
 		display_configuration(configfile, pidfile);
 		return 0;
-	}
-
-	if (workingdir != NULL)
-	{
-		if (chroot(workingdir) == 0)
-		{
-			warn("main: daemon run inside sandbox");
-		}
-		else if (chdir(workingdir) != 0)
-		{
-			err("%s directory is not accessible", workingdir);
-			return 1;
-		}
 	}
 
 	if (ouistiticonfig->init_d != NULL)

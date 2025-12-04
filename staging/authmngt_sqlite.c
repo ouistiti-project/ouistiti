@@ -49,7 +49,7 @@
 
 #define auth_dbg(...)
 
-static void *authmngt_sqlite_create(http_client_t *UNUSED(client), void *arg)
+static void *authmngt_sqlite_create(http_client_t *UNUSED(client), string_t  *issuer, void *arg)
 {
 	authz_sqlite_t *ctx = NULL;
 	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
@@ -68,11 +68,10 @@ static void *authmngt_sqlite_create(http_client_t *UNUSED(client), void *arg)
 		err("authmngt: database %s error: %s", config->dbname, sqlite3_errstr(ret));
 		return NULL;
 	}
-	if (sqlite3_db_readonly(db, config->dbname))
-		err("authmngt: impossible to open %s database in read/write mode (check directory rights)", config->dbname);
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->db = db;
 	ctx->config = config;
+	ctx->issuer = issuer;
 	return ctx;
 }
 
@@ -89,8 +88,8 @@ static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char 
 	const char *sql[] = {
 		"update users set name=@FIELD where id=@USERID",
 		"update users set groupid=@FIELDID where id=@USERID",
-		"update users set statusid=@FIELDID where id=@USERID",
-		"update users set passwd=@FIELD where id=@USERID",
+		"update passwds set statusid=@FIELDID where userid=@USERID",
+		"update passwds set passwd=@FIELD where userid=@USERID",
 		"update users set home=@FIELD where id=@USERID",
 		NULL,
 	};
@@ -169,27 +168,88 @@ static int _authz_store_toauth(void *arg, const char *key, size_t keylen, const 
 static int authz_sqlite_setsessionmng(void *arg, const char *user, authsession_t *info)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-	return authz_sqlite_getuser_byName(ctx, user, _authz_store_toauth, info);
+	int ret = authz_sqlite_getuser_byName(ctx, user, _authz_store_toauth, info);
+	return ret;
 }
 
-static int authz_sqlite_getusermng(void *arg, int id, authsession_t *info)
+static int authz_sqlite_getusermng(void *arg, int userid, authsession_t *info)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-	return authz_sqlite_getuser_byID(ctx, id, _authz_store_toauth, info);
+	int ret = authz_sqlite_getuser_byID(ctx, userid, _authz_store_toauth, info);
+	return ret;
+}
+
+static int _authz_sqlite_addpassword(authz_sqlite_t *ctx, int userid, const char *passwd, const char *issuer, int statusid)
+{
+	int ret;
+	const char *sql = "insert into passwds (\"userid\",\"passwd\",\"issuer\",\"statusid\")"
+			"values (@USERID,@PASSWD,@ISSUER,@STATUSID);";
+
+	sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
+	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	int index;
+	index = sqlite3_bind_parameter_index(statement, "@USERID");
+	ret = sqlite3_bind_int(statement, index, userid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@PASSWD");
+	ret = sqlite3_bind_text(statement, index, passwd, -1, SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@STATUSID");
+	ret = sqlite3_bind_int(statement, index, statusid);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	index = sqlite3_bind_parameter_index(statement, "@ISSUER");
+
+	if (issuer)
+	{
+		ret = sqlite3_bind_text(statement, index, issuer, -1, SQLITE_STATIC);
+	}
+	else
+		ret = sqlite3_bind_text(statement, index, string_toc(ctx->issuer), string_length(ctx->issuer), SQLITE_STATIC);
+	SQLITE3_CHECK(ret, EREJECT, sql);
+
+	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
+	ret = sqlite3_step(statement);
+	sqlite3_finalize(statement);
+	if (ret != SQLITE_DONE)
+		err("auth: add password error %d %s", ret, sqlite3_errmsg(ctx->db));
+	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
+}
+
+static int authz_sqlite_addpassword(void *arg, authsession_t *authinfo, const char *issuer)
+{
+	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
+
+	int userid = authz_sqlite_getid(ctx, authinfo->user, -1, FIELD_NAME);
+	if (userid == EREJECT)
+		return EREJECT;
+
+	string_t status = {0};
+	string_store(&status, str_status_approving, -1);
+	int statusid = authz_sqlite_getid(ctx, string_toc(&status), string_length(&status), FIELD_STATUS);
+	if (authinfo->passwd[0] != '\0')
+		return _authz_sqlite_addpassword(ctx, userid, authinfo->passwd, issuer, statusid);
+	return _authz_sqlite_addpassword(ctx, userid, "*", issuer, statusid);
 }
 
 static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 {
 	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
 
-	if (authz_sqlite_getid(ctx, authinfo->user, -1, FIELD_NAME) != EREJECT)
+	int userid = authz_sqlite_getid(ctx, authinfo->user, -1, FIELD_NAME);
+	if (userid != EREJECT)
 		return ESUCCESS;
+	int groupid = authz_sqlite_getid(ctx, authinfo->group, -1, FIELD_GROUP);
 	// force the first status to approving
 	strncpy(authinfo->status, str_status_approving, FIELD_MAX);
 
 	int ret;
-	const char *sql = "insert into users (\"name\",\"passwd\",\"groupid\",\"statusid\",\"home\")"
-			"values (@NAME,@PASSWD,@GROUPID,(select id from status where name=@STATUS),@HOME);";
+	const char *sql = "insert into users (\"name\",\"groupid\",\"home\")"
+			"values (@NAME,@GROUPID,@HOME);";
 
 	sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
 	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
@@ -200,33 +260,27 @@ static int authz_sqlite_adduser(void *arg, authsession_t *authinfo)
 	ret = sqlite3_bind_text(statement, index, authinfo->user, -1, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
-	index = sqlite3_bind_parameter_index(statement, "@PASSWD");
-	if (authinfo->passwd[0] != '\0')
-	{
-		ret = sqlite3_bind_text(statement, index, authinfo->passwd, -1, SQLITE_STATIC);
-	}
-	else
-		ret = sqlite3_bind_text(statement, index, "*", -1, SQLITE_STATIC);
-	SQLITE3_CHECK(ret, EREJECT, sql);
-
 	index = sqlite3_bind_parameter_index(statement, "@HOME");
 	ret = sqlite3_bind_text(statement, index, authinfo->home, -1, SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	index = sqlite3_bind_parameter_index(statement, "@GROUPID");
-	ret = sqlite3_bind_int(statement, index, DEFAULT_GROUPID);
-	SQLITE3_CHECK(ret, EREJECT, sql);
-
-	index = sqlite3_bind_parameter_index(statement, "@STATUS");
-	ret = sqlite3_bind_text(statement, index, authinfo->status, -1, SQLITE_STATIC);
+	ret = sqlite3_bind_int(statement, index, groupid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
 	ret = sqlite3_step(statement);
 	sqlite3_finalize(statement);
-	if (ret != SQLITE_DONE)
+	if (ret == SQLITE_DONE)
+	{
+		ret = authz_sqlite_addpassword(arg, authinfo, string_toc(ctx->issuer));
+	}
+	else
+	{
 		err("auth: add user error %d %s", ret, sqlite3_errmsg(ctx->db));
-	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
+		return EREJECT;
+	}
+	return ret;
 }
 
 static int authz_sqlite_addgroup(void *arg, const char *group, int length)
@@ -298,6 +352,13 @@ static int authz_sqlite_changepasswd(void *arg, authsession_t *authinfo)
 		}
 
 		ret = authz_sqlite_updatefield(ctx, userid, passwd, length, FIELD_PASSWD);
+		if (ret == EREJECT)
+		{
+			string_t status = {0};
+			string_store(&status, authinfo->status, -1);
+			int statusid = authz_sqlite_getid(ctx, string_toc(&status), string_length(&status), FIELD_STATUS);
+			ret = _authz_sqlite_addpassword(ctx, userid, passwd, string_toc(ctx->issuer), statusid);
+		}
 	}
 	if (ret != EREJECT)
 		ret = authz_sqlite_getusermng(ctx, userid, authinfo);
@@ -358,27 +419,34 @@ static int authz_sqlite_removeuser(void *arg, authsession_t *authinfo)
 		return EREJECT;
 
 	int ret;
-	const char *sql = "delete from users where id=@USERID;";
+	const char *sql[] = {
+		"delete from passwds where userid=@USERID;",
+		"delete from issuers where userid=@USERID;",
+		"delete from users where id=@USERID;",
+	};
 
-	sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
-	ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
-	SQLITE3_CHECK(ret, EREJECT, sql);
-
-	int index;
-	index = sqlite3_bind_parameter_index(statement, "@USERID");
-	ret = sqlite3_bind_int(statement, index, userid);
-	SQLITE3_CHECK(ret, EREJECT, sql);
-
-	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
-	ret = sqlite3_step(statement);
-	sqlite3_finalize(statement);
-	if (ret != SQLITE_DONE)
+	for (int i = 0; i < sizeof(sql) / sizeof(*sql); i++)
 	{
-		err("auth: remove user error %s", sqlite3_errmsg(ctx->db));
-		strncpy(authinfo->status, sqlite3_errmsg(ctx->db), FIELD_MAX);
+		sqlite3_stmt *statement; /// use a specific statement, it is useless to keep the result at exit
+		ret = sqlite3_prepare_v2(ctx->db, sql[i], -1, &statement, NULL);
+		SQLITE3_CHECK(ret, EREJECT, sql[i]);
+	
+		int index;
+		index = sqlite3_bind_parameter_index(statement, "@USERID");
+		ret = sqlite3_bind_int(statement, index, userid);
+		SQLITE3_CHECK(ret, EREJECT, sql[i]);
+	
+		auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
+		ret = sqlite3_step(statement);
+		sqlite3_finalize(statement);
+		if (ret != SQLITE_DONE)
+		{
+			err("auth: remove user error %s", sqlite3_errmsg(ctx->db));
+			strncpy(authinfo->status, sqlite3_errmsg(ctx->db), FIELD_MAX);
+		}
+		else
+			strncpy(authinfo->status, "removed", FIELD_MAX);
 	}
-	else
-		strncpy(authinfo->status, "removed", FIELD_MAX);
 	return (ret == SQLITE_DONE)?ESUCCESS:EREJECT;
 }
 

@@ -61,7 +61,6 @@ $(TARGET)_LIBS-$(USERFILTER)+=mod_userfilter
 $(TARGET)_LIBS-$(REDIRECT)+=mod_redirect404
 $(TARGET)_LIBS-$(REDIRECT)+=mod_redirect
 $(TARGET)_LIBS-$(WEBSTREAM)+=mod_webstream
-$(TARGET)_LIBS-$(COOKIE)+=mod_cookie
 $(TARGET)_LIBS-$(CORS)+=mod_cors
 $(TARGET)_LIBS-$(TINYSVCMDNS_DEPRECATED)+=mod_tinysvcmdns
 $(TARGET)_LIBS-$(UPGRADE)+=mod_upgrade
@@ -88,7 +87,6 @@ $(TARGET)_CFLAGS-$(DEBUG)+=-g -DDEBUG
 $(TARGET)_LIBS-$(DEBUG)+=rt
 
 subdir-$(CGI)+=mod_cgi.mk
-subdir-$(COOKIE)+=mod_cookie.mk
 subdir-$(DOCUMENT)+=mod_document.mk
 subdir-$(AUTH)+=mod_auth.mk
 subdir-$(MBEDTLS)+=mod_mbedtls.mk

@@ -171,7 +171,7 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 			fdfile = openat(fdroot, url, O_DIRECTORY);
 		else
 			fdfile = openat(fdroot, ".",  O_DIRECTORY);
-#ifdef DIRLISTING
+#if defined(DIRLISTING) && ! defined(DIRLISTING_MOD)
 		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 		if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) &&
 			(config->options & DOCUMENT_DIRLISTING))
@@ -573,13 +573,16 @@ static int document_configpart(config_setting_t *config, server_t *server, int i
 #define CONFIG_SETTING_LOOKUP(iterator, entry) config_setting_lookup(iterator, entry);
 #endif
 
-static int document_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
+int document_config(void *it, server_t *server, int index, void **modconfig)
 {
+	config_setting_t *iterator = (config_setting_t *)it;
 	int ret = ESUCCESS;
 	const char *entries[] = {
 		"document", "filestorage", "static_file"
 	};
 
+	if (!modconfig)
+		return -1;
 	config_setting_t *config = NULL;
 
 	config = CONFIG_SETTING_LOOKUP(iterator, entries[0]);
@@ -617,7 +620,7 @@ static const mod_document_t g_document_config =
 	.options = DOCUMENT_RANGE | DOCUMENT_DIRLISTING | DOCUMENT_REST,
 };
 
-static int document_config(void *iterator, server_t *server, int index, void **config)
+int document_config(void *iterator, server_t *server, int index, void **config)
 {
 	*config = (void *)&g_document_config;
 	return ESUCCESS;

@@ -55,6 +55,7 @@ struct authn_none_s
 {
 	authn_none_config_t *config;
 	const authn_t *authn;
+	string_t *issuer;
 	char *challenge;
 };
 
@@ -77,11 +78,12 @@ void *authn_none_config(const void *configauth, authn_type_t *type)
 }
 #endif
 
-static void *authn_none_create(const authn_t *authn, void *arg)
+static void *authn_none_create(const authn_t *authn, string_t *issuer, void *arg)
 {
 	authn_none_t *mod = calloc(1, sizeof(*mod));
 	mod->config = (authn_none_config_t *)arg;
 	mod->authn = authn;
+	mod->issuer = issuer;
 
 	return mod;
 }
@@ -96,7 +98,7 @@ static const char *authn_none_check(void *arg, authz_t *UNUSED(authz), const cha
 	const authn_none_t *mod = (const authn_none_t *)arg;
 	const authn_none_config_t *config = mod->config;
 
-	return config->user.data;
+	return string_toc(&config->user);
 }
 
 static void authn_none_destroy(void *arg)
