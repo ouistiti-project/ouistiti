@@ -189,7 +189,31 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 		err("document: %s found dir", url);
 		fdfile = mkdirat(fdroot, url, 0777);
 		restheader_connector(request, response, errno);
-		fdfile = 0; /// The request is complete by this connector
+		fdfile = 0; /// The request is complete by this connector even on error
+	}
+	else if (!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_mime_inode_symlink)))
+	{
+		/**
+		 * The Content-Location may contain a forbidden path for the user.
+		 * To limit the risk, a global file path is forbidden and to PUT
+		 * a file the user must have the permission of creation.
+		 * To guaranted the protection, the signature module should
+		 * sign the Content-Location data.
+		 */
+		string_t location = {0};
+		ouimessage_REQUEST(request,"Content-Location", &location);
+		if (!string_empty(&location))
+		{
+			errno = 0;
+			const char *target = string_toc(&location);
+			while (target[0] == '/') target++;
+			dbg("PUT symlink %s => %s", url, target);
+			fdfile = symlinkat(target, fdroot, url);
+		}
+		else
+			errno = EINVAL;
+		restheader_connector(request, response, errno);
+		fdfile = 0; /// The request is complete by this connector even on error
 	}
 	if (!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_multipart_form_data)))
 	{
@@ -206,6 +230,11 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 		else
 			*connector = putfile_connector;
 	}
+#ifdef RESULT_201
+	else
+		/// PUT directory or symlink are successfull
+		httpmessage_result(response, RESULT_201);
+#endif
 	return fdfile;
 }
 
