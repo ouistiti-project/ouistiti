@@ -31,6 +31,13 @@
 #include <time.h>
 #include <limits.h>
 
+#ifdef OPENSSL
+#include <openssl/rand.h>
+#endif
+#ifdef MBEDTLS
+#include <psa/crypto.h>
+#endif
+
 #include "ouistiti/httpserver.h"
 #include "ouistiti/hash.h"
 #include "ouistiti/utils.h"
@@ -182,18 +189,35 @@ static int authn_digest_nonce(authn_mod_t *mod, string_t *nonce)
 #ifndef DEBUG
 	char _nonce[((HASH_MAX_SIZE * 3) / 2 + 1)] = {0};
 
-	srandom(time(NULL));
-	int usedate = random() % 5;
+	int usedate = 0;
+#ifdef OPENSSL
+	if (!RAND_bytes((uint8_t*)&usedate, sizeof(usedate)))
+#endif
+#ifdef MBEDTLS
+	if (psa_generate_random((uint8_t *)&usedate, sizeof(usedate)) != PSA_SUCCESS)
+#endif
+	{
+		srandom(time(NULL));
+		usedate = random() % 5;
+	}
 	if (usedate)
 	{
 		ret = authn_digest_noncetime(mod, _nonce, sizeof(_nonce));
 	}
 	if (ret == EREJECT)
 	{
+#ifdef OPENSSL
+		if (RAND_bytes(_nonce, sizeof(_nonce)))
+#elif defined(MBEDTLS)
+		if (psa_generate_random(_nonce, sizeof(_nonce)) == PSA_SUCCESS)
+#else
 		int i;
 		for (i = 0; i < (sizeof(_nonce) / sizeof(int)); i++)
 			*(int *)(_nonce + i * sizeof(int)) = random();
-		ret = base64->encode(_nonce, sizeof(_nonce), string_storage(nonce), string_size(nonce));
+#endif
+		{
+			ret = base64->encode(_nonce, sizeof(_nonce), string_storage(nonce), string_size(nonce));
+		}
 	}
 #else
 	ret = string_length(nonce);
