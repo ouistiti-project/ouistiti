@@ -77,6 +77,7 @@ struct mod_webstream_s
 	htaccess_t htaccess;
 	int options;
 	int fps;
+	int max_tries;
 };
 
 typedef struct _mod_webstream_s _mod_webstream_t;
@@ -314,6 +315,7 @@ static int webstream_config(config_setting_t *iterator, server_t *server, int in
 		string_store(&conf->docroot, string, -1);
 		htaccess_config(config, &conf->htaccess);
 		config_setting_lookup_int(config, "fps", &conf->fps);
+		config_setting_lookup_int(config, "max_tries", &conf->max_tries);
 		config_setting_lookup_string(config, "options", &string);
 		if (utils_searchexp("direct", string, NULL) == ESUCCESS && ouistiti_issecure(server))
 			conf->options |= WEBSTREAM_REALTIME;
@@ -416,10 +418,14 @@ static int _webstream_sendpartheader(_webstream_main_t *info, size_t length, int
 
 static int _webstream_transferdata(_webstream_main_t *info, int multipart)
 {
+	int maxtries = info->modctx->mod->config->max_tries;
 	int end = 0;
 	int client = info->modctx->client;
 	int length;
 	ioctl(client, FIONREAD, &length);
+	struct timespec waittime = { .tv_sec = 0, .tv_nsec = (WEBSTREAM_DEFAULT_WAITTIME * 1000),};
+	if (info->modctx->mod->config->fps > 0)
+		waittime.tv_nsec = 1000000000 / info->modctx->mod->config->fps;
 	if ((length == 0) ||
 		(multipart && _webstream_sendpartheader(info, length, multipart & WEBSTREAM_MULTIPART_DATE) != ESUCCESS))
 	{
@@ -449,15 +455,23 @@ static int _webstream_transferdata(_webstream_main_t *info, int multipart)
 			{
 				tries++;
 				warn("webstream: send incomplete packet (%d bytes)", ret);
-				if (tries < 4)
+				if (tries < maxtries)
+				{
+					nanosleep(&waittime, NULL);
 					continue;
+				}
 				else
 					outlength = EREJECT;
 			}
 			if (outlength == EREJECT)
 			{
 				err("webstream: send error %s", strerror(errno));
+#if 0
 				end = 1;
+#else
+				/// lost the packet
+				end = 0;
+#endif
 				break;
 			}
 			size += outlength;
@@ -494,7 +508,7 @@ static void *_webstream_main(void *arg)
 			end = 1;
 			ret--;
 		}
-		if ((ret > 0) && (FD_ISSET(client, &rdfs)))
+		else if ((ret > 0) && (FD_ISSET(client, &rdfs)))
 		{
 			end = _webstream_transferdata(info, config->options & (WEBSTREAM_MULTIPART | WEBSTREAM_MULTIPART_DATE));
 			if (config->options & WEBSTREAM_MULTIPART)
@@ -523,10 +537,9 @@ static int _webstream_run(_mod_webstream_ctx_t *ctx, const http_message_t *UNUSE
 	if ((pid = fork()) == 0)
 	{
 		_webstream_main(&info);
-		warn("websocket: process died");
+		warn("webstream: process died");
 		exit(0);
 	}
-	close(ctx->client);
 	return pid;
 }
 
