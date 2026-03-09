@@ -51,6 +51,13 @@
 #include <libconfig.h>
 #endif
 
+#ifdef OPENSSL
+#include <openssl/rand.h>
+#endif
+#ifdef MBEDTLS
+#include <psa/crypto.h>
+#endif
+
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
 #include "ouistiti/hash.h"
@@ -480,7 +487,14 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 {
 	_mod_auth_t *mod;
 
-	srandom(time(NULL));
+	unsigned int seed = time(NULL);
+#ifdef OPENSSL
+	RAND_bytes((uint8_t*)&seed, sizeof(seed));
+#endif
+#ifdef MBEDTLS
+	psa_generate_random((uint8_t*)&seed, sizeof(seed));
+#endif
+	srandom(seed);
 
 	if (!config)
 	if (!config || config->authz.rules == NULL)
@@ -771,11 +785,17 @@ static string_t *_mod_auth_generatetoken(authtoken_ctx_t *ctx, http_message_t *r
 		err("auth: not enough memory");
 		return NULL;
 	}
+#ifdef OPENSSL
+	RAND_bytes(_nonce, _noncelen + 1);
+#elif defined(MBEDTLS)
+	psa_generate_random(_nonce, _noncelen + 1);
+#else
 	int i;
 	for (i = 0; i < (24 / sizeof(int)); i++)
 	{
 		*(int *)(_nonce + i * 4) = random();
 	}
+#endif
 	length += 24;
 	_nonce[length] = '.';
 	length++;
