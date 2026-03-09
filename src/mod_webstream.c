@@ -428,7 +428,7 @@ static int _webstream_transferdata(_webstream_main_t *info, int multipart)
 	struct timespec waittime = { .tv_sec = 0, .tv_nsec = (WEBSTREAM_DEFAULT_WAITTIME * 1000),};
 	if (info->modctx->mod->config->fps > 0)
 		waittime.tv_nsec = 1000000000 / info->modctx->mod->config->fps;
-	if (length > info->modctx->mod->config->fragmentsize)
+	if (info->modctx->mod->config->fragmentsize && length > info->modctx->mod->config->fragmentsize)
 		length = info->modctx->mod->config->fragmentsize;
 	if ((length == 0) ||
 		(multipart && _webstream_sendpartheader(info, length, multipart & WEBSTREAM_MULTIPART_DATE) != ESUCCESS))
