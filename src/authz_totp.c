@@ -52,7 +52,7 @@
 #define OTP_MAXDIGITS 10
 #define OTP_MAXURL 1024
 static unsigned long otp_modulus[] =
-{ (unsigned long)-1, 1000000, 10000000, 100000000, 1000000000, 10000000000};
+{ (unsigned long)-1, 1000000, 10000000, 100000000, 1000000000};
 
 const char str_totp[] = "totp";
 const char str_totpkey[] = "totpkey";
