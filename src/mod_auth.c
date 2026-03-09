@@ -190,6 +190,11 @@ static struct _authz_s *authz_list = NULL;
 void auth_registerauthn(const string_t *name, authn_rules_t *rules)
 {
 	struct _authn_s *entry = calloc(1, sizeof(*entry));
+	if (!entry)
+	{
+		err("auth: not enough memory");
+		return;
+	}
 	entry->name = string_dup(name);
 	entry->rules = rules;
 	entry->config = rules->config;
@@ -200,6 +205,11 @@ void auth_registerauthn(const string_t *name, authn_rules_t *rules)
 void auth_registerauthz(const string_t *name, authz_rules_t *rules)
 {
 	struct _authz_s *entry = calloc(1, sizeof(*entry));
+	if (!entry)
+	{
+		err("auth: not enough memory");
+		return;
+	}
 	entry->name = string_dup(name);
 	entry->rules = rules;
 	entry->config = rules->config;
@@ -322,6 +332,11 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	mod_auth_t *auth = NULL;
 	int ret = ESUCCESS;
 	auth = calloc(1, sizeof(*auth));
+	if (!auth)
+	{
+		err("auth: not enough memory");
+		return NULL;
+	}
 	/**
 	 * signin URI allowed to access to the signin page
 	 */
@@ -450,6 +465,11 @@ static int auth_config(void *iterator, server_t *server, int index, void **confi
 static authz_t *_authz_dup(mod_authz_t *authz)
 {
 	authz_t *newauthz = calloc(1, sizeof(*newauthz));
+	if (!newauthz)
+	{
+		err("auth: not enough memory");
+		return NULL;
+	}
 	newauthz->type = authz->type;
 	newauthz->rules = authz->rules;
 	newauthz->name = &authz->name;
@@ -470,6 +490,11 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 
 	mod = calloc(1, sizeof(*mod));
+	if (!mod)
+	{
+		err("auth: not enough memory");
+		return NULL;
+	}
 	mod->config = config;
 
 	mod->authz = _authz_dup(&config->authz);
@@ -487,6 +512,11 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	}
 
 	mod->authn = calloc(1, sizeof(*mod->authn));
+	if (!mod->authn)
+	{
+		err("auth: not enough memory");
+		return NULL;
+	}
 	mod->authn->config = config;
 	if (config->authn.type != AUTHN_FORBIDDEN_E)
 	{
@@ -535,6 +565,11 @@ static void mod_auth_destroy(void *arg)
 static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *addr, int addrsize)
 {
 	_mod_auth_ctx_t *ctx = calloc(1, sizeof(*ctx));
+	if (!ctx)
+	{
+		err("auth: not enough memory");
+		return NULL;
+	}
 	_mod_auth_t *mod = (_mod_auth_t *)arg;
 	mod_auth_t *config = mod->config;
 
@@ -542,6 +577,11 @@ static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 	ctx->clt = clt;
 
 	ctx->token.ctx = calloc(1, sizeof(*ctx->token.ctx));
+	if (! ctx->token.ctx)
+	{
+		err("auth: not enough memory");
+		return NULL;
+	}
 	ctx->token.ctx->config = &config->token;
 	if (config->token.type == E_OUITOKEN)
 	{
@@ -726,6 +766,11 @@ static string_t *_mod_auth_generatetoken(authtoken_ctx_t *ctx, http_message_t *r
 
 	size_t length = 0;
 	char *_nonce = calloc(1, _noncelen + 1);
+	if (!_nonce)
+	{
+		err("auth: not enough memory");
+		return NULL;
+	}
 	int i;
 	for (i = 0; i < (24 / sizeof(int)); i++)
 	{
@@ -764,6 +809,11 @@ static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const 
 
 	size_t _noncelen = config->issuer.length + 1 + 24 + 1 + sizeof(time_t);
 	char *_nonce = calloc(1, _noncelen + 1);
+	if (!_nonce)
+	{
+		err("auth: not enough memory");
+		return EREJECT;
+	}
 	_noncelen = base64_urlencoding->decode(string_toc(token), string_length(token), _nonce, _noncelen);
 	size_t length = 0;
 	length += 24; // passthrough the random part of nonce
