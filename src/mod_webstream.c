@@ -78,6 +78,7 @@ struct mod_webstream_s
 	int options;
 	int fps;
 	int max_tries;
+	int fragmentsize;
 };
 
 typedef struct _mod_webstream_s _mod_webstream_t;
@@ -323,6 +324,7 @@ static int webstream_config(config_setting_t *iterator, server_t *server, int in
 			conf->options |= WEBSTREAM_MULTIPART;
 		if (utils_searchexp("date", string, NULL) == ESUCCESS)
 			conf->options |= WEBSTREAM_MULTIPART_DATE;
+		config_setting_lookup_int(config, "fragmentsize", &conf->fragmentsize);
 	}
 	else
 		conf_ret = EREJECT;
@@ -426,6 +428,8 @@ static int _webstream_transferdata(_webstream_main_t *info, int multipart)
 	struct timespec waittime = { .tv_sec = 0, .tv_nsec = (WEBSTREAM_DEFAULT_WAITTIME * 1000),};
 	if (info->modctx->mod->config->fps > 0)
 		waittime.tv_nsec = 1000000000 / info->modctx->mod->config->fps;
+	if (length > info->modctx->mod->config->fragmentsize)
+		length = info->modctx->mod->config->fragmentsize;
 	if ((length == 0) ||
 		(multipart && _webstream_sendpartheader(info, length, multipart & WEBSTREAM_MULTIPART_DATE) != ESUCCESS))
 	{
