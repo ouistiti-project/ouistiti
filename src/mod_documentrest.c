@@ -208,10 +208,16 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 		if (!string_empty(&location))
 		{
 			errno = 0;
-			const char *target = string_toc(&location);
-			while (target[0] == '/') target++;
-			dbg("PUT symlink %s => %s", url, target);
-			fdfile = symlinkat(target, fdroot, url);
+			char target[PATH_MAX];
+			if (!realpath(string_toc(&location), target))
+			{
+				err("document: try to link a bad file %s", string_toc(&location));
+				return 0;
+			}
+			int i = 0;
+			for (;target[i] == '/' && target[i] != 0; i++);
+			dbg("PUT symlink %s => %s", url, &target[i]);
+			fdfile = symlinkat(&target[i], fdroot, url);
 			if (fdfile == -1)
 				err("Document: Symbolic Link creation error(%m). Check parent directory access.");
 		}
