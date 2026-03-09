@@ -33,9 +33,11 @@
 
 #ifdef OPENSSL
 #include <openssl/rand.h>
+#include <openssl/crypto.h>
 #endif
 #ifdef MBEDTLS
 #include <psa/crypto.h>
+#include <mbedtls/constant_time.h>
 #endif
 
 #include "ouistiti/httpserver.h"
@@ -685,7 +687,13 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 		auth_dbg("Digest:\n\t%.*s\n\t%s", (int)response.length, response.value, digest);
 		if (!string_empty(ctx->user))
 			string_destroy(ctx->user);
-		if (digest && !strncmp(digest, response.value, response.length))
+#ifdef OPENSSL
+		if (digest && !CRYPTO_memcmp(digest, response.value, response.length))
+#elif defined(MBEDTLS)
+		if (digest && !mbedtls_ct_memcmp(digest, response.value, response.length))
+#else
+		if (digest && !memcmp(digest, response.value, response.length))
+#endif
 		{
 			ctx->user = string_dup(&user.name);
 			user_ret = string_toc(ctx->user);
