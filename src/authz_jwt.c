@@ -365,7 +365,7 @@ static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json
 			ret = EREJECT;
 		}
 		const json_t *jalg = json_object_get(jinfo, "alg");
-		if (jalg == NULL || !json_is_string(jalg) || strncmp(json_string_value(jalg), "HS256", 3))
+		if (jalg == NULL || !json_is_string(jalg) || strncmp(json_string_value(jalg), "HS256", 5))
 		{
 			err("auth: jwt support only Hmac sha256");
 			json_decref(jinfo);
