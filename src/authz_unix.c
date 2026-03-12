@@ -101,6 +101,8 @@ void *authz_unix_config(const void *configauth, authz_type_t * type)
 		authz_config = calloc(1, sizeof(*authz_config));
 		authz_config->path = path;
 	}
+	else
+		warn("auth: no shadow");
 	return authz_config;
 }
 #endif

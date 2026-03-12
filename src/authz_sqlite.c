@@ -84,6 +84,8 @@ void *authz_sqlite_config(const void *configauth, authz_type_t *type)
 		authz_config = calloc(1, sizeof(*authz_config));
 		authz_config->dbname = path;
 	}
+	else
+		warn("auth: no dbname");
 	return authz_config;
 }
 #endif
