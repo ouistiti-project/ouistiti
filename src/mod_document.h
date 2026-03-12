@@ -37,6 +37,7 @@
 #define DOCUMENT_REST 0x08
 #define DOCUMENT_HOME 0x10
 #define DOCUMENT_TLS 0x20
+#define DOCUMENT_NOTIME 0x40
 
 #include "ouistiti.h"
 
