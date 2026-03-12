@@ -533,6 +533,10 @@ static int document_configpart(config_setting_t *config, server_t *server, int i
 	if (utils_searchexp("dirlisting", options, NULL) == ESUCCESS)
 		static_file->options |= DOCUMENT_DIRLISTING;
 #endif
+#ifdef DIRLISTING
+	if (utils_searchexp("notime", options, NULL) == ESUCCESS)
+		static_file->options |= DOCUMENT_NOTIME;
+#endif
 #ifdef SENDFILE
 	if (utils_searchexp("sendfile", options, NULL) == ESUCCESS)
 	{

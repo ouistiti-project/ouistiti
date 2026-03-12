@@ -63,12 +63,9 @@ typedef struct _document_connector_s document_connector_t;
 \"name\":\"%s\",\
 \"content\":["
 #define DIRLISTING_HEADER_LENGTH (sizeof(DIRLISTING_HEADER) - 2)
-#ifdef DIRLISTING_ADD_CTIME
-#define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%.48s\",\"ctime\":\"%.32s\"}"
-#else
+#define DIRLISTING_LINE_CTIME "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%.48s\",\"ctime\":\"%.32s\"}"
 #define DIRLISTING_LINE "{\"name\":\"%.*s\",\"size\":\"%lu %s\",\"type\":%d,\"mime\":\"%.48s\"}"
-#endif
-#define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE))
+#define DIRLISTING_LINE_LENGTH (sizeof(DIRLISTING_LINE_CTIME))
 #define DIRLISTING_FOOTER "],\"result\":\"%s\"}"
 
 #ifdef DIRLISTING_MOD
@@ -121,9 +118,16 @@ static int _dirlisting_getentity(document_connector_t *private, struct dirent *e
 		length += mimelen;
 		length += 4 + 2 + 4;
 		char filetime[32];
-		length += strftime(filetime, sizeof(filetime), "%a, %d %b %Y %T %z", localtime(&filestat.st_ctime));
 		char data[DIRLISTING_LINE_LENGTH + MAX_NAMELENGTH + 48 + 4 + 2 + 4 + sizeof(filetime) + 1];
-		length = snprintf(data, sizeof(data) - 1, DIRLISTING_LINE, namelength, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime, filetime);
+		if ((private->mod->config->options & DOCUMENT_NOTIME) == 0)
+		{
+			strftime(filetime, sizeof(filetime), "%a, %d %b %Y %T %z", localtime(&filestat.st_ctime));
+			length = snprintf(data, sizeof(data) - 1, DIRLISTING_LINE_CTIME, namelength, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime, filetime);
+		}
+		else
+		{
+			length = snprintf(data, sizeof(data) - 1, DIRLISTING_LINE, namelength, ent->d_name, size, _sizeunit[unit], ((filestat.st_mode & S_IFMT) >> 12), mime);
+		}
 		document_dbg("dirlisting: %.*s", length, data);
 		int sent = httpmessage_appendcontent(response, data, length);
 		while (sent < length)
