@@ -118,6 +118,8 @@ void *authz_totp_config(const void *configauth, authz_type_t *type)
 		else
 			string_store(&authz_config->issuer, str_totp, -1);
 	}
+	else
+		warn("auth: no secret");
 	return authz_config;
 }
 #endif

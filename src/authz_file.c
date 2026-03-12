@@ -90,6 +90,8 @@ void *authz_file_config(const void *configauth, authz_type_t * type)
 		authz_config = calloc(1, sizeof(*authz_config));
 		authz_config->path = path;
 	}
+	else
+		warn("auth: no file");
 	return authz_config;
 }
 #endif

@@ -78,7 +78,10 @@ void *authz_jwt_config(const void *configauth, authz_type_t *type)
 	if (ret != CONFIG_TRUE)
 		ret = config_setting_lookup_string(configauth, "options", &name);
 	if (ret != CONFIG_TRUE || utils_searchexp("jwt", name, NULL) != ESUCCESS)
+	{
+		warn("auth: no jwt");
 		return NULL;
+	}
 
 	authtoken_config_t *authz_config = calloc(1, sizeof(*authz_config));
 	const char *issuer = NULL;

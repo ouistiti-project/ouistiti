@@ -330,7 +330,10 @@ static int authz_config(const config_setting_t *configauth, mod_authz_t *mod)
 		ret = ESUCCESS;
 	}
 	else
+	{
 		err("auth: password engine not found");
+		ret = EREJECT;
+	}
 	return ret;
 }
 
@@ -386,14 +389,6 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	else
 		string_store(&auth->realm, hostname, -1);
 
-	ret = authz_config(config, &auth->authz);
-	if (ret == EREJECT)
-	{
-		err("config: authz is not set");
-		auth->authn.type = AUTHN_FORBIDDEN_E;
-	}
-	if (auth->authz.type & AUTHZ_JWT_E)
-		auth->token.type = E_JWT;
 	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
 		string_store(&auth->token.issuer, data, -1);
 	else if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
@@ -401,9 +396,19 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	else
 		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
 
+	ret = authz_config(config, &auth->authz);
+	if (ret == EREJECT)
+	{
+		err("auth: %s authz config: is not set", string_toc(&auth->token.issuer));
+		auth->authn.type = AUTHN_FORBIDDEN_E;
+	}
+	if (auth->authz.type & AUTHZ_JWT_E)
+		auth->token.type = E_JWT;
+
 	ret = authn_config(config, &auth->authn);
 	if (ret == EREJECT)
 	{
+		err("auth: %s authn config: is not set", string_toc(&auth->token.issuer));
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
 
@@ -477,6 +482,11 @@ static authz_t *_authz_dup(mod_authz_t *authz)
 		err("auth: not enough memory");
 		return NULL;
 	}
+	if (!authz->rules)
+	{
+		err("auth: config (type %#x) not available", authz->type);
+		return NULL;
+	}
 	newauthz->type = authz->type;
 	newauthz->rules = authz->rules;
 	newauthz->name = &authz->name;
@@ -512,6 +522,8 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 	mod->config = config;
 
 	mod->authz = _authz_dup(&config->authz);
+	if (mod->authz == NULL)
+		return NULL;
 
 	string_t *issuer = mod->authz->name;
 	if (!string_empty(&config->token.issuer))

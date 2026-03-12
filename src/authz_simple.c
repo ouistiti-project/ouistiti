@@ -57,7 +57,10 @@ void *authz_simple_config(const void *configauth, authz_type_t *type)
 	const char *user = NULL;
 	config_setting_lookup_string(configauth, str_user, &user);
 	if (user == NULL || user[0] == '0')
+	{
+		warn("auth: no user");
 		return NULL;
+	}
 
 	authz_config = calloc(1, sizeof(*authz_config));
 	string_store(&authz_config->user, user, -1);
