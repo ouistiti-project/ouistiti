@@ -1,0 +1,5 @@
+DESC="test to PUT symlink on the server in forbidden place"
+PREPARE="rm -f ${TESTDIR}/htdocs/test41.link"
+CONFIG=test10.conf
+TESTRESPONSE=error403_rs.txt
+TESTCODE=403
