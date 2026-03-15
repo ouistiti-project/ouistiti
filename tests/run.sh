@@ -101,7 +101,6 @@ config () {
 	${SED} -i "s,\%PWD\%,${PWD},g" ${TESTDIR}conf/${CONFIG}
 	${SED} -i "s,\%USER\%,$USER,g" ${TESTDIR}conf/${CONFIG}
 	${SED} -i "s,\%LOGFILE\%,$LOGFILE,g" ${TESTDIR}conf/${CONFIG}
-
 }
 
 start () {
@@ -113,7 +112,7 @@ start () {
 		ARGUMENTS=" -s 1"
 	fi
 	#ARGUMENTS=$ARGUMENTS" -s 1"
-	ARGUMENTS=$ARGUMENTS" -f ${TESTDIR}conf/${CONFIG}"
+	ARGUMENTS=$ARGUMENTS" -f conf/${CONFIG}"
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
 	ARGUMENTS=$ARGUMENTS" -M ./staging:./src"
 	ARGUMENTS=$ARGUMENTS" -W "$TESTDIR

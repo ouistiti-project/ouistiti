@@ -42,6 +42,7 @@
 #include "ouistiti/utils.h"
 #include "ouistiti/log.h"
 #include "mod_document.h"
+#include "mod_auth.h"
 
 #ifndef S_IFMT
 # define S_IFMT 0xF000
@@ -71,6 +72,8 @@ typedef struct _document_connector_s document_connector_t;
 #ifdef DIRLISTING_MOD
 static const char str_dirlisting[] = "dirlisting";
 #endif
+
+static const char str_currentdir[] = ".";
 
 static const char *_sizeunit[] = {
 	"B",
@@ -252,6 +255,7 @@ static int _dirlisting_connectorender(document_connector_t *private, http_messag
 	 * the content length is unknown before the sending.
 	 * We must close the socket to advertise the client.
 	 */
+	close(private->fdroot);
 	free(private->ents);
 	private->ents = NULL;
 	return ESUCCESS;
@@ -311,9 +315,26 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		uri++;
 		urilen--;
 	}
+#ifdef DOCUMENTHOME
+	if (uri[0] == '~' && mod->fdhome != -1)
+	{
+		uri++;
+		const char *home = auth_info(request, STRING_REF(str_home));
+		ctx->fdroot = openat(mod->fdhome, home, O_DIRECTORY);
+	}
+	else
+#endif
+		ctx->fdroot = openat(mod->fdroot, ".", O_DIRECTORY);
+	while (uri[0] == '/')
+	{
+		uri++;
+		urilen--;
+	}
 
-	ctx->url = uri;
-	ctx->fdroot = mod->fdroot;
+	if (uri[0] != '\0')
+		ctx->url = uri;
+	else
+		ctx->url = str_currentdir;
 	struct stat filestat;
 	if (fstatat(ctx->fdroot, ctx->url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
 	{
