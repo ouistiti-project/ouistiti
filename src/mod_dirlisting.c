@@ -183,7 +183,7 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 			free(data);
 			ret = ECONTINUE;
 
-			struct dirent *ent;
+			struct dirent *ent = NULL;
 			while (private->nbents > 0)
 			{
 				ent = private->ents[private->nbents - 1];
@@ -213,7 +213,7 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 static int _dirlisting_connectorcontent(document_connector_t *private, http_message_t *request, http_message_t *response)
 {
 	int ret = EREJECT;
-	struct dirent *ent;
+	struct dirent *ent = NULL;
 
 	errno = 0;
 	while (ret == EREJECT)
@@ -320,11 +320,17 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	{
 		uri++;
 		const char *home = auth_info(request, STRING_REF(str_home));
+		while (home[0] == '/') home++;
 		ctx->fdroot = openat(mod->fdhome, home, O_DIRECTORY);
+		if (ctx->fdroot == -1)
+		{
+			err("dirlisting: %s home directory not available %m", home);
+			return EREJECT;
+		}
 	}
 	else
 #endif
-		ctx->fdroot = openat(mod->fdroot, ".", O_DIRECTORY);
+		ctx->fdroot = openat(mod->fdroot, str_currentdir, O_DIRECTORY);
 	while (uri[0] == '/')
 	{
 		uri++;
