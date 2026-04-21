@@ -866,7 +866,7 @@ define cmd_install_bin
 endef
 quiet_cmd_install_link=INSTALL $*
 define cmd_install_link
-$(eval link_dir=$(subst $(destdir),,$(if $(findstring $(dir $(3)),./),$(dir $2),$(dir $3)))) $(MKDIR) $(destdir)$(link_dir) && cd $(destdir)$(link_dir) && $(LN) $(subst $(destdir),,$(subst $(link_dir),,$2)) $(subst $(destdir)$(link_dir),,$3)
+$(LN) $(subst $(dir $(3)),,$(subst $(4),,$(2)))  $(4)$(3)
 endef
 quiet_cmd_strip_bin=STRIP $*
 define cmd_strip_bin
@@ -881,51 +881,51 @@ $(foreach dir, includedir datadir docdir sysconfdir libdir bindir sbindir ,$(add
 
 $(include-install): $(destdir)$(includedir:%/=%)/%: %
 	$(Q)$(call cmd,install_data)
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(includedir:%/=%)/))
 
 $(sysconf-install): $(destdir)$(sysconfdir:%/=%)/%: %
 	$(Q)$(call cmd,install_data)
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(syscondir:%/=%)/))
 
 $(data-install): $(destdir)$(datadir:%/=%)/%: %
 	$(Q)$(call cmd,install_data)
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(datadir:%/=%)/))
 
 $(doc-install): $(destdir)$(docdir:%/=%)/%: %
 	$(Q)$(call cmd,install_data)
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(docdir:%/=%)/))
 
 $(lib-static-install): $(destdir)$(libdir:%/=%)/lib%$(slib-ext:%=.%): $(objdir)lib%$(slib-ext:%=.%)
 	$(Q)$(call cmd,install_bin)
 	$(Q)$(if $(findstring 1, $S),$(call cmd,strip_bin))
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(libdir:%/=%)/))
 
 $(lib-dynamic-install): $(destdir)$(libdir:%/=%)/lib%$(dlib-ext:%=.%)$(version:%=.%): $(objdir)lib%$(dlib-ext:%=.%)
 	$(Q)$(call cmd,install_bin)
 	$(Q)$(if $(findstring 1, $S),$(call cmd,strip_bin))
-	$(Q)$(if $(version_m),$(call cmd,install_link,$@,$(@:%.$(version)=%.$(version_m))))
-	$(Q)$(if $(version_m),$(call cmd,install_link,$(@:%.$(version)=%.$(version_m)),$(@:%.$(version)=%)))
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(if $(version_m),$(call cmd,install_link,$@,$(notdir $(@:%.$(version)=%.$(version_m))),$(destdir)$(libdir:%/=%)/))
+	$(Q)$(if $(version_m),$(call cmd,install_link,$(@:%.$(version)=%.$(version_m)),$(notdir $(@:%.$(version)=%)),$(destdir)$(libdir:%/=%)/))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(libdir:%/=%)/))
 
 $(modules-install): $(destdir)$(pkglibdir:%/=%)/%$(dlib-ext:%=.%): $(objdir)%$(dlib-ext:%=.%)
 	$(Q)$(call cmd,install_bin)
 	$(Q)$(if $(findstring 1, $S),$(call cmd,strip_bin))
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(pkglibdir:%/=%)/))
 
 $(bin-install): $(destdir)$(bindir:%/=%)/%$(bin-ext:%=.%): $(objdir)%$(bin-ext:%=.%)
 	$(Q)$(call cmd,install_bin)
 	$(Q)$(if $(findstring 1, $S),$(call cmd,strip_bin))
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(bindir:%/=%)/))
 
 $(sbin-install): $(destdir)$(sbindir:%/=%)/%$(bin-ext:%=.%): $(objdir)%$(bin-ext:%=.%)
 	$(Q)$(call cmd,install_bin)
 	$(Q)$(if $(findstring 1, $S),$(call cmd,strip_bin))
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(sbindir:%/=%)/))
 
 $(libexec-install): $(destdir)$(libexecdir:%/=%)/%$(bin-ext:%=.%): $(objdir)%$(bin-ext:%=.%)
 	$(Q)$(call cmd,install_bin)
 	$(Q)$(if $(findstring 1, $S),$(call cmd,strip_bin))
-	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a)))
+	$(Q)$(foreach a,$($*_ALIAS) $($*_ALIAS-y), $(call cmd,install_link,$@,$(a),$(destdir)$(libexecdir:%/=%)/))
 
 $(pkgconfig-install): $(destdir)$(libdir:%/=%)/pkgconfig/%.pc: $(builddir)%.pc
 	$(Q)$(call cmd,install_data)
