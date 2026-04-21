@@ -93,6 +93,7 @@ static int authn_none_challenge(void *UNUSED(arg), http_message_t *UNUSED(reques
 	return EREJECT;
 }
 
+#if 0
 static const char *authn_none_check(void *arg, authz_t *UNUSED(authz), const char *UNUSED(method), size_t UNUSED(methodlen), const char *UNUSED(uri), size_t UNUSED(urilen), const char *UNUSED(string), size_t UNUSED(stringlen))
 {
 	const authn_none_t *mod = (const authn_none_t *)arg;
@@ -100,6 +101,19 @@ static const char *authn_none_check(void *arg, authz_t *UNUSED(authz), const cha
 
 	return string_toc(&config->user);
 }
+#else
+static const char *authn_none_checkrequest(void *arg, authz_t *authz, http_message_t *request)
+{
+	const authn_none_t *mod = (authn_none_t *)arg;
+	const mod_auth_t *config = mod->authn->config;
+	const char *user = NULL;
+
+	user = auth_info(request, STRING_REF(str_user));
+	if (!user)
+		user = string_toc(&mod->config->user);
+	return user;
+}
+#endif
 
 static void authn_none_destroy(void *arg)
 {
@@ -113,7 +127,7 @@ authn_rules_t authn_none_rules =
 	.config = authn_none_config,
 	.create = &authn_none_create,
 	.challenge = &authn_none_challenge,
-	.check = &authn_none_check,
+	.checkrequest = &authn_none_checkrequest,
 	.destroy = &authn_none_destroy,
 };
 
