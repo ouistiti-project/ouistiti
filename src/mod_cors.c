@@ -61,6 +61,7 @@ struct _mod_cors_s
 	socket_t socket;
 	string_t methods;
 	string_t hostname;
+	string_t service;
 };
 
 static const char str_cors[] = "cors";
@@ -81,8 +82,10 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 		checkorigin = &mod->hostname;
 	if (!string_empty(&origin))
 		string_split(&origin, ':', &protocol, &host, &port, NULL);
+	if (!string_empty(&host))
+		string_slice(&host, 2, -1);/// remove first "//"
 	if (!string_empty(checkorigin) && ((string_chr(checkorigin, '*') != -1) ||
-		((!string_empty(&host) && !string_contain(checkorigin, string_toc(&host) + 2, string_length(&host) - 2, ','))))) /// remove first "//"
+		((!string_empty(&host) && !string_contain(&host, string_toc(checkorigin), string_length(checkorigin), ',')))))
 	{
 		httpmessage_addheader(response, "Access-Control-Allow-Origin", STRING_INFO(origin));
 		string_t method = {0};
@@ -104,14 +107,19 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 		}
 #endif
 		httpmessage_addheader(response, "Access-Control-Allow-Credentials", STRING_REF("true"));
+dbg("%s %d %s", __FILE__, __LINE__, string_toc(&method));
 		if (!string_cmp(&method, STRING_REF(str_options)))
 		{
 			ret = ESUCCESS;
+dbg("%s %d", __FILE__, __LINE__);
 		}
+dbg("%s %d", __FILE__, __LINE__);
 	}
 	else if (!string_empty(&origin) && httpmessage_isprotected(request) &&
-			string_contain(&mod->hostname,  string_toc(&host) + 2, string_length(&host) - 2, '.'))
+			!string_empty(&host) && (!string_startwith(&host, &mod->service) ||
+			string_contain(&host, string_toc(&mod->hostname), string_length(&mod->hostname), ',')))
 	{
+		err("cors: reject %s on %s accept %s", string_toc(&origin), string_toc(&mod->hostname), string_toc(checkorigin));
 		httpmessage_result(response, 405);
 		ret = ESUCCESS;
 	}
@@ -130,7 +138,6 @@ static void *_mod_cors_getctx(void *arg, http_client_t *clt, struct sockaddr *UN
 	 * Methods must be set here, because other modules may append new methods to the server.
 	 */
 	ouiserver_INFO(httpclient_server(clt), "methods", &mod->methods);
-	ouiserver_INFO(httpclient_server(clt), "hostname", &mod->hostname);
 	httpclient_addconnector(clt, _cors_connector, mod, CONNECTOR_FILTER, str_cors);
 
 	return mod;
@@ -174,6 +181,8 @@ static void *mod_cors_create(http_server_t *server, mod_cors_t *config)
 
 	mod->config = config;
 
+	ouiserver_INFO(server, "hostname", &mod->hostname);
+	ouiserver_INFO(server, "service", &mod->service);
 	httpserver_addmethod(server, METHOD(str_options), 0);
 	httpserver_addmod(server, _mod_cors_getctx, _mod_cors_freectx, mod, str_cors);
 	return mod;
