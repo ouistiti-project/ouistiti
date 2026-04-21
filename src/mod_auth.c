@@ -286,6 +286,8 @@ static void authz_optionscb(void *arg, const char *option)
 	}
 	if (utils_searchexp("chown", option, NULL) == ESUCCESS)
 		auth->authz.type |= AUTHZ_CHOWN_E;
+	if (utils_searchexp("session", option, NULL) == ESUCCESS)
+		auth->authz.type |= AUTHZ_SESSION_E;
 
 	if (utils_searchexp("cookie", option, NULL) == ESUCCESS)
 		auth->authn.type |= AUTHN_COOKIE_E;
@@ -1479,6 +1481,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		{
 			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
 			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
+			if (authz->rules->setsession && config->authz.type & AUTHZ_SESSION_E)
+			{
+				authz->rules->setsession(authz->ctx, user, string_toc(&token), auth_saveinfo, ctx->clt);
+			}
 		}
 		ouimessage_SESSION(request, str_issuer, &issuer);
 		char issuerdata[254] = {0};
