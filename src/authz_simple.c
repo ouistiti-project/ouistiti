@@ -122,7 +122,8 @@ static int authz_simple_setsession(void *arg, const char *user, const char *toke
 {
 	const authz_simple_t *config = (const authz_simple_t *)arg;
 
-	cb(cbarg, STRING_REF(str_user), STRING_INFO(config->user));
+	if (!string_empty(&config->user))
+		cb(cbarg, STRING_REF(str_user), STRING_INFO(config->user));
 	if (!string_empty(&config->group))
 		cb(cbarg, STRING_REF(str_group), STRING_INFO(config->group));
 	if (!string_empty(&config->home))
