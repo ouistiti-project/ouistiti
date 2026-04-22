@@ -53,8 +53,7 @@
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
 #include "ouistiti/log.h"
-
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 #define forward_dbg(...)
 

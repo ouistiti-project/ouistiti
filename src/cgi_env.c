@@ -38,7 +38,7 @@
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 #include "mod_cgi.h"
 #include "mod_auth.h"
 

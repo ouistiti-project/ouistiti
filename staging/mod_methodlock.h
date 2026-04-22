@@ -28,7 +28,7 @@
 #ifndef __MOD_METHODLOCK_H__
 #define __MOD_METHODLOCK_H__
 
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 #ifdef __cplusplus
 extern "C"
