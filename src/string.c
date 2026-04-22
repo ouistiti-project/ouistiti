@@ -35,6 +35,7 @@
 #include "ouistiti/ouistiti.h"
 #include "ouistiti/log.h"
 
+#define string_match_dbg(...)
 #define MAX_STRING 1024
 
 string_t *string_create(size_t size)
@@ -227,6 +228,63 @@ string_t *string_rest(string_t *str1, const string_t *str2)
 	return str1;
 }
 
+int string_match(const string_t *str1, const string_t *str2)
+{
+	if ((str1 == NULL) || (str2 == NULL))
+		return -1;
+	int ret = -1;
+	int str1index = 0;
+	int str2index = 0;
+	int wildcard = 0;
+	if (string_index(str2, str2index) == '^')
+	{
+		str2index++;
+		wildcard = 0;
+	}
+	while (str1index < string_length(str1) && str2index < string_length(str2))
+	{
+		string_match_dbg("string_match: contains %s (%s)", str1->data + str1index, str2->data + str2index);
+		char c = string_index(str2, str2index);
+		if (c == '*')
+		{
+			wildcard = 1;
+			str2index++;
+			continue;
+		}
+		if (c == '$' && str1index < string_length(str1))
+		{
+			ret = -1;
+			goto match_out;
+		}
+		int end = -1;
+		end = string_chr(str2, '*', str2index);
+		if (end == -1)
+			end = string_chr(str2, '$', str2index);
+		if (end == -1)
+			end = string_length(str2);
+
+		if (wildcard)
+		{
+			str1index = string_chr(str1, c, str1index);
+			if (str1index == -1)
+				goto match_out;
+		}
+		do
+		{
+			string_match_dbg("string_match: compares %.*s (%.*s)", end - (str2index), str1->data + str1index, end - (str2index), str2->data + str2index);
+			ret = strncasecmp(str1->data + str1index, str2->data + str2index, end - (str2index));
+			str1index++;
+		} while (ret && wildcard && str1index < string_length(str1));
+		if (ret)
+			goto match_out;
+		str1index += end - (str2index);
+		str2index = end;
+	}
+	ret = 0;
+match_out:
+	return ret;
+}
+
 int string_empty(const string_t *str)
 {
 	return ! (str != NULL && str->data != NULL && str->data[0] != '\0' && str->length > 0);
@@ -416,3 +474,46 @@ void string_destroy(string_t *str)
 	str->size = 0;
 	free(str);
 }
+
+#if _STRING_TEST_
+int main(int argc, char * const *argv)
+{
+	string_t dstr1 = {0};
+	string_t *str1 = &dstr1;
+	string_t dstr2 = {0};
+	string_t *str2 = &dstr2;
+	string_store(str1, "hello world on earth", -1);
+	warn("main string is\n%s", string_toc(str1));
+	string_store(str2, "hello * on *arth", -1);
+	if (string_match(str1, str2))
+		err("%s doesn't match", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	string_store(str2, "* on earth$", -1);
+	if (string_match(str1, str2))
+		err("%s doesn't match", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	string_store(str2, "^hello world on earth$", -1);
+	if (string_match(str1, str2))
+		err("%s doesn't match", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	string_store(str2, "bonjour le monde", -1);
+	if (!string_match(str1, str2))
+		err("%s match", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	string_store(str2, "^world on earth$", -1);
+	if (!string_match(str1, str2))
+		err("%s match", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	string_store(str2, "^hello world on$earth", -1);
+	if (!string_match(str1, str2))
+		err("%s match", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	return 0;
+}
+#endif
