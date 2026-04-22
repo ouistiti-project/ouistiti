@@ -32,9 +32,10 @@ servers= ({
 				deny = ".htaccess,.php";
 			};
 			cors = {
-				origin = "localhost,ouistiti";
+				origin = "localhost,*ouistiti.local";
 			};
 		},{
+			hostname = "totp.ouistiti.local";
 			service = "totp";
 			auth = ({
 				type = "None";
@@ -63,7 +64,7 @@ servers= ({
 				deny = ".htaccess,.php";
 			};
 			cors = {
-				origin = "localhost,ouistiti";
+				origin = "localhost,*ouistiti.local";
 			};
 		},{
 			hostname = "badauth.ouistiti.local";
@@ -104,7 +105,7 @@ servers= ({
 			});
 		};
 		cors = {
-			origin = "localhost,ouistiti";
+			origin = "localhost,*ouistiti.local";
 		};
 	});
 
