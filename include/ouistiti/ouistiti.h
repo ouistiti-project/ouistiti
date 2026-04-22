@@ -35,6 +35,7 @@
 
 #include <stdio.h>
 #include "ouistiti/httpserver.h"
+#include "ouistiti/string.h"
 
 typedef struct server_s server_t;
 
@@ -107,47 +108,6 @@ http_server_t *ouistiti_httpserver(server_t *server);
 serverconfig_t *ouistiti_serverconfig(server_t *server);
 
 int ouistiti_setprocessowner(const char *user);
-
-typedef struct string_s string_t;
-struct string_s
-{
-	const char *data;
-	size_t length;
-	size_t size;
-	char *ddata;
-};
-
-#define STRING_REF(string) string, sizeof(string)-1
-#define STRING_INFO(string) string.data, string.length
-#define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
-string_t *string_create(size_t size);
-string_t *string_dup(const string_t *src);
-void string_debug(string_t *str, const char *name);
-int string_store(string_t *str, const char *pointer, size_t length);
-int string_cmp(const string_t *str, const char *cmp, size_t length);
-int string_contain(const string_t *str, const char *cmp, size_t length, const char sep);
-int string_compare(const string_t *str1, const string_t *str2);
-int string_is(const string_t *str1, const string_t *str2);
-int string_startwith(const string_t *str1, const string_t *str2);
-string_t *string_rest(string_t *str1, const string_t *str2);
-string_t *string_value(string_t *str, const char *header, size_t length);
-int string_printf(string_t *str, void *fmt,...);
-long int string_tol(const string_t *str, int base);
-int string_fgetline(string_t *str, FILE *f);
-int string_cpy(string_t *str, const char *source, size_t length);
-int string_append(string_t *str, const char *source, size_t length);
-int string_empty(const string_t *str);
-const char *string_toc(const string_t *str);
-char *string_storage(const string_t *str);
-size_t string_length(const string_t *str);
-size_t string_size(const string_t *str);
-int string_split(const string_t *str, char sep, ...);
-int string_chr(const string_t *str, char c);
-int string_rchr(const string_t *str, char c);
-size_t string_slice(string_t *str, int start, int length);
-void string_unquote(string_t *str);
-void string_cleansafe(string_t *str);
-void string_destroy(string_t *str);
 
 int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value);
 int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value);
