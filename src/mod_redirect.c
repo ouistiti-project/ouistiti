@@ -328,8 +328,9 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 
 		string_t query = {0};
 		ouimessage_REQUEST(request, "query", &query);
+		string_t noredirect = STRING_DCL("*noredirect*");
 		if (!string_empty(&query) &&
-				!string_contain(&query, "noredirect*", 11, '&'))
+				!string_match(&query, &noredirect, NULL))
 		{
 			result = RESULT_204;
 			ret = ESUCCESS;
