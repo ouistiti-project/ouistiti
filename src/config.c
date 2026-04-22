@@ -42,7 +42,7 @@
 #include "ouistiti/utils.h"
 
 #include "ouistiti/log.h"
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 extern char str_hostname[HOST_NAME_MAX + 7];
 

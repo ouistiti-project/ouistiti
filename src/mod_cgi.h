@@ -29,7 +29,7 @@
 #ifndef __MOD_CGI_H__
 #define __MOD_CGI_H__
 
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 #include "mod_document.h"
 
 #ifdef __cplusplus

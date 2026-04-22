@@ -64,7 +64,7 @@
 #define STATIC_CONFIG
 #endif
 
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 #define STR(x) #x
 #define PACKAGEVERSION PACKAGE_NAME "/" PACKAGE_VERSION

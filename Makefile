@@ -2,10 +2,9 @@ package=ouistiti
 version=3.5
 includedir=$(prefix)/include/$(package)
 
-override CFLAGS+=-I$(srcdir)/include/ouistiti
-
 include scripts.mk
 
+CFLAGS+=-I$(srcdir)/include
 export CFLAGS
 
 #libhttpserver has to be static in all configuration

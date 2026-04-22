@@ -30,7 +30,7 @@
 #define __MOD_AUTHMNGT_H__
 
 
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 #ifdef __cplusplus
 extern "C"

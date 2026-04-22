@@ -39,7 +39,7 @@
 #include "ouistiti/hash.h"
 #include "ouistiti/utils.h"
 #include "mod_document.h"
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 #ifndef BASE64HASH_MAX_SIZE
 #define BASE64HASH_MAX_SIZE ((HASH_MAX_SIZE * 3) / 2 + 1)

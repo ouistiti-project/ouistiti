@@ -30,7 +30,7 @@
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 #include "mod_clientfilter.h"
 #include "mod_tls.h"

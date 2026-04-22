@@ -1,8 +1,8 @@
 /*****************************************************************************
- * config.h: configuration file parser
+ * ouistiti.h: Modules API
  * this file is part of https://github.com/ouistiti-project/ouistiti
  *****************************************************************************
- * Copyright (C) 2016-2017
+ * Copyright (C) 2016-2027
  *
  * Authors: Marc Chalain <marc.chalain@gmail.com>
  *
@@ -26,8 +26,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef __OUISTITI_CONFIG_H__
-#define __OUISTITI_CONFIG_H__
+#ifndef __OUISTITI_H__
+#define __OUISTITI_H__
 
 #ifndef MAX_SERVERS
 #define MAX_SERVERS 4

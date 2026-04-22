@@ -39,7 +39,7 @@
 #define DOCUMENT_TLS 0x20
 #define DOCUMENT_NOTIME 0x40
 
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 #ifdef __cplusplus
 extern "C"

@@ -25,7 +25,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 const char str_servername[9] = "ouistiti";
 

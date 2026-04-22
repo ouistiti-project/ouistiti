@@ -29,7 +29,7 @@
 #define __MOD_VHOST_H__
 
 typedef struct mod_vhost_s mod_vhost_t;
-#include "ouistiti.h"
+#include "ouistiti/ouistiti.h"
 
 #ifdef __cplusplus
 extern "C"
