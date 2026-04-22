@@ -101,6 +101,27 @@ int string_compare(const string_t *str1, const string_t *str2)
 	return strncasecmp(str1->data, str2->data, str1->length);
 }
 
+int string_into(const string_t *nail, const string_t *stack, const char sep)
+{
+	int ret = -1;
+	if (string_empty(stack))
+		return -1;
+	size_t stacklen = string_length(stack);
+	string_t it = {.data = stack->data, .length = stack->length, .size = stack->size};
+	size_t next = 0;
+	do
+	{
+		next = string_browse(&it, sep, next);
+		string_match_dbg("string_into: %.*s", string_length(&it), string_toc(&it));
+		if (!string_match(nail, &it))
+		{
+			ret = 0;
+			break;
+		}
+	} while (next != 0);
+	return ret;
+}
+
 int string_contain(const string_t *stack, const char *nail, size_t length, const char sep)
 {
 	int ret = -1;
@@ -368,6 +389,18 @@ size_t string_slice(string_t *str, int start, int length)
 	if (((str->data - str->ddata + length) < (offset + str->size)))
 		str->length = length;
 	return str->length;
+}
+
+size_t string_browse(string_t *str, char sep, size_t next)
+{
+	str->data += next;
+	str->length = 0;
+	
+	for (next = 0; next < str->size && str->data[next] != sep; next++, str->length++);
+	if (str->data[next] != sep)
+		return 0;
+	next++; /// leave the separator
+	return next;
 }
 
 void string_unquote(string_t *str)
