@@ -78,7 +78,7 @@ int range_connector(void *arg, http_message_t *request, http_message_t *response
 		{
 			if (!string_empty(&rest))
 			{
-				if (string_chr(&rest, '*') != -1)
+				if (string_chr(&rest, '*', 0) != -1)
 				{
 					offset = private->size - 1;
 				}

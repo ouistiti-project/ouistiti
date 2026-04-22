@@ -174,19 +174,19 @@ int string_split(const string_t *str, char sep, ...)
 	return ret;
 }
 
-int string_chr(const string_t *str, char c)
+int string_chr(const string_t *str, char c, int index)
 {
 	int i;
-	for (i = 0; i < str->length && str->data[i] != c; i++);
+	for (i = index; i < str->length && str->data[i] != c; i++);
 	if (i == str->length)
 		return -1;
 	return i;
 }
 
-int string_rchr(const string_t *str, char c)
+int string_rchr(const string_t *str, char c, int index)
 {
 	int i;
-	for (i = str->length; i > 0 && str->data[i - 1] != c; i++);
+	for (i = str->length; i > index && str->data[i - 1] != c; i--);
 	if (i == 0)
 		return -1;
 	return i - 1;
