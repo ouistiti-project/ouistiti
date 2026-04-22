@@ -362,8 +362,12 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	if (ret != CONFIG_FALSE)
 		string_store(&auth->token_ep, data, -1);
 
-	config_setting_lookup_string(config, "protect", &auth->protect);
-	config_setting_lookup_string(config, "unprotect", &auth->unprotect);
+	ret = config_setting_lookup_string(config, "protect", &data);
+	if (ret != CONFIG_FALSE)
+		string_store(&auth->protect, data, -1);
+	ret = config_setting_lookup_string(config, "unprotect", &data);
+	if (ret != CONFIG_FALSE)
+		string_store(&auth->unprotect, data, -1);
 
 	/**
 	 * secret is the secret used during the token generation. (see authz_jwt.c)
@@ -1199,7 +1203,8 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	int ret = ECONTINUE;
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
-	const char *uri = httpmessage_REQUEST(request, "uri");
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
 
 	authn_t *authn = mod->authn;
 	if(ctx->authn.ctx)
@@ -1244,7 +1249,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			/**
 			 * check the url redirection
 			 */
-			protect = string_contain(&config->redirect, uri, -1, '?')?EREJECT:ESUCCESS;
+			protect = string_contain(&config->redirect, string_toc(&uri), string_length(&uri), '?')?EREJECT:ESUCCESS;
 			if (protect == ESUCCESS)
 			{
 				/**
@@ -1272,30 +1277,33 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 
 static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, http_message_t *response)
 {
-	const char *uri = httpmessage_REQUEST(request, "uri");
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
 	int ret = ECONTINUE;
 	int protect = 1;
 
 	/// the access to home file needs an authorization
-	if (strchr(uri, '~') != NULL)
+	if (string_chr(&uri, '~', 0) == -1)
 		return ret;
 	/**
 	 * check uri
 	 */
-	protect = utils_searchexp(uri, config->unprotect, NULL);
+	protect = string_into(&uri, &config->unprotect, ',');
 	if (protect == ESUCCESS)
 	{
+		/// the URL is accessible, and no other check will be done.
 		auth_dbg("unprotected uri %s", config->unprotect);
 		ret = EREJECT;
 	}
-	protect = utils_searchexp(uri, config->protect, NULL);
+	protect = string_into(&uri, &config->protect, ',');
 	if (protect == ESUCCESS)
 	{
+		/// the URL is forbidden in all cases.
 		auth_dbg("protected uri %s", config->protect);
 		httpmessage_result(response, RESULT_403);
 		ret = ESUCCESS;
 	}
-	protect = utils_searchexp(uri, config->token_ep.data, NULL);
+	protect = string_into(&uri, &config->token_ep, ',');
 	if (protect == ESUCCESS)
 	{
 		auth_dbg("protected uri %s", config->token_ep.data);
