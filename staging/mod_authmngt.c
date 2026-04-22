@@ -579,7 +579,7 @@ static int _authmngt_errorresponse(_mod_authmngt_ctx_t *ctx, const char *user, h
 {
 	const char *http_accept = httpmessage_REQUEST(request, "Accept");
 	httpmessage_result(response, RESULT_500);
-	if (strstr(http_accept, "text/json") != NULL)
+	if (http_accept && strstr(http_accept, "text/json") != NULL)
 	{
 		httpmessage_addcontent(response, "text/json", "{\"method\":\"", -1);
 		httpmessage_appendcontent(response, httpmessage_REQUEST(request, "method"), -1);
