@@ -73,32 +73,35 @@ size_t env_docroot(const mod_cgi_config_t *config, http_message_t *request, cons
 
 size_t env_serversoftware(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST2(request, "software", value);
+	return httpmessage_SERVER2(request, "software", value);
 }
 
 size_t env_servername(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST2(request, "name", value);
+	return httpmessage_SERVER2(request, "name", value);
 }
 
 size_t env_serverprotocol(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST2(request, "protocol", value);
+	return httpmessage_SERVER2(request, "protocol", value);
 }
 
 size_t env_serveraddr(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST2(request, "addr", value);
+	size_t len = httpmessage_REQUEST2(request, "addr", value);
+	if (len == 0)
+		len = httpmessage_SERVER2(request, "addr", value);
+	return len;
 }
 
 size_t env_serverport(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST2(request, "port", value);
+	return httpmessage_SERVER2(request, "port", value);
 }
 
 size_t env_serverservice(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST2(request, "service", value);
+	return httpmessage_SERVER2(request, "service", value);
 }
 
 size_t env_requestmethod(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
@@ -108,7 +111,10 @@ size_t env_requestmethod(const mod_cgi_config_t *UNUSED(config), http_message_t 
 
 size_t env_requestscheme(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)
 {
-	return httpmessage_REQUEST2(request, "scheme", value);
+	size_t len = httpmessage_REQUEST2(request, "scheme", value);
+	if (len == 0)
+		len = httpmessage_SERVER2(request, "scheme", value);
+	return len;
 }
 
 size_t env_requesturi(const mod_cgi_config_t *UNUSED(config), http_message_t *request, const char *UNUSED(cgi_path), const char **value)

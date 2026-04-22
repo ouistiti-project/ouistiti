@@ -1254,7 +1254,6 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 				 * should send response to the request.
 				 */
 				warn("auth: accept redirection on challenge");
-				httpmessage_result(response, RESULT_200);
 				ret = EREJECT;
 			}
 			else
@@ -1370,7 +1369,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	string_t token = {0};
 	string_t issuer = {0};
 
-	auth_dbg("auth: check for %s (%s)", string_toc(&config->token.issuer),string_toc(&config->authz.name));
+	dbg("auth: check for %s (%s)", string_toc(&config->token.issuer),string_toc(&config->authz.name));
 
 	ouimessage_SESSION(request, str_issuer, &issuer);
 	if (!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
