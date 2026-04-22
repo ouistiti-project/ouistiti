@@ -187,8 +187,8 @@ struct mod_auth_s
 	string_t redirect;
 	string_t token_ep;
 	string_t realm;
-	const char *protect;
-	const char *unprotect;
+	string_t protect;
+	string_t unprotect;
 };
 
 extern const module_t mod_auth;
