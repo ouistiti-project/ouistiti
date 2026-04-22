@@ -86,7 +86,7 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 		string_slice(&host, 2, -1);/// remove first "//"
 
 	if (!string_empty(checkorigin) && !string_empty(&host) &&
-		!string_contain(&host, string_toc(checkorigin), string_length(checkorigin), ','))
+		!string_into(&host, checkorigin, ','))
 	{
 		httpmessage_addheader(response, "Access-Control-Allow-Origin", STRING_INFO(origin));
 		string_t method = {0};
@@ -108,13 +108,10 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 		}
 #endif
 		httpmessage_addheader(response, "Access-Control-Allow-Credentials", STRING_REF("true"));
-dbg("%s %d %s", __FILE__, __LINE__, string_toc(&method));
 		if (!string_cmp(&method, STRING_REF(str_options)))
 		{
 			ret = ESUCCESS;
-dbg("%s %d", __FILE__, __LINE__);
 		}
-dbg("%s %d", __FILE__, __LINE__);
 	}
 	else if (!string_empty(&origin) && httpmessage_isprotected(request) &&
 			!string_empty(&host) && (!string_startwith(&host, &mod->service) ||
