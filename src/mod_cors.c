@@ -84,8 +84,9 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 		string_split(&origin, ':', &protocol, &host, &port, NULL);
 	if (!string_empty(&host))
 		string_slice(&host, 2, -1);/// remove first "//"
-	if (!string_empty(checkorigin) && ((string_chr(checkorigin, '*') != -1) ||
-		((!string_empty(&host) && !string_contain(&host, string_toc(checkorigin), string_length(checkorigin), ',')))))
+
+	if (!string_empty(checkorigin) && !string_empty(&host) &&
+		!string_contain(&host, string_toc(checkorigin), string_length(checkorigin), ','))
 	{
 		httpmessage_addheader(response, "Access-Control-Allow-Origin", STRING_INFO(origin));
 		string_t method = {0};
