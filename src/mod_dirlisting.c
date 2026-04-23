@@ -319,7 +319,10 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	if (uri[0] == '~' && mod->fdhome != -1)
 	{
 		uri++;
+		const char *user = auth_info(request, STRING_REF(str_user));
 		const char *home = auth_info(request, STRING_REF(str_home));
+		if (home == NULL)
+			home = user;
 		while (home[0] == '/') home++;
 		ctx->fdroot = openat(mod->fdhome, home, O_DIRECTORY);
 		if (ctx->fdroot == -1)
