@@ -95,6 +95,8 @@ static int _document_dochome(_mod_document_mod_t *mod,
 
 	const char *user = auth_info(request, STRING_REF(str_user));
 	const char *home = auth_info(request, STRING_REF(str_home));
+	if (home == NULL)
+		home = user;
 	while ((home[0] == '/' || home[0] == '.') && home[0] != '\0') home++;
 	if (home[0] == '\0')
 		home = user;
