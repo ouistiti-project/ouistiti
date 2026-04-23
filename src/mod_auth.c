@@ -863,7 +863,6 @@ static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const 
 	if (expire < time(NULL))
 	{
 		err("auth: token expired");
-		free(_nonce);
 		return EREJECT;
 	}
 	length += 1; // the , separator
@@ -874,7 +873,6 @@ static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const 
 	auth_dbg("auth: check issuer %.*s/%s", string_length(&issuer), string_toc(&issuer), string_toc(&config->issuer));
 	if (string_contain(&issuer, string_toc(&config->issuer), string_length(&config->issuer), '+'))
 	{
-		free(_nonce);
 		return EREJECT;
 	}
 	// the user is stored into _nonce. keep the memory to the freectx function
@@ -1379,13 +1377,28 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	dbg("auth: check for %s (%s)", string_toc(&config->token.issuer),string_toc(&config->authz.name));
 
+	if (ret == ECONTINUE)
+	{
+		/**
+		 * The header WWW-Authenticate inside the request
+		 * allows to disconnect the user.
+		 */
+		ouimessage_REQUEST(request, str_authenticate, &authorization);
+		if (!string_empty(&authorization))
+		{
+			ret = ESUCCESS;
+		}
+		auth_dbg("auth: authenticate %d", ret);
+	}
+
 	ouimessage_SESSION(request, str_issuer, &issuer);
-	if (!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
+	if ((ret == ECONTINUE) &&
+		!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
 	{
 		ret = EREJECT;
 		auth_info2(request, str_user, &user);
 		string_store(&authorization, string_toc(&config->token.issuer), string_length(&config->token.issuer));
-		dbg("auth: session already set for this %.*s issuer", string_length(&config->token.issuer), string_toc(&config->token.issuer));
+		auth_dbg("auth: session already set for this %.*s issuer", string_length(&config->token.issuer), string_toc(&config->token.issuer));
 	}
 
 
@@ -1404,7 +1417,8 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	}
 
 #ifdef AUTH_TOKEN
-	if (authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E)
+	if ((ret == ECONTINUE) &&
+		(authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E))
 	{
 		_authn_gettoken(ctx, request, &token, &authorization);
 		auth_dbg("auth: gettoken %s / %s", string_toc(&token), string_toc(&authorization));
@@ -1425,20 +1439,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	else
 		warn("auth: token not checked. Configure (%s) token or jwt", string_toc(&config->token.issuer));
 #endif
-	if (ret == ECONTINUE)
-	{
-		/**
-		 * The header WWW-Authenticate inside the request
-		 * allows to disconnect the user.
-		 */
-		ouimessage_REQUEST(request, str_authenticate, &authorization);
-		if (!string_empty(&authorization))
-		{
-			ret = ESUCCESS;
-		}
-		auth_dbg("auth: authenticate %d", ret);
-	}
-
 	if (ret == ECONTINUE)
 	{
 		ret = _authn_check(ctx, authz, request, &authorization, &user);
@@ -1533,14 +1533,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	else
 	{
 		warn("auth: accepted without authorization (unprotect files, shortcut,...) from %p", ctx->clt);
-	}
-	/**
-	 * As the setup, the authz may need to cleanup between each message
-	 **/
-	if (authz->ctx  && authz->rules->cleanup)
-	{
-		authz->rules->cleanup(authz->ctx);
-		authz->ctx = NULL;
 	}
 	return ret;
 }
