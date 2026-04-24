@@ -129,8 +129,7 @@ int ouimessage_cookie(http_message_t *request, const char *key, string_t *cookie
 int ouimessage_setcookie(http_message_t *response, const char *key, const string_t *value, ...)
 {
 	int ret = 0;
-	const char *domain = NULL;
-	size_t domainlen = httpmessage_REQUEST2(response, "domain", &domain);
+	
 	ret = httpmessage_addheader(response, str_setcookie, key, -1);
 	if (ret == EREJECT)
 		return EREJECT;
@@ -154,10 +153,12 @@ int ouimessage_setcookie(http_message_t *response, const char *key, const string
 	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Path="));
 	ret = httpmessage_appendheader(response, str_setcookie, STRING_REF(path));
 
-	if (domain != NULL && strncmp(domain, "local", 5))
+	if (!(httpclient_state(httpmessage_client(response)) & CLIENT_LOCALHOST))
 	{
+		string_t domain = {0};
+		ouimessage_REQUEST(response, "domain", &domain);
 		ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Domain=."));
-		ret = httpmessage_appendheader(response, str_setcookie, domain, domainlen);
+		ret = httpmessage_appendheader(response, str_setcookie, string_toc(&domain), string_length(&domain));
 	}
 	return ret;
 }
