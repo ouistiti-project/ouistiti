@@ -1170,7 +1170,7 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 		httpmessage_appendheader(response, str_location, scheme, schemelen);
 		httpmessage_appendheader(response, str_location, STRING_REF("://"));
 		const char *host = NULL;
-		size_t hostlen = httpserver_INFO2(server, "hostname", &host);
+		size_t hostlen = httpmessage_REQUEST2(request, "host", &host);
 		if (hostlen == 0)
 		{
 			hostlen = httpmessage_REQUEST2(request, "addr", &host);
