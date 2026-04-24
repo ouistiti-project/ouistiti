@@ -1,4 +1,4 @@
 HTTP/1.1 401 Unauthorized
-WWW-Authenticate: Basic realm="www.ouistiti.net"
+WWW-Authenticate: Basic realm="www.ouistiti.local"
 Content-Type: text/plain
 Content-Length: 19

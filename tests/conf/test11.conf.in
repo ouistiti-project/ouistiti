@@ -1,7 +1,7 @@
 user="%USER%";
 log-file="%LOGFILE%";
 servers= ({
-		hostname = "www.ouistiti.net";
+		hostname = "www.ouistiti.local";
 		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";

@@ -1,6 +1,6 @@
 HTTP/1.1 200 OK
-Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/; Domain=.ouistiti.local
-Set-Cookie: X-Remote-Group=users; SameSite=strict; Path=/; Domain=.ouistiti.local
+Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/
+Set-Cookie: X-Remote-Group=users; SameSite=strict; Path=/
 Content-Type: text/plain
 Content-Length: 105
 Connection: Close

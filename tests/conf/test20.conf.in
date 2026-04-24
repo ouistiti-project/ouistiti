@@ -2,16 +2,16 @@ user="%USER%";
 log-file="%LOGFILE%";
 init_d="./init.d";
 servers= ({
-		hostname = "www.ouistiti.net";
+		hostname = "www.ouistiti.local";
 		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
 		vhost = (
 		{
-			hostname = "myvhost.ouistiti.net";
+			hostname = "myvhost.ouistiti.local";
 			auth = {
 				type="Basic";
-				realm="www.ouistiti.net";
+				realm="www.ouistiti.local";
 				user="foo";
 				passwd="bar";
 			};
@@ -33,7 +33,7 @@ servers= ({
 
 			};
 		},{
-			hostname = "myvhost2.ouistiti.net";
+			hostname = "myvhost2.ouistiti.local";
 			service = "myvhost2";
 			document = {
 				docroot = "htdocs/";

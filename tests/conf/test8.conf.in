@@ -1,7 +1,7 @@
 user="%USER%";
 log-file="%LOGFILE%";
 servers= ({
-		hostname = "www.ouistiti.net";
+		hostname = "www.ouistiti.local";
 		addr="127.0.0.1";
 		port = 8080;
 		keepalivetimeout = 5;
@@ -10,7 +10,7 @@ servers= ({
 			type="Basic";
 			file="conf/passwd";
 			options="header";
-			realm="www.ouistiti.net";
+			realm="www.ouistiti.local";
 		};
 		document = {
 			docroot = "htdocs";

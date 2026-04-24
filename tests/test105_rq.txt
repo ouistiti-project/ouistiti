@@ -1,5 +1,5 @@
 GET /empty.html HTTP/1.1
-HOST: myvhost.ouistiti.net
+HOST: myvhost.ouistiti.local
 Authorization: Basic Zm9vOmJhcg==
 Upgrade-Insecure-Requests: 1
 
