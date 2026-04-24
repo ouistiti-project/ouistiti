@@ -221,7 +221,8 @@ static int _document_getconnnectorheader(_mod_document_mod_t *mod,
 {
 	int fdfile = _document_getconnnectorget(mod, fdroot, url, urllen,
 				mime, request, response, connector);
-	if (fdfile > 0)
+	if (fdfile > 0 && urllen > 0 && url[0] != '\0')
+	{
 		/**
 		 * The content-location is used by the symlink creation.
 		 * The value must be returned by the client.
@@ -229,6 +230,7 @@ static int _document_getconnnectorheader(_mod_document_mod_t *mod,
 		 * to give too much information.
 		 */
 		httpmessage_addheader(response, "Content-Location", url, urllen);
+	}
 	*connector = NULL;
 	return fdfile;
 }
