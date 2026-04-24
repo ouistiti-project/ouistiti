@@ -1281,7 +1281,7 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 	int protect = 1;
 
 	/// the access to home file needs an authorization
-	if (string_chr(&uri, '~', 0) == -1)
+	if (string_chr(&uri, '~', 0) != -1)
 		return ret;
 	/**
 	 * check uri
@@ -1304,9 +1304,16 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 	protect = string_into(&uri, &config->token_ep, ',');
 	if (protect == ESUCCESS)
 	{
-		auth_dbg("protected uri %s", config->token_ep.data);
-		httpmessage_result(response, RESULT_403);
-		ret = ESUCCESS;
+		/// the token_ep must ne always checked even if it is into unprotect
+		auth_dbg("protected uri %s", string_toc(&config->token_ep));
+		ret = CONTINUE;
+	}
+	protect = string_into(&uri, &config->redirect, ',');
+	if (protect == ESUCCESS)
+	{
+		/// the redirect is the signin URL, and must be always accessible
+		auth_dbg("unprotected uri %s", string_toc(&config->redirect));
+		ret = EREJECT;
 	}
 	return ret;
 }
