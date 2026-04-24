@@ -335,12 +335,7 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 			result = RESULT_204;
 			ret = ESUCCESS;
 		}
-		else if (link->destination != NULL &&
-				utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
-		{
-			ret = _mod_redirect_destination(mod, link, request, response, path_info);
-		}
-		else if (link->options & REDIRECT_QUERY)
+		if (ret != ESUCCESS && link->options & REDIRECT_QUERY)
 		{
 			string_t redirect = {0};
 			ouimessage_parameter(request, "redirect_uri", &redirect);
@@ -352,15 +347,20 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 				redirect_dbg("redirect: Location from query %s", decode);
 				httpmessage_addheader(response, str_location, decode, strlen(decode));
 				free(decode);
+				ret = ESUCCESS;
 			}
-			else
-				result = RESULT_204;
+		}
+		if (ret != ESUCCESS && link->destination != NULL &&
+				utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
+		{
+			ret = _mod_redirect_destination(mod, link, request, response, path_info);
+		}
+		if (ret != ESUCCESS)
+		{
+			result = RESULT_204;
 			ret = ESUCCESS;
 		}
-		if (ret == ESUCCESS)
-		{
-			httpmessage_result(response, result);
-		}
+		httpmessage_result(response, result);
 	}
 	return ret;
 }
