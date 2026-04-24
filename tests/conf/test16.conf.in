@@ -79,7 +79,7 @@ servers= ({
 			   The option must contain "header" or "cookie" to allow
 			   to the client to retrieve user information.
 			   otherwise the client must request the "auth" service
-			   (auth.ouistiti.net) on /auth/mngt.
+			   (auth.ouistiti.local) on /auth/mngt.
 			 */
 			options = "header";
 			secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
