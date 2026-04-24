@@ -1384,6 +1384,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	dbg("auth: check for %s (%s)", string_toc(&config->token.issuer),string_toc(&config->authz.name));
 
+	string_t host = {0};
+	ouimessage_REQUEST(request, "host", &host);
+	string_t hostname = {0};
+	ouiserver_INFO(httpclient_server(ctx->clt), "hostname", &hostname);
+	if (!(httpclient_state(httpmessage_client(request)) & CLIENT_LOCALHOST) &&
+		string_cmp(&host, string_toc(&hostname), string_length(&hostname)))
+	{
+		err("auth: request for unknown host (%.*s)", string_length(&host), string_toc(&host));
+		ret = ESUCCESS;
+	}
+
 	if (ret == ECONTINUE)
 	{
 		/**
