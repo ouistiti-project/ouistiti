@@ -53,6 +53,7 @@ struct string_s
 #define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
 #endif
 
+static char str__empty[1] = "";
 
 string_t *string_create(size_t size)
 {
@@ -86,9 +87,14 @@ int string_store(string_t *str, const char *pointer, size_t length)
 	{
 		return string_cpy(str, pointer, length);
 	}
-	str->data = pointer;
-	/// set length and check if value is -1
-	str->length = length;
+	str->data = str__empty;
+	str->length = 0;
+	if (pointer)
+	{
+		str->data = pointer;
+		/// set length and check if value is -1
+		str->length = length;
+	}
 	str->length = string_length(str);
 	str->size = str->length + 1;
 	if (str->data == NULL)
