@@ -419,8 +419,12 @@ long int string_tol(const string_t *str, int base)
 	return strtol(str->data, NULL, base);
 }
 
-const char string_index(const string_t *str, size_t index)
+const char string_index(const string_t *str, ssize_t index)
 {
+	if (string_empty(str))
+		return '\0';
+	if (index < 0)
+		return str->data[str->length + index];
 	if (index < str->length)
 		return str->data[index];
 	return '\0';
