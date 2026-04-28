@@ -1306,7 +1306,7 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 	{
 		/// the token_ep must ne always checked even if it is into unprotect
 		auth_dbg("protected uri %s", string_toc(&config->token_ep));
-		ret = CONTINUE;
+		ret = ECONTINUE;
 	}
 	protect = string_into(&uri, &config->redirect, ',');
 	if (protect == ESUCCESS)
@@ -1377,7 +1377,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	_mod_auth_ctx_t *ctx = (_mod_auth_ctx_t *)arg;
 	const _mod_auth_t *mod = ctx->mod;
 	mod_auth_t *config = mod->config;
-	string_t authorization = {0};
 	const char *user = NULL;
 	string_t token = {0};
 	string_t issuer = {0};
@@ -1395,6 +1394,14 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		ret = ESUCCESS;
 	}
 
+	if (ret == ECONTINUE)
+	{
+		/// check uri before all otherwise a token may be generated
+		ret = _authn_checkuri(config, request, response);
+		auth_dbg("auth: checkuri %d", ret);
+	}
+
+	string_t authorization = {0};
 	if (ret == ECONTINUE)
 	{
 		/**
@@ -1471,14 +1478,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			httpmessage_result(response, RESULT_500);
 			ret = ESUCCESS;
 		}
-	}
-
-	if (ret == ECONTINUE)
-	{
-		/// any authorization doesn't satisfy the authentication
-		string_slice(&authorization, 0, 0);
-		ret = _authn_checkuri(config, request, response);
-		auth_dbg("auth: checkuri %d", ret);
 	}
 
 	if (ret != EREJECT)
