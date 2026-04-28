@@ -418,6 +418,17 @@ void string_unquote(string_t *str)
 		str->length--;
 }
 
+void string_unroot(string_t *str)
+{
+	if (string_empty(str))
+		return;
+	while(str->data[0] == '/' || str->data[0] == '.' )
+	{
+		str->data++;
+		str->length--;
+	}
+}
+
 long int string_tol(const string_t *str, int base)
 {
 	return strtol(str->data, NULL, base);
