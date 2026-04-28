@@ -395,8 +395,12 @@ size_t string_browse(string_t *str, char sep, size_t next)
 {
 	str->data += next;
 	str->length = 0;
-	
-	for (next = 0; next < str->size && str->data[next] != sep; next++, str->length++);
+	str->size -= next;
+	if (str->size == 0)
+		return 0;
+	for (next = 0; next < (str->size - 1) && str->data[next] != sep; next++) str->length++;
+	if (next == str->size)
+		return 0;
 	if (str->data[next] != sep)
 		return 0;
 	next++; /// leave the separator
