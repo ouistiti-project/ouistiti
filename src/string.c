@@ -38,6 +38,22 @@
 #define string_match_dbg(...)
 #define MAX_STRING 1024
 
+#if _STRING_TEST_
+typedef struct string_s string_t;
+struct string_s
+{
+	const char *data;
+	size_t length;
+	size_t size;
+	char *ddata;
+};
+
+#define STRING_REF(string) string, sizeof(string)-1
+#define STRING_INFO(string) string.data, string.length
+#define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
+#endif
+
+
 string_t *string_create(size_t size)
 {
 	string_t *str = calloc(1, sizeof(*str) + size);
@@ -113,7 +129,7 @@ int string_into(const string_t *nail, const string_t *stack, const char sep)
 	{
 		next = string_browse(&it, sep, next);
 		string_match_dbg("string_into: %.*s", string_length(&it), string_toc(&it));
-		if (!string_match(nail, &it))
+		if (!string_match(nail, &it, NULL))
 		{
 			ret = 0;
 			break;
@@ -249,25 +265,43 @@ string_t *string_rest(string_t *str1, const string_t *str2)
 	return str1;
 }
 
-int string_match(const string_t *str1, const string_t *str2)
+int string_match(const string_t *str1, const string_t *str2, ...)
 {
-	if ((str1 == NULL) || (str2 == NULL))
+	if (string_empty(str1))
+		return -1;
+	if (string_empty(str2))
 		return -1;
 	int ret = -1;
 	int str1index = 0;
 	int str2index = 0;
+	int str2length = string_length(str2);
 	int wildcard = 0;
 	if (string_index(str2, str2index) == '^')
 	{
 		str2index++;
+		str2length--;
 		wildcard = 0;
 	}
+#ifdef USE_STDARG
+	va_list ap;
+	va_start(ap, str2);
+#endif
+	string_t *arg = NULL;
 	while (str1index < string_length(str1) && str2index < string_length(str2))
 	{
-		string_match_dbg("string_match: contains %s (%s)", str1->data + str1index, str2->data + str2index);
+		string_match_dbg("string_match: contains %s (%.*s)", str1->data + str1index, str2length, str2->data + str2index);
 		char c = string_index(str2, str2index);
 		if (c == '*')
 		{
+#ifdef USE_STDARG
+			arg = va_arg(ap, string_t *);
+#endif
+			if (arg)
+			{
+				arg->data = str1->data + str1index;
+				arg->length = str1->length - str1index;
+				arg->size = arg->length;
+			}
 			wildcard = 1;
 			str2index++;
 			continue;
@@ -287,22 +321,32 @@ int string_match(const string_t *str1, const string_t *str2)
 		if (wildcard)
 		{
 			str1index = string_chr(str1, c, str1index);
-			if (str1index == -1)
+			if (str1index == -1 && c != '\0')
 				goto match_out;
 		}
 		do
 		{
 			string_match_dbg("string_match: compares %.*s (%.*s)", end - (str2index), str1->data + str1index, end - (str2index), str2->data + str2index);
-			ret = strncasecmp(str1->data + str1index, str2->data + str2index, end - (str2index));
-			str1index++;
+			ret = strncasecmp(str1->data + str1index, str2->data + str2index, end - str2index);
+			if (ret)
+				str1index++;
 		} while (ret && wildcard && str1index < string_length(str1));
 		if (ret)
 			goto match_out;
+		if (wildcard && arg)
+		{
+			arg->length = str1index - (arg->data - str1->data);
+		}
+		wildcard = 0;
 		str1index += end - (str2index);
+		str2length -= end - str2index;
 		str2index = end;
 	}
 	ret = 0;
 match_out:
+#ifdef USE_STDARG
+	va_end(ap);
+#endif
 	return ret;
 }
 
@@ -536,33 +580,68 @@ int main(int argc, char * const *argv)
 	string_t *str2 = &dstr2;
 	string_store(str1, "hello world on earth", -1);
 	warn("main string is\n%s", string_toc(str1));
+	string_t arg1 = {0};
+	string_t arg2 = {0};
 	string_store(str2, "hello * on *arth", -1);
-	if (string_match(str1, str2))
+	if (string_match(str1, str2, &arg1, &arg2, NULL))
 		err("%s doesn't match", string_toc(str2));
 	else
 		warn("%s OK", string_toc(str2));
+	if (!string_empty(&arg1) && !string_cmp(&arg1, "world", 5))
+		warn("good arg1");
+	else
+		err("arg1: %.*s", string_length(&arg1), string_toc(&arg1));
+	if (!string_empty(&arg2) && !string_cmp(&arg2, "e", 1))
+		warn("good arg2");
+	else
+		err("arg2: %.*s", string_length(&arg2), string_toc(&arg2));
 	string_store(str2, "* on earth$", -1);
-	if (string_match(str1, str2))
+	string_store(&arg1, "", 0);
+	string_store(&arg2, "", 0);
+	if (string_match(str1, str2, &arg1, &arg2, NULL))
 		err("%s doesn't match", string_toc(str2));
 	else
 		warn("%s OK", string_toc(str2));
+	if (!string_empty(&arg1) && !string_cmp(&arg1, "hello world", 11))
+		warn("good arg1");
+	else
+		err("arg1: %.*s", string_length(&arg1), string_toc(&arg1));
+	if (string_empty(&arg2))
+		warn("good arg2");
+	else
+		err("arg2: %.*s", string_length(&arg2), string_toc(&arg2));
+	string_store(str2, "hello world on *", -1);
+	string_store(&arg1, "", 0);
+	string_store(&arg2, "", 0);
+	if (string_match(str1, str2, &arg1, &arg2, NULL))
+		err("%s doesn't match", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	if (!string_empty(&arg1) && !string_cmp(&arg1, "earth", 5))
+		warn("good arg1");
+	else
+		err("arg1: %.*s", string_length(&arg1), string_toc(&arg1));
+	if (string_empty(&arg2))
+		warn("good arg2");
+	else
+		err("arg2: %.*s", string_length(&arg2), string_toc(&arg2));
 	string_store(str2, "^hello world on earth$", -1);
-	if (string_match(str1, str2))
+	if (string_match(str1, str2, NULL))
 		err("%s doesn't match", string_toc(str2));
 	else
 		warn("%s OK", string_toc(str2));
 	string_store(str2, "bonjour le monde", -1);
-	if (!string_match(str1, str2))
+	if (!string_match(str1, str2, NULL))
 		err("%s match", string_toc(str2));
 	else
 		warn("%s OK", string_toc(str2));
 	string_store(str2, "^world on earth$", -1);
-	if (!string_match(str1, str2))
+	if (!string_match(str1, str2, NULL))
 		err("%s match", string_toc(str2));
 	else
 		warn("%s OK", string_toc(str2));
 	string_store(str2, "^hello world on$earth", -1);
-	if (!string_match(str1, str2))
+	if (!string_match(str1, str2, NULL))
 		err("%s match", string_toc(str2));
 	else
 		warn("%s OK", string_toc(str2));
