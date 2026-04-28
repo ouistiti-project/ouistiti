@@ -13,14 +13,15 @@ servers= ({
 				dbname="conf/passwd.db";
 				options = "jwt,cookie,management";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
-				unprotect = "^/trust/*";
+				unprotect = "^/special.html$,^/index.html,^/trust/*";
+				token_ep = "/trust/token";
 				signin = "/trust/signin.html";
 				algorithm = "SHA-256";
 			};
 			redirect = {
 				links = ({
-					options = "temporary";
-					origin = "^/token";
+					options = "temporary,query";
+					origin = "^/trust/token";
 					destination = "https://totp.ouistiti.local:8080";
 				});
 			};
