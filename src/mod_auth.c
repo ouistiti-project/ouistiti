@@ -395,19 +395,18 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	else
 		string_store(&auth->realm, hostname, -1);
 
-	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
-		string_store(&auth->token.issuer, data, -1);
-	else if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
-		string_store(&auth->token.issuer, data, -1);
-	else
-		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
-
 	ret = authz_config(config, &auth->authz);
 	if (ret == EREJECT)
 	{
 		err("auth: %s authz config: is not set", string_toc(&auth->token.issuer));
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
+	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
+		string_store(&auth->token.issuer, data, -1);
+	else if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
+		string_store(&auth->token.issuer, data, -1);
+	else
+		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
 	if (auth->authz.type & AUTHZ_JWT_E)
 		auth->token.type = E_JWT;
 
@@ -1490,7 +1489,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	{
 		if (httpclient_setsession(ctx->clt, string_toc(&authorization), -1) >= 0)
 		{
-			auth_dbg("auth: set the session");
+			auth_dbg("auth: set the session for %.*s", string_length(&config->token.issuer), string_toc(&config->token.issuer));
 			// The first MFA authenticator must know the group, and status
 			// the next authenticator haven't to modify this values
 			if (authz->rules->setsession)
