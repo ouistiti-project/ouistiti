@@ -65,7 +65,9 @@ static int authn_basic_challenge(void *arg, http_message_t *UNUSED(request), htt
 	const authn_basic_t *mod = (authn_basic_t *)arg;
 	const mod_auth_t *config = mod->config;
 
-	httpmessage_addheader(response, str_authenticate, STRING_REF("Basic realm=\""));
+	ret = httpmessage_addheader(response, str_authenticate, STRING_REF("Basic realm=\""));
+	if (ret)
+		return ret;
 	const string_t *realm = mod->issuer;
 	if (!string_empty(&config->realm))
 		realm = &config->realm;

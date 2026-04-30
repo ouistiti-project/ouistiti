@@ -230,7 +230,9 @@ static int authn_digest_nonce(authn_mod_t *mod, string_t *nonce)
 static void authn_digest_www_authenticate(authn_ctx_t *ctx, http_message_t * response)
 {
 	authn_mod_t *mod = ctx->mod;
-	httpmessage_addheader(response, str_authenticate, STRING_REF("Digest "));
+	int ret = httpmessage_addheader(response, str_authenticate, STRING_REF("Digest "));
+	if (ret)
+		return;
 	string_t *realm = mod->issuer;
 	if (!string_empty(&mod->authn->config->realm))
 		realm = &mod->authn->config->realm;

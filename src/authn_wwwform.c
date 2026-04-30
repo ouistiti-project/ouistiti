@@ -69,11 +69,13 @@ static void *authn_wwwform_create(const authn_t *authn, string_t *issuer, void *
 
 static int authn_wwwform_challenge(void *arg, http_message_t *UNUSED(request), http_message_t *response)
 {
-	int ret = ECONTINUE;
+	int ret;
 	const authn_wwwform_t *mod = (authn_wwwform_t *)arg;
 	const mod_auth_t *config = mod->authn->config;
 
-	httpmessage_addheader(response, str_authenticate, STRING_REF("WWW-Form"));
+	ret = httpmessage_addheader(response, str_authenticate, STRING_REF("WWW-Form"));
+	if (ret)
+		return ret;
 	const string_t *realm = mod->issuer;
 	if (!string_empty(&config->realm))
 		realm = &config->realm;
@@ -81,7 +83,7 @@ static int authn_wwwform_challenge(void *arg, http_message_t *UNUSED(request), h
 	httpmessage_appendheader(response, str_authenticate, STRING_REF(" realm=\""));
 	httpmessage_appendheader(response, str_authenticate, string_toc(realm), string_length(realm));
 	httpmessage_appendheader(response, str_authenticate, STRING_REF("\""));
-
+	ret = ECONTINUE;
 	return ret;
 }
 
@@ -91,10 +93,8 @@ static const char *authn_wwwform_checkrequest(void *arg, authz_t *authz, http_me
 	const mod_auth_t *config = mod->authn->config;
 	const char *user = NULL;
 
-	const char *content_type = NULL;
-	size_t content_typelen = httpmessage_REQUEST2(request, str_contenttype, &content_type);
 	string_t contenttype = {0};
-	string_store(&contenttype, content_type, content_typelen);
+	ouimessage_REQUEST(request, str_contenttype, &contenttype);
 	if (! string_cmp(&contenttype, str_form_urlencoded, -1))
 	{
 		const char *username = NULL;
