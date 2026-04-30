@@ -1153,7 +1153,7 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 
 	// if redirect_uri is present, the next one must not be added
 	char sep = '?';
-	if (strchr(config->redirect.data, sep))
+	if (string_chr(&config->redirect, sep, 0) != -1)
 		sep = '&';
 	if ((config->authn.type & AUTHN_REDIRECT_E) &&
 		(utils_searchexp(query, "redirect_uri", NULL) != ESUCCESS))
@@ -1166,15 +1166,21 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 		/// append redirect_uri if not exist other with it will append later with query part
 		const char *scheme = NULL;
 		size_t schemelen = httpserver_INFO2(server, "scheme", &scheme);
-		httpmessage_appendheader(response, str_location, scheme, schemelen);
-		httpmessage_appendheader(response, str_location, STRING_REF("://"));
+		if (scheme)
+		{
+			httpmessage_appendheader(response, str_location, scheme, schemelen);
+			httpmessage_appendheader(response, str_location, STRING_REF("://"));
+		}
 		const char *host = NULL;
 		size_t hostlen = httpmessage_REQUEST2(request, "host", &host);
 		if (hostlen == 0)
 		{
 			hostlen = httpmessage_REQUEST2(request, "addr", &host);
 		}
-		httpmessage_appendheader(response, str_location, host, hostlen);
+		if (hostlen > 0)
+		{
+			httpmessage_appendheader(response, str_location, host, hostlen);
+		}
 		const char *port = NULL;
 		size_t portlen = httpserver_INFO2(server, "port", &port);
 		if (portlen != 0)
@@ -1182,7 +1188,8 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 			httpmessage_appendheader(response, str_location, STRING_REF(":"));
 			httpmessage_appendheader(response, str_location, port, portlen);
 		}
-		httpmessage_appendheader(response, str_location, uri, urilen);
+		if (uri)
+			httpmessage_appendheader(response, str_location, uri, urilen);
 	}
 	if (query && query[0] != '\0')
 	{
