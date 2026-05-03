@@ -770,6 +770,7 @@ int main(int argc, char * const *argv)
 	{
 		if (chroot(workingdir) == 0)
 		{
+			chdir("/");
 			warn("main: daemon run inside sandbox");
 		}
 		else if (chdir(workingdir) != 0)
