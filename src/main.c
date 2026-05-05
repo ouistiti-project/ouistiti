@@ -86,6 +86,16 @@ int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value
 	return ESUCCESS;
 }
 
+int ouimessage_SERVER(http_message_t *message, const char *key, string_t *value)
+{
+	const char *data = NULL;
+	size_t datalen = httpmessage_SERVER2(message, key, &data);
+	if (datalen == 0)
+		return EREJECT;
+	string_store(value, data, datalen);
+	return ESUCCESS;
+}
+
 int ouimessage_SESSION(http_message_t *message, const char *key, string_t *value)
 {
 	const void *data = NULL;
@@ -156,7 +166,7 @@ int ouimessage_setcookie(http_message_t *response, const char *key, const string
 	if (!(httpclient_state(httpmessage_client(response)) & CLIENT_LOCALHOST))
 	{
 		string_t domain = {0};
-		ouimessage_REQUEST(response, "domain", &domain);
+		ouimessage_SERVER(response, "domain", &domain);
 		ret = httpmessage_appendheader(response, str_setcookie, STRING_REF("; Domain=."));
 		ret = httpmessage_appendheader(response, str_setcookie, string_toc(&domain), string_length(&domain));
 	}
