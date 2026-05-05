@@ -1323,6 +1323,8 @@ static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, ht
 		auth_dbg("unprotected uri %s", string_toc(&config->redirect));
 		ret = EREJECT;
 	}
+	if (ret == EREJECT)
+		warn("auth: %s is unprotected", string_toc(&uri));
 	return ret;
 }
 
@@ -1472,7 +1474,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			auth_dbg("auth: checktoken %d", ret);
 		}
 	}
-	else
+	else if (ret == ECONTINUE)
 		warn("auth: token not checked. Configure (%s) token or jwt", string_toc(&config->token.issuer));
 #endif
 	if (ret == ECONTINUE)
@@ -1557,10 +1559,6 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			ret = EREJECT;
 		}
 		_auth_prepareresponse(ctx, request, response, &authorization);
-	}
-	else
-	{
-		warn("auth: accepted without authorization (unprotect files, shortcut,...) from %p", ctx->clt);
 	}
 	return ret;
 }
