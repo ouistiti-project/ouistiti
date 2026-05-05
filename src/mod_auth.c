@@ -112,6 +112,7 @@ struct _mod_auth_ctx_s
 struct _mod_auth_s
 {
 	mod_auth_t	*config;
+	http_server_t *server;
 	string_t type;
 	authn_t *authn;
 	authz_t *authz;
@@ -525,6 +526,7 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		return NULL;
 	}
 	mod->config = config;
+	mod->server = server;
 
 	mod->authz = _authz_dup(&config->authz);
 	if (mod->authz == NULL)
@@ -1392,9 +1394,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	string_t host = {0};
 	ouimessage_REQUEST(request, "host", &host);
 	string_t hostname = {0};
-	ouiserver_INFO(httpclient_server(ctx->clt), "hostname", &hostname);
+	ouiserver_INFO(mod->server, "hostname", &hostname);
+	string_t service = {0};
+	ouiserver_INFO(mod->server, "service", &service);
 	if (!(httpclient_state(httpmessage_client(request)) & CLIENT_LOCALHOST) &&
-		string_cmp(&host, string_toc(&hostname), string_length(&hostname)))
+		(!string_startwith(&host, &service) ||
+		 string_cmp(&hostname, string_toc(&host) + string_length(&service) + 1, string_length(&hostname))))
 	{
 		err("auth: request for unknown host (%.*s)", string_length(&host), string_toc(&host));
 		ret = ESUCCESS;
