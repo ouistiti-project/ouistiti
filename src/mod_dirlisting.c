@@ -164,7 +164,10 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 		 * Set the content-type first without content-length.
 		 */
 		httpmessage_addcontent(response, utils_getmime(".json"), NULL, -1);
-		if (!strcmp(httpmessage_REQUEST(request, "method"), "HEAD"))
+		string_t uri = {0};
+		string_t method = {0};
+		ouimessage_REQUEST(request, "method", &method);
+		if (!string_cmp(&method, STRING_REF("HEAD")))
 		{
 			for (int i = 0; i < ret; i++)
 				free(private->ents[i]);
@@ -173,12 +176,11 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 			private->nbents = 0;
 			ret = ESUCCESS;
 		}
-		else
+		else if (ouimessage_REQUEST(request,"uri", &uri) == ESUCCESS)
 		{
-			const char *uri = NULL;
-			size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
+			int urilen = string_length(&uri);
 			char *data = calloc(1, DIRLISTING_HEADER_LENGTH + urilen + 1);
-			urilen = snprintf(data, DIRLISTING_HEADER_LENGTH + urilen, DIRLISTING_HEADER, uri);
+			urilen = snprintf(data, DIRLISTING_HEADER_LENGTH + urilen, DIRLISTING_HEADER, string_toc(&uri));
 			httpmessage_appendcontent(response, data, urilen);
 			free(data);
 			ret = ECONTINUE;
@@ -197,6 +199,10 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 				ret = _dirlisting_getentity(private, ent, response);
 				private->nbents--;
 			}
+		}
+		else
+		{
+			httpmessage_result(response, RESULT_500);
 		}
 	}
 	else
@@ -292,14 +298,15 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	document_connector_t *ctx = (document_connector_t *)arg;
 	_mod_document_mod_t *mod = ctx->mod;
 
-	const char *method = httpmessage_REQUEST(request, "method");
-	if (strcmp(method, str_get))
+	string_t method = {0};
+	ouimessage_REQUEST(request, "method", &method);
+	if (string_cmp(&method, STRING_REF(str_get)))
 		return EREJECT;
 
-	const char *uri = NULL;
-	int urilen = httpmessage_REQUEST2(request,"uri", &uri);
+	string_t uri = {0};
+	ouimessage_REQUEST(request,"uri", &uri);
 
-	if (htaccess_check(&mod->config->htaccess, uri, NULL) == EREJECT)
+	if (htaccess_check(&mod->config->htaccess, string_toc(&uri), NULL) == EREJECT)
 	{
 		document_dbg("document: %s forbidden extension", uri);
 		/**
@@ -310,15 +317,11 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		return  EREJECT;
 	}
 	int fdroot = EREJECT;
-	while (uri[0] == '/')
-	{
-		uri++;
-		urilen--;
-	}
+	string_unroot(&uri);
 #ifdef DOCUMENTHOME
-	if (uri[0] == '~' && mod->fdhome != -1)
+	if (string_chr(&uri, '~', 0) == 0 && mod->fdhome != -1)
 	{
-		uri++;
+		string_slice(&uri, 1, 0);
 		const char *user = auth_info(request, STRING_REF(str_user));
 		const char *home = auth_info(request, STRING_REF(str_home));
 		if (home == NULL)
@@ -334,14 +337,10 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	else
 #endif
 		ctx->fdroot = openat(mod->fdroot, str_currentdir, O_DIRECTORY);
-	while (uri[0] == '/')
-	{
-		uri++;
-		urilen--;
-	}
+	string_unroot(&uri);
 
-	if (uri[0] != '\0')
-		ctx->url = uri;
+	if (!string_empty(&uri))
+		ctx->url = string_toc(&uri);
 	else
 		ctx->url = str_currentdir;
 	struct stat filestat;
