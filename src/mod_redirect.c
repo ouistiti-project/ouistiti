@@ -313,12 +313,12 @@ static int _mod_redirect_destination(_mod_redirect_t *mod, mod_redirect_link_t *
 
 static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *request,
 									http_message_t *response, mod_redirect_link_t *link,
-									const char *uri, size_t urilen)
+									string_t *uri)
 {
 	int ret = ECONTINUE;
 	const char *path_info = NULL;
 
-	if (link->origin && utils_searchexp(uri, link->origin, &path_info) == ESUCCESS)
+	if (link->origin && utils_searchexp(string_toc(uri), link->origin, &path_info) == ESUCCESS)
 	{
 		int result = mod->result;
 		if (link->options & REDIRECT_PERMANENTLY)
@@ -338,9 +338,9 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 		if (ret != ESUCCESS && link->options & REDIRECT_QUERY)
 		{
 			string_t redirect = {0};
-			ouimessage_parameter(request, "redirect_uri", &redirect);
+			ret = ouimessage_parameter(request, "redirect_uri", &redirect);
 			char *decode = NULL;
-			if (!string_empty(&redirect))
+			if (ret == ESUCCESS && !string_empty(&redirect))
 				decode = utils_urldecode(string_toc(&redirect), string_length(&redirect));
 			if (decode != NULL)
 			{
@@ -351,7 +351,7 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 			}
 		}
 		if (ret != ESUCCESS && link->destination != NULL &&
-				utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
+				utils_searchexp(string_toc(uri), link->destination, NULL) != ESUCCESS)
 		{
 			ret = _mod_redirect_destination(mod, link, request, response, path_info);
 		}
@@ -366,7 +366,7 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 }
 
 static int _mod_redirect_hsts(_mod_redirect_t *mod, http_message_t *request, http_message_t *response,
-			const char *scheme, int schemelen, const char *uri, int urilen)
+			const char *scheme, int schemelen, string_t *uri)
 {
 	const char *host = NULL;
 	size_t hostlen = httpmessage_REQUEST2(request, "host", &host);
@@ -384,7 +384,7 @@ static int _mod_redirect_hsts(_mod_redirect_t *mod, http_message_t *request, htt
 			httpmessage_appendheader(response, str_location, port, portlen);
 		}
 #endif
-		httpmessage_appendheader(response, str_location, uri, urilen);
+		httpmessage_appendheader(response, str_location, string_toc(uri), string_length(uri));
 		httpmessage_addheader(response, "Vary", STRING_REF(str_upgrade_insec_req));
 		httpmessage_result(response, RESULT_301);
 		return ESUCCESS;
@@ -396,16 +396,16 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 {
 	_mod_redirect_t *mod = (_mod_redirect_t *)arg;
 	mod_redirect_t *config = mod->config;
-	const char *uri = NULL;
-	int urilen = httpmessage_REQUEST2(request, "uri", &uri);
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
 
 	if (config->options & REDIRECT_HSTS)
 	{
 		const char *scheme = httpmessage_REQUEST(request, "scheme");
 		const char *upgrade = httpmessage_REQUEST(request, str_upgrade_insec_req);
-		if (strcmp(scheme, str_https) && !strcmp(upgrade, "1"))
+		if (scheme && strcmp(scheme, str_https) && upgrade && !strcmp(upgrade, "1"))
 		{
-			return _mod_redirect_hsts(mod, request, response, str_https, sizeof(str_https) - 1, uri, urilen);
+			return _mod_redirect_hsts(mod, request, response, str_https, sizeof(str_https) - 1, &uri);
 		}
 		else
 		{
@@ -414,7 +414,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 	}
 	if (config->options & REDIRECT_GENERATE204)
 	{
-		if (utils_searchexp(uri, "generate_204,^/true", NULL) == ESUCCESS)
+		if (utils_searchexp(string_toc(&uri), "generate_204,^/true", NULL) == ESUCCESS)
 		{
 			httpmessage_result(response, RESULT_204);
 			return ESUCCESS;
@@ -426,7 +426,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 		while (link != NULL)
 		{
 			int ret = ECONTINUE;
-			if (link->origin && utils_searchexp(uri, link->origin, NULL) == ESUCCESS)
+			if (link->origin && utils_searchexp(string_toc(&uri), link->origin, NULL) == ESUCCESS)
 			{
 				if (link->options & REDIRECT_GENERATE204)
 				{
@@ -434,7 +434,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 					ret = ESUCCESS;
 				}
 				if (ret == ECONTINUE)
-					ret = _mod_redirect_connectorlink(mod, request, response, link, uri, urilen);
+					ret = _mod_redirect_connectorlink(mod, request, response, link, &uri);
 			}
 			if (ret != ECONTINUE)
 			{
