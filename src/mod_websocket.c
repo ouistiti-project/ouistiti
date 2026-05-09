@@ -212,13 +212,14 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	int ret = EREJECT;
 
 	const char *path_info = NULL;
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (htaccess_check(&mod->config->htaccess, uri, &path_info) != ESUCCESS)
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
+	if (htaccess_check(&mod->config->htaccess, string_toc(&uri), &path_info) != ESUCCESS)
 	{
-		dbg("websocket: %s forbidden", uri);
+		dbg("websocket: %s forbidden", string_toc(&uri));
 		return EREJECT;
 	}
-	if (path_info == uri)
+	if (path_info == string_toc(&uri))
 	{
 		// path_info must not be the first caracter of uri
 		path_info = strchr(path_info + 1, '/');
@@ -227,17 +228,17 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	if (protocol[0] == '\0')
 		protocol = NULL;
 
-	while (*uri == '/' && *uri != '\0') uri++;
+	string_unroot(&uri);
 	if (mod->fdroot > 0)
 	{
-		ret = _checkfile(ctx, uri, protocol);
+		ret = _checkfile(ctx, string_toc(&uri), protocol);
 	}
 	else if (mod->config->links)
 	{
 		_ws_link_t *it = NULL;
 		for (it = mod->config->links;it; it = it->next)
 		{
-			if (!strncmp(uri, it->origin.data, it->origin.length))
+			if (!string_compare(&uri, &it->origin))
 				break;
 		}
 		if (it != NULL)
@@ -246,26 +247,25 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 			{
 			case E_UNIX:
 			{
-				ctx->fdfile  = _websocket_unix(it->destination.data);
+				ctx->fdfile  = _websocket_unix(string_toc(&it->destination));
 			}
 			break;
 			case E_TTY:
 			{
-				ctx->fdfile  = _websocket_tty(ctx->mod->fdroot, it->destination.data, it->info);
+				ctx->fdfile  = _websocket_tty(ctx->mod->fdroot, string_toc(&it->destination), it->info);
 			}
 			break;
 			case E_FIFO:
 			{
-				ctx->fdfile  = _websocket_fifo(ctx->mod->fdroot, it->destination.data);
+				ctx->fdfile  = _websocket_fifo(ctx->mod->fdroot, string_toc(&it->destination));
 			}
 			break;
 			case E_TCP:
 			{
-				ctx->fdfile  = _websocket_tcp(it->destination.data, it->info);
+				ctx->fdfile  = _websocket_tcp(string_toc(&it->destination), it->info);
 			}
 			break;
 			}
-			uri = it->destination.data;
 		}
 		else
 			return EREJECT;
@@ -308,7 +308,7 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	/** disable Content-Type and Content-Length inside the headers **/
 	httpmessage_addcontent(response, "none", NULL, -1);
 	httpmessage_result(response, RESULT_101);
-	warn("websocket: connect %s", uri);
+	warn("websocket: connect %s", string_toc(&uri));
 
 	return ECONTINUE;
 }
