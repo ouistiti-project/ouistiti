@@ -706,9 +706,7 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 	string_t currentrole = {0};
 	ouimessage_SESSION(request, str_group, &currentrole);
 	if (string_cmp(&currentrole, "root", -1) && !strncmp(info.group, "root", 4))
-		strncpy(info.group, str_group_users, sizeof(info.group));
-	if (info.group[0] == '\0')
-		strncpy(info.group, str_group_anonymous, sizeof(info.group));
+		info.group[0] = '\0';
 
 	if (ret == ESUCCESS && ctx->isroot && mod->config->mngt.rules->changeinfo != NULL)
 	{
