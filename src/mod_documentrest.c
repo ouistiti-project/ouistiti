@@ -185,9 +185,7 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 	string_t contenttype = {0};
 	ouimessage_REQUEST(request,"Content-Type", &contenttype);
 	errno = 0;
-	string_t slash = {0};
-	string_store(&slash, "/", 1);
-	if (string_endwith(url, &slash) ||
+	if (string_endwith(url, &string_slash) ||
 		(!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_mime_inode_directory))))
 	{
 		fdfile = mkdirat(fdroot, string_toc(url), 0755);

@@ -160,9 +160,7 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 		resource = &string_dot;
 	if (faccessat(fdroot, string_toc(resource), F_OK, 0) == -1)
 	{
-		string_t slash = {0};
-		string_store(&slash, "/", 1);
-		if (!string_endwith(resource, &slash))
+		if (!string_endwith(resource, &string_slash))
 		{
 			return fdfile;
 		}

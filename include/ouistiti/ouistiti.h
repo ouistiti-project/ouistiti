@@ -207,5 +207,6 @@ extern const string_t string_xgroup;
 extern const string_t string_xhome;
 
 extern const string_t string_dot;
+extern const string_t string_slash;
 
 #endif
