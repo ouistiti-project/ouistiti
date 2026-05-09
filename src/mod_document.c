@@ -86,12 +86,10 @@ static void _document_close(document_connector_t *private)
 }
 
 #ifdef DOCUMENTHOME
-static int _document_dochome(_mod_document_mod_t *mod,
-		http_message_t *request, const char **uri)
+int _document_dochome(_mod_document_mod_t *mod,
+		http_message_t *request, string_t *uri)
 {
 	int fdroot = -1;
-
-	while ((*uri)[0] == '/') (*uri)++;
 
 	const char *user = auth_info(request, STRING_REF(str_user));
 	const char *home = auth_info(request, STRING_REF(str_home));
@@ -117,7 +115,7 @@ static int _document_dochome(_mod_document_mod_t *mod,
 #endif
 
 static int _document_docroot(_mod_document_mod_t *mod,
-		http_message_t *request, const char **uri)
+		http_message_t *request, string_t *uri)
 {
 	int fdroot = dup(mod->fdroot);
 	document_dbg("document: root directory is %s", mod->config->docroot);
@@ -242,12 +240,12 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	http_connector_t connector = NULL;
 	const mod_document_t *config = mod->config;
 
-	const char *uri = NULL;
-	int urilen = httpmessage_REQUEST2(request,"uri", &uri);
+	string_t uri = {0};
+	ouimessage_REQUEST(request,"uri", &uri);
 
-	if (htaccess_check(&mod->config->htaccess, uri, NULL) == EREJECT)
+	if (htaccess_check(&mod->config->htaccess, string_toc(&uri), NULL) == EREJECT)
 	{
-		document_dbg("document: %s forbidden extension", uri);
+		document_dbg("document: %s forbidden extension", string_toc(&uri));
 		/**
 		 * Another module may have the same docroot and
 		 * accept the name of the uri.
@@ -256,20 +254,18 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		return  EREJECT;
 	}
 	int fdroot = EREJECT;
-	while (uri[0] == '/')
-	{
-		uri++;
-		urilen--;
-	}
 #ifdef DOCUMENTHOME
-	if (uri[0] == '~' && mod->fdhome != -1)
+	string_t tylde = {0};
+	string_store(&tylde, STRING_REF("/~"));
+	if (string_startwith(&uri, &tylde))
 	{
-		uri++;
+		string_slice(&uri, 2, 0);
 		fdroot = _document_dochome(mod, request, &uri);
 	}
 	else
 #endif
 		fdroot = _document_docroot(mod, request, &uri);
+	string_unroot(&uri);
 	if (fdroot == EREJECT)
 	{
 		httpmessage_result(response, RESULT_404);
@@ -284,19 +280,19 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #ifdef DOCUMENTREST
 	if ((config->options & DOCUMENT_REST) && !strcmp(method, str_put))
 	{
-		fdfile = _document_getconnnectorput(mod, fdroot, uri, urilen,
+		fdfile = _document_getconnnectorput(mod, fdroot, string_toc(&uri), string_length(&uri),
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
 	else if ((config->options & DOCUMENT_REST) && !strcmp(method, str_post))
 	{
-		fdfile = _document_getconnnectorpost(mod, fdroot, uri,urilen,
+		fdfile = _document_getconnnectorpost(mod, fdroot, string_toc(&uri), string_length(&uri),
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
 	else if ((config->options & DOCUMENT_REST) && !strcmp(method, str_delete))
 	{
-		fdfile = _document_getconnnectordelete(mod, fdroot, uri, urilen,
+		fdfile = _document_getconnnectordelete(mod, fdroot, string_toc(&uri), string_length(&uri),
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
@@ -304,12 +300,12 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #endif
 	if (!strcmp(method, str_get))
 	{
-		fdfile = _document_getconnnectorget(mod, fdroot, uri, urilen,
+		fdfile = _document_getconnnectorget(mod, fdroot, string_toc(&uri), string_length(&uri),
 					&mime, request, response, &connector);
 	}
 	else if (!strcmp(method, str_head))
 	{
-		fdfile = _document_getconnnectorheader(mod, fdroot, uri, urilen,
+		fdfile = _document_getconnnectorheader(mod, fdroot, string_toc(&uri), string_length(&uri),
 					&mime, request, response, &connector);
 	}
 	else
@@ -374,7 +370,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	private->ctl = httpmessage_client(request);
 	private->fdfile = fdfile;
 	private->fdroot = fdroot;
-	private->url = uri;
+	private->url = string_toc(&uri);
 	private->mime = mime;
 	private->func = connector;
 	private->size = filestat.st_size;
