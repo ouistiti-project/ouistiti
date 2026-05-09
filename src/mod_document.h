@@ -116,6 +116,10 @@ int dirlisting_connector(void *arg, http_message_t *request, http_message_t *res
 #endif
 int getfile_connector(void *arg, http_message_t *request, http_message_t *response);
 
+#ifdef DOCUMENTHOME
+int _document_dochome(_mod_document_mod_t *mod,
+		http_message_t *request, string_t *uri);
+#endif
 #ifdef DOCUMENTREST
 int _document_getconnnectorput(_mod_document_mod_t *mod,
 		int fdroot, const char *url, int urllen, const char **mime,
