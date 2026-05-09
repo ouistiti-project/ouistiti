@@ -1,8 +1,5 @@
-GET /echo2 HTTP/1.1
-HOST: myvhost3.ouistiti.local
-Connection: Upgrade,Keep-Alive
-Upgrade: websocket
-Sec-WebSocket-Protocol: echo
-Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+DELETE /test130.txt HTTP/1.1
+HOST: myvhost.ouistiti.local
+Authorization: Basic Zm9vOmJhcg==
+Upgrade-Insecure-Requests: 1
 
-Åhello

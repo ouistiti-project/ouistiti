@@ -4,12 +4,10 @@ servers= ({
 		hostname = "www.ouistiti.local";
 		addr="127.0.0.1";
 		port = 8080;
-		service = "main";
 		keepalivetimeout = 5;
 		version="HTTP11";
 		vhost =({
 			hostname = "auth.ouistiti.local";
-			service = "auth";
 			auth = {
 				type = "Basic";
 				dbname="conf/passwd.db";
@@ -36,7 +34,6 @@ servers= ({
 			};
 		},{
 			hostname = "totp.ouistiti.local";
-			service = "totp";
 			auth = ({
 				type = "None";
 				options = "jwt,cookie";

@@ -1,4 +1,4 @@
-DESC="dochome: ilist files from /~"
+DESC="dochome: list files from /~/"
 CONFIG=test11.conf
 TESTCODE=200
 TESTRESPONSE=result200_rs.txt

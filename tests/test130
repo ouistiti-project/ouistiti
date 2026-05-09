@@ -1,5 +1,4 @@
-DESC="test websocket startup on vhost service with another hostname"
+DESC="Document: DELETE file on a vhost service"
 CONFIG=test20.conf
-TESTOPTION="-w"
-TESTRESPONSE=test024_rs.txt
-TESTCODE=101
+PREPARE="touch ${TESTDIR}/htdocs/vhost/test130.txt"
+TESTCODE=200

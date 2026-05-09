@@ -8,19 +8,17 @@ servers= ({
 		unlock_groups="user";
 		auth = {
 			protect = "";
-			unprotect = "*";
 			type = "Basic";
 			user = "test";
 			passwd = "test";
 			group = "user";
-			#home = "htdocs/private";
 			home = "private";
 		};
 		document = {
 			docroot = "htdocs";
 			dochome = "htdocs";
 			allow = ".html,.*htm*,.css,.js,.txt,*";
-			deny = "^private/*,.htaccess,.php";
+			deny = "^/private/*,.htaccess,.php";
 			options = "dirlisting,rest,home";
 		};
 	});

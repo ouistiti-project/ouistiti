@@ -1,4 +1,5 @@
-DESC="Document: test a request on a vhost"
+DESC="Vhost: websocket startup on service"
 CONFIG=test20.conf
-TESTREQUEST=test104_rq.txt
-TESTCODE=200
+TESTOPTION="-w"
+TESTRESPONSE=test024_rs.txt
+TESTCODE=101

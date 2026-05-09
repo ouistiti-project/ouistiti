@@ -1,4 +1,4 @@
-DESC="dochome: ilist files from /~"
+DESC="dochome: try access private file with right"
 CONFIG=test11.conf
 TESTCODE=200
 TESTRESPONSE=result200_rs.txt

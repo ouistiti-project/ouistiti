@@ -1,0 +1,5 @@
+DESC="dochome: delete file into /~"
+PREPARE="touch ${TESTDIR}/htdocs/private/testdelete.txt"
+CONFIG=test11.conf
+TESTCODE=200
+TESTRESPONSE=result200_rs.txt
