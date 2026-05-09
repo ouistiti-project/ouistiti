@@ -55,7 +55,7 @@
 
 #define HAVE_SYMLINK
 
-static int _document_delete(_mod_document_mod_t *mod, int fdroot, const char *url, int urllen);
+static int _document_delete(_mod_document_mod_t *mod, int fdroot, string_t *url);
 
 static int restheader_connector(http_message_t *request, http_message_t *response, int error)
 {
@@ -177,7 +177,7 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 }
 
 int _document_getconnnectorput(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen, const char **mime,
+		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
@@ -185,10 +185,12 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 	string_t contenttype = {0};
 	ouimessage_REQUEST(request,"Content-Type", &contenttype);
 	errno = 0;
-	if (url[urllen - 1] == '/' ||
+	string_t slash = {0};
+	string_store(&slash, "/", 1);
+	if (string_endwith(url, &slash) ||
 		(!string_empty(&contenttype) && !string_cmp(&contenttype, STRING_REF(str_mime_inode_directory))))
 	{
-		fdfile = mkdirat(fdroot, url, 0755);
+		fdfile = mkdirat(fdroot, string_toc(url), 0755);
 		if (fdfile == -1)
 			err("document: Directory creation error(%m). Check parent directory access.");
 		restheader_connector(request, response, errno);
@@ -217,13 +219,13 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 				httpmessage_result(response, RESULT_403);
 				return 0;
 			}
-			dbg("PUT symlink %s => %s", url, target);
+			dbg("PUT symlink %s => %s", string_toc(url), target);
 			errno = 0;
-			fdfile = symlinkat(target, fdroot, url);
+			fdfile = symlinkat(target, fdroot, string_toc(url));
 			if (fdfile == -1)
 				err("document: symbolic link creation error(%m). Check parent directory access.");
 			else
-				warn("document: new symbolic link %s to %s", url, target);
+				warn("document: new symbolic link %s to %s", string_toc(url), target);
 			free(target);
 		}
 		else
@@ -237,7 +239,7 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 	}
 	else if (fdfile != 0)
 	{
-		fdfile = openat(fdroot, url, O_WRONLY | O_CREAT | O_EXCL, 0640);
+		fdfile = openat(fdroot, string_toc(url), O_WRONLY | O_CREAT | O_EXCL, 0640);
 		if (fdfile < 0)
 		{
 			err("Document: File creation error(%m). Check parent file access.");
@@ -255,23 +257,23 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 	return fdfile;
 }
 
-static int _document_renameat(int fddir, const char *oldpath, const char *newpath)
+static int _document_renameat(int fddir, string_t *oldpath, string_t *newpath)
 {
-	return renameat(fddir, oldpath, fddir, newpath);
+	return renameat(fddir, string_toc(oldpath), fddir, string_toc(newpath));
 }
 
-static int _document_symlinkat(int fddir, const char *oldpath, const char *newpath)
+static int _document_symlinkat(int fddir, string_t *oldpath, string_t *newpath)
 {
-	return symlinkat(oldpath, fddir, newpath);
+	return symlinkat(string_toc(oldpath), fddir, string_toc(newpath));
 }
 
-typedef int (*changefunc)(int fddir, const char *oldpath, const char *newpath);
-static int changename(int fdroot, http_message_t *UNUSED(request), const char *oldpath, const char *newname, changefunc func)
+typedef int (*changefunc)(int fddir, string_t *oldpath, string_t *newpath);
+static int changename(int fdroot, http_message_t *UNUSED(request), string_t *oldpath, string_t *newname, changefunc func)
 {
 	int ret = -1;
-	if (newname && newname[0] != '\0')
+	if (!string_empty(newname))
 	{
-		warn("change %s to %s", oldpath, newname);
+		warn("change %s to %s", oldpath, string_toc(newname));
 		if (!func(fdroot, oldpath, newname))
 			ret = 0;
 	}
@@ -279,13 +281,13 @@ static int changename(int fdroot, http_message_t *UNUSED(request), const char *o
 }
 
 int _document_getconnnectorpost(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen, const char **mime,
+		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
 	int error = 0;
 	int fdfile = -1;
-	if (faccessat(fdroot, url, F_OK, 0) == -1)
+	if (faccessat(fdroot, string_toc(url), F_OK, 0) == -1)
 		return fdfile;
 
 	string_t cmd = {0};
@@ -294,41 +296,54 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 	errno = 0;
 	if (!string_empty(&cmd) && !string_cmp(&cmd, "mv", 2))
 	{
-		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
-		if (postarg[0] == '/')
-			postarg++;
-		warn("move %s to %s", url, postarg);
-		fdfile = changename(fdroot, request, url, postarg, _document_renameat);
-		error = errno;
+		string_t postarg = {0};
+		if (ouimessage_REQUEST(request, "X-POST-ARG", &postarg) == ESUCCESS)
+		{
+			string_unroot(&postarg);
+			warn("move %s to %s", url, string_toc(&postarg));
+			fdfile = changename(fdroot, request, url, &postarg, _document_renameat);
+			error = errno;
+		}
+		else
+			error = EINVAL;
 		fdfile = 0; /// The request is complete by this connector
 		restheader_connector(request, response, error);
 	}
 	else if (!string_empty(&cmd) && !string_cmp(&cmd, "chmod", 5))
 	{
-		warn("chmod %s", url);
-		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
-		int mod = strtol(postarg, NULL, 8);
-		fdfile = fchmodat(fdroot, url, mod, 0);
-		error = errno;
+		warn("chmod %s", string_toc(url));
+		string_t postarg = {0};
+		if (ouimessage_REQUEST(request, "X-POST-ARG", &postarg) == ESUCCESS)
+		{
+			int mod = string_tol(&postarg, 8);
+			fdfile = fchmodat(fdroot, string_toc(url), mod, 0);
+			error = errno;
+		}
+		else
+			error = EINVAL;
 		fdfile = 0; /// The request is complete by this connector
 		restheader_connector(request, response, error);
 	}
 #ifdef HAVE_SYMLINK
 	else if (!string_empty(&cmd) && !string_cmp(&cmd, "ln", 2))
 	{
-		const char *postarg = httpmessage_REQUEST(request, "X-POST-ARG");
-		if (postarg[0] == '/')
-			postarg++;
-		warn("document: link %s to %s", url, postarg);
-		fdfile = changename(fdroot, request, url, postarg, _document_symlinkat);
-		error = errno;
+		string_t postarg = {0};
+		if (ouimessage_REQUEST(request, "X-POST-ARG", &postarg) == ESUCCESS)
+		{
+			string_unroot(&postarg);
+			warn("document: link %s to %s", string_toc(url), string_toc(&postarg));
+			fdfile = changename(fdroot, request, url, &postarg, _document_symlinkat);
+			error = errno;
+		}
+		else
+			error = EINVAL;
 		fdfile = 0; /// The request is complete by this connector
 		restheader_connector(request, response, error);
 	}
 #endif
 	else if (string_empty(&cmd))
 	{
-		fdfile = openat(fdroot, url, O_WRONLY | O_TRUNC, 0640);
+		fdfile = openat(fdroot, string_toc(url), O_WRONLY | O_TRUNC, 0640);
 		if (fdfile < 0)
 		{
 			restheader_connector(request, response, errno);
@@ -348,42 +363,44 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 }
 
 static int _document_delete(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen)
+		int fdroot, string_t *url)
 {
+	const char *path = string_toc(url);
 	errno = 0;
-	if (faccessat(fdroot, url, F_OK, 0) == -1)
+	if (faccessat(fdroot, path, F_OK, 0) == -1)
 	{
-		err("document: delete error. File is doesn't exist'");
+		err("document: delete error. File %s is doesn't exist'", path);
 		return -1;
 	}
-	if (faccessat(fdroot, url, W_OK, AT_EACCESS | AT_SYMLINK_NOFOLLOW ))
+	if (faccessat(fdroot, path, W_OK, AT_EACCESS | AT_SYMLINK_NOFOLLOW ))
 	{
-		err("document: delete error. File is not writeable");
+		err("document: delete error. File %s is not writeable", path);
 		return 0;
 	}
 	struct stat filestat;
-	if (fstatat(fdroot, url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW) == -1)
+	if (fstatat(fdroot, string_toc(url), &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW) == -1)
 	{
 		return 0;
 	}
 	int flags = 0;
 	if (S_ISDIR(filestat.st_mode))
 		flags |= AT_REMOVEDIR;
-	if (unlinkat(fdroot, url, flags) == -1)
+	if (unlinkat(fdroot, path, flags) == -1)
 	{
 		err("document: delete error. Check directory access");
 		return 0;
 	}
+	warn("document: file %s deleted", path);
 	return 1;
 }
 
 int _document_getconnnectordelete(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen, const char **mime,
+		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
 	int fdfile;
-	fdfile = _document_delete(mod, fdroot, url, urllen);
+	fdfile = _document_delete(mod, fdroot, url);
 	if (fdfile >= 0)
 	{
 		restheader_connector(request, response, errno);
