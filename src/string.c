@@ -258,6 +258,17 @@ int string_startwith(const string_t *str1, const string_t *str2)
 	return 0;
 }
 
+int string_endwith(const string_t *str1, const string_t *str2)
+{
+	if ((str1 == NULL) || (str2 == NULL))
+		return 0;
+	if ((str1->length < str2->length))
+		return 0;
+	if (!strncasecmp(str1->data + str1->length - str2->length, str2->data, str2->length))
+		return 1;
+	return 0;
+}
+
 string_t *string_rest(string_t *str1, const string_t *str2)
 {
 	if ((str1 == NULL) || (str2 == NULL))
@@ -472,7 +483,7 @@ void string_unroot(string_t *str)
 {
 	if (string_empty(str))
 		return;
-	while(str->data[0] == '/' || str->data[0] == '.' )
+	while((str->data[0] == '/' || str->data[0] == '.' ) && str->length > 0)
 	{
 		str->data++;
 		str->length--;
@@ -651,6 +662,17 @@ int main(int argc, char * const *argv)
 		err("%s match", string_toc(str2));
 	else
 		warn("%s OK", string_toc(str2));
+	string_store(str2, "earth", -1);
+	if (!string_endwith(str1, str2))
+		err("%s not end with", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	string_store(str2, "on ear", -1);
+	if (string_endwith(str1, str2))
+		err("%s end with", string_toc(str2));
+	else
+		warn("%s OK", string_toc(str2));
+	
 	return 0;
 }
 #endif
