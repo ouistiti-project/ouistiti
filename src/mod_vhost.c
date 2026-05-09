@@ -79,22 +79,25 @@ static int _vhost_connector(void *arg, http_message_t *request, http_message_t *
 {
 	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
 
-	const char *vhost = NULL;
-	size_t vhostlength = httpmessage_REQUEST2(request, "host", &vhost);
-	if (vhost != NULL)
+	string_t hostname = {0};
+	ouiserver_INFO(mod->vserver, "hostname", &hostname);
+	string_t service = {0};
+	ouiserver_INFO(mod->vserver, "service", &service);
+	string_t vhost = {0};
+	ouimessage_REQUEST(request, "host", &vhost);
+	if (!string_empty(&vhost))
 	{
-		if (mod->config->vserver.hostname && !string_cmp(&mod->config->vhost, vhost, vhostlength))
+		if (!string_compare(&hostname, &vhost) && string_empty(&service))
 		{
-			warn("vhost: connection on %s", mod->config->vserver.hostname);
+			warn("vhost: connection on %s", string_toc(&hostname));
 			httpserver_reloadclient(mod->vserver, httpmessage_client(request));
 			return EREJECT;
 		}
-		const char *dot = strchr(vhost, '.');
-		if (dot != NULL && mod->config->vserver.hostname == NULL &&
-			mod->config->vserver.service &&
-			!string_cmp(&mod->config->vservice, vhost, dot - vhost))
+		int index = string_chr(&vhost, '.', 0);
+		if (index != -1 && string_startwith(&vhost, &service) &&
+			!string_cmp(&hostname, string_toc(&vhost) + index + 1, string_length(&vhost) - index - 1))
 		{
-			warn("vhost: connection on %s", mod->config->vserver.service);
+			warn("vhost: connection on %s %s", string_toc(&service), string_toc(&hostname));
 			httpserver_reloadclient(mod->vserver, httpmessage_client(request));
 			return EREJECT;
 		}
@@ -106,15 +109,16 @@ static int _vhost_vconnector(void *arg, http_message_t *request, http_message_t 
 {
 	_mod_vhost_t *mod = (_mod_vhost_t *)arg;
 
-	const char *vhost = NULL;
-	size_t vhostlength = httpmessage_REQUEST2(request, "host", &vhost);
-	if (vhost != NULL)
+	string_t vhost = {0};
+	ouimessage_REQUEST(request, "host", &vhost);
+	string_t hostname = {0};
+	ouimessage_SERVER(request, "hostname", &hostname);
+	if (!string_empty(&vhost))
 	{
-		const char *dot = strchr(vhost, '.');
-		if (mod->config->vserver.hostname && !string_cmp(&mod->config->vhost, vhost, vhostlength))
+		if (mod->config->vserver.hostname && !string_compare(&mod->config->vhost, &vhost))
 			return EREJECT;
-		else if (dot != NULL && mod->config->vserver.hostname == NULL && mod->config->vserver.service &&
-			!string_cmp(&mod->config->vservice, vhost, dot - vhost))
+		else if (!string_contain(&vhost, string_toc(&mod->config->vhost), string_length(&mod->config->vhost), ',') &&
+			string_startwith(&vhost,&mod->config->vservice))
 			return EREJECT;
 	}
 	err("vhost: accesss to another host on the same client");
@@ -126,11 +130,14 @@ static int _vhost_vconnector(void *arg, http_message_t *request, http_message_t 
 static mod_vhost_t *_vhost_config(config_setting_t *config, server_t *server, config_t *configfile)
 {
 	mod_vhost_t *vhost = NULL;
+	serverconfig_t *serverconfig = ouistiti_serverconfig(server);
 
-	char *hostname = NULL;
+	const char *hostname = NULL;
 	config_setting_lookup_string(config, "hostname", (const char **)&hostname);
-	char *service = NULL;
+	const char *service = NULL;
 	config_setting_lookup_string(config, "service", (const char **)&service);
+	if (hostname == NULL || hostname[0] == '\0')
+		hostname = serverconfig->server->hostname;
 	if ((hostname == NULL || hostname[0] == '\0') &&
 		(service == NULL || service[0] == '\0'))
 	{
@@ -148,7 +155,7 @@ static mod_vhost_t *_vhost_config(config_setting_t *config, server_t *server, co
 		string_store(&vhost->vservice, service, -1);
 	config_setting_lookup_string(config, "root", (const char **)&vhost->root);
 	vhost->modulesconfig = config;
-	warn("vhostname %s %s", hostname, vhost->vserver.service);
+	warn("vhost: name %s %s", vhost->vserver.service, vhost->vserver.hostname);
 	return vhost;
 }
 
