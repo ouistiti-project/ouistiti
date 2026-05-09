@@ -73,8 +73,6 @@ typedef struct _document_connector_s document_connector_t;
 static const char str_dirlisting[] = "dirlisting";
 #endif
 
-static const char str_currentdir[] = ".";
-
 static const char *_sizeunit[] = {
 	"B",
 	"kB",
@@ -151,8 +149,6 @@ static int _dirlisting_connectorheader(document_connector_t *private, http_messa
 	const char *url = private->url;
 	int fdroot = private->fdroot;
 
-	if (url[0] == '\0')
-		url = ".";
 	dbg("dirlisting: open /%s", private->url);
 	ret = scandirat(fdroot, url, &private->ents, NULL, alphasort);
 	if (ret >= 0)
@@ -316,35 +312,26 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		 */
 		return  EREJECT;
 	}
-	int fdroot = EREJECT;
-	string_unroot(&uri);
 #ifdef DOCUMENTHOME
-	if (string_chr(&uri, '~', 0) == 0 && mod->fdhome != -1)
+	string_t tylde = {0};
+	string_store(&tylde, STRING_REF("/~"));
+	if (string_startwith(&uri, &tylde))
 	{
-		string_slice(&uri, 1, 0);
-		const char *user = auth_info(request, STRING_REF(str_user));
-		const char *home = auth_info(request, STRING_REF(str_home));
-		if (home == NULL)
-			home = user;
-		while (home[0] == '/') home++;
-		ctx->fdroot = openat(mod->fdhome, home, O_DIRECTORY);
-		if (ctx->fdroot == -1)
-		{
-			err("dirlisting: %s home directory not available %m", home);
-			return EREJECT;
-		}
+		string_slice(&uri, 2, 0);
+		ctx->fdroot = _document_dochome(mod, request, &uri);
 	}
 	else
 #endif
-		ctx->fdroot = openat(mod->fdroot, str_currentdir, O_DIRECTORY);
+		ctx->fdroot = openat(mod->fdroot, string_toc(&string_dot), O_DIRECTORY);
 	string_unroot(&uri);
 
-	if (!string_empty(&uri))
-		ctx->url = string_toc(&uri);
-	else
-		ctx->url = str_currentdir;
+	const string_t *resource = &uri;
+	if (string_empty(resource))
+		resource = &string_dot;
+	ctx->url = string_toc(resource);
+
 	struct stat filestat;
-	if (fstatat(ctx->fdroot, ctx->url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
+	if (fstatat(ctx->fdroot, string_toc(resource), &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
 	{
 		return EREJECT;
 	}
@@ -352,11 +339,8 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	if (S_ISDIR(filestat.st_mode) &&
 		(X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL))
 	{		
-		document_dbg("document: %s is directory", ctx->url);
-		if (ctx->url[0] != '\0')
-			ctx->fdfile = openat(ctx->fdroot, ctx->url, O_DIRECTORY);
-		else
-			ctx->fdfile = openat(ctx->fdroot, ".",  O_DIRECTORY);
+		document_dbg("document: %s is directory", string_toc(resource));
+		ctx->fdfile = openat(ctx->fdroot, string_toc(resource), O_DIRECTORY);
 	}
 	return EREJECT;
 }
