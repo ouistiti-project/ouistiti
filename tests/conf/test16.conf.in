@@ -9,7 +9,6 @@ servers= ({
 		version="HTTP11";
 		vhost =({
 			hostname = "auth.ouistiti.local";
-			service = "ouistitiauth";
 			auth = ({
 				type = "none";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";

@@ -1,0 +1,4 @@
+DESC="dochome: try access private file from docroot"
+CONFIG=test11.conf
+TESTCODE=404
+TESTRESPONSE=error404_rs.txt

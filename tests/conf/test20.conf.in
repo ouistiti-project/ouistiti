@@ -2,7 +2,8 @@ user="%USER%";
 log-file="%LOGFILE%";
 init_d="./init.d";
 servers= ({
-		hostname = "www.ouistiti.local";
+		hostname = "ouistiti.local";
+		service = "www";
 		port = 8080;
 		keepalivetimeout = 5;
 		version="HTTP11";
@@ -17,6 +18,7 @@ servers= ({
 			};
 			document = {
 				docroot = "htdocs/vhost";
+				dochome = "htdocs/private";
 				allow = ".html,.*htm*,.css,.js,.txt,*";
 				deny = ".htaccess,.cgi,*.php";
 				options = "dirlisting,range,rest";
@@ -33,7 +35,6 @@ servers= ({
 
 			};
 		},{
-			hostname = "myvhost2.ouistiti.local";
 			service = "myvhost2";
 			document = {
 				docroot = "htdocs/";

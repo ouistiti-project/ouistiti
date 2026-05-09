@@ -1,0 +1,4 @@
+DESC="dochome: try access private file without right"
+CONFIG=test11.conf
+TESTCODE=403
+TESTRESPONSE=error403_rs.txt
