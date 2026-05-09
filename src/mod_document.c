@@ -148,29 +148,33 @@ static int _document_getdefaultpage(_mod_document_mod_t *mod, int fdroot, const 
 #endif
 
 static int _document_getconnnectorget(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen, const char **mime,
+		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
 	const mod_document_t *config = mod->config;
 	struct stat filestat;
 	int fdfile = -1;
-	if (faccessat(fdroot, url, F_OK, 0) == -1)
+	const string_t *resource = url;
+	if (string_empty(resource))
+		resource = &string_dot;
+	if (faccessat(fdroot, string_toc(resource), F_OK, 0) == -1)
 	{
-		if (url[0] != '\0' && url[urllen - 1] != '/')
+		string_t slash = {0};
+		string_store(&slash, "/", 1);
+		if (!string_endwith(resource, &slash))
+		{
 			return fdfile;
+		}
 	}
-	if (fstatat(fdroot, url, &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
+	if (fstatat(fdroot, string_toc(resource), &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
 	{
 		return 0;
 	}
 	if (S_ISDIR(filestat.st_mode))
 	{
 		document_dbg("document: %s is directory", url);
-		if (url[0] != '\0')
-			fdfile = openat(fdroot, url, O_DIRECTORY);
-		else
-			fdfile = openat(fdroot, ".",  O_DIRECTORY);
+		fdfile = openat(fdroot, string_toc(resource), O_DIRECTORY);
 #if defined(DIRLISTING) && ! defined(DIRLISTING_MOD)
 		const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 		if ((X_Requested_With && strstr(X_Requested_With, "XMLHttpRequest") != NULL) &&
@@ -206,20 +210,20 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 	else
 	{
 		*connector = getfile_connector;
-		fdfile = openat(fdroot, url, O_RDONLY);
-		*mime = utils_getmime(url);
+		fdfile = openat(fdroot, string_toc(resource), O_RDONLY);
+		*mime = utils_getmime(string_toc(resource));
 	}
 	return fdfile;
 }
 
 static int _document_getconnnectorheader(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen, const char **mime,
+		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector)
 {
-	int fdfile = _document_getconnnectorget(mod, fdroot, url, urllen,
+	int fdfile = _document_getconnnectorget(mod, fdroot, url,
 				mime, request, response, connector);
-	if (fdfile > 0 && urllen > 0 && url[0] != '\0')
+	if (fdfile > 0 && !string_empty(url))
 	{
 		/**
 		 * The content-location is used by the symlink creation.
@@ -227,7 +231,7 @@ static int _document_getconnnectorheader(_mod_document_mod_t *mod,
 		 * The content-location may be the realpath. but it should be unsafe
 		 * to give too much information.
 		 */
-		httpmessage_addheader(response, "Content-Location", url, urllen);
+		httpmessage_addheader(response, "Content-Location", string_toc(url), string_length(url));
 	}
 	*connector = NULL;
 	return fdfile;
@@ -280,19 +284,19 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #ifdef DOCUMENTREST
 	if ((config->options & DOCUMENT_REST) && !strcmp(method, str_put))
 	{
-		fdfile = _document_getconnnectorput(mod, fdroot, string_toc(&uri), string_length(&uri),
+		fdfile = _document_getconnnectorput(mod, fdroot, &uri,
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
 	else if ((config->options & DOCUMENT_REST) && !strcmp(method, str_post))
 	{
-		fdfile = _document_getconnnectorpost(mod, fdroot, string_toc(&uri), string_length(&uri),
+		fdfile = _document_getconnnectorpost(mod, fdroot, &uri,
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
 	else if ((config->options & DOCUMENT_REST) && !strcmp(method, str_delete))
 	{
-		fdfile = _document_getconnnectordelete(mod, fdroot, string_toc(&uri), string_length(&uri),
+		fdfile = _document_getconnnectordelete(mod, fdroot, &uri,
 					&mime, request, response, &connector);
 		type |= DOCUMENT_REST;
 	}
@@ -300,12 +304,12 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #endif
 	if (!strcmp(method, str_get))
 	{
-		fdfile = _document_getconnnectorget(mod, fdroot, string_toc(&uri), string_length(&uri),
+		fdfile = _document_getconnnectorget(mod, fdroot, &uri,
 					&mime, request, response, &connector);
 	}
 	else if (!strcmp(method, str_head))
 	{
-		fdfile = _document_getconnnectorheader(mod, fdroot, string_toc(&uri), string_length(&uri),
+		fdfile = _document_getconnnectorheader(mod, fdroot, &uri,
 					&mime, request, response, &connector);
 	}
 	else

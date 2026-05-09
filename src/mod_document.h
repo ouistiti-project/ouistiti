@@ -122,15 +122,15 @@ int _document_dochome(_mod_document_mod_t *mod,
 #endif
 #ifdef DOCUMENTREST
 int _document_getconnnectorput(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen, const char **mime,
+		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector);
 int _document_getconnnectorpost(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen, const char **mime,
+		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector);
 int _document_getconnnectordelete(_mod_document_mod_t *mod,
-		int fdroot, const char *url, int urllen, const char **mime,
+		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
 		http_connector_t *connector);
 #endif
