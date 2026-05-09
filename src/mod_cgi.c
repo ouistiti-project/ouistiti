@@ -266,22 +266,19 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request)
 {
 	const mod_cgi_config_t *config = mod->config;
 	int ret = EREJECT;
-	const char *uri = NULL;
-	size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
-	if (urilen > 0 && !string_empty(&config->docroot))
+	string_t uri = {0};
+	ouimessage_REQUEST(request,"uri", &uri);
+	if (!string_empty(&uri) && !string_empty(&config->docroot))
 	{
 		const char *path_info = NULL;
-		if (htaccess_check(&config->htaccess, uri, &path_info) != ESUCCESS)
+		if (htaccess_check(&config->htaccess, string_toc(&uri), &path_info) != ESUCCESS)
 		{
 			dbg("cgi: %s forbidden extension", uri);
 			return EREJECT;
 		}
 
-		while (*uri == '/' && *uri != '\0')
-		{
-			uri++;
-			urilen--;
-		}
+		string_unroot(&uri);
+		size_t urilen = string_length(&uri);
 
 		mod_cgi_ctx_t *ctx;
 		ctx = calloc(1, sizeof(*ctx));
@@ -293,14 +290,14 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request)
 			 * path_info for the CGI.
 			 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
 			 */
-			ctx->cgi_path.length = snprintf(data, urilen + 2, "%.*s", (int)(path_info - uri), uri);
+			ctx->cgi_path.length = snprintf(data, urilen + 2, "%.*s", (int)(path_info - string_toc(&uri)), string_toc(&uri));
 			ctx->cgi_path.data = data;
 			ctx->path_info.length = snprintf(data + ctx->cgi_path.length + 1, urilen - ctx->cgi_path.length + 1, "%s", path_info);
 			ctx->path_info.data = data + ctx->cgi_path.length + 1;
 		}
 		else
 		{
-			ctx->cgi_path.length = snprintf(data, urilen + 2, "%s", uri);
+			ctx->cgi_path.length = snprintf(data, urilen + 2, "%s", string_toc(&uri));
 			ctx->cgi_path.data = data;
 		}
 
