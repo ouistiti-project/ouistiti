@@ -395,8 +395,11 @@ int string_append(string_t *str, const char *source, size_t length)
 		return EREJECT;
 	if ((str->length + length) > str->size)
 	{
+		char *data = realloc(str->ddata, str->length + length + 1);
+		if (data == NULL)
+			return EREJECT;
+		str->ddata = data;
 		str->size = str->length + length + 1;
-		str->ddata = realloc(str->ddata, str->size);
 	}
 	str->length += snprintf(str->ddata + str->length, str->size, "%.*s", (int)length, source);
 	if (str->length == str->size)
