@@ -97,11 +97,6 @@ int string_store(string_t *str, const char *pointer, size_t length)
 	}
 	str->length = string_length(str);
 	str->size = str->length + 1;
-	if (str->data == NULL)
-	{
-		str->length = 0;
-		str->size = 0;
-	}
 	return ESUCCESS;
 }
 
@@ -450,7 +445,10 @@ size_t string_slice(string_t *str, int start, int length)
 		if (length == 0)
 			length = str->length;
 	}
-	if (((str->data - str->ddata + length) < (offset + str->size)))
+	if (length < 0)
+		str->length += length;
+	else if ((length > 0) &&
+		((str->data - str->ddata + length) < (offset + str->size)))
 		str->length = length;
 	return str->length;
 }
