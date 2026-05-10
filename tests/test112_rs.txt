@@ -18,15 +18,10 @@ REQUEST_SCHEME => http
 REQUEST_URI => /testpython.py/index
 CONTENT_TYPE => text/plain
 QUERY_STRING => hello=world
-HTTP_ACCEPT => 
-HTTP_ACCEPT_ENCODING => 
-HTTP_ACCEPT_LANGUAGE => 
 REMOTE_HOST => localhost
 REMOTE_ADDR => 127.0.0.1
 HTTP_COOKIE => 
 HTTP_HOST => 127.0.0.1
 HTTP_USER_AGENT => 
-HTTP_REFERER => 
-HTTP_ORIGIN => 
 
 Check python
