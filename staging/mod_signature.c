@@ -236,9 +236,9 @@ static int _signature_connectorcheck(void *arg, http_message_t *request, http_me
 	_mod_signature_ctx_t *ctx = (_mod_signature_ctx_t *)arg;
 	_mod_signature_t *mod = ctx->mod;
 
-	const char *path_info = NULL;
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (htaccess_check(&mod->config->htaccess, uri, &path_info) == ESUCCESS)
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
+	if (htaccess_check(&mod->config->htaccess, &uri, NULL) == ESUCCESS)
 	{
 		ctx->enabled = 1;
 	}

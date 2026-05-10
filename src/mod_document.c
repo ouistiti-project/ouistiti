@@ -245,7 +245,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	string_t uri = {0};
 	ouimessage_REQUEST(request,"uri", &uri);
 
-	if (htaccess_check(&mod->config->htaccess, string_toc(&uri), NULL) == EREJECT)
+	if (htaccess_check(&mod->config->htaccess, &uri, NULL) == EREJECT)
 	{
 		document_dbg("document: %s forbidden extension", string_toc(&uri));
 		/**

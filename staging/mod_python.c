@@ -194,10 +194,10 @@ static void *python_config(void *iterator, server_t *server)
 }
 #endif
 
-static PyObject *_mod_python_modulize(const char *uri, size_t urilen)
+static PyObject *_mod_python_modulize(string_t *uri)
 {
-	python_dbg("python: modulize %.*s", (int)urilen, uri);
-	PyObject *script_name = PyUnicode_DecodeFSDefaultAndSize(uri, urilen);
+	python_dbg("python: modulize %.*s", (int)string_length(uri), string_toc(uri));
+	PyObject *script_name = PyUnicode_DecodeFSDefaultAndSize(string_toc(uri), string_length(uri));
 	PyObject *script2_name = PyUnicode_Replace(script_name, PyUnicode_FromString(".py"), PyUnicode_FromString(""), -1);
 	PyObject *module_name = PyUnicode_Replace(script2_name, PyUnicode_FromString("/"), PyUnicode_FromString("."), -1);
 
@@ -217,13 +217,13 @@ static PyObject *_mod_python_modulize(const char *uri, size_t urilen)
 	Py_DECREF(script_name);
 	if (pymodule == NULL)
 	{
-		err("python: unable to modulize %.*s", (int)urilen, uri);
+		err("python: unable to modulize %.*s", (int)string_length(uri), string_toc(uri));
 		PyErr_Print();
 	}
 	return pymodule;
 }
 
-static void _mod_python_settings(PyObject *pymodule, const char *settings_file, size_t settings_filelen)
+static void _mod_python_settings(PyObject *pymodule, string_t *settings_file)
 {
 	PyObject *pysettings = PyObject_GetAttrString(pymodule, "settings");
 	PyObject *pysettingsclass = NULL;
@@ -240,10 +240,10 @@ static void _mod_python_settings(PyObject *pymodule, const char *settings_file, 
 		if (pyconfigurefunc && PyCallable_Check(pyconfigurefunc))
 		{
 			PyObject *pynewsettings = NULL;
-			if (settings_file == NULL)
+			if (string_empty(settings_file))
 				pynewsettings = PyModule_New("default_settings");
 			else
-				pynewsettings = _mod_python_modulize(settings_file, settings_filelen);
+				pynewsettings = _mod_python_modulize(settings_file);
 			PyObject_CallOneArg(pyconfigurefunc, pynewsettings);
 			Py_DECREF(pyconfigurefunc);
 			Py_DECREF(pynewsettings);
@@ -298,16 +298,16 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 	mod_cgi_config_script_t *script = modconfig->scripts;
 	while (script)
 	{
-		PyObject *pymodule = _mod_python_modulize(script->path.data, script->path.length);
+		PyObject *pymodule = _mod_python_modulize(&script->path);
 		if (pymodule)
 		{
 			if (settings.length > 0)
-				_mod_python_settings(pymodule, settings.data, settings.length);
+				_mod_python_settings(pymodule, &settings);
 			if (script->settings.length > 0)
-				_mod_python_settings(pymodule, script->settings.data, script->settings.length);
+				_mod_python_settings(pymodule, &script->settings);
 			_mod_python_script_t *pscript = calloc(1, sizeof(*pscript));
 			pscript->pymodule = pymodule;
-			string_store(&pscript->path, script->path.data, script->path.length);
+			string_store(&pscript->path, string_toc(&script->path), string_length(&script->path));
 			pscript->next = mod->scripts;
 			mod->scripts = pscript;
 		}
@@ -366,10 +366,10 @@ static PyObject *_python_createPyRequest(PyObject *pymodule, const mod_python_co
 		if (pwd && (string_contain(uri, pwd, -1, ' ')))
 		{
 			size_t len = strnlen(pwd, string_length(uri));
-			string_slice(uri, len + 1, -1);
+			string_slice(uri, len + 1, 0);
 		}
 		free(pwd);
-		python_dbg("python: module file %s", string_toc(uri));
+		python_dbg("python: module file %.*s", (int)string_length(uri), string_toc(uri));
 	}
 	char **env = (char **)cgi_buildenv(config, request, uri, path_info, PyMem_Calloc);
 	int count = 0;
@@ -420,47 +420,24 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 	ouimessage_REQUEST(request,"uri", &uri);
 	if (!string_empty(&uri) && !string_empty(&config->docroot))
 	{
-		const char *function = NULL;
-		if (htaccess_check(&config->htaccess, string_toc(&uri), &function) != ESUCCESS)
+		string_t function = {0};
+		if (htaccess_check(&config->htaccess, &uri, &function) != ESUCCESS)
 		{
 			dbg("python: %s forbidden extension", string_toc(&uri));
 			return EREJECT;
 		}
-		python_dbg("python: new uri %s", function);
-		if (function == uri.data)
-		{
-			// path_info must not be the first caracter of uri
-			function = strchr(function + 1, '/');
-		}
-		/**
-		 * split the URI between the Python script path and the
-		 * function name.
-		 * /test.python/function => /test.python and  function
-		 */
-		if (function != NULL && (size_t)(function - uri.data) < uri.length)
-		{
-			uri.length = function - uri.data;
-		}
-		else
-			function = uri.data + uri.length;
+		python_dbg("python: new uri %s", string_toc(&function));
+		string_unroot(&function);
+		string_slice(&uri, 0, - (string_length(&function) + 1));
+		string_unroot(&uri);
 
-		while (*uri.data == '/' && *uri.data != '\0')
-		{
-			uri.data++;
-			uri.length--;
-		}
-		while (*function == '/' && *function != '\0')
-		{
-			function++;
-		}
-
-		python_dbg("python: new uri %.*s", (int)uri.length, uri.data);
-		python_dbg("python: function %s", function);
+		python_dbg("python: new uri %.*s", (int)string_length(&uri), string_toc(&uri));
+		python_dbg("python: function %s", string_toc(&function));
 		PyObject *pymodule = NULL;
 		_mod_python_script_t *script = mod->scripts;
 		while (script)
 		{
-			if (((size_t)uri.length == script->path.length) && !string_cmp(&script->path, uri.data, uri.length))
+			if (!string_compare(&script->path, &uri))
 			{
 				pymodule = script->pymodule;
 				Py_INCREF(pymodule);
@@ -470,7 +447,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		}
 		if (pymodule == NULL)
 		{
-			pymodule = _mod_python_modulize(uri.data, uri.length);
+			pymodule = _mod_python_modulize(&uri);
 			if (pymodule)
 			{
 				string_t settings = {0};
@@ -478,10 +455,9 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 				if (settingsfd > 0)
 				{
 					close(settingsfd);
-					settings.data = str_settings_py;
-					settings.length = sizeof(str_settings_py) - 1;
+					string_store(&settings, STRING_REF(str_settings_py));
 				}
-				_mod_python_settings(pymodule, settings.data, settings.length);
+				_mod_python_settings(pymodule, &settings);
 			}
 		}
 		if (pymodule == NULL)
@@ -505,7 +481,7 @@ static int _python_start(_mod_python_t *mod, http_message_t *request, http_messa
 		ctx = calloc(1, sizeof(*ctx));
 		ctx->mod = mod;
 		ctx->pymodule = pymodule;
-		ctx->function = function;
+		ctx->function = string_toc(&function);
 		ctx->pyrequest = pyrequest;
 		ctx->pycontent = NULL;
 		httpmessage_private(request, ctx);
