@@ -473,13 +473,21 @@ size_t string_browse(string_t *str, char sep, size_t next)
 
 void string_unquote(string_t *str)
 {
-	if (str->data[0] == '\"')
+	if (str->length < 2)
+		return;
+	if (str->data[0] != '\"')
+		return;
+	str->data++;
+	str->length--;
+	int len;
+	for (len = 0; len < str->length && str->data[len] != '\"'; len++);
+	if (len < str->length) /// the last quote is found
+		str->length = len;
+	else /// only qutoed strings on the both sides are accepted
 	{
-		str->data++;
-		str->length--;
+		str->data += str->length;
+		str->length = 0;
 	}
-	if (str->data[str->length - 1] == '\"')
-		str->length--;
 }
 
 void string_unroot(string_t *str)
