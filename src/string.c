@@ -520,7 +520,7 @@ string_t *string_value(string_t *str, const char *header, size_t length)
 
 int string_fgetline(string_t *str, FILE *file)
 {
-	if (str->ddata == NULL)
+	if (str->ddata == NULL || str->size == 0)
 	{
 		dbg("string: fgetline requires a dynamic string");
 		return EREJECT;
@@ -533,7 +533,7 @@ int string_fgetline(string_t *str, FILE *file)
 		if (c == EOF || c == '\n')
 			break;
 		str->ddata[length++] = c;
-	} while (length < str->size);
+	} while (length < (str->size - 1));
 #elif 0
 	while (((str->ddata[length] = fgetc(file)) != EOF) &&
 			(str->ddata[length] != '\n') &&
