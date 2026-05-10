@@ -62,18 +62,29 @@ int htaccess_config(config_setting_t *setting, htaccess_t *htaccess)
 
 int htaccess_check(const htaccess_t *htaccess, string_t *uri, string_t *path_info)
 {
-	if (htaccess->denyfirst.data != NULL && utils_searchexp(string_toc(uri), htaccess->denyfirst.data, NULL) == ESUCCESS)
+	if (!string_empty(&htaccess->denyfirst) && string_into(uri, &htaccess->denyfirst, ',') == ESUCCESS)
 	{
 		return  EREJECT;
 	}
-	const char *info = NULL;
-	if (htaccess->allow.data != NULL && utils_searchexp(string_toc(uri), htaccess->allow.data, &info) == ESUCCESS)
+	if (!string_empty(&htaccess->allow) && string_into(uri, &htaccess->allow, ',') == ESUCCESS)
 	{
 		if (path_info)
-			string_store(path_info, info, -1);
+		{
+			string_t it = {0};
+			string_store(&it, string_toc(&htaccess->allow), string_length(&htaccess->allow));
+			size_t next = 0;
+			do
+			{
+				next = string_browse(&it, ',', next);
+				if (!string_match(uri, &it, path_info, NULL))
+				{
+					break;
+				}
+			} while (next != 0);
+		}
 		return  ESUCCESS;
 	}
-	if (htaccess->denylast.data != NULL && utils_searchexp(string_toc(uri), htaccess->denylast.data, NULL) == ESUCCESS)
+	if (!string_empty(&htaccess->denylast) && string_into(uri, &htaccess->denylast, ',') == ESUCCESS)
 	{
 		return  EREJECT;
 	}
