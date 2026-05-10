@@ -275,7 +275,7 @@ int string_match(const string_t *str1, const string_t *str2, ...)
 	int str1index = 0;
 	int str2index = 0;
 	int str2length = string_length(str2);
-	int wildcard = 0;
+	int wildcard = 1;
 	if (string_index(str2, str2index) == '^')
 	{
 		str2index++;
