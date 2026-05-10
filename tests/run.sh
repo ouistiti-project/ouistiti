@@ -127,6 +127,7 @@ start () {
 	echo "${TARGET} started with pid ${PID}"
 	echo "config ${TESTDIR}conf/${CONFIG}"
 	sleep 1
+	return $PID
 }
 
 stop () {
@@ -203,8 +204,8 @@ test () {
 
 	if [ $CONTINUE -eq 0 ] && [ -z $DEBUG ]; then
 		start "$TARGET" $CONFIG
+		PID=$?
 	fi
-	INFO=$GDB
 
 	echo "----"
 	if [ -n "$CURLURL" ]; then
@@ -212,16 +213,21 @@ test () {
 			echo "$CURL -i -k $CURLPARAM $CURLURL"
 			echo "----"
 		fi
-		$CURL -i -k $CURLPARAM $CURLURL > $TMPRESPONSE
+
+		if [ $GDB -eq 0 ]; then
+			$CURL -i -k $CURLPARAM $CURLURL > $TMPRESPONSE
+		fi
 	fi
 	if [ -n "$WGETURL" ]; then
-		if [ $INFO -eq 1 ]; then
+		if [ $INFO -eq 0 ]; then
 			echo "$WGET --no-check-certificate -S -q -O - $WGETPARAM $WGETURL"
 			echo "----"
 		fi
-		$WGET --no-check-certificate -S -q -O - $WGETPARAM $WGETURL 2> $TMPRESPONSE.tmp
-		#$WGET --no-check-certificate -S -O - WGETURL
-		cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
+		if [ $GDB -eq 0 ]; then
+			$WGET --no-check-certificate -S -q -O - $WGETPARAM $WGETURL 2> $TMPRESPONSE.tmp
+			#$WGET --no-check-certificate -S -O - WGETURL
+			cat $TMPRESPONSE.tmp | sed 's/^  //g' > $TMPRESPONSE
+		fi
 	fi
 	for REQUEST in ${TESTREQUEST} ; do
 		if [ -n "$REQUEST" ]; then
@@ -229,7 +235,9 @@ test () {
 				echo cat ${TESTDIR}$REQUEST' |' $TESTCLIENT $TESTOPTION
 				echo "----"
 			fi
-			cat ${TESTDIR}$REQUEST | $TESTCLIENT $TESTOPTION >> $TMPRESPONSE
+			if [ $GDB -eq 0 ]; then
+				cat ${TESTDIR}$REQUEST | $TESTCLIENT $TESTOPTION >> $TMPRESPONSE
+			fi
 		fi
 	done
 	if [ -n "$CMDREQUEST" ]; then
@@ -237,10 +245,13 @@ test () {
 			echo $CMDREQUEST' |' $TESTCLIENT $TESTOPTION
 			echo "----"
 		fi
-		$CMDREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
+		if [ $GDB -eq 0 ]; then
+			$CMDREQUEST | $TESTCLIENT $TESTOPTION > $TMPRESPONSE
+		fi
 	fi
 	if [ $GDB -ne 0 ]; then
-		gdb --pid=$PID
+		echo "gdb ${TARGET} --pid=$PID"
+		gdb ${BUILDDIR}src/${TARGET} --pid=$PID
 		exit 0
 	fi
 
