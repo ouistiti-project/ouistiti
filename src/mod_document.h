@@ -139,7 +139,7 @@ int _document_getconnnectordelete(_mod_document_mod_t *mod,
 #include <libconfig.h>
 int htaccess_config(config_setting_t *setting, htaccess_t *htaccess);
 #endif
-int htaccess_check(const htaccess_t *htaccess, const char *uri, const char **path_info);
+int htaccess_check(const htaccess_t *htaccess, string_t *uri, string_t *path_info);
 
 #ifdef __cplusplus
 }

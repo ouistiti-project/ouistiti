@@ -208,10 +208,9 @@ static int _webstream_connector(void *arg, http_message_t *request, http_message
 	if (ctx->client == 0)
 	{
 		/// first call of the connector
-		const char *path_info = NULL;
 		string_t uri = {0};
 		ouimessage_REQUEST(request, "uri", &uri);
-		if (htaccess_check(&mod->config->htaccess, string_toc(&uri), &path_info) != ESUCCESS)
+		if (htaccess_check(&mod->config->htaccess, &uri, NULL) != ESUCCESS)
 		{
 			dbg("webstream: %s forbidden", uri);
 			return EREJECT;

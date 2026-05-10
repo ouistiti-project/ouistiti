@@ -211,18 +211,12 @@ static int websocket_connector_init(_mod_websocket_ctx_t *ctx, http_message_t *r
 	_mod_websocket_t *mod = ctx->mod;
 	int ret = EREJECT;
 
-	const char *path_info = NULL;
 	string_t uri = {0};
 	ouimessage_REQUEST(request, "uri", &uri);
-	if (htaccess_check(&mod->config->htaccess, string_toc(&uri), &path_info) != ESUCCESS)
+	if (htaccess_check(&mod->config->htaccess, &uri, NULL) != ESUCCESS)
 	{
 		dbg("websocket: %s forbidden", string_toc(&uri));
 		return EREJECT;
-	}
-	if (path_info == string_toc(&uri))
-	{
-		// path_info must not be the first caracter of uri
-		path_info = strchr(path_info + 1, '/');
 	}
 	const char *protocol = httpmessage_REQUEST(request, str_sec_ws_protocol);
 	if (protocol[0] == '\0')

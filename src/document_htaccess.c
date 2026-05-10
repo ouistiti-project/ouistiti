@@ -60,17 +60,20 @@ int htaccess_config(config_setting_t *setting, htaccess_t *htaccess)
 }
 #endif
 
-int htaccess_check(const htaccess_t *htaccess, const char *uri, const char **path_info)
+int htaccess_check(const htaccess_t *htaccess, string_t *uri, string_t *path_info)
 {
-	if (htaccess->denyfirst.data != NULL && utils_searchexp(uri, htaccess->denyfirst.data, NULL) == ESUCCESS)
+	if (htaccess->denyfirst.data != NULL && utils_searchexp(string_toc(uri), htaccess->denyfirst.data, NULL) == ESUCCESS)
 	{
 		return  EREJECT;
 	}
-	if (htaccess->allow.data != NULL && utils_searchexp(uri, htaccess->allow.data, path_info) == ESUCCESS)
+	const char *info = NULL;
+	if (htaccess->allow.data != NULL && utils_searchexp(string_toc(uri), htaccess->allow.data, &info) == ESUCCESS)
 	{
+		if (path_info)
+			string_store(path_info, info, -1);
 		return  ESUCCESS;
 	}
-	if (htaccess->denylast.data != NULL && utils_searchexp(uri, htaccess->denylast.data, NULL) == ESUCCESS)
+	if (htaccess->denylast.data != NULL && utils_searchexp(string_toc(uri), htaccess->denylast.data, NULL) == ESUCCESS)
 	{
 		return  EREJECT;
 	}

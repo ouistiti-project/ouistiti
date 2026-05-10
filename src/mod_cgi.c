@@ -84,7 +84,7 @@ struct mod_cgi_ctx_s
 	_mod_cgi_t *mod;
 	http_client_t *ctl;
 
-	string_t cgi_path;
+	string_t *cgi_path;
 	string_t path_info;
 
 	pid_t pid;
@@ -226,7 +226,7 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request, string_t *
 
 		httpmessage_keepalive(request);
 
-		char * const argv[2] = { (char *)cgi_path->data, NULL };
+		char * const argv[2] = { (char *)string_toc(cgi_path), NULL };
 
 		char **env = NULL;
 		env = cgi_buildenv(config, request, cgi_path, path_info, calloc);
@@ -238,11 +238,11 @@ static int _mod_cgi_fork(mod_cgi_ctx_t *ctx, http_message_t *request, string_t *
 		 * cgipath is absolute, but in fact execveat runs in docroot.
 		 */
 #ifdef USE_EXECVEAT
-		execveat(mod->rootfd, cgi_path->data, argv, env, 0);
+		execveat(mod->rootfd, string_toc(cgi_path), argv, env, 0);
 #else
 		// this part die if the program is running under valgrind
 		// use execeat
-		int scriptfd = openat(mod->rootfd, cgi_path->data, O_PATH);
+		int scriptfd = openat(mod->rootfd, string_toc(cgi_path), O_PATH);
 		close(mod->rootfd);
 		fexecve(scriptfd, argv, env);
 #endif
@@ -268,78 +268,61 @@ static int _cgi_start(_mod_cgi_t *mod, http_message_t *request)
 	int ret = EREJECT;
 	string_t uri = {0};
 	ouimessage_REQUEST(request,"uri", &uri);
+	string_t path_info = {0};
+	if (htaccess_check(&config->htaccess, &uri, &path_info) != ESUCCESS)
+	{
+		dbg("cgi: %s forbidden extension", string_toc(&uri));
+		return EREJECT;
+	}
+	string_unroot(&uri);
 	if (!string_empty(&uri) && !string_empty(&config->docroot))
 	{
-		const char *path_info = NULL;
-		if (htaccess_check(&config->htaccess, string_toc(&uri), &path_info) != ESUCCESS)
-		{
-			dbg("cgi: %s forbidden extension", uri);
-			return EREJECT;
-		}
-
-		string_unroot(&uri);
-		size_t urilen = string_length(&uri);
+		size_t urilen = string_size(&uri);
 
 		mod_cgi_ctx_t *ctx;
 		ctx = calloc(1, sizeof(*ctx));
-		char *data = calloc(1, urilen + 2);
-		if (path_info != NULL)
+		if (!string_empty(&path_info))
 		{
-			/**
-			 * split the URI between the CGI script path and the
-			 * path_info for the CGI.
-			 * /test.cgi/my/path_info => /test.cgi and  /my/path_info
-			 */
-			ctx->cgi_path.length = snprintf(data, urilen + 2, "%.*s", (int)(path_info - string_toc(&uri)), string_toc(&uri));
-			ctx->cgi_path.data = data;
-			ctx->path_info.length = snprintf(data + ctx->cgi_path.length + 1, urilen - ctx->cgi_path.length + 1, "%s", path_info);
-			ctx->path_info.data = data + ctx->cgi_path.length + 1;
+			string_store(&ctx->path_info, string_toc(&path_info), string_length(&path_info));
+			/// remove the first / of path_info
+			urilen -= string_size(&ctx->path_info);
 		}
-		else
-		{
-			ctx->cgi_path.length = snprintf(data, urilen + 2, "%s", string_toc(&uri));
-			ctx->cgi_path.data = data;
-		}
+		ctx->cgi_path = string_create(urilen);
+		string_cpy(ctx->cgi_path, string_toc(&uri), urilen);
 
 		/**
 		 * check the path access
 		 */
-		int scriptfd = -1;
-		scriptfd = openat(mod->rootfd, ctx->cgi_path.data, O_PATH);
-		if (scriptfd < 0)
-		{
-			warn("cgi: %s error %s", ctx->cgi_path.data, strerror(errno));
-			free(ctx);
-			return EREJECT;
-		}
-
 		struct stat filestat = {0};
-		fstat(scriptfd, &filestat);
-
-		if (S_ISDIR(filestat.st_mode))
+		ret = fstatat(mod->rootfd, string_toc(ctx->cgi_path), &filestat, 0);
+		if (ret < 0)
 		{
-			dbg("cgi: %s is directory", uri);
-			close(scriptfd);
-			free(ctx);
-			return EREJECT;
-		}
-		/* at least user or group may execute the CGI */
-		if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
-		{
-			warn("cgi: %s access denied", uri);
-			warn("cgi: %s", strerror(errno));
-			close(scriptfd);
+			warn("cgi: %s error %s", string_toc(ctx->cgi_path), strerror(errno));
 			free(ctx);
 			return ESUCCESS;
 		}
 
-		dbg("cgi: run %s", uri);
+		if (S_ISDIR(filestat.st_mode))
+		{
+			dbg("cgi: %s is directory", uri);
+			free(ctx);
+			return ESUCCESS;
+		}
+		/* at least user or group may execute the CGI */
+		if ((filestat.st_mode & (S_IXUSR | S_IXGRP)) != (S_IXUSR | S_IXGRP))
+		{
+			warn("cgi: %s access denied", string_toc(&uri));
+			warn("cgi: %s", strerror(errno));
+			free(ctx);
+			return ESUCCESS;
+		}
+
+		dbg("cgi: run %s", string_toc(ctx->cgi_path));
 		ctx->mod = mod;
-		ctx->pid = _mod_cgi_fork(ctx, request, &ctx->cgi_path, &ctx->path_info);
+		ctx->pid = _mod_cgi_fork(ctx, request, ctx->cgi_path, &ctx->path_info);
 		ctx->state = STATE_INSTART;
 		ctx->chunk = malloc(config->chunksize + 1);
 		httpmessage_private(request, ctx);
-		close(scriptfd);
 		ret = EINCOMPLETE;
 	}
 	return ret;
