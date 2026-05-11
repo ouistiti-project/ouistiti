@@ -117,7 +117,7 @@ static int _vhost_vconnector(void *arg, http_message_t *request, http_message_t 
 	{
 		if (mod->config->vserver.hostname && !string_compare(&mod->config->vhost, &vhost))
 			return EREJECT;
-		else if (!string_contain(&vhost, string_toc(&mod->config->vhost), string_length(&mod->config->vhost), ',') &&
+		else if (!string_into(&vhost, &mod->config->vhost, ',') &&
 			string_startwith(&vhost,&mod->config->vservice))
 			return EREJECT;
 	}
