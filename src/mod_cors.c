@@ -115,7 +115,7 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	}
 	else if (!string_empty(&origin) && httpmessage_isprotected(request) &&
 			!string_empty(&host) && (!string_startwith(&host, &mod->service) ||
-			string_contain(&host, string_toc(&mod->hostname), string_length(&mod->hostname), ',')))
+			string_into(&host, &mod->hostname, ',')))
 	{
 		err("cors: reject %s on %s accept %s", string_toc(&origin), string_toc(&mod->hostname), string_toc(checkorigin));
 		httpmessage_result(response, 405);
