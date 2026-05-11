@@ -1255,7 +1255,7 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 			/**
 			 * check the url redirection
 			 */
-			protect = string_contain(&config->redirect, string_toc(&uri), string_length(&uri), '?')?EREJECT:ESUCCESS;
+			protect = string_into(&config->redirect, &uri, '?')?EREJECT:ESUCCESS;
 			if (protect == ESUCCESS)
 			{
 				/**
