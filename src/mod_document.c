@@ -520,7 +520,7 @@ static void _document_freectx(void *arg)
 #ifdef FILE_CONFIG
 static int document_configpart(config_setting_t *config, server_t *server, int index, void **modconfig)
 {
-	int ret = ESUCCESS;
+	int ret;
 	mod_document_t * static_file = NULL;
 
 	static_file = calloc(1, sizeof(*static_file));

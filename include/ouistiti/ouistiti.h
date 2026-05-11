@@ -208,5 +208,7 @@ extern const string_t string_xhome;
 
 extern const string_t string_dot;
 extern const string_t string_slash;
+extern const string_t string_noredirect;
+extern const string_t string_redirect_uri;
 
 #endif

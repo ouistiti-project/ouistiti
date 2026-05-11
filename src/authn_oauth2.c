@@ -48,7 +48,7 @@
 const httpclient_ops_t *tlsclient_ops;
 #endif
 
-static const char *str_authresp = "/auth/resp";
+static string_t string_authresp = STRING_DECL("/auth/resp");
 static const char *str_oauth2 = "oauth2";
 static const char *str_auth = "auth";
 
@@ -343,13 +343,14 @@ static int _oauth2_authresp_connector(void *arg, http_message_t *request, http_m
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = (authn_oauth2_config_t *)mod->config;
 
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (utils_searchexp(uri, str_authresp, NULL) == ESUCCESS)
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
+	if (string_contain(&uri, string_authresp, NULL) == ESUCCESS)
 	{
 		mod->state = 1;
 		/** set the default result */
 		httpmessage_result(response, RESULT_500);
-		warn("authentication from server: %s", uri);
+		warn("authentication from server: %s", string_toc(&uri));
 		char squery[1024];
 		json_t *json_authtokens = NULL;
 		const char *username = "root";
@@ -438,12 +439,13 @@ static int authn_oauth2_challenge(void *arg, http_message_t *request, http_messa
 	authn_oauth2_t *mod = (authn_oauth2_t *)arg;
 	authn_oauth2_config_t *config = mod->config;
 
-	const char *uri = httpmessage_REQUEST(request, "uri");
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
 	char authenticate[256];
 	int authlen = snprintf(authenticate, 256, "Bearer realm=\"%s\"", mod->authn->config->realm);
 	httpmessage_addheader(response, str_authenticate, authenticate, authlen);
 
-	if (!utils_searchexp(uri, str_authresp, NULL))
+	if (!utils_searchexp(&uri, string_authresp, NULL))
 	{
 		ret = EREJECT;
 	}
