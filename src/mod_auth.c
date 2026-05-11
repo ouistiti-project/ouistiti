@@ -872,7 +872,7 @@ static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const 
 	string_store(&issuer, &_nonce[length], _noncelen - length);
 	string_split(&issuer, ',', &issuer, &user, NULL);
 	auth_dbg("auth: check issuer %.*s/%s", string_length(&issuer), string_toc(&issuer), string_toc(&config->issuer));
-	if (string_contain(&issuer, string_toc(&config->issuer), string_length(&config->issuer), '+'))
+	if (string_contain(&issuer, &config->issuer, '+'))
 	{
 		return EREJECT;
 	}
@@ -1431,7 +1431,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	ouimessage_SESSION(request, str_issuer, &issuer);
 	if ((ret == ECONTINUE) &&
-		!string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
+		!string_contain(&issuer, &config->token.issuer, '+'))
 	{
 		ret = EREJECT;
 		auth_info2(request, str_user, &user);
@@ -1514,7 +1514,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				authz->rules->join(authz->ctx, user, string_toc(&authorization), mod->config->token.expire);
 			}
 		}
-		else if (string_contain(&issuer, string_toc(&config->token.issuer), string_length(&config->token.issuer), '+'))
+		else if (string_contain(&issuer, &config->token.issuer, '+'))
 		{
 			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
 			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
@@ -1524,15 +1524,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			}
 		}
 		ouimessage_SESSION(request, str_issuer, &issuer);
-		char issuerdata[254] = {0};
+		string_t issuerdata = {0};
+		char data[254] = {0};
 		size_t length = 0;
 		if (authz->rules->issuer)
-			length = authz->rules->issuer(authz->ctx, user, issuerdata, sizeof(issuerdata));
-		if (length > 0 &&
-			string_contain(&issuer, issuerdata, length, '+'))
+			length = authz->rules->issuer(authz->ctx, user, data, sizeof(data));
+		string_store(&issuerdata, data, length);
+		if (!string_empty(&issuerdata) &&
+			string_contain(&issuer, &issuerdata, '+'))
 		{
 			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
-			httpclient_appendsession(ctx->clt, str_issuer, issuerdata, length);
+			httpclient_appendsession(ctx->clt, str_issuer, string_toc(&issuerdata), string_length(&issuerdata));
 		}
 		ouimessage_SESSION(request, str_issuer, &issuer);
 		dbg("auth: type %.*s", string_length(&issuer), string_toc(&issuer));

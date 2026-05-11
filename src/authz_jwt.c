@@ -349,7 +349,7 @@ static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json
 		}
 		string_t iss = {0};
 		_jwt_get(jinfo, "iss", &iss);
-		if (string_contain(&iss, string_toc(issuer), string_length(issuer), '+'))
+		if (string_into(issuer, &iss, '+'))
 		{
 			err("auth: token with bad issuer: %s / %s",  string_toc(&iss), string_toc(issuer));
 			return EREJECT;
