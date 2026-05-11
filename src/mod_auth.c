@@ -273,28 +273,28 @@ static void authz_optionscb(void *arg, const char *option)
 {
 	mod_auth_t *auth = (mod_auth_t *)arg;
 
-	if (utils_searchexp("home", option, NULL) == ESUCCESS)
+	if (strstr(option, "home") != NULL)
 		auth->authz.type |= AUTHZ_HOME_E;
-	if (utils_searchexp("token", option, NULL) == ESUCCESS)
+	if (strstr(option, "token") != NULL)
 	{
 		auth->authz.type |= AUTHZ_TOKEN_E;
 		auth->token.type = E_OUITOKEN;
 	}
-	if (utils_searchexp("jwt", option, NULL) == ESUCCESS)
+	if (strstr(option, "jwt") != NULL)
 	{
 		auth->authz.type |= AUTHZ_TOKEN_E;
 		auth->token.type = E_JWT;
 	}
-	if (utils_searchexp("chown", option, NULL) == ESUCCESS)
+	if (strstr(option, "chown") != NULL)
 		auth->authz.type |= AUTHZ_CHOWN_E;
-	if (utils_searchexp("session", option, NULL) == ESUCCESS)
+	if (strstr(option, "session") != NULL)
 		auth->authz.type |= AUTHZ_SESSION_E;
 
-	if (utils_searchexp("cookie", option, NULL) == ESUCCESS)
+	if (strstr(option, "cookie") != NULL)
 		auth->authn.type |= AUTHN_COOKIE_E;
-	if (utils_searchexp("header", option, NULL) == ESUCCESS)
+	if (strstr(option, "header") != NULL)
 		auth->authn.type |= AUTHN_HEADER_E;
-	if (utils_searchexp("redirect", option, NULL) == ESUCCESS)
+	if (strstr(option, "redirect") != NULL)
 		auth->authn.type |= AUTHN_REDIRECT_E;
 }
 
@@ -1144,11 +1144,11 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	const _mod_auth_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
-	const char *uri = NULL;
-	size_t urilen = httpmessage_REQUEST2(request, "uri", &uri);
-	const char *query = NULL;
-	size_t querylen = httpmessage_REQUEST2(request, "query", &query);
-	if (utils_searchexp(query, "noredirect", NULL) == ESUCCESS)
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
+	string_t query = {0};
+	ouimessage_REQUEST(request, "query", &query);
+	if (string_into(&string_noredirect, &query, '&') == ESUCCESS)
 		return ret;
 
 	httpmessage_addheader(response, str_location, string_toc(&config->redirect), string_length(&config->redirect));
@@ -1158,7 +1158,7 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 	if (string_chr(&config->redirect, sep, 0) != -1)
 		sep = '&';
 	if ((config->authn.type & AUTHN_REDIRECT_E) &&
-		(utils_searchexp(query, "redirect_uri", NULL) != ESUCCESS))
+		(string_into(&string_redirect_uri, &query, '&') != ESUCCESS))
 	{
 		http_server_t *server = httpclient_server(httpmessage_client(request));
 		httpmessage_appendheader(response, str_location, &sep, 1);
@@ -1190,13 +1190,13 @@ static int auth_redirect_uri(_mod_auth_ctx_t *ctx, http_message_t *request, http
 			httpmessage_appendheader(response, str_location, STRING_REF(":"));
 			httpmessage_appendheader(response, str_location, port, portlen);
 		}
-		if (uri)
-			httpmessage_appendheader(response, str_location, uri, urilen);
+		if (!string_empty(&uri))
+			httpmessage_appendheader(response, str_location, string_toc(&uri), string_length(&uri));
 	}
-	if (query && query[0] != '\0')
+	if (!string_empty(&query))
 	{
 		httpmessage_appendheader(response, str_location, &sep, 1);
-		httpmessage_appendheader(response, str_location, query, querylen);
+		httpmessage_appendheader(response, str_location, string_toc(&query), string_length(&query));
 	}
 
 	ret = ESUCCESS;

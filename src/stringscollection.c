@@ -92,3 +92,5 @@ const string_t string_xhome = STRING_DCL(str_xhome);
 
 const string_t string_dot = STRING_DCL(".");
 const string_t string_slash = STRING_DCL("/");
+const string_t string_noredirect = STRING_DCL("noredirect");
+const string_t string_redirect_uri = STRING_DCL("redirect_uri");

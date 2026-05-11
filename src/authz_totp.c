@@ -128,8 +128,9 @@ static int _authz_totp_connector(void *arg, http_message_t *request, http_messag
 {
 	authz_mod_t *mod = (authz_mod_t *)arg;
 	authz_totp_config_t *config = mod->config;
-	const char *uri = httpmessage_REQUEST(request, "uri");
-	if (utils_searchexp(uri, string_toc(&config->token_ep), NULL) == ESUCCESS)
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
+	if (string_into(&uri, &config->token_ep, ',') == ESUCCESS)
 	{
 		string_t otpurl = {0};
 		ouimessage_SESSION(request, "otpauth", &otpurl);
