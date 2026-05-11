@@ -47,8 +47,14 @@ void string_debug(const string_t *str, const char *name);
 int string_store(string_t *str, const char *pointer, size_t length);
 int string_cpy(string_t *str, const char *source, size_t length);
 int string_cmp(const string_t *str, const char *cmp, size_t length);
-int string_into(const string_t *nail, const string_t *stack, const char sep);
-int string_contain(const string_t *str, const char *cmp, size_t length, const char sep);
+/**
+ * @brief search neelde into simple regexp stack
+ */
+int string_into(const string_t *needle, const string_t *stack, const char sep);
+/**
+ * @brief search each neelde into item's stack, one to one
+ */
+int string_contain(const string_t *stack, const string_t *needle, const char sep);
 int string_match(const string_t *str1, const string_t *str2, ...);
 int string_compare(const string_t *str1, const string_t *str2);
 int string_is(const string_t *str1, const string_t *str2);

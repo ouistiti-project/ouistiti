@@ -363,7 +363,9 @@ static PyObject *_python_createPyRequest(PyObject *pymodule, const mod_python_co
 		string_store(uri, PyBytes_AsString(pylatin1value), -1);
 		/// getenv of PWD env may be different of get_current_dir_name
 		char *pwd = getcwd(NULL, 0);
-		if (pwd && (string_contain(uri, pwd, -1, ' ')))
+		string_t strpwd = {0};
+		string_store(&strpwd, pwd, -1);
+		if (pwd && (string_contain(uri, &strpwd, ' ')))
 		{
 			size_t len = strnlen(pwd, string_length(uri));
 			string_slice(uri, len + 1, 0);
