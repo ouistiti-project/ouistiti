@@ -64,8 +64,8 @@ static const char str_userfilterpath[] = SYSCONFDIR"/userfilter.db";
 
 typedef struct _mod_userfilter_s _mod_userfilter_t;
 
-typedef int (*cmp_t)(_mod_userfilter_t *mod, const char *value,
-				const char *user, const char *group, const char *home,
+typedef int (*cmp_t)(_mod_userfilter_t *mod, const string_t *value,
+				const string_t *user, const string_t *group, const string_t *home,
 				const string_t *uri);
 
 struct _mod_userfilter_s
@@ -76,61 +76,61 @@ struct _mod_userfilter_s
 	int line;
 };
 
-static int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
-				const char *user, const char *group, const char *home,
+static int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const string_t *value,
+				const string_t *user, const string_t *group, const string_t *home,
 				const string_t *uri)
 {
 	int ret = EREJECT;
-	const char *entries[3] = {0};
+	const string_t *entries[3] = {0};
 	int nbentries = 0;
 
-	char *valuefree = strdup(value);
-	size_t len = strlen(valuefree);
-	char *p = strchr(valuefree, '%');
-	while (p != NULL)
+	string_t *valuefree = string_dup(value);
+	size_t len = string_size(valuefree);
+	int index = string_chr(valuefree, '%', 0);
+	while (index != -1)
 	{
-		p++;
-		switch (*p)
+		char c = string_index(valuefree, index + 1);
+		switch (c)
 		{
 			case 'u':
-				*p = 's';
+				string_replace(valuefree, index + 1, 's');
 				entries[nbentries] = user;
 				nbentries++;
-				if (user)
-					len += strlen(user);
+				len += string_length(user);
 			break;
 			case 'g':
-				*p = 's';
+				string_replace(valuefree, index + 1, 's');
 				entries[nbentries] = group;
 				nbentries++;
-				if (group)
-					len += strlen(group);
+				len += string_length(group);
 			break;
 			case 'h':
-				*p = 's';
+				string_replace(valuefree, index + 1, 's');
 				entries[nbentries] = home;
 				nbentries++;
-				if (home)
-					len += strlen(home);
+				len += string_length(home);
 			break;
 			default:
 				free(valuefree);
 				return ret;
 		}
-		p = strchr(p, '%');
+		index = string_chr(valuefree, '%', index + 1);
 		if (nbentries >= 3)
 			break;
 	}
+	userfilter_dbg("userfilter: valuefree %s %d", string_toc(valuefree), len);
 	string_t *checking = string_create(len + 1);
-	if (string_printf(checking, valuefree, entries[0], entries[1], entries[2]) < 0)
+	if (string_printf(checking, (void*)string_toc(valuefree), string_toc(entries[0]), string_toc(entries[1]), string_toc(entries[2])) < 0)
 	{
-		free(valuefree);
+		string_destroy(valuefree);
+		string_destroy(checking);
 		return EREJECT;
 	}
+	userfilter_dbg("userfilter: checking %s %d", string_toc(checking), len);
 	userfilter_dbg("userfilter: check %s %s", string_toc(uri), string_toc(checking));
 	if (string_match(uri, checking, NULL) == ESUCCESS)
 		ret = ESUCCESS;
-	free(valuefree);
+	string_destroy(valuefree);
 	string_destroy(checking);
 	return ret;
 }
@@ -161,24 +161,24 @@ static int64_t _search_field(_mod_userfilter_t *ctx, int ifield, const char *val
 	return ret;
 }
 
-static int64_t _search_method(_mod_userfilter_t *ctx, const char *method, int length)
+static int64_t _search_method(_mod_userfilter_t *ctx, const string_t *method)
 {
-	return _search_field(ctx, 0, method, length);
+	return _search_field(ctx, 0, string_toc(method), string_length(method));
 }
 
-static int64_t _search_role(_mod_userfilter_t *ctx, const char *role, int length)
+static int64_t _search_role(_mod_userfilter_t *ctx, const string_t *role)
 {
-	return _search_field(ctx, 1, role, length);
+	return _search_field(ctx, 1, string_toc(role), string_length(role));
 }
 
-static int _request(_mod_userfilter_t *ctx, const char *method,
-				const char *user, const char *group, const char *home,
+static int _request(_mod_userfilter_t *ctx, const string_t *method,
+				const string_t *user, const string_t *group, const string_t *home,
 				const string_t *uri)
 {
 	int ret = EREJECT;
-	int64_t methodid = _search_method(ctx, method, -1);
-	int64_t userid = _search_role(ctx, user, -1);
-	int64_t groupid = _search_role(ctx, group, -1);
+	int64_t methodid = _search_method(ctx, method);
+	int64_t userid = _search_role(ctx, user);
+	int64_t groupid = _search_role(ctx, group);
 	sqlite3_stmt *statement;
 	const char *sql = "select exp from rules " \
 		"where methodid=@METHODID and " \
@@ -215,8 +215,11 @@ static int _request(_mod_userfilter_t *ctx, const char *method,
 		{
 			const unsigned char *value = NULL;
 			value = sqlite3_column_text(statement, i);
+			int len = sqlite3_column_bytes(statement, 0);
 			userfilter_dbg("=> %s", value);
-			if (!ctx->cmp(ctx, (const char *)value, user, group, home, uri))
+			string_t svalue = {0};
+			string_store(&svalue, value, len);
+			if (!ctx->cmp(ctx, &svalue, user, group, home, uri))
 			{
 				ret = ESUCCESS;
 				break;
@@ -375,10 +378,20 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	int ret = ESUCCESS;
 	string_t uri = {0};
 	ouimessage_REQUEST(request,"uri", &uri);
-	const char *method = httpmessage_REQUEST(request, "method");
-	const char *user = auth_info(request, STRING_REF(str_user));
-	if (user == NULL)
-		user = str_anonymous;
+	string_t method = {0};
+	ouimessage_REQUEST(request, "method", &method);
+	string_t user = {0};
+	int anonymous = 0;
+	ouimessage_SESSION(request, str_user, &user);
+	if (string_empty(&user))
+	{
+		string_store(&user, str_anonymous, -1);
+		anonymous = 1;
+	}
+	string_t group = {0};
+	ouimessage_SESSION(request, str_group, &group);
+	string_t home = {0};
+	ouimessage_SESSION(request, str_home, &home);
 
 	if (string_into(&uri, &config->allow, ',') == ESUCCESS)
 	{
@@ -388,17 +401,14 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 		userfilter_dbg("userfilter: forward to allowed path %s", string_toc(&config->allow));
 		ret = EREJECT;
 	}
-	else if (_request(ctx, method, user,
-				auth_info(request, STRING_REF(str_group)),
-				auth_info(request, STRING_REF(str_home)),
-				&uri) == 0)
+	else if (_request(ctx, &method, &user, &group, &home, &uri) == 0)
 	{
 		ret = EREJECT;
 	}
 	else
 	{
-		warn("userfilter: role %s forbidden for %s", user, string_toc(&uri));
-		if (user == str_anonymous)
+		warn("userfilter: role %s forbidden for %s", string_toc(&user), string_toc(&uri));
+		if (anonymous)
 			httpmessage_result(response, RESULT_401);
 		else
 #if defined RESULT_403
