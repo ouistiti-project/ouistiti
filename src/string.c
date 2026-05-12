@@ -509,6 +509,19 @@ void string_unroot(string_t *str)
 	}
 }
 
+int string_replace(string_t *str, size_t index, char c)
+{
+	if (str->ddata == NULL)
+	{
+		err("string: replace must be a dynamic string");
+		return EREJECT;
+	}
+	if (index > str->length)
+		return EREJECT;
+	str->ddata[index] = c;
+	return ESUCCESS;
+}
+
 long int string_tol(const string_t *str, int base)
 {
 	return strtol(str->data, NULL, base);

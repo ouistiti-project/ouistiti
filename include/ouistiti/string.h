@@ -79,6 +79,7 @@ size_t string_browse(string_t *str, char sep, size_t next);
 const char string_index(const string_t *str, ssize_t index);
 void string_unquote(string_t *str);
 void string_unroot(string_t *str);
+int string_replace(string_t *str, size_t index, char c);
 void string_cleansafe(string_t *str);
 void string_destroy(string_t *str);
 
