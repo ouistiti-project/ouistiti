@@ -33,8 +33,35 @@
 #include <stdarg.h>
 #endif
 
+#ifndef _STRING_TEST_
 #include "ouistiti/ouistiti.h"
 #include "ouistiti/log.h"
+#else
+#include <stdarg.h>
+#define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
+#define USE_STDARG
+#define ESUCCESS 0
+#define EREJECT -4
+#define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#define warn(format, ...) fprintf(stderr, "\x1B[35m"format"\x1B[0m\n",  ##__VA_ARGS__)
+#define dbg(format, ...) fprintf(stderr, "\x1B[32m"format"\x1B[0m\n",  ##__VA_ARGS__)
+
+typedef struct string_s string_t;
+struct string_s
+{
+	const char *data;
+	size_t length;
+	size_t size;
+	char *ddata;
+};
+int string_cpy(string_t *str, const char *source, size_t length);
+int string_empty(const string_t *str);
+size_t string_browse(string_t *str, char sep, size_t next);
+int string_match(const string_t *str1, const string_t *str2, ...);
+int string_chr(const string_t *str, char c, int index);
+const char string_index(const string_t *str, ssize_t index);
+
+#endif
 
 #define string_match_dbg(...)
 #define MAX_STRING 1024
@@ -274,22 +301,28 @@ int string_match(const string_t *str1, const string_t *str2, ...)
 #ifdef USE_STDARG
 	va_list ap;
 	va_start(ap, str2);
+	/// If the str2 contains several *, the va_arg must stop on the first NULL parameter
+	int va_exhausted = 1;
 #endif
 	string_t *arg = NULL;
 	while (str1index < string_length(str1) && str2index < string_length(str2))
 	{
+		arg = NULL;
 		string_match_dbg("string_match: contains %s (%.*s)", str1->data + str1index, str2length, str2->data + str2index);
 		char c = string_index(str2, str2index);
 		if (c == '*')
 		{
 #ifdef USE_STDARG
-			arg = va_arg(ap, string_t *);
+			if (va_exhausted)
+				arg = va_arg(ap, string_t *);
 #endif
+			va_exhausted = 0;
 			if (arg)
 			{
 				arg->data = str1->data + str1index;
 				arg->length = str1->length - str1index;
 				arg->size = arg->length;
+				va_exhausted = 1;
 			}
 			wildcard = 1;
 			str2index++;
@@ -575,6 +608,11 @@ void string_destroy(string_t *str)
 }
 
 #ifdef _STRING_TEST_
+/**
+ * gcc -o string -D_STRING_TEST_ string.c
+ */
+static const string_t const_string = STRING_DCL("* world on *");
+
 int main(int argc, char * const *argv)
 {
 	string_t dstr1 = {0};
@@ -710,7 +748,11 @@ int main(int argc, char * const *argv)
 		err("\n%s contain", string_toc(str2));
 	else
 		warn("\nnot contain:%s OK", string_toc(str2));
-	
+
+	if (string_match(str1, &const_string, NULL))
+		err("\n%s not match'", string_toc(&const_string));
+	else
+		warn("\nmatch %s OK", string_toc(&const_string));
 	return 0;
 }
 #endif
