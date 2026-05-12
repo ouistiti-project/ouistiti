@@ -38,8 +38,7 @@ extern "C"
 
 typedef struct mod_clientfilter_s
 {
-	char *accept;
-	char *deny;
+	htaccess_t htaccess;
 } mod_clientfilter_t;
 
 extern const module_t mod_clientfilter;
