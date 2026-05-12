@@ -317,12 +317,12 @@ static int webstream_config(config_setting_t *iterator, server_t *server, int in
 		htaccess_config(config, &conf->htaccess);
 		config_setting_lookup_int(config, "fps", &conf->fps);
 		config_setting_lookup_int(config, "max_tries", &conf->max_tries);
-		config_setting_lookup_string(config, "options", &string);
-		if (utils_searchexp("direct", string, NULL) == ESUCCESS && ouistiti_issecure(server))
+		int ret = config_setting_lookup_string(config, "options", &string);
+		if (ret == CONFIG_TRUE && strstr(string, "direct") && ouistiti_issecure(server))
 			conf->options |= WEBSTREAM_REALTIME;
-		if (utils_searchexp("multipart", string, NULL) == ESUCCESS)
+		if (ret == CONFIG_TRUE && strstr(string, "multipart"))
 			conf->options |= WEBSTREAM_MULTIPART;
-		if (utils_searchexp("date", string, NULL) == ESUCCESS)
+		if (ret == CONFIG_TRUE && strstr(string, "date"))
 			conf->options |= WEBSTREAM_MULTIPART_DATE;
 		config_setting_lookup_int(config, "fragmentsize", &conf->fragmentsize);
 	}
