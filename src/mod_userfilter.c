@@ -66,7 +66,7 @@ typedef struct _mod_userfilter_s _mod_userfilter_t;
 
 typedef int (*cmp_t)(_mod_userfilter_t *mod, const char *value,
 				const char *user, const char *group, const char *home,
-				const char *uri);
+				const string_t *uri);
 
 struct _mod_userfilter_s
 {
@@ -78,13 +78,14 @@ struct _mod_userfilter_s
 
 static int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
 				const char *user, const char *group, const char *home,
-				const char *uri)
+				const string_t *uri)
 {
 	int ret = EREJECT;
 	const char *entries[3] = {0};
 	int nbentries = 0;
 
 	char *valuefree = strdup(value);
+	size_t len = strlen(valuefree);
 	char *p = strchr(valuefree, '%');
 	while (p != NULL)
 	{
@@ -95,16 +96,22 @@ static int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
 				*p = 's';
 				entries[nbentries] = user;
 				nbentries++;
+				if (user)
+					len += strlen(user);
 			break;
 			case 'g':
 				*p = 's';
 				entries[nbentries] = group;
 				nbentries++;
+				if (group)
+					len += strlen(group);
 			break;
 			case 'h':
 				*p = 's';
 				entries[nbentries] = home;
 				nbentries++;
+				if (home)
+					len += strlen(home);
 			break;
 			default:
 				free(valuefree);
@@ -114,17 +121,17 @@ static int _exp_cmp(_mod_userfilter_t *UNUSED(ctx), const char *value,
 		if (nbentries >= 3)
 			break;
 	}
-	char *checking;
-	if (asprintf(&checking, valuefree, entries[0], entries[1], entries[2]) < 0)
+	string_t *checking = string_create(len + 1);
+	if (string_printf(checking, valuefree, entries[0], entries[1], entries[2]) < 0)
 	{
 		free(valuefree);
 		return EREJECT;
 	}
-	userfilter_dbg("userfilter: check %s %s", uri, checking);
-	if (utils_searchexp(uri, checking, NULL) == ESUCCESS)
+	userfilter_dbg("userfilter: check %s %s", string_toc(uri), string_toc(checking));
+	if (string_match(uri, checking, NULL) == ESUCCESS)
 		ret = ESUCCESS;
 	free(valuefree);
-	free(checking);
+	string_destroy(checking);
 	return ret;
 }
 
@@ -166,7 +173,7 @@ static int64_t _search_role(_mod_userfilter_t *ctx, const char *role, int length
 
 static int _request(_mod_userfilter_t *ctx, const char *method,
 				const char *user, const char *group, const char *home,
-				const char *uri)
+				const string_t *uri)
 {
 	int ret = EREJECT;
 	int64_t methodid = _search_method(ctx, method, -1);
@@ -366,13 +373,14 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
 	const mod_userfilter_t *config = ctx->config;
 	int ret = ESUCCESS;
-	const char *uri = httpmessage_REQUEST(request,"uri");
+	string_t uri = {0};
+	ouimessage_REQUEST(request,"uri", &uri);
 	const char *method = httpmessage_REQUEST(request, "method");
 	const char *user = auth_info(request, STRING_REF(str_user));
 	if (user == NULL)
 		user = str_anonymous;
 
-	if (utils_searchexp(uri, string_toc(&config->allow), NULL) == ESUCCESS)
+	if (string_into(&uri, &config->allow, ',') == ESUCCESS)
 	{
 		/**
 		 * this path is always allowed
@@ -383,13 +391,13 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	else if (_request(ctx, method, user,
 				auth_info(request, STRING_REF(str_group)),
 				auth_info(request, STRING_REF(str_home)),
-				uri) == 0)
+				&uri) == 0)
 	{
 		ret = EREJECT;
 	}
 	else
 	{
-		warn("userfilter: role %s forbidden for %s", user, uri);
+		warn("userfilter: role %s forbidden for %s", user, string_toc(&uri));
 		if (user == str_anonymous)
 			httpmessage_result(response, RESULT_401);
 		else
@@ -459,11 +467,11 @@ static int _userfilter_append(_mod_userfilter_t *ctx, http_message_t *request, h
 	return ESUCCESS;
 }
 
-static int _userfilter_remove(_mod_userfilter_t *ctx, const char *rest, http_message_t *response)
+static int _userfilter_remove(_mod_userfilter_t *ctx, string_t *rest, http_message_t *response)
 {
 	int ret = EREJECT;
-	while(rest[0] == '/') rest++;
-	int64_t id = strtol(rest, NULL, 10);
+	string_unroot(rest);
+	int64_t id = string_tol(rest, 10);
 	if (id > 0)
 	{
 		ret = _delete_rule(ctx, id);
@@ -475,7 +483,7 @@ static int _userfilter_remove(_mod_userfilter_t *ctx, const char *rest, http_mes
 	}
 	else
 	{
-		warn("userfilter: delete %s", rest);
+		warn("userfilter: delete %s", string_toc(rest));
 #if defined RESULT_204
 		httpmessage_result(response, RESULT_204);
 #endif
@@ -510,22 +518,23 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 {
 	_mod_userfilter_t *ctx = (_mod_userfilter_t *)arg;
 	int ret = EREJECT;
-	const char *rest = NULL;
-	const char *uri = httpmessage_REQUEST(request,"uri");
+	string_t rest = {0};
+	string_t uri = {0};
+	ouimessage_REQUEST(request,"uri", &uri);
 
 	userfilter_dbg("userfilter: search %s", string_toc(&ctx->config->configuri));
-	if (!utils_searchexp(uri, string_toc(&ctx->config->configuri), &rest))
+	if (!string_match(&uri, &ctx->config->configuri, &rest))
 	{
-		userfilter_dbg("userfilter: filter configuration %s", uri);
-		userfilter_dbg("userfilter: rest %s", rest);
+		userfilter_dbg("userfilter: filter configuration %s", string_toc(&uri));
+		userfilter_dbg("userfilter: rest %s", string_toc(&rest));
 		const char *method = httpmessage_REQUEST(request, "method");
 		if (!strcmp(method, str_put))
 		{
 			ret = _userfilter_append(ctx, request, response);
 		}
-		else if (!strcmp(method, str_delete) && rest != NULL)
+		else if (!strcmp(method, str_delete) && !string_empty(&rest))
 		{
-			ret = _userfilter_remove(ctx, rest, response);
+			ret = _userfilter_remove(ctx, &rest, response);
 		}
 		else if (!strcmp(method, str_get) && ctx->line > -1)
 		{
