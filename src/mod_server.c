@@ -76,13 +76,13 @@ static void *mod_server_config(config_setting_t *iterator, server_t *server)
 	if (config)
 	{
 		const char *options = config_setting_get_string(config);
-		if (options && utils_searchexp("frame", options, NULL) == ESUCCESS)
+		if (options && strstr(options, "frame"))
 			security->options |= SECURITY_FRAME;
-		if (options && utils_searchexp("cache", options, NULL) == ESUCCESS)
+		if (options && strstr(options, "cache"))
 			security->options |= SECURITY_CACHE;
-		if (options && utils_searchexp("sniff", options, NULL) == ESUCCESS)
+		if (options && strstr(options, "sniff"))
 			security->options |= SECURITY_CONTENTTYPE;
-		if (options && utils_searchexp("otherorigin", options, NULL) == ESUCCESS)
+		if (options && strstr(options, "otherorigin"))
 			security->options |= SECURITY_OTHERORIGIN;
 	}
 	return security;
