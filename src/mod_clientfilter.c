@@ -41,6 +41,8 @@
 #include "../compliant.h"
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
+/// for htaccess functions
+#include "mod_document.h"
 #include "mod_clientfilter.h"
 
 #define err(format, ...) fprintf(stderr, "\x1B[31m"format"\x1B[0m\n",  ##__VA_ARGS__)
@@ -76,8 +78,7 @@ static void *mod_clientfilter_config(config_setting_t *iterator, server_t *serve
 	if (config)
 	{
 		clientfilter = calloc(1, sizeof(*clientfilter));
-		config_setting_lookup_string(config, "allow", (const char **)&clientfilter->accept);
-		config_setting_lookup_string(config, "deny", (const char **)&clientfilter->deny);
+		htaccess_config(config, &clientfilter->htaccess);
 	}
 	return clientfilter;
 }
@@ -99,7 +100,9 @@ static void *mod_clientfilter_create(http_server_t *server, mod_clientfilter_t *
 
 	if (!config)
 		return NULL;
-
+	if (string_empty(&config->htaccess.denyfirst) &&
+		string_empty(&config->htaccess.denylast))
+		return NULL;
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
 
@@ -132,24 +135,9 @@ static void *_mod_clientfilter_getctx(void *arg, http_client_t *ctl, struct sock
 	if (entity != NULL)
 		address = entity->h_name;
 #endif
-	if (address && config->deny)
-	{
-		protect = utils_searchexp(address, mod->config->deny, NULL);
-		if (protect == ESUCCESS)
-		{
-			ret = EREJECT;
-		}
-	}
-	if (ret == EREJECT && address && config->accept)
-	{
-		protect = utils_searchexp(address, mod->config->accept, NULL);
-		if (protect == ESUCCESS)
-		{
-			ret = ESUCCESS;
-		}
-		else
-			warn("clientfilter: refuses %s", address);
-	}
+	string_t saddress = {0};
+	string_store(&saddress, address, -1);
+	ret = htaccess_check(&mod->config->htaccess, &saddress, NULL);
 	return (ret == ESUCCESS)?(void *)-1: NULL;
 }
 
