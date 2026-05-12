@@ -39,11 +39,11 @@ extern "C"
 typedef struct mod_redirect_link_s mod_redirect_link_t;
 struct mod_redirect_link_s
 {
-	const char *origin;
+	string_t origin;
 	int result;
-	const char *destination;
+	string_t destination;
 	int options;
-	const char *defaultpage;
+	string_t defaultpage;
 	mod_redirect_link_t *next;
 };
 #define REDIRECT_HSTS			0x0001

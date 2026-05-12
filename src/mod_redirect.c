@@ -118,21 +118,25 @@ static mod_redirect_link_t *redirect_linkconfig(config_setting_t *iterator)
 			options |= REDIRECT_ERROR;
 	}
 	else
-		link->origin = config_setting_get_string(originset);
+	{
+		const char *origin = config_setting_get_string(originset);
+		if (origin)
+			string_store(&link->origin, origin, -1);
+	}
 
 	config_setting_lookup_string(iterator, "options", (const char **)&mode);
 	link->options = redirect_mode(mode);
 	link->options |= options;
 
 	const char *destination = NULL;
-	config_setting_lookup_string(iterator, "destination", (const char **)&destination);
-	if (destination != NULL && destination[0] != '\0')
-		link->destination = destination;
+	ret = config_setting_lookup_string(iterator, "destination", (const char **)&destination);
+	if (ret == CONFIG_TRUE)
+		string_store(&link->destination, destination, -1);
 
 	const char *defaultpage= NULL;
-	config_setting_lookup_string(iterator, "defaultpage", (const char **)&defaultpage);
-	if (defaultpage != NULL && defaultpage[0] != '\0')
-		link->defaultpage = defaultpage;
+	ret = config_setting_lookup_string(iterator, "defaultpage", (const char **)&defaultpage);
+	if (ret == CONFIG_TRUE && defaultpage[0] != '\0')
+		string_store(&link->defaultpage, defaultpage, -1);
 	return link;
 }
 
@@ -244,14 +248,14 @@ static int _mod_redirect_connector404(_mod_redirect_t *mod, http_message_t *requ
 	/**
 	 * many link on 404, each one check the path and has different defaultpage
 	 */
-	if (link->origin && utils_searchexp(uri, link->origin, NULL) != ESUCCESS)
+	if (!string_empty(&link->origin) && utils_searchexp(uri, string_toc(&link->origin), NULL) != ESUCCESS)
 	{
 		return ret;
 	}
 	/**
 	 * defaultpage is set and the uri points on a directory
 	 */
-	if (link->defaultpage != NULL && (uri[0] == '\0' || uri[urilen - 1] == '/'))
+	if (!string_empty(&link->defaultpage) && (uri[0] == '\0' || uri[urilen - 1] == '/'))
 	{
 		httpmessage_addheader(response, str_location, STRING_REF(""));
 		if (urilen > 0 && uri[0] != '/')
@@ -260,20 +264,20 @@ static int _mod_redirect_connector404(_mod_redirect_t *mod, http_message_t *requ
 		}
 		if (urilen > 0)
 			httpmessage_appendheader(response, str_location, uri, urilen);
-		if (link->defaultpage[0] != '/' && (urilen == 0 || uri[urilen - 1] != '/'))
+		if (string_chr(&link->defaultpage, '/', 0) != 0 && (urilen == 0 || uri[urilen - 1] != '/'))
 		{
 			httpmessage_appendheader(response, str_location, STRING_REF("/"));
 		}
-		httpmessage_appendheader(response, str_location, link->defaultpage, -1);
+		httpmessage_appendheader(response, str_location, string_toc(&link->defaultpage), -1);
 		ret = ESUCCESS;
 	}
 	/**
 	 * remove circular redicrection
 	 */
-	else if (link->destination != NULL &&
-			utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
+	else if (!string_empty(&link->destination) &&
+			utils_searchexp(uri, string_toc(&link->destination), NULL) != ESUCCESS)
 	{
-		httpmessage_addheader(response, str_location, link->destination, -1);
+		httpmessage_addheader(response, str_location, string_toc(&link->destination), -1);
 		ret = ESUCCESS;
 	}
 	if (ret == ESUCCESS)
@@ -287,9 +291,9 @@ static int _mod_redirect_destination(_mod_redirect_t *mod, mod_redirect_link_t *
 									http_message_t *request, http_message_t *response,
 									const char *path_info)
 {
-	httpmessage_addheader(response, str_location, link->destination, -1);
+	httpmessage_addheader(response, str_location, string_toc(&link->destination), -1);
 	char sep = '?';
-	if (strchr(link->destination, '?'))
+	if (string_chr(&link->destination, '?', 0) != -1)
 		sep = '&';
 	if (path_info != NULL)
 	{
@@ -297,7 +301,7 @@ static int _mod_redirect_destination(_mod_redirect_t *mod, mod_redirect_link_t *
 		if (strchr(path_info, '?'))
 			sep = '&';
 	}
-	redirect_dbg("redirect: Location from destination %s", link->destination);
+	redirect_dbg("redirect: Location from destination %s", string_toc(&link->destination));
 	if (link->options & REDIRECT_QUERY)
 	{
 		const char *query = NULL;
@@ -318,7 +322,7 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 	int ret = ECONTINUE;
 	const char *path_info = NULL;
 
-	if (link->origin && utils_searchexp(string_toc(uri), link->origin, &path_info) == ESUCCESS)
+	if (!string_empty(&link->origin) && utils_searchexp(string_toc(uri), string_toc(&link->origin), &path_info) == ESUCCESS)
 	{
 		int result = mod->result;
 		if (link->options & REDIRECT_PERMANENTLY)
@@ -350,8 +354,8 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 				ret = ESUCCESS;
 			}
 		}
-		if (ret != ESUCCESS && link->destination != NULL &&
-				utils_searchexp(string_toc(uri), link->destination, NULL) != ESUCCESS)
+		if (ret != ESUCCESS && !string_empty(&link->destination) &&
+				utils_searchexp(string_toc(uri), string_toc(&link->destination), NULL) != ESUCCESS)
 		{
 			ret = _mod_redirect_destination(mod, link, request, response, path_info);
 		}
@@ -426,7 +430,7 @@ static int _mod_redirect_connector(void *arg, http_message_t *request, http_mess
 		while (link != NULL)
 		{
 			int ret = ECONTINUE;
-			if (link->origin && utils_searchexp(string_toc(&uri), link->origin, NULL) == ESUCCESS)
+			if (!string_empty(&link->origin) && utils_searchexp(string_toc(&uri), string_toc(&link->origin), NULL) == ESUCCESS)
 			{
 				if (link->options & REDIRECT_GENERATE204)
 				{
@@ -468,10 +472,10 @@ static int _mod_redirect_connectorerror(void *arg, http_message_t *request, http
 			else if (link->options & REDIRECT_TEMPORARY)
 				result = RESULT_307;
 
-			if (link->destination != NULL &&
-					utils_searchexp(uri, link->destination, NULL) != ESUCCESS)
+			if (!string_empty(&link->destination) &&
+					utils_searchexp(uri, string_toc(&link->destination), NULL) != ESUCCESS)
 			{
-				httpmessage_addheader(response, str_location, link->destination, -1);
+				httpmessage_addheader(response, str_location, string_toc(&link->destination), -1);
 				httpmessage_result(response, result);
 				ret = ESUCCESS;
 			}
