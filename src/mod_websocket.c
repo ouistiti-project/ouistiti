@@ -411,9 +411,9 @@ static void *websocket_config(config_setting_t *iterator, server_t *server)
 		conf = calloc(1, sizeof(*conf));
 		config_setting_lookup_string(configws, "docroot", &conf->docroot);
 		htaccess_config(configws, &conf->htaccess);
-		config_setting_lookup_string(configws, "options", &mode);
+		int ret = config_setting_lookup_string(configws, "options", &mode);
 #ifdef WEBSOCKET_RT
-		if (utils_searchexp("direct", mode, NULL) == ESUCCESS)
+		if (ret == CONFIG_TRUE && strstr(mode, "direct") == ESUCCESS)
 		{
 			if (!ouistiti_issecure(server))
 				conf->options |= WEBSOCKET_REALTIME;
