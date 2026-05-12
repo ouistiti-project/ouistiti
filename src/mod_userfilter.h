@@ -38,10 +38,10 @@ extern "C"
 typedef struct mod_userfilter_s mod_userfilter_t;
 struct mod_userfilter_s
 {
-	const char *superuser;
-	const char *dbname;
-	const char *allow;
-	const char *configuri;
+	string_t superuser;
+	string_t dbname;
+	string_t allow;
+	string_t configuri;
 };
 
 extern const module_t mod_userfilter;
