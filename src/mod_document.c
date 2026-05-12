@@ -530,17 +530,17 @@ static int document_configpart(config_setting_t *config, server_t *server, int i
 	config_setting_lookup_string(config, "defaultpage", (const char **)&static_file->defaultpage);
 
 	char *options = NULL;
-	config_setting_lookup_string(config, "options", (const char **)&options);
+	ret = config_setting_lookup_string(config, "options", (const char **)&options);
 #ifdef DIRLISTING
-	if (utils_searchexp("dirlisting", options, NULL) == ESUCCESS)
+	if (ret == CONFIG_TRUE && strstr(options, "dirlisting"))
 		static_file->options |= DOCUMENT_DIRLISTING;
 #endif
 #ifdef DIRLISTING
-	if (utils_searchexp("notime", options, NULL) == ESUCCESS)
+	if (ret == CONFIG_TRUE && strstr(options, "notime"))
 		static_file->options |= DOCUMENT_NOTIME;
 #endif
 #ifdef SENDFILE
-	if (utils_searchexp("sendfile", options, NULL) == ESUCCESS)
+	if (ret == CONFIG_TRUE && strstr(options, "sendfile"))
 	{
 		if (!ouistiti_issecure(server))
 			static_file->options |= DOCUMENT_SENDFILE;
@@ -549,28 +549,28 @@ static int document_configpart(config_setting_t *config, server_t *server, int i
 	}
 #endif
 #ifdef RANGEREQUEST
-	if (utils_searchexp("range", options, NULL) == ESUCCESS)
+	if (ret == CONFIG_TRUE && strstr(options, "range"))
 	{
 		static_file->options |= DOCUMENT_RANGE;
 	}
 #endif
 #ifdef DOCUMENTREST
-	if (utils_searchexp("rest", options, NULL) == ESUCCESS)
+	if (ret == CONFIG_TRUE && strstr(options, "rest"))
 	{
 		static_file->options |= DOCUMENT_REST;
 	}
 #endif
 #ifdef DOCUMENTHOME
-	if (utils_searchexp("home", options, NULL) == ESUCCESS)
+	if (ret == CONFIG_TRUE && strstr(options, "home"))
 	{
 		static_file->options |= DOCUMENT_HOME;
 	}
 #endif
-
-	if (!strcmp(config_setting_name(config), "filestorage"))
+	const char *name = config_setting_name(config);
+	if (name && strstr("filestorage", name))
 		static_file->options |= DOCUMENT_REST;
 	*modconfig = (void *)static_file;
-	return ret;
+	return ESUCCESS;
 }
 
 #if LIBCONFIG_VER_MINOR < 5
