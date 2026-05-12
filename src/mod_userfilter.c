@@ -372,12 +372,12 @@ static int userfilter_connector(void *arg, http_message_t *request, http_message
 	if (user == NULL)
 		user = str_anonymous;
 
-	if (utils_searchexp(uri, config->allow, NULL) == ESUCCESS)
+	if (utils_searchexp(uri, string_toc(&config->allow), NULL) == ESUCCESS)
 	{
 		/**
 		 * this path is always allowed
 		 */
-		userfilter_dbg("userfilter: forward to allowed path %s", config->allow);
+		userfilter_dbg("userfilter: forward to allowed path %s", string_toc(&config->allow));
 		ret = EREJECT;
 	}
 	else if (_request(ctx, method, user,
@@ -513,8 +513,8 @@ static int rootgenerator_connector(void *arg, http_message_t *request, http_mess
 	const char *rest = NULL;
 	const char *uri = httpmessage_REQUEST(request,"uri");
 
-	userfilter_dbg("userfilter: search %s", ctx->config->configuri);
-	if (!utils_searchexp(uri, ctx->config->configuri, &rest))
+	userfilter_dbg("userfilter: search %s", string_toc(&ctx->config->configuri));
+	if (!utils_searchexp(uri, string_toc(&ctx->config->configuri), &rest))
 	{
 		userfilter_dbg("userfilter: filter configuration %s", uri);
 		userfilter_dbg("userfilter: rest %s", rest);
@@ -683,10 +683,12 @@ static void *userfilter_config(config_setting_t *iterator, server_t *UNUSED(serv
 		}
 
 		modconfig = calloc(1, sizeof(*modconfig));
-		config_setting_lookup_string(config, "allow", &modconfig->allow);
-		modconfig->configuri = configuri;
-		modconfig->dbname = dbname;
-		modconfig->superuser = superuser;
+		const char *allow = NULL;
+		config_setting_lookup_string(config, "allow", &allow);
+		string_store(&modconfig->allow, allow, -1);
+		string_store(&modconfig->configuri, configuri, -1);
+		string_store(&modconfig->dbname, dbname, -1);
+		string_store(&modconfig->superuser, superuser, -1);
 	}
 	return modconfig;
 }
@@ -716,17 +718,17 @@ static void *userfilter_config(void *iterator, server_t *server)
 void *mod_userfilter_create(http_server_t *server, void *arg)
 {
 	mod_userfilter_t *config = (mod_userfilter_t *)arg;
-	if (config == NULL || config->dbname == NULL)
+	if (config == NULL || string_empty(&config->dbname))
 		return NULL;
 
 	sqlite3 *db = NULL;
 
-	if (sqlite3_open_v2(config->dbname, &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
+	if (sqlite3_open_v2(string_toc(&config->dbname), &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
 	{
-		err("userfilter: database not found %s", config->dbname);
+		err("userfilter: database not found %s", string_toc(&config->dbname));
 		return NULL;
 	}
-	dbg("userfilter: DB storage on %s", config->dbname);
+	dbg("userfilter: DB storage on %s", string_toc(&config->dbname));
 
 	_mod_userfilter_t *mod = calloc(1, sizeof(*mod));
 	mod->config = config;
@@ -736,7 +738,7 @@ void *mod_userfilter_create(http_server_t *server, void *arg)
 	httpserver_addmethod(server, METHOD(str_delete), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
 	httpserver_addconnector(server, userfilter_connector, mod, \
 			CONNECTOR_DOCFILTER, str_userfilter);
-	if (config->configuri != NULL)
+	if (!string_empty(&config->configuri))
 		httpserver_addconnector(server, rootgenerator_connector, mod, \
 				CONNECTOR_DOCUMENT, str_userfilter);
 
