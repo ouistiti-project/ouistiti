@@ -62,8 +62,8 @@ static const char str_forward[] = "forward";
 typedef struct mod_forward_link_s mod_forward_link_t;
 struct mod_forward_link_s
 {
-	char *origin;
-	const char *destination;
+	string_t origin;
+	string_t destination;
 	mod_forward_link_t *next;
 };
 
@@ -104,18 +104,17 @@ static mod_forward_link_t *redirect_linkconfig(config_setting_t *iterator)
 	mod_forward_link_t *link = NULL;
 	const char *origin = NULL;
 
-	config_setting_t *originset = config_setting_lookup(iterator, "origin");
-	origin = config_setting_get_string(originset);
+	int ret = config_setting_lookup_string(iterator, "origin", &origin);
 
 	if (origin != NULL)
 	{
 		link = calloc(1, sizeof(*link));
-		link->origin = strdup(origin);
+		string_store(&link->origin, origin,  -1);
 
 		const char *destination = NULL;
-		config_setting_lookup_string(iterator, "destination", (const char **)&destination);
-		if (destination != NULL && destination[0] != '\0')
-			link->destination = destination;
+		ret = config_setting_lookup_string(iterator, "destination", (const char **)&destination);
+		if (ret == CONFIG_TRUE)
+			string_store(&link->destination, destination, -1);
 	}
 	return link;
 }
@@ -198,32 +197,33 @@ static void mod_forward_destroy(void *arg)
 
 static mod_forward_ctx_t * _mod_forward_connectorlink(mod_forward_t *mod, http_message_t *request,
 									http_message_t *response, mod_forward_link_t *link,
-									const char *uri, size_t urilen)
+									const string_t *uri)
 {
 	mod_forward_ctx_t *ctx = NULL;
-	const char *path_info = NULL;
-	if (utils_searchexp(uri, link->origin, &path_info) == ESUCCESS)
+	const string_t path_info = {0};
+	if (string_match(uri, &link->origin, &path_info) == ESUCCESS)
 	{
 		ctx = calloc(1, sizeof(*ctx));
 
 		ctx->request = httpmessage_create();
-		const char *query = httpmessage_REQUEST(request, "query");
-		warn("forward: run %s => %s%s?%s", uri, link->destination, path_info, query);
-		if (path_info != NULL && query != NULL && query[0] != '\0')
+		string_t query = {0};
+		ouimessage_REQUEST(request, "query", &query);
+		warn("forward: run %s => %s%s?%s", string_toc(uri), string_toc(&link->destination), string_toc(&path_info), string_toc(&query));
+		if (!string_empty(&path_info) && !string_empty(&query))
 		{
-			ctx->client = httpmessage_request(ctx->request, "GET", link->destination, path_info, "?", query, NULL);
+			ctx->client = httpmessage_request(ctx->request, "GET", string_toc(&link->destination), string_toc(&path_info), "?", string_toc(&query), NULL);
 		}
-		else if (path_info != NULL)
+		else if (!string_empty(&path_info))
 		{
-			ctx->client = httpmessage_request(ctx->request, "GET", link->destination, path_info, NULL);
+			ctx->client = httpmessage_request(ctx->request, "GET", string_toc(&link->destination), string_toc(&path_info), NULL);
 		}
-		else if (query != NULL && query[0] != '\0')
+		else if (!string_empty(&query))
 		{
-			ctx->client = httpmessage_request(ctx->request, "GET", link->destination, "?", query, NULL);
+			ctx->client = httpmessage_request(ctx->request, "GET", string_toc(&link->destination), "?", string_toc(&query), NULL);
 		}
 		else
 		{
-			ctx->client = httpmessage_request(ctx->request, "GET", link->destination, NULL);
+			ctx->client = httpmessage_request(ctx->request, "GET", string_toc(&link->destination), NULL);
 		}
 		if (ctx->client != NULL)
 		{
@@ -237,16 +237,16 @@ static int _forward_start(mod_forward_t *mod, http_message_t *request, http_mess
 {
 	const mod_forward_config_t *config = mod->config;
 	int ret = EREJECT;
-	const char *uri = NULL;
-	size_t urilen = httpmessage_REQUEST2(request,"uri", &uri);
+	string_t uri = {0};
+	ouimessage_REQUEST(request,"uri", &uri);
 
-	if (uri)
+	if (!string_empty(&uri))
 	{
 		mod_forward_link_t *link = config->links;
 		mod_forward_ctx_t *ctx = NULL;
 		while (link != NULL)
 		{
-			ctx = _mod_forward_connectorlink(mod, request, response, link, uri, urilen);
+			ctx = _mod_forward_connectorlink(mod, request, response, link, &uri);
 			if (ctx != NULL)
 			{
 				ret = EINCOMPLETE;
