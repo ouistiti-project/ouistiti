@@ -48,8 +48,7 @@ struct mod_upgrade_s
 	int port;
 #endif
 	const char *upgrade;
-	const char *allow;
-	const char *deny;
+	htaccess_t htaccess;
 	int options;
 };
 
