@@ -37,11 +37,18 @@
 
 #define auth_dbg(...)
 
-typedef struct authn_basic_s authn_basic_t;
-struct authn_basic_s
+typedef struct authn_mod_s authn_mod_t;
+struct authn_mod_s
 {
 	const mod_auth_t *config;
 	string_t *issuer;
+};
+
+typedef struct authn_ctx_s authn_ctx_t;
+struct authn_ctx_s
+{
+	authn_mod_t *mod;
+	char user[256];
 };
 
 static string_t string_basic = STRING_DCL("Basic ");
@@ -53,16 +60,26 @@ void *authn_basic_config(const void *configauth, authn_type_t *type)
 
 static void *authn_basic_create(const authn_t *authn, string_t *issuer, void *arg)
 {
-	authn_basic_t *mod = calloc(1, sizeof(*mod));
+	authn_mod_t *mod = calloc(1, sizeof(*mod));
 	mod->issuer = issuer;
 	mod->config = authn->config;
 	return mod;
 }
 
+static void * authn_basic_setup(void *arg, http_client_t *UNUSED(ctl), struct sockaddr *UNUSED(addr), int UNUSED(addrsize))
+{
+	authn_mod_t *mod = (authn_mod_t *)arg;
+
+	authn_ctx_t *ctx = calloc(1, sizeof(*ctx));
+	ctx->mod = mod;
+	return ctx;
+}
+
 static int authn_basic_challenge(void *arg, http_message_t *UNUSED(request), http_message_t *response)
 {
 	int ret;
-	const authn_basic_t *mod = (authn_basic_t *)arg;
+	const authn_ctx_t *ctx = (authn_ctx_t *)arg;
+	const authn_mod_t *mod = ctx->mod;
 	const mod_auth_t *config = mod->config;
 
 	ret = httpmessage_addheader(response, str_authenticate, STRING_REF("Basic realm=\""));
@@ -77,9 +94,9 @@ static int authn_basic_challenge(void *arg, http_message_t *UNUSED(request), htt
 	return ret;
 }
 
-static char user[256] = {0};
 static const char *authn_basic_check(void *arg, authz_t *authz, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen)
 {
+	authn_ctx_t *ctx = (authn_ctx_t *)arg;
 	char *passwd;
 	const char *found = NULL;
 	(void) method;
@@ -92,35 +109,42 @@ static const char *authn_basic_check(void *arg, authz_t *authz, const char *meth
 	if (authorization == NULL)
 		return NULL;
 
-	memset(user, 0, 256);
 	auth_dbg("auth: basic check: %s", string);
-	base64->decode(string_toc(authorization), string_length(authorization), user, 256);
-	passwd = strchr(user, ':');
+	base64->decode(string_toc(authorization), string_length(authorization), ctx->user, sizeof(ctx->user));
+	passwd = strchr(ctx->user, ':');
 	if (passwd != NULL)
 	{
 		*passwd = 0;
 		passwd++;
-		found = authz->rules->check(authz->ctx, user, passwd, NULL);
+		found = authz->rules->check(authz->ctx, ctx->user, passwd, NULL);
 	}
 	else
 		found = authz->rules->check(authz->ctx, NULL, NULL, string_toc(authorization));
-	auth_dbg("auth: basic check: %s %s", user, passwd);
+	auth_dbg("auth: basic check: %s", found);
 	return found;
+}
+
+static void authn_basic_cleanup(void *arg)
+{
+	authn_ctx_t *ctx = (authn_ctx_t *)arg;
+	free(ctx);
 }
 
 static void authn_basic_destroy(void *arg)
 {
-	authn_basic_t *mod = (authn_basic_t *)arg;
+	authn_mod_t *mod = (authn_mod_t *)arg;
 	free(mod);
 }
 
 authn_rules_t authn_basic_rules =
 {
-	.config = &authn_basic_config,
-	.create = &authn_basic_create,
-	.challenge = &authn_basic_challenge,
-	.check = &authn_basic_check,
-	.destroy = &authn_basic_destroy,
+	.config = authn_basic_config,
+	.create = authn_basic_create,
+	.setup = authn_basic_setup,
+	.challenge = authn_basic_challenge,
+	.check = authn_basic_check,
+	.cleanup = authn_basic_cleanup,
+	.destroy = authn_basic_destroy,
 };
 
 static const string_t authn_name = STRING_DCL("Basic");
