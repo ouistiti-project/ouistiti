@@ -116,6 +116,9 @@ start () {
 	ARGUMENTS=$ARGUMENTS" -P ${TESTDEFAULTPORT}"
 	ARGUMENTS=$ARGUMENTS" -M ./staging:./src"
 	ARGUMENTS=$ARGUMENTS" -W "$TESTDIR
+	if [ $GDB -eq 1 ]; then
+		ARGUMENTS=$ARGUMENTS" -L -"
+	fi
 	if [ $INFO -eq 1 ]; then
 		echo ${BUILDDIR}src/${TARGET} ${ARGUMENTS}
 		echo "******************************"
