@@ -65,6 +65,7 @@ static int _mod_redirect_connectorerror(void *arg, http_message_t *request, http
 static const char str_redirect[] = "redirect";
 static const string_t string_noredirect_search = STRING_DCL("*noredirect*");
 static const string_t string_generate204_search = STRING_DCL("generate_204,^/true*");
+static const string_t string_url_search = STRING_DCL("*://*");
 
 struct _mod_redirect_s
 {
@@ -347,16 +348,28 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 		{
 			string_t redirect = {0};
 			ret = ouimessage_parameter(request, "redirect_uri", &redirect);
-			char *decode = NULL;
+			string_t *decode = string_create(string_size(&redirect));
 			if (ret == ESUCCESS && !string_empty(&redirect))
-				decode = utils_urldecode(string_toc(&redirect), string_length(&redirect));
-			if (decode != NULL)
 			{
-				redirect_dbg("redirect: Location from query %s", decode);
-				httpmessage_addheader(response, str_location, decode, strlen(decode));
-				free(decode);
+				ret = string_decodeurl(decode, &redirect);
+			}
+			if (ret == ESUCCESS && !string_empty(decode))
+			{
+				ret = string_match(decode, &string_url_search, NULL);
+				if (ret != ESUCCESS)
+				{
+					string_t hostname = {0};
+					ouimessage_REQUEST(request, "hostname", &hostname);
+					ret = string_match(decode, &hostname, NULL);
+				}
+			}
+			if (ret == ESUCCESS && !string_empty(decode))
+			{
+				redirect_dbg("redirect: Location from query %s", string_toc(decode));
+				httpmessage_addheader(response, str_location, string_toc(decode), string_length(decode));
 				ret = ESUCCESS;
 			}
+			string_destroy(decode);
 		}
 		if (ret != ESUCCESS && !string_empty(&link->destination) &&
 				string_match(uri, &link->destination, NULL) != ESUCCESS)
