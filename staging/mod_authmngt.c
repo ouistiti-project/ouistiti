@@ -426,18 +426,18 @@ static int _authmngt_parsehome(http_message_t *request, authsession_t *session)
 static int _authmngt_parsepasswd(http_message_t *request, authsession_t *session)
 {
 	int ret = EREJECT;
-	const char *passwd = NULL;
-	size_t length = httpmessage_parameter(request, "passwd", &passwd);
-	if (length > 0)
+	string_t passwd = {0};
+	ouimessage_parameter(request, "passwd", &passwd);
+	if (!string_empty(&passwd))
 	{
-		char *decode = utils_urldecode(passwd, length);
-		if (decode != NULL)
+		string_t *decode = string_create(string_size(&passwd));
+		if (string_decodeurl(decode, &passwd) == ESUCCESS)
 		{
-			strncpy(session->passwd, decode, TOKEN_MAX);
-			free(decode);
+			strncpy(session->passwd, string_toc(decode), TOKEN_MAX);
 		}
 		else
-			strncpy(session->passwd, passwd, TOKEN_MAX);
+			strncpy(session->passwd, string_toc(&passwd), TOKEN_MAX);
+		string_destroy(decode);
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -463,16 +463,7 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 	size_t length = httpmessage_parameter(request, "issuers", &data);
 	if (length > 0)
 	{
-#if 0
-		char *decode = utils_urldecode(data, length);
-		if (decode != NULL)
-		{
-			string_cpy(issuer, decode, -1);
-			free(decode);
-		}
-		else
-#endif
-			string_cpy(issuer, data, length);
+		string_cpy(issuer, data, length);
 		ret = ESUCCESS;
 	}
 	else
@@ -480,35 +471,29 @@ static int _authmngt_parseissuer(http_message_t *request, string_t *issuer)
 	return ret;
 }
 
-static int _authmngt_parsesession(_mod_authmngt_ctx_t *ctx, const char *user,
+static int _authmngt_parsesession(_mod_authmngt_ctx_t *ctx, string_t *user,
 	http_message_t *request, authsession_t *session, string_t *issuer)
 {
 	int isuser = 0;
 
-	if (user == NULL)
-	{
-		httpmessage_parameter(request, str_user, &user);
-	}
+	string_t tmpuser = {0};
+	ouimessage_parameter(request, str_user, &tmpuser);
+	if (!string_empty(&tmpuser))
+		isuser = !string_compare(user, &tmpuser);
 	else
-	{
-		const char *tmpuser = NULL;
-		size_t length = httpmessage_parameter(request, str_user, &tmpuser);
-		if (length > 0)
-			isuser = !strncmp(user, tmpuser, length);
-		else
-			isuser = 1;
-	}
+		isuser = 1;
 
-	if (user != NULL)
+	if (!string_empty(user))
 	{
-		char *decode = utils_urldecode(user, -1);
-		if (decode != NULL)
+		string_t *decode = string_create(string_size(user));
+		string_decodeurl(decode, user);
+		if (!string_empty(decode))
 		{
-			strncpy(session->user, decode, USER_MAX);
-			free(decode);
+			strncpy(session->user, string_toc(decode), USER_MAX);
 		}
 		else
-			strncpy(session->user, user, USER_MAX);
+			strncpy(session->user, string_toc(user), USER_MAX);
+		string_destroy(decode);
 	}
 	else
 		return EREJECT;
@@ -574,7 +559,7 @@ static int _authmngt_userresponse(_mod_authmngt_ctx_t *ctx, authsession_t *info,
 	return ret;
 }
 
-static int _authmngt_errorresponse(_mod_authmngt_ctx_t *ctx, const char *user, http_message_t *request, http_message_t *response)
+static int _authmngt_errorresponse(_mod_authmngt_ctx_t *ctx, const string_t *user, http_message_t *request, http_message_t *response)
 {
 	const char *http_accept = httpmessage_REQUEST(request, "Accept");
 	httpmessage_result(response, RESULT_500);
@@ -583,7 +568,7 @@ static int _authmngt_errorresponse(_mod_authmngt_ctx_t *ctx, const char *user, h
 		httpmessage_addcontent(response, "text/json", "{\"method\":\"", -1);
 		httpmessage_appendcontent(response, httpmessage_REQUEST(request, "method"), -1);
 		httpmessage_appendcontent(response, "\",\"user\":\"", -1);
-		httpmessage_appendcontent(response, user, -1);
+		httpmessage_appendcontent(response, string_toc(user), string_length(user));
 		httpmessage_appendcontent(response, "\",\"error\":\"", -1);
 		httpmessage_appendcontent(response, ctx->error, -1);
 		httpmessage_appendcontent(response, "\"}", -1);
@@ -592,16 +577,16 @@ static int _authmngt_errorresponse(_mod_authmngt_ctx_t *ctx, const char *user, h
 	return ESUCCESS;
 }
 
-static int _authmngt_getconnector(_mod_authmngt_ctx_t *ctx, const char *user, http_message_t *request, http_message_t *response)
+static int _authmngt_getconnector(_mod_authmngt_ctx_t *ctx, const string_t *user, http_message_t *request, http_message_t *response)
 {
 	_mod_authmngt_t *mod = ctx->mod;
 	int ret = EREJECT;
 
-	if (user != NULL)
+	if (!string_empty(user))
 	{
 		authsession_t info = {0};
 		if (ctx->ctx && mod->config->mngt.rules->setsession != NULL)
-			ret = mod->config->mngt.rules->setsession(ctx->ctx, user, &info);
+			ret = mod->config->mngt.rules->setsession(ctx->ctx, string_toc(user), &info);
 		if (ret == ESUCCESS)
 			ret = _authmngt_userresponse(ctx, &info, request, response);
 		else
@@ -627,7 +612,7 @@ static int _authmngt_getconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	return ret;
 }
 
-static int _authmngt_deleteconnector(_mod_authmngt_ctx_t *ctx, const char *user, http_message_t *request, http_message_t *response)
+static int _authmngt_deleteconnector(_mod_authmngt_ctx_t *ctx, const string_t *user, http_message_t *request, http_message_t *response)
 {
 	_mod_authmngt_t *mod = ctx->mod;
 	int ret = EREJECT;
@@ -635,10 +620,10 @@ static int _authmngt_deleteconnector(_mod_authmngt_ctx_t *ctx, const char *user,
 	{
 		ctx->error = error_accessdenied;
 	}
-	else if (user != NULL && ctx->ctx && mod->config->mngt.rules->removeuser != NULL)
+	else if (!string_empty(user) && ctx->ctx && mod->config->mngt.rules->removeuser != NULL)
 	{
 		authsession_t info = {0};
-		strncpy(info.user, user, USER_MAX);
+		strncpy(info.user, string_toc(user), USER_MAX);
 		ret = mod->config->mngt.rules->removeuser(ctx->ctx, &info);
 		if (ret == EREJECT)
 			ctx->error = error_usernotfound;
@@ -650,7 +635,7 @@ static int _authmngt_deleteconnector(_mod_authmngt_ctx_t *ctx, const char *user,
 	return ret;
 }
 
-static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, http_message_t *request, http_message_t *response)
+static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, string_t *user, http_message_t *request, http_message_t *response)
 {
 	_mod_authmngt_t *mod = ctx->mod;
 	int ret = EREJECT;
@@ -686,7 +671,7 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, const char *user, ht
 	return ret;
 }
 
-static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, http_message_t *request, http_message_t *response)
+static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, string_t *user, http_message_t *request, http_message_t *response)
 {
 	_mod_authmngt_t *mod = ctx->mod;
 	int ret = EREJECT;
@@ -726,7 +711,7 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, const char *user, h
 	}
 	if (ret == ESUCCESS && (ctx->isuser || ctx->isroot) && mod->config->mngt.rules->setissuer != NULL)
 	{
-		ret = mod->config->mngt.rules->setissuer(ctx->ctx, user,string_toc(issuer), string_length(issuer));
+		ret = mod->config->mngt.rules->setissuer(ctx->ctx, string_toc(user),string_toc(issuer), string_length(issuer));
 	}
 	string_destroy(issuer);
 	if (ret == EREJECT && !ctx->error)
@@ -748,6 +733,10 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 	{
 		return EREJECT;
 	}
+	if (string_empty(&user))
+	{
+		ouimessage_parameter(request, str_user, &user);
+	}
 	string_unroot(&user);
 	_authmngt_checkrights(ctx, string_toc(&user), request);
 
@@ -767,20 +756,20 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 	authmngt_dbg("authmngt: access to %s %s", string_toc(&uri), string_toc(&user));
 	if (!strcmp(method, str_get))
 	{
-		ret = _authmngt_getconnector(ctx, string_toc(&user), request, response);
+		ret = _authmngt_getconnector(ctx, &user, request, response);
 	}
 	else if (!strcmp(method, str_delete))
 	{
-		ret = _authmngt_deleteconnector(ctx, string_toc(&user), request, response);
+		ret = _authmngt_deleteconnector(ctx, &user, request, response);
 	}
 	else if (!strcmp(method, str_put))
 	{
-		ret = _authmngt_putconnector(ctx, string_toc(&user), request, response);
+		ret = _authmngt_putconnector(ctx, &user, request, response);
 	}
 	else if (!strcmp(method, str_post))
 	{
 		authsession_t info = {0};
-		ret = _authmngt_postconnector(ctx, string_toc(&user), request, response);
+		ret = _authmngt_postconnector(ctx, &user, request, response);
 		if (ret == ESUCCESS && !string_empty(&user) && mod->config->mngt.rules->setsession != NULL)
 			ret = mod->config->mngt.rules->setsession(ctx->ctx, string_toc(&user), &info);
 		else
@@ -792,7 +781,7 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 	}
 	if (ret == EREJECT)
 	{
-		ret = _authmngt_errorresponse(ctx, string_toc(&user), request, response);
+		ret = _authmngt_errorresponse(ctx, &user, request, response);
 	}
 
 	return ret;
