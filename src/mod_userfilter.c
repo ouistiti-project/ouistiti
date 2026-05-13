@@ -266,7 +266,7 @@ static int64_t _insert_field(_mod_userfilter_t *ctx, int table, const char *valu
 	return ret;
 }
 
-static int _insert_rule(_mod_userfilter_t *ctx, int64_t methodid, int64_t roleid, const char *exp, int length)
+static int _insert_rule(_mod_userfilter_t *ctx, int64_t methodid, int64_t roleid, const string_t *exp)
 {
 	int ret = EREJECT;
 	sqlite3_stmt *statement;
@@ -284,7 +284,7 @@ static int _insert_rule(_mod_userfilter_t *ctx, int64_t methodid, int64_t roleid
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	index = sqlite3_bind_parameter_index(statement, "@EXP");
-	ret = sqlite3_bind_text(statement, index, exp, length, SQLITE_STATIC);
+	ret = sqlite3_bind_text(statement, index, string_toc(exp), string_length(exp), SQLITE_STATIC);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	userfilter_dbg("userfilter: sql %s", sqlite3_expanded_sql(statement));
@@ -453,14 +453,14 @@ static int _userfilter_append(_mod_userfilter_t *ctx, http_message_t *request, h
 	int ret = EREJECT;
 	int64_t methodid = _parsequery(ctx, request, 0);
 	int64_t roleid = _parsequery(ctx, request, 1);
-	const char *value = NULL;
-	size_t length = httpmessage_parameter(request, "pathexp", &value);
-	if (length > 0 && methodid != EREJECT && roleid != EREJECT)
+	string_t value = {0};
+	ouimessage_parameter(request, "pathexp", &value);
+	if (!string_empty(&value) && methodid != EREJECT && roleid != EREJECT)
 	{
-		char *decode = utils_urldecode(value, length);
-		if (decode != NULL)
-			ret = _insert_rule(ctx, methodid, roleid, decode, -1);
-		free(decode);
+		string_t *decode = string_create(string_size(&value));
+		if (string_decodeurl(decode, &value) == ESUCCESS)
+			ret = _insert_rule(ctx, methodid, roleid, decode);
+		string_destroy(decode);
 	}
 	if (ret != ESUCCESS)
 	{
@@ -469,7 +469,7 @@ static int _userfilter_append(_mod_userfilter_t *ctx, http_message_t *request, h
 	}
 	else
 	{
-		warn("userfilter: insert %s", value);
+		warn("userfilter: insert %s", string_toc(&value));
 #if defined RESULT_204
 		httpmessage_result(response, RESULT_204);
 #endif
