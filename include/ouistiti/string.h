@@ -80,6 +80,7 @@ const char string_index(const string_t *str, ssize_t index);
 void string_unquote(string_t *str);
 void string_unroot(string_t *str);
 int string_replace(string_t *str, size_t index, char c);
+int string_decodeurl(string_t *dst, const string_t *src);
 void string_cleansafe(string_t *str);
 void string_destroy(string_t *str);
 

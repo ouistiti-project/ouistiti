@@ -377,6 +377,22 @@ int string_empty(const string_t *str)
 	return ! (str != NULL && str->data != NULL && str->data[0] != '\0' && str->length > 0);
 }
 
+long int string_tol(const string_t *str, int base)
+{
+	return strtol(str->data, NULL, base);
+}
+
+const char string_index(const string_t *str, ssize_t index)
+{
+	if (string_empty(str))
+		return '\0';
+	if (index < 0)
+		return str->data[str->length + index];
+	if (index < str->length)
+		return str->data[index];
+	return '\0';
+}
+
 int string_cpy(string_t *str, const char *source, size_t length)
 {
 	if (str->ddata == NULL)
@@ -511,7 +527,7 @@ void string_unroot(string_t *str)
 
 int string_replace(string_t *str, size_t index, char c)
 {
-	if (str->ddata == NULL)
+	if (str == NULL || str->ddata == NULL)
 	{
 		err("string: replace must be a dynamic string");
 		return EREJECT;
@@ -522,20 +538,46 @@ int string_replace(string_t *str, size_t index, char c)
 	return ESUCCESS;
 }
 
-long int string_tol(const string_t *str, int base)
+int string_decodeurl(string_t *dst, const string_t *src)
 {
-	return strtol(str->data, NULL, base);
-}
-
-const char string_index(const string_t *str, ssize_t index)
-{
-	if (string_empty(str))
-		return '\0';
-	if (index < 0)
-		return str->data[str->length + index];
-	if (index < str->length)
-		return str->data[index];
-	return '\0';
+	if (dst == NULL || dst->ddata == NULL)
+	{
+		err("string: urldecode must be a dynamic string");
+		return EREJECT;
+	}
+	if (dst->size < src->size)
+	{
+		err("string: urldecode too small destination %d %d", dst->size, src->size);
+		return EREJECT;
+	}
+	int dstindex = 0;
+	for (int srcindex = 0; srcindex < src->length; srcindex++, dstindex++)
+	{
+		char c = string_index(src, srcindex);
+		if (c == '%')
+		{
+			srcindex++;
+			int encval = 0;
+			c = string_index(src, srcindex);
+			for (; c != ';' && srcindex < src->length; srcindex++)
+			{
+				encval = encval << 4;
+				if (c < 0x40)
+					encval += (c - 0x30);
+				else if (c < 0x47)
+					encval += (c - 0x41 + 10);
+				else if (c < 0x67)
+					encval += (c - 0x61 + 10);
+				c = string_index(src, srcindex);
+			}
+			c = (char) encval;
+			srcindex--;
+		}
+		dst->ddata[dstindex] = c;
+	}
+	dst->length = dstindex;
+	dst->ddata[dst->length] = 0;
+	return ESUCCESS;
 }
 
 string_t *string_value(string_t *str, const char *header, size_t length)
@@ -766,6 +808,24 @@ int main(int argc, char * const *argv)
 		err("\n%s not match'", string_toc(&const_string));
 	else
 		warn("\nmatch %s OK", string_toc(&const_string));
+
+	string_t *dst;
+	string_store(str2, "hello%20;world%20;on%20;earth", -1);
+	dst = string_create(string_size(str2));
+	string_decodeurl(dst, str2);
+	if (string_compare(str1, dst))
+		err("\n%s bad url decoding", string_toc(dst));
+	else
+		warn("\ndecodeurl %s OK", string_toc(str2));
+	string_destroy(dst);
+	string_store(str2, "hello%20;world%20;on%20earth", -1);
+	dst = string_create(string_size(str2));
+	string_decodeurl(dst, str2);
+	if (string_cmp(dst, string_toc(str1), string_length(dst)))
+		err("\n#%s# bad url decoding", string_toc(dst));
+	else
+		warn("\ndecodeurl %s OK", string_toc(str2));
+	string_destroy(dst);
 	return 0;
 }
 #endif
