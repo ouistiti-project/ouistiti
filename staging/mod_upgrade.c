@@ -54,6 +54,7 @@
 #include "ouistiti/log.h"
 #include "ouistiti/httpserver.h"
 #include "ouistiti/hash.h"
+#include "mod_document.h"
 #include "mod_upgrade.h"
 #include "ouistiti/utils.h"
 
@@ -84,16 +85,6 @@ struct _mod_upgrade_ctx_s
 const char str_rhttp[] = "PTTH/1.0";
 
 static int default_upgrade_run(void *arg, int sock, http_message_t *request);
-
-static int _checkname(mod_upgrade_t *config, const char *pathname)
-{
-	if (utils_searchexp(pathname, config->deny, NULL) == ESUCCESS &&
-		utils_searchexp(pathname, config->allow, NULL) != ESUCCESS)
-	{
-		return  EREJECT;
-	}
-	return ESUCCESS;
-}
 
 static int _upgrade_socket_unix(_mod_upgrade_ctx_t *ctx, const char *filepath)
 {
@@ -176,32 +167,35 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 	int ret = EREJECT;
 	_mod_upgrade_ctx_t *ctx = (_mod_upgrade_ctx_t *)arg;
 	_mod_upgrade_t *mod = ctx->mod;
-	const char *connection = httpmessage_REQUEST(request, str_connection);
-	const char *upgrade = httpmessage_REQUEST(request, str_upgrade);
-	const char *uri = httpmessage_REQUEST(request, "uri");
+	string_t connection = {0};
+	ouimessage_REQUEST(request, str_connection, &connection);
+	string_t upgrade = {0};
+	ouimessage_REQUEST(request, str_upgrade, &upgrade);
+	string_t uri = {0};
+	ouimessage_REQUEST(request, "uri", &uri);
 
 	if (ctx->socket == 0 &&
-		connection != NULL && (strcasestr(connection, str_upgrade) != NULL) &&
-		upgrade != NULL && (strcasestr(upgrade, mod->upgrade) != NULL))
+		!string_cmp(&connection, str_upgrade, -1) &&
+		!string_cmp(&upgrade, mod->upgrade, -1))
 	{
 
-		if (_checkname(mod->config, uri) != ESUCCESS)
+		if (htaccess_check(&mod->config->htaccess, &uri, NULL) != ESUCCESS)
 		{
 			warn("upgrade: %s forbidden", uri);
 			httpmessage_result(response, RESULT_403);
 			return ESUCCESS;
 		}
-		while (*uri == '/' && *uri != '\0') uri++;
-		ret = _upgrade_socket_unix(ctx, uri);
+		string_unroot(&uri);
+		ret = _upgrade_socket_unix(ctx, string_toc(&uri));
 #ifdef UPGRADE_INET
 		if (ret == EINCOMPLETE)
 		{
-			ret = _upgrade_socket_inet(ctx, uri);
+			ret = _upgrade_socket_inet(ctx, string_toc(&uri));
 		}
 #endif
 		if (ret == EINCOMPLETE)
 		{
-			warn("upgrade: protocol %s not found", uri);
+			warn("upgrade: protocol %s not found", string_toc(&uri));
 			httpmessage_result(response, RESULT_403);
 			ret = ESUCCESS;
 		}
@@ -272,17 +266,14 @@ static void *upgrade_config(config_setting_t *iterator, server_t *server)
 #endif
 	if (configws)
 	{
-		const char *mode = NULL;
 		conf = calloc(1, sizeof(*conf));
 		config_setting_lookup_string(configws, "docroot", &conf->docroot);
 #ifdef UPGRADE_INET
 		config_setting_lookup_string(configws, "serveraddr", &conf->uri);
 		config_setting_lookup_int(configws, "port", &conf->port);
 #endif
-		config_setting_lookup_string(configws, "allow", &conf->allow);
-		config_setting_lookup_string(configws, "deny", &conf->deny);
+		htaccess_config(configws, &conf->htaccess);
 		config_setting_lookup_string(configws, "upgrade", &conf->upgrade);
-		config_setting_lookup_string(configws, "options", &mode);
 	}
 	return conf;
 }
