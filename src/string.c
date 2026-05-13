@@ -614,7 +614,7 @@ int string_fgetline(string_t *str, FILE *file)
 	if (ret == -1)
 		return EREJECT;
 #endif
-	if (str->ddata[length] == '\n')
+	if (length > 0 && str->ddata[length] == '\n')
 		length--;
 	if (length == 0)
 		return EREJECT;
