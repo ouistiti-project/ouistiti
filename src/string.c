@@ -518,6 +518,51 @@ void string_unroot(string_t *str)
 {
 	if (string_empty(str))
 		return;
+	char *data = str->ddata;
+	if (data != NULL)
+	{
+		int lastslash = (data[0] == '/')?0:-1;
+		int dotchecking = 0;
+		for (int i = 0; i < str->length; i++)
+		{
+			char c = data[i];
+			if (dotchecking == 1)
+			{
+				if (c == '/')
+				{
+					memmove(data + i, data + i + 1, str->length - i + 1);
+					str->length--;
+					i--;
+					dotchecking = 0;
+					continue;
+				}
+				if (c == '.')
+				{
+					dotchecking = 2;
+					continue;
+				}
+				dotchecking = 0;
+				lastslash = i - 1;
+			}
+			if (dotchecking == 2)
+			{
+				if (c == '.')
+					continue;
+				if (c == '/')
+				{
+					memmove(data + lastslash + 1, data + i + 1, str->length - i + 1);
+					str->length -= i - lastslash;
+					i = lastslash;
+					dotchecking = 1;
+					continue;
+				}
+				dotchecking = 0;
+				lastslash = i - 2;
+			}
+			if (c == '/')
+				dotchecking = 1;
+		}
+	}
 	while((str->data[0] == '/' || str->data[0] == '.' ) && str->length > 0)
 	{
 		str->data++;
@@ -826,6 +871,40 @@ int main(int argc, char * const *argv)
 	else
 		warn("\ndecodeurl %s OK", string_toc(str2));
 	string_destroy(dst);
+
+	string_t *path = string_create(PATH_MAX);
+	string_store(path, "/ouistiti/test/files/index.html", -1);
+	warn("%s =>", string_toc(path));
+	string_unroot(path);
+	err("\tunroot %s", string_toc(path));
+	string_store(path, "/ouistiti/../test/files/index.html", -1);
+	warn("%s =>", string_toc(path));
+	string_unroot(path);
+	err("\tunroot %s", string_toc(path));
+	string_store(path, "ouistiti/../test/files/index.html", -1);
+	warn("%s =>", string_toc(path));
+	string_unroot(path);
+	err("\tunroot %s", string_toc(path));
+	string_store(path, "/ouistiti/test/files/index.html..", -1);
+	warn("%s =>", string_toc(path));
+	string_unroot(path);
+	err("\tunroot %s", string_toc(path));
+	string_store(path, "/ouistiti/test/../files/../../index.html", -1);
+	warn("%s =>", string_toc(path));
+	string_unroot(path);
+	err("\tunroot %s", string_toc(path));
+	string_store(path, "/ouistiti.test/files/index.html", -1);
+	warn("%s =>", string_toc(path));
+	string_unroot(path);
+	err("\tunroot %s", string_toc(path));
+	string_store(path, "/ouistiti/../../test/files/index.html", -1);
+	warn("%s =>", string_toc(path));
+	string_unroot(path);
+	err("\tunroot %s", string_toc(path));
+	string_store(path, "/ouistiti/test//../../files/index.html", -1);
+	warn("%s =>", string_toc(path));
+	string_unroot(path);
+	err("\tunroot %s", string_toc(path));
 	return 0;
 }
 #endif
