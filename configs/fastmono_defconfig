@@ -98,6 +98,7 @@ VHOST=n
 METHODLOCK=n
 #add Server Software name into the headers
 SERVERHEADER=y
+SERVER_CLEANURI=n
 #support of the HTTP streaming
 WEBSTREAM=n
 UDPGW=n
