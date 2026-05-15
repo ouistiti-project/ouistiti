@@ -313,8 +313,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		return  EREJECT;
 	}
 #ifdef DOCUMENTHOME
-	string_t tylde = {0};
-	string_store(&tylde, STRING_REF("/~"));
+	string_t tylde = STRING_DCL("/~");
 	if (string_startwith(&uri, &tylde))
 	{
 		string_slice(&uri, 2, 0);
