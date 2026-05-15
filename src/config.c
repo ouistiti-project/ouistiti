@@ -46,6 +46,7 @@
 
 extern char str_hostname[HOST_NAME_MAX + 7];
 
+static const string_t string_fileconf_search = STRING_DCL("*.conf$");
 typedef void (*_parsercb_t)(void *arg, const char *option, size_t length);
 
 static void config_mimes(const config_setting_t *configmimes)
@@ -240,7 +241,9 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 		struct dirent *entry = readdir(configdir);
 		while (entry != NULL)
 		{
-			if (entry->d_type == DT_REG && !utils_searchexp(entry->d_name, "*.conf$", NULL))
+			string_t entryname = {0};
+			string_store(&entryname, entry->d_name, -1);
+			if (entry->d_type == DT_REG && !string_match(&entryname, &string_fileconf_search, NULL))
 			{
 				char path[PATH_MAX] = {0};
 				snprintf(path, PATH_MAX - 1, "%s/%s",configd, entry->d_name);
