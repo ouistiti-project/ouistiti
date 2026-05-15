@@ -43,6 +43,7 @@ struct string_s
 #define STRING_DCL(string) {.data=string, .size=sizeof(string), .length=sizeof(string)-1}
 string_t *string_create(size_t size);
 string_t *string_dup(const string_t *src);
+void string_writable(string_t *str);
 void string_debug(const string_t *str, const char *name);
 int string_store(string_t *str, const char *pointer, size_t length);
 int string_cpy(string_t *str, const char *source, size_t length);
