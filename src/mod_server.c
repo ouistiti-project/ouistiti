@@ -101,6 +101,14 @@ static int _server_connector(void *arg, http_message_t *request, http_message_t 
 	int ret = EREJECT;
 	int options = 0;
 
+#if SERVER_CLEANURI
+	/// in writeable mode the unroot function clean all / .. inside the uri
+	string_t uri = {0};
+	ouimessage_REQUEST(request,"uri", &uri);
+	string_writable(&uri);
+	string_unroot(&uri);
+#endif
+
 	const char *software = httpmessage_SERVER(request, "software");
 	httpmessage_addheader(response, "Server", software, -1);
 	if (config)
