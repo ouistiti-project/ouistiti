@@ -113,6 +113,11 @@ int string_store(string_t *str, const char *pointer, size_t length)
 	return ESUCCESS;
 }
 
+void string_writable(string_t *str)
+{
+	str->ddata = (char *)str->data;
+}
+
 int string_cmp(const string_t *str, const char *cmp, size_t length)
 {
 	if (cmp == NULL)
