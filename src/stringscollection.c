@@ -94,3 +94,5 @@ const string_t string_dot = STRING_DCL(".");
 const string_t string_slash = STRING_DCL("/");
 const string_t string_noredirect = STRING_DCL("noredirect");
 const string_t string_redirect_uri = STRING_DCL("redirect_uri");
+const string_t string_uri_parsing = STRING_DCL("*://*/*?*");
+const string_t string_uriport_parsing = STRING_DCL("*://*:*/*?*");
