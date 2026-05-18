@@ -65,7 +65,6 @@ static int _mod_redirect_connectorerror(void *arg, http_message_t *request, http
 static const char str_redirect[] = "redirect";
 static const string_t string_noredirect_search = STRING_DCL("*noredirect*");
 static const string_t string_generate204_search = STRING_DCL("generate_204,^/true*");
-static const string_t string_url_search = STRING_DCL("*://*");
 
 struct _mod_redirect_s
 {
@@ -355,12 +354,17 @@ static int _mod_redirect_connectorlink(_mod_redirect_t *mod, http_message_t *req
 			}
 			if (ret == ESUCCESS && !string_empty(decode))
 			{
-				ret = string_match(decode, &string_url_search, NULL);
-				if (ret != ESUCCESS)
+				string_t protocol = {0};
+				string_t host = {0};
+				ret = string_match(decode, &string_uri_parsing, &protocol, &host, NULL);
+				/// the redirect is not an URL
+				if (ret == -1 && string_index(decode, '/') == 0)
+					ret = ESUCCESS;
+				if (ret > 1)
 				{
 					string_t hostname = {0};
 					ouimessage_REQUEST(request, "hostname", &hostname);
-					ret = string_match(decode, &hostname, NULL);
+					ret = string_match(&host, &hostname, NULL);
 				}
 			}
 			if (ret == ESUCCESS && !string_empty(decode))
