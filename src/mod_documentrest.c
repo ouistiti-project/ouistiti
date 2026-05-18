@@ -207,24 +207,22 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 		ouimessage_REQUEST(request,"Content-Location", &location);
 		if (!string_empty(&location))
 		{
-			char *target;
-			const char *tlocation = string_toc(&location);
-			while (tlocation[0] == '/') tlocation++;
-			target = utils_abspath(tlocation);
-			if (!target)
+			string_t target = {0};
+			string_store(&target, string_toc(&location), string_length(&location));
+			string_unroot(&target);
+			if (string_empty(&target))
 			{
 				err("document: try to link a bad file %s", string_toc(&location));
 				httpmessage_result(response, RESULT_403);
 				return 0;
 			}
-			dbg("PUT symlink %s => %s", string_toc(url), target);
+			dbg("PUT symlink %s => %s", string_toc(url), string_toc(&target));
 			errno = 0;
-			fdfile = symlinkat(target, fdroot, string_toc(url));
+			fdfile = symlinkat(string_toc(&target), fdroot, string_toc(url));
 			if (fdfile == -1)
 				err("document: symbolic link creation error(%m). Check parent directory access.");
 			else
-				warn("document: new symbolic link %s to %s", string_toc(url), target);
-			free(target);
+				warn("document: new symbolic link %s to %s", string_toc(url), string_toc(&target));
 		}
 		else
 			errno = EINVAL;
