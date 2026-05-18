@@ -210,5 +210,7 @@ extern const string_t string_dot;
 extern const string_t string_slash;
 extern const string_t string_noredirect;
 extern const string_t string_redirect_uri;
+extern const string_t string_uri_parsing;
+extern const string_t string_uriport_parsing;
 
 #endif
