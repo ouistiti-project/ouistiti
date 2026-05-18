@@ -568,6 +568,10 @@ void string_unroot(string_t *str)
 				dotchecking = 1;
 		}
 	}
+	else if (strstr(str->data, ".."))
+	{
+		string_store(str, str__empty, 0);
+	}
 	while((str->data[0] == '/' || str->data[0] == '.' ) && str->length > 0)
 	{
 		str->data++;
