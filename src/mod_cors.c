@@ -75,15 +75,12 @@ static int _cors_connector(void *arg, http_message_t *request, http_message_t *r
 	ouimessage_REQUEST(request, "Origin", &origin);
 	string_t protocol = {0};
 	string_t host = {0};
-	string_t port = {0};
 	const string_t *checkorigin = &mod->config->origin;
 
 	if (string_empty(checkorigin))
 		checkorigin = &mod->hostname;
 	if (!string_empty(&origin))
-		string_split(&origin, ':', &protocol, &host, &port, NULL);
-	if (!string_empty(&host))
-		string_slice(&host, 2, -1);/// remove first "//"
+		string_match(&origin,&string_uri_parsing, &protocol, &host, NULL);
 
 	if (!string_empty(checkorigin) && !string_empty(&host) &&
 		!string_into(&host, checkorigin, ','))
