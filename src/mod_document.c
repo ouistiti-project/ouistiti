@@ -435,13 +435,23 @@ static int mod_send_read(document_connector_t *private, http_message_t *response
 	 * check the size for the range support
 	 * the size may be different of the real size file
 	 */
-	chunksize = (CONTENTCHUNK > private->size)?private->size:CONTENTCHUNK;
+	chunksize = (private->chunksize > private->size)?private->size:private->chunksize;
 	size = read(private->fdfile, content, chunksize);
 	if (size > 0)
 	{
 		ret = size;
 		content[size] = 0;
-		httpmessage_addcontent(response, "none", content, size);
+		const char *it = content;
+		int length = 0;
+		ret = httpmessage_addcontent(response, "none", it, size);
+		while (ret > 0 && size > ret)
+		{
+			it += ret;
+			size -= ret;
+			ret = httpmessage_appendcontent(response, it, size);
+		}
+		if (ret < 0)
+			err("document: chunksize too large");
 		document_dbg("document: send %d", size);
 	}
 	else if (size == -1)
