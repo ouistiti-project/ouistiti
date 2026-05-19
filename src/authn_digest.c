@@ -554,7 +554,7 @@ static int authn_digest_checknc(void *data, const char *value, size_t length)
 	if (value != NULL)
 	{
 		long nc = strtol(value, NULL, 10);
-		if (nc < 5)
+		if ((ctx->stale + 1) == nc && nc < 5)
 		{
 			info->value = value;
 			info->length = length;
@@ -565,7 +565,9 @@ static int authn_digest_checknc(void *data, const char *value, size_t length)
 		return EREJECT;
 	}
 	warn("auth: nc is unset");
-	return ESUCCESS;
+	if (ctx->stale < 5)
+		return ESUCCESS;
+	return EREJECT;
 }
 
 static int authn_digest_checkresponse(void *data, const char *value, size_t length)
@@ -635,7 +637,7 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 	checkstring_t qop = {.mod = mod};
 	checkstring_t nonce = {.mod = mod, .ctx = ctx};
 	checkstring_t cnonce = {.mod = mod, .value = str_empty, .length = 0};
-	checkstring_t nc = {.mod = mod};
+	checkstring_t nc = {.mod = mod, .ctx = ctx};
 	checkstring_t opaque = {.mod = mod, .value = str_empty, .length = 0};
 	checkstring_t response = {.mod = mod};
 	utils_parsestring_t parser[] = {
