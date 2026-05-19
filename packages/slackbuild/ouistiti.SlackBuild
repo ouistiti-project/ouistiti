@@ -23,7 +23,7 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PRGNAM=ouistiti
-VERSION=1.0
+VERSION=3.6
 BUILD=${BUILD:-1}
 TAG=${TAG:-_SBo}
 
@@ -69,8 +69,11 @@ cd $PRGNAM
 chown -R root:root .
 chmod -R u+w,go+r-w,a-s .
 
-./configure --prefix=/usr --libdir=/usr/lib${LIBDIRSUFFIX}/ouistiti --sysconfdir=/etc/ouistiti --enable-static --disable-dynamic
+make prefix=/usr libdir=/usr/lib${LIBDIRSUFFIX}/ouistiti sysconfdir=/etc/ouistiti \
+	BUILDDIR=$PWD/build \
+	threadpool_defconfig
 
+cd build
 make
 
 make DESTDIR=$PKG install

@@ -10,9 +10,6 @@ daemon_start() {
     echo "Starting ${DAEMON} daemon:  ${DAEMONDIR}/${DAEMON}"
     ${DAEMONDIR}/${DAEMON} ${DAEMONPARAMS} 
   fi
-  if [ -x /usr/bin/websocket_chat ]; then
-    /usr/bin/websocket_chat -w &
-  fi
 }
 
 # Stop inetd:

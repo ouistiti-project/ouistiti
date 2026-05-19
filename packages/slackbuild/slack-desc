@@ -14,6 +14,6 @@ ouistiti: - CGI scripts
 ouistiti: - Simple Authentication
 ouistiti: - fast static file sending
 ouistiti:
-ouistiti: Homepage: https://github.com/ouistiti-net
+ouistiti: Homepage: https://github.com/ouistiti-project
 ouistiti:
 ouistiti:
