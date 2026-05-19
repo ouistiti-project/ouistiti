@@ -489,6 +489,7 @@ static void *_document_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 
 	private = calloc(1, sizeof(*private));
 
+	private->chunksize = CONTENTCHUNK;
 	mod->transfer = mod_send_read;
 #ifdef SENDFILE
 	if (config->options & DOCUMENT_SENDFILE)

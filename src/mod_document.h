@@ -69,7 +69,11 @@ extern const module_t mod_document;
 /**
  * interface to change the data transfer function
  */
+#if !defined(CONTENTCHUNK) && defined(MAXCHUNKS_CONTENT)
+#define CONTENTCHUNK (MAXCHUNKS_CONTENT*HTTPMESSAGE_CHUNKSIZE)
+#elif !defined(CONTENTCHUNK)
 #define CONTENTCHUNK 64
+#endif
 
 typedef struct _mod_document_mod_s _mod_document_mod_t;
 typedef struct _document_connector_s document_connector_t;
@@ -97,6 +101,7 @@ struct _document_connector_s
 	struct dirent **ents;
 	int nbents;
 	http_connector_t func;
+	size_t chunksize;
 	unsigned long long size;
 	unsigned long long offset;
 #ifdef DEBUG
