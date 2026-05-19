@@ -46,6 +46,12 @@
 #ifdef FILE_CONFIG
 #include <libconfig.h>
 #endif
+#ifdef OPENSSL
+#include <openssl/rand.h>
+#endif
+#ifdef MBEDTLS
+#include <psa/crypto.h>
+#endif
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/utils.h"
@@ -360,7 +366,14 @@ static void *mod_webstream_create(http_server_t *server, mod_webstream_t *config
 	mod->config = config;
 	mod->fdroot = fdroot;
 	httpserver_addmod(server, _mod_webstream_getctx, _mod_webstream_freectx, mod, str_webstream);
-	srandom(time(NULL));
+	unsigned int seed = time(NULL);
+#ifdef OPENSSL
+	RAND_bytes((uint8_t*)&seed, sizeof(seed));
+#endif
+#ifdef MBEDTLS
+	psa_generate_random((uint8_t*)&seed, sizeof(seed));
+#endif
+	srandom(seed);
 	return mod;
 }
 
