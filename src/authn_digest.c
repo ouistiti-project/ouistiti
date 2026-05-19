@@ -192,16 +192,8 @@ static int authn_digest_nonce(authn_mod_t *mod, string_t *nonce)
 	char _nonce[((HASH_MAX_SIZE * 3) / 2 + 1)] = {0};
 
 	int usedate = 0;
-#ifdef OPENSSL
-	if (!RAND_bytes((uint8_t*)&usedate, sizeof(usedate)))
-#endif
-#ifdef MBEDTLS
-	if (psa_generate_random((uint8_t *)&usedate, sizeof(usedate)) != PSA_SUCCESS)
-#endif
-	{
-		srandom(time(NULL));
-		usedate = random() % 5;
-	}
+	/// The srandom is done inside mod_auth
+	usedate = random() % 5;
 	if (usedate)
 	{
 		ret = authn_digest_noncetime(mod, _nonce, sizeof(_nonce));

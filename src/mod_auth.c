@@ -77,6 +77,9 @@
 #ifdef DEBUG
 #warning "debug mode in unsafe"
 #endif
+#if !defined(OPENSSL) && !defined(MBEDTLS)
+#warning "without openssl or mbedtls auth is unsafe"
+#endif
 
 typedef struct _mod_auth_s _mod_auth_t;
 typedef struct _mod_auth_ctx_s _mod_auth_ctx_t;
