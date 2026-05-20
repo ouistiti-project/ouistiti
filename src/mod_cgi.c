@@ -438,6 +438,8 @@ static int _cgi_response(mod_cgi_ctx_t *ctx, http_message_t *response)
 	{
 		_cgi_changestate(ctx, STATE_OUTFINISH);
 		kill(ctx->pid, SIGTERM);
+		usleep(10000);
+		kill(ctx->pid, SIGKILL);
 		dbg("cgi: complete");
 		ret = ECONTINUE;
 	}
