@@ -1,0 +1,5 @@
+DESC="test to PUT a too big file"
+PREPARE="rm -f ${TESTDIR}/htdocs/test43.txt"
+CONFIG=test6.conf
+TESTREQUEST=test043_rq.txt
+TESTCODE=400

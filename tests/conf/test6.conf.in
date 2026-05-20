@@ -10,6 +10,7 @@ servers= ({
 			allow = ".html,.*htm*,.css,.js,.txt,*";
 			deny = ".htaccess,.cgi,*.php";
 			options = "dirlisting,range,rest";
+			maxsize = 2000;
 		};
 		websocket = {
 			docroot = "/tmp";
