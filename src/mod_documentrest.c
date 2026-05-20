@@ -176,10 +176,10 @@ static int putfile_connector(void *arg, http_message_t *request, http_message_t 
 	return ret;
 }
 
-int _document_getconnnectorput(_mod_document_mod_t *mod,
+int _document_openconnnector(_mod_document_mod_t *mod,
 		int fdroot, string_t *url, const char **mime,
 		http_message_t *request, http_message_t *response,
-		http_connector_t *connector)
+		http_connector_t *connector, int openflags)
 {
 	int fdfile = -1;
 	string_t contenttype = {0};
@@ -235,7 +235,23 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 	}
 	else if (fdfile != 0)
 	{
-		fdfile = openat(fdroot, string_toc(url), O_WRONLY | O_CREAT | O_EXCL, 0640);
+		string_t contentlength = {0};
+		ouimessage_REQUEST(request, str_contentlength, &contentlength);
+		if (string_empty(&contentlength))
+		{
+			err("Document: Put requires a content-length");
+			errno = EINVAL;
+			restheader_connector(request, response, errno);
+			return 0;
+		}
+		if (string_tol(&contentlength, 10) > mod->config->maxsize)
+		{
+			err("Document: Put content-length too large");
+			errno = EINVAL;
+			restheader_connector(request, response, errno);
+			return 0;
+		}
+		fdfile = openat(fdroot, string_toc(url), openflags, 0640);
 		if (fdfile < 0)
 		{
 			err("Document: File creation error(%m). Check parent file access.");
@@ -251,6 +267,14 @@ int _document_getconnnectorput(_mod_document_mod_t *mod,
 		httpmessage_result(response, RESULT_201);
 #endif
 	return fdfile;
+}
+
+int _document_getconnnectorput(_mod_document_mod_t *mod,
+		int fdroot, string_t *url, const char **mime,
+		http_message_t *request, http_message_t *response,
+		http_connector_t *connector)
+{
+	return _document_openconnnector(mod, fdroot, url, mime, request, response, connector, O_WRONLY | O_CREAT | O_EXCL);
 }
 
 static int _document_renameat(int fddir, string_t *oldpath, string_t *newpath)
@@ -339,14 +363,7 @@ int _document_getconnnectorpost(_mod_document_mod_t *mod,
 #endif
 	else if (string_empty(&cmd))
 	{
-		fdfile = openat(fdroot, string_toc(url), O_WRONLY | O_TRUNC, 0640);
-		if (fdfile < 0)
-		{
-			restheader_connector(request, response, errno);
-			fdfile = 0; /// The request is complete by this connector
-		}
-		else
-			*connector = putfile_connector;
+		fdfile = _document_openconnnector(mod, fdroot, url, mime, request, response, connector, O_WRONLY | O_TRUNC);
 	}
 	else
 	{

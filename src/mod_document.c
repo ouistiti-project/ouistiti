@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <time.h>
+#include <limits.h>
 
 #ifdef FILE_CONFIG
 #include <libconfig.h>
@@ -539,6 +540,8 @@ static int document_configpart(config_setting_t *config, server_t *server, int i
 	config_setting_lookup_string(config, "dochome", (const char **)&static_file->dochome);
 	htaccess_config(config, &static_file->htaccess);
 	config_setting_lookup_string(config, "defaultpage", (const char **)&static_file->defaultpage);
+	static_file->maxsize = USHRT_MAX * 1000;
+	config_setting_lookup_int64(config, "maxsize", (long long *)&static_file->maxsize);
 
 	char *options = NULL;
 	ret = config_setting_lookup_string(config, "options", (const char **)&options);
