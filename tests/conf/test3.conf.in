@@ -9,6 +9,7 @@ servers= ({
 			docroot = "htdocs";
 			allow = ".cgi*";
 			deny = ".htaccess,.php,*.py";
+			env = ["FOO=bar"];
 		};
 		python = {
 			docroot = "htdocs";
