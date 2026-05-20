@@ -1,0 +1,4 @@
+DESC="test a request with too old nonce"
+CONFIG=test4.conf
+TESTRESPONSE=error401Digest_rs.txt
+TESTCODE=401
