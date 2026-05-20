@@ -1,0 +1,4 @@
+DESC="POST request to CGI with header injection"
+CONFIG=test3.conf
+TESTRESPONSE=test020_rs.txt
+TESTCODE=200

@@ -1,5 +1,6 @@
 POST /test.cgi HTTP/1.1
 HOST: 127.0.0.1
+User-Agent: ouistiti-client
 Content-Type: text/plain
 Content-Length:12
 
