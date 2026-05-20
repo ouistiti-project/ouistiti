@@ -60,6 +60,7 @@ typedef struct mod_document_s
 	htaccess_t htaccess;
 	const char *defaultpage;
 	int options;
+	size_t maxsize;
 } mod_document_t;
 
 int document_config(void *iterator, server_t *server, int index, void **config);
