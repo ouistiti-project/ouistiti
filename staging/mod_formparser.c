@@ -158,7 +158,9 @@ static int _form_connector(void *arg, http_message_t *request, http_message_t *r
 	}
 	else if (data)
 	{
-		ctx->boundary = strchr(strstr(data, "boundary"), '=') + 1;
+		char *boundary = strchr(strstr(data, "boundary"), '=');
+		if (boundary)
+			ctx->boundary = boundary + 1;
 		//ret = _form_data_connector(arg, request, response);
 	}
 	printf("message post %s\n", mod_form_urlencoded_post(request, "toto"));
