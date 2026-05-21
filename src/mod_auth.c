@@ -1485,7 +1485,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		ret = _authn_check(ctx, authz, request, &authorization, &user);
 		auth_dbg("auth: checkauthorization %d", ret);
 	}
-	if (ret == EREJECT)
+	if (ret == EREJECT && user)
 	{
 		const char *sessionuser = NULL;
 		auth_info2(request, str_user, &sessionuser);
@@ -1502,7 +1502,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		err("auth: %s rejects autorisation for %s", string_toc(&config->token.issuer), user);
 		ret = _authn_challenge(ctx, request, response);
 	}
-	else if (!string_empty(&authorization))
+	else if (!string_empty(&authorization) && user)
 	{
 		if (httpclient_setsession(ctx->clt, string_toc(&authorization), -1) >= 0)
 		{
