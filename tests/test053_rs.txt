@@ -6,3 +6,7 @@ Set-Cookie: X-Remote-Home=~/; SameSite=strict; Path=/
 Location: https://www.ouistiti.local:8080/index.html
 
  307 Temporary Redirect
+HTTP/1.1 204 No Content
+
+HTTP/1.1 200 OK
+
