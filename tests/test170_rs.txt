@@ -1,0 +1,3 @@
+HTTP/1.1 302 Found
+WWW-Authenticate: Basic realm="auth.ouistiti.local"
+Location: /trust/signin.html?redirect_uri=https://www.ouistiti.local:8080/index.html
