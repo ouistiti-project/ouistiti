@@ -595,11 +595,11 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 	}
 #endif
 	if (!string_empty(&userstr) && !string_empty(&passwdstr) &&
-		!_authz_sqlite_checkpasswd(ctx, &userstr, &passwdstr))
+		_authz_sqlite_checkpasswd(ctx, &userstr, &passwdstr))
 	{
-		user = NULL;
+		return user;
 	}
-	return user;
+	return NULL;
 }
 
 int authz_sqlite_getid(authz_sqlite_t *ctx, const char *name, int length, int group)
