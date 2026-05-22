@@ -167,13 +167,25 @@ static int authmngt_setrules(const config_setting_t *configauth, mod_authmngt_t 
 
 static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int index, void **modconfig)
 {
+	int options = 0;
 	int conf_ret = ESUCCESS;
 	mod_authmngt_t *mngtconfig = NULL;
 #if LIBCONFIG_VER_MINOR < 5
-	const config_setting_t *config = config_setting_get_member(iterator, "auth");
+	const config_setting_t *config = config_setting_get_member(iterator, "authmngt");
 #else
-	const config_setting_t *config = config_setting_lookup(iterator, "auth");
+	const config_setting_t *config = config_setting_lookup(iterator, "authmngt");
 #endif
+	if (config)
+		options = 1;
+	if (!options)
+	{
+#if LIBCONFIG_VER_MINOR < 5
+		config = config_setting_get_member(iterator, "auth");
+#else
+		config = config_setting_lookup(iterator, "auth");
+#endif
+	}
+
 	if (config && config_setting_is_list(config))
 	{
 			if (index >= config_setting_length(config))
@@ -187,21 +199,24 @@ static int mod_authmngt_config(config_setting_t *iterator, server_t *server, int
 		const char *mode = NULL;
 		int ret = config_setting_lookup_string(config, "options", &mode);
 		if (ret == CONFIG_TRUE && strstr(mode, "management"))
+			options = 1;
+	}
+
+	if (options == 1)
+	{
+		mngtconfig = calloc(1, sizeof(*mngtconfig));
+		if (authmngt_setrules(config, mngtconfig) != ESUCCESS)
 		{
-			mngtconfig = calloc(1, sizeof(*mngtconfig));
-			if (authmngt_setrules(config, mngtconfig) != ESUCCESS)
-			{
-				free(mngtconfig);
-				mngtconfig = NULL;
-				return EREJECT;
-			}
-			const char *issuername = NULL;
-			if (config_setting_lookup_string(config, "issuer", &issuername) != CONFIG_TRUE)
-			{
-				issuername = mngtconfig->mngt.name;
-			}
-			string_store(&mngtconfig->issuer, issuername, -1);
+			free(mngtconfig);
+			mngtconfig = NULL;
+			return EREJECT;
 		}
+		const char *issuername = NULL;
+		if (config_setting_lookup_string(config, "issuer", &issuername) != CONFIG_TRUE)
+		{
+			issuername = mngtconfig->mngt.name;
+		}
+		string_store(&mngtconfig->issuer, issuername, -1);
 	}
 	if ((mngtconfig == NULL) && (conf_ret == ESUCCESS)) //the config is an object
 		conf_ret = EREJECT;
