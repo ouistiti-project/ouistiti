@@ -109,6 +109,9 @@ static const char *authz_simple_check(void *arg, const char *user, const char *p
 {
 	const authz_simple_t *ctx = (const authz_simple_t *)arg;
 
+	/// check only the presence of user
+	if (user != NULL && passwd == NULL && !string_cmp(&ctx->user, user, -1))
+		return user;
 	if (user != NULL && passwd != NULL &&
 		!string_cmp(&ctx->user, user, -1) && !string_empty(&ctx->passwd) &&
 		(authz_checkpasswd(passwd, &ctx->user, NULL,  &ctx->passwd) == ESUCCESS))

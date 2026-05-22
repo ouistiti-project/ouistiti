@@ -237,7 +237,18 @@ static const char *authz_file_check(void *arg, const char *user, const char *pas
 	string_store(&userstr, user, -1);
 	string_t passwdstr = {0};
 	string_store(&passwdstr, passwd, -1);
-	if (!string_empty(&userstr) && !string_empty(&passwdstr) && _authz_file_checkpasswd(ctx, &userstr, &passwdstr))
+	if (!string_empty(&userstr) && passwd == NULL)
+	{
+		/// check only the presence of user
+		string_t *checkpasswd = string_create(1024);
+		int ret = authz_file_passwd(ctx, &userstr, checkpasswd);
+		string_cleansafe(checkpasswd);
+		string_destroy(checkpasswd);
+		if (ret == ESUCCESS)
+			return user;
+	}
+	if (!string_empty(&userstr) && !string_empty(&passwdstr) &&
+		_authz_file_checkpasswd(ctx, &userstr, &passwdstr))
 		return user;
 	return NULL;
 }

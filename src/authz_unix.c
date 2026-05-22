@@ -218,6 +218,11 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 			auth_dbg("authz unix: passwd error");
 		}
 	}
+	else if (pw)
+	{
+		/// check only the presence of user
+		ret = ESUCCESS;
+	}
 	else
 	{
 		auth_dbg("authz unix: user %s not found", user);
@@ -229,7 +234,7 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 {
 	authz_ctx_t *ctx = (authz_ctx_t *)arg;
 
-	if (user != NULL && passwd != NULL && _authz_unix_checkpasswd(ctx, user, passwd))
+	if (user != NULL && _authz_unix_checkpasswd(ctx, user, passwd))
 		return user;
 	return NULL;
 }
