@@ -1,5 +1,5 @@
 GET /token?redirect_uri=https://www.ouistiti.local:8080/index.html HTTP/1.1
 HOST: auth.ouistiti.local
 Connection: Close
-Authorization: Basic am9obkRvZTpqYW5l
+Authorization: Basic Sm9obiBEb2U6amFuZQ==
 
