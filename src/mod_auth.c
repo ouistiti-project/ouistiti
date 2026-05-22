@@ -1384,6 +1384,23 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	return ESUCCESS;
 }
 
+/**
+ * @brief check the authentication
+ *
+ * Origine of authentication:
+ *  - from headers: may be "Authorization" or "X-Auth-Token"
+ *  - from cookie: may be "Authorization" or "X-Auth-Token" inside "Cookie" header
+ *  - from query part (URI or Form body)
+ *  - from a previous authentication (if following authentications are configurated by issuers)
+ * Authentication rules:
+ *  - if Authorization is accepted by authn and after by authz
+ *  - if X-Auth-Token is accepted by token, or by authn and after by authz we must check the following rules
+ *    - the issuer of the current authentication must be inside the token's issuer
+ *    - the token's user must be accepted by the current authz
+ *    - the expiration date must be valid
+ * Response
+ * @return ERJECT if authentication is good, ESUCCESS if authentication is bad
+ */
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = ECONTINUE;
@@ -1485,15 +1502,17 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		ret = _authn_check(ctx, authz, request, &authorization, &user);
 		auth_dbg("auth: checkauthorization %d", ret);
 	}
-	if (ret == EREJECT && user)
+	if (ret == EREJECT)
 	{
 		const char *sessionuser = NULL;
 		auth_info2(request, str_user, &sessionuser);
-		if (sessionuser && strcmp(user, sessionuser))
+		if (user && sessionuser && strcmp(user, sessionuser))
 		{
 			httpmessage_result(response, RESULT_500);
 			ret = ESUCCESS;
 		}
+		else if (user == NULL)
+			user = sessionuser;
 	}
 
 	if (ret != EREJECT)
