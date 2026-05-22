@@ -126,6 +126,8 @@ void *authz_totp_config(const void *configauth, authz_type_t *type)
 
 static int _authz_totp_connector(void *arg, http_message_t *request, http_message_t *response)
 {
+	int ret = EREJECT;
+	string_t *ptotpkey = NULL;
 	authz_mod_t *mod = (authz_mod_t *)arg;
 	authz_totp_config_t *config = mod->config;
 	string_t uri = {0};
@@ -136,15 +138,21 @@ static int _authz_totp_connector(void *arg, http_message_t *request, http_messag
 		ouimessage_SESSION(request, "otpauth", &otpurl);
 		string_t totpkey = {0};
 		ouimessage_SESSION(request, str_totpkey, &totpkey);
+		string_t user = {0};
+		ouimessage_SESSION(request, str_user, &user);
+		if (string_empty(&totpkey) && !string_empty(&user))
+		{
+			ptotpkey = string_create(HASH_MAX_SIZE + 1);
+			authz_totp_generateK(config, &user, ptotpkey);
+			string_store(&totpkey, string_toc(ptotpkey), string_length(ptotpkey));
+		}
 		if (string_empty(&totpkey) && string_empty(&otpurl))
 		{
 			err("auth: the totp key is not set, the access should be denied");
 			httpmessage_result(response, RESULT_401);
-			return ESUCCESS;
+			ret = ESUCCESS;
 		}
-		string_t user = {0};
-		ouimessage_SESSION(request, str_user, &user);
-		if (!string_empty(&user))
+		if (ret && !string_empty(&user))
 		{
 			char url[OTP_MAXURL] = {0};
 			if (string_empty(&otpurl))
@@ -154,10 +162,15 @@ static int _authz_totp_connector(void *arg, http_message_t *request, http_messag
 			}
 			httpmessage_addcontent(response, str_mime_textplain, string_toc(&otpurl), string_length(&otpurl));
 			httpmessage_appendcontent(response, STRING_REF("\n"));
-			return ESUCCESS;
+			ret = ESUCCESS;
 		}
 	}
-	return EREJECT;
+	if (ptotpkey)
+	{
+		string_cleansafe(ptotpkey);
+		string_destroy(ptotpkey);
+	}
+	return ret;
 }
 
 static void *authz_totp_create(http_server_t *server, string_t *issuer, void *arg)
