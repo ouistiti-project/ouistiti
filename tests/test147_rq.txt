@@ -1,4 +1,4 @@
-POST /auth/mngt/johnDoe HTTP/1.1
+POST /auth/mngt/John%20;Doe HTTP/1.1
 HOST: auth.ouistiti.local
 Cookie: X-Auth-Token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiZm9vIiwiaG9tZSI6Ii9ob21lL2ZvbyIsInN0YXR1cyI6ImFjdGl2YXRlZCIsInJvbGVzIjoidXNlcnMiLCJleHAiOjE4MDAsImlzcyI6ImF1dGhwYXNzK3RvdHAifQ.jlVRyRv56C6fblABEnSWk0UCZp1_jsKmT6RfrSETSlQ; X-Remote-User=foo;
 Authorization: Basic Zm9vOmJhcg==

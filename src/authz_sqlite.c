@@ -148,11 +148,11 @@ static int _authz_sqlite_createdb(const char *dbname)
 		"insert into passwds (userid,passwd,statusid)"
 			"values((select id from users where name=\"foo\"),\"bar\",(select id from status where name=\"activated\"));",
 		"insert into users (name,groupid,home)"
-			"values(\"johnDoe\",(select id from groups where name=\"users\"),\"/home/john\");",
+			"values(\"John Doe\",(select id from groups where name=\"users\"),\"/home/john\");",
 		"insert into passwds (userid,passwd,statusid)"
-			"values((select id from users where name=\"johnDoe\"),\"jane\",(select id from status where name=\"activated\"));",
+			"values((select id from users where name=\"John Doe\"),\"jane\",(select id from status where name=\"activated\"));",
 		"insert into issuers (userid,issuer)"
-			"values((select id from users where name=\"johnDoe\"),\"totp\");",
+			"values((select id from users where name=\"John Doe\"),\"totp\");",
 #endif
 		NULL,
 	};
@@ -210,10 +210,16 @@ static void *authz_sqlite_create(http_server_t *UNUSED(server), string_t *issuer
 	}
 	auth_dbg("auth: authentication DB storage on %s", config->dbname);
 
+	sqlite3 *db = _authz_sqlite_opendb(config->dbname);
+	if (db == NULL)
+	{
+		err("auth: authx sqlite error");
+		return NULL;
+	}
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->config = config;
 	ctx->issuer = issuer;
-	ctx->db = _authz_sqlite_opendb(config->dbname);
+	ctx->db = db;
 	return ctx;
 }
 
