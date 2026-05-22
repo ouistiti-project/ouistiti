@@ -88,9 +88,12 @@ static void *authn_none_create(const authn_t *authn, string_t *issuer, void *arg
 	return mod;
 }
 
-static int authn_none_challenge(void *UNUSED(arg), http_message_t *UNUSED(request), http_message_t *UNUSED(response))
+static int authn_none_challenge(void *UNUSED(arg), http_message_t *UNUSED(request), http_message_t *response)
 {
-	return EREJECT;
+	/// as none should accept all authentication, we should not be here
+	/// just one exception if the user is unkown by authz
+	httpmessage_result(response, RESULT_500);
+	return ESUCCESS;
 }
 
 #if 0
@@ -98,8 +101,12 @@ static const char *authn_none_check(void *arg, authz_t *UNUSED(authz), const cha
 {
 	const authn_none_t *mod = (const authn_none_t *)arg;
 	const authn_none_config_t *config = mod->config;
+	const char *user = NULL;
 
-	return string_toc(&config->user);
+	if (!user)
+		user = string_toc(&mod->config->user);
+	user = authz->rules->check(authz->ctx, user, NULL, NULL);
+	return user;
 }
 #else
 static const char *authn_none_checkrequest(void *arg, authz_t *authz, http_message_t *request)
@@ -111,6 +118,7 @@ static const char *authn_none_checkrequest(void *arg, authz_t *authz, http_messa
 	user = auth_info(request, STRING_REF(str_user));
 	if (!user)
 		user = string_toc(&mod->config->user);
+	user = authz->rules->check(authz->ctx, user, NULL, NULL);
 	return user;
 }
 #endif

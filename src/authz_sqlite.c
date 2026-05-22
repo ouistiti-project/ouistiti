@@ -594,8 +594,37 @@ static const char *authz_sqlite_check(void *arg, const char *user, const char *p
 			return user;
 	}
 #endif
-	if (!string_empty(&userstr) && !string_empty(&passwdstr) &&
+	if (!string_empty(&userstr))
+	{
+		int ret;
+		const char *sql = "select users.id as \"user\" from users " \
+							"where users.name=@NAME;";
+
+		sqlite3_stmt *statement = NULL; /// use a specific statement
+		ret = sqlite3_prepare_v2(ctx->db, sql, -1, &statement, NULL);
+		SQLITE3_CHECK(ret, NULL, sql);
+
+		int index = 0;
+		index = sqlite3_bind_parameter_index(statement, "@NAME");
+		ret = sqlite3_bind_text(statement, index, user, -1, SQLITE_STATIC);
+		SQLITE3_CHECK(ret, NULL, sql);
+
+		auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
+		ret = sqlite3_step(statement);
+		sqlite3_finalize(statement);
+		if (ret != SQLITE_ROW)
+		{
+			return NULL;
+		}
+	}
+	/// we check passwd if passwd but it's empty, we need to check the passwd
+	/// if passwd is null, we need to check only the user
+	if (!string_empty(&userstr) && passwd &&!string_empty(&passwdstr) &&
 		_authz_sqlite_checkpasswd(ctx, &userstr, &passwdstr))
+	{
+		return user;
+	}
+	else if (!string_empty(&userstr) && passwd == NULL)
 	{
 		return user;
 	}
