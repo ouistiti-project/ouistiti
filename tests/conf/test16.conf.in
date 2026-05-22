@@ -38,13 +38,14 @@ servers= ({
 				   A JWT may be used for authentication or POST with ww-form-urlencoded.
 				   The cookie option generates the token inside cookie
 				*/
-				options = "jwt";
+				options = "jwt,cookie";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
 				unprotect = "^/trust/*";
 				signin = "/trust/signin.html?step=totp";
 				issuer = "totp";
 				realm = "auth.ouistiti.local:totp";
-			},{
+			});
+			authmngt = {
 				/*
 				   The last auth is not a real authentication
 				   It generates the cookie for the user and
@@ -53,9 +54,8 @@ servers= ({
 				type = "none";
 				dbname="conf/passwd.db";
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
-				options = "jwt,cookie,management";
 				issuer = "authpass+totp";
-			});
+			};
 			redirect = {
 				links = ({
 					options = "query,temporary";
