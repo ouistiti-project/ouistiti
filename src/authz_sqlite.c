@@ -52,7 +52,8 @@
 #define STRINGIFY(x) #x
 
 #define AUTHZ_SQLITE_CONTEXTSETUP
-#define AUTHZ_SQLITE_GLOBALDB
+/// GLOBALDB is impossible if several authentification use the DB as access storage.
+//#define AUTHZ_SQLITE_GLOBALDB
 
 #ifdef DEBUG
 #define SQLITE3_CHECK(ret, value, sql) \
@@ -66,8 +67,10 @@
 #define SQLITE3_CHECK(...)
 #endif
 
+#ifdef AUTHZ_SQLITE_GLOBALDB
 static sqlite3 *g_db = NULL;
 int g_dbref = 0;
+#endif
 
 static int authz_sqlite_userid(authz_sqlite_t *ctx, const char *user);
 
@@ -440,7 +443,7 @@ int authz_sqlite_passwd_byID(authz_sqlite_t *ctx, int userid, const string_t *is
 	const char *sql[2] = {
 		"select passwd, status.name as \"status\" from passwds "\
 					"inner join status on status.id=passwds.statusid " \
-					"where userid=@USERID & issuer=@ISSUER;",
+					"where userid=@USERID and issuer=@ISSUER;",
 		"select passwd, status.name as \"status\" from passwds "\
 					"inner join status on status.id=passwds.statusid " \
 					"where userid=@USERID;"
@@ -505,7 +508,8 @@ static int authz_sqlite_passwd(void *arg, const string_t *user, string_t *passwd
 	if (userid == EREJECT)
 		return (passwd)? EREJECT:0;
 	ret = authz_sqlite_passwd_byID(ctx, userid, ctx->issuer, passwd, NULL);
-	if ((passwd && ret != ESUCCESS) || (!passwd && ret == 0))
+	if ((!string_empty(passwd) && ret != ESUCCESS) ||
+		(string_empty(passwd) && ret == ESUCCESS))
 	{
 		string_t empty = STRING_DCL("");
 		ret = authz_sqlite_passwd_byID(ctx, userid, &empty, passwd, NULL);
@@ -807,6 +811,7 @@ size_t authz_sqlite_issuer(void *arg, const char *user, char *issuer, size_t len
 	ret = sqlite3_bind_int(statement, index, userid);
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
+	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
 	ret = sqlite3_step(statement);
 	if (ret == SQLITE_ROW)
 	{
