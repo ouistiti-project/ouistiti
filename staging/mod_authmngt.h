@@ -55,7 +55,8 @@ typedef struct authsession_s
 
 typedef int (*authmngt_userlist_t)(void*arg, int nfields, char** values,char** keys);
 
-typedef void *(*authmngt_rule_create_t)(http_client_t *client, string_t *issuer, void *config);
+typedef void *(*authmngt_rule_create_t)(string_t *issuer, void *config);
+typedef void *(*authmngt_rule_setup_t)(void *arg, http_client_t *client);
 typedef int (*authmngt_rule_setsession_t)(void* arg, const char *user, authsession_t *info);
 typedef int (*authmngt_rule_getuser_t)(void* arg, int id, authsession_t *info);
 typedef int (*authmngt_rule_adduser_t)(void *arg, authsession_t *newuser);
@@ -64,11 +65,13 @@ typedef int (*authmngt_rule_changeinfo_t)(void *arg, authsession_t *user);
 typedef int (*authmngt_rule_removeuser_t)(void *arg, authsession_t *olduser);
 typedef size_t (*authz_sqlite_issuer_t)(void *arg, const char *user, char *issuer, size_t length);
 typedef int (*authmngt_sqlite_setissuer_t)(void *arg, const char * user, const char *issuer, size_t length);
+typedef void (*authmngt_rule_cleanup_t)(void *arg);
 typedef void (*authmngt_rule_destroy_t)(void *arg);
 typedef struct authmngt_rules_s authmngt_rules_t;
 struct authmngt_rules_s
 {
 	authmngt_rule_create_t create;
+	authmngt_rule_setup_t setup;
 	authmngt_rule_setsession_t setsession;
 	authmngt_rule_getuser_t getuser;
 	authmngt_rule_adduser_t adduser;
@@ -77,6 +80,7 @@ struct authmngt_rules_s
 	authmngt_rule_removeuser_t removeuser;
 	authz_sqlite_issuer_t issuer;
 	authmngt_sqlite_setissuer_t setissuer;
+	authmngt_rule_cleanup_t cleanup;
 	authmngt_rule_destroy_t destroy;
 };
 
