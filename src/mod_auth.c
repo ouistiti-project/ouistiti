@@ -109,6 +109,9 @@ struct _mod_auth_ctx_s
 		authtoken_ctx_t *ctx;
 		authtoken_rule_generate_t generate;
 		authtoken_rule_check_t check;
+		enum {
+			TokenFromCookie_e = 1,
+		} mode;
 	} token;
 };
 
@@ -886,7 +889,7 @@ static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const 
 	return ESUCCESS;
 }
 
-static int _authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request, string_t *token, string_t *authorization)
+static int _authn_gettoken(_mod_auth_ctx_t *ctx, http_message_t *request, string_t *token, string_t *authorization)
 {
 	const _mod_auth_t *mod = ctx->mod;
 	/**
@@ -898,6 +901,7 @@ static int _authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request, 
 	if (string_empty(token))
 	{
 		ouimessage_cookie(request, str_xtoken, token);
+		ctx->token.mode |= TokenFromCookie_e;
 	}
 	if (!string_empty(token))
 	{
@@ -910,6 +914,7 @@ static int _authn_gettoken(const _mod_auth_ctx_t *ctx, http_message_t *request, 
 		string_slice(token, 0, string_length(token) - string_length(authorization) - 1);
 		return ESUCCESS;
 	}
+	ctx->token.mode &= ~TokenFromCookie_e;
 	return EREJECT;
 }
 
@@ -1018,7 +1023,7 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 	string_t tsecure = STRING_DCL("; Secure");
 	string_t tsamesitelax = STRING_DCL("; Samesite=Lax");
 
-	if (!string_empty(token))
+	if (!string_empty(token) && !(ctx->token.mode & TokenFromCookie_e))
 	{
 		if (string_empty(sign))
 			ouimessage_setcookie(response, str_xtoken, token, &tsecure, &tsamesitelax, NULL);
@@ -1490,7 +1495,10 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 				ret = EREJECT;
 			}
 			else
+			{
 				string_slice(&token, 0, 0);
+				ctx->token.mode &= ~TokenFromCookie_e;
+			}
 			auth_dbg("auth: checktoken %d", ret);
 		}
 	}
