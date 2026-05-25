@@ -49,16 +49,16 @@
 
 #define auth_dbg(...)
 
-static void *authmngt_sqlite_create(http_client_t *UNUSED(client), string_t  *issuer, void *arg)
+static void *authmngt_sqlite_create(string_t *issuer, void *arg)
 {
-	authz_sqlite_t *ctx = NULL;
+	authz_sqlite_t *mod = NULL;
 	authz_sqlite_config_t *config = (authz_sqlite_config_t *)arg;
 	int ret;
 	sqlite3 *db;
 
 	if (access(config->dbname, W_OK))
 	{
-		err("authmngt: auth must support sqlite DB");
+		err("authmngt: sqlite DB (%s) not found", config->dbname);
 		return NULL;
 	}
 
@@ -68,18 +68,18 @@ static void *authmngt_sqlite_create(http_client_t *UNUSED(client), string_t  *is
 		err("authmngt: database %s error: %s", config->dbname, sqlite3_errstr(ret));
 		return NULL;
 	}
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->db = db;
-	ctx->config = config;
-	ctx->issuer = issuer;
-	return ctx;
+	mod = calloc(1, sizeof(*mod));
+	mod->db = db;
+	mod->config = config;
+	mod->issuer = issuer;
+	return mod;
 }
 
 static void authmngt_sqlite_destroy(void *arg)
 {
-	authz_sqlite_t *ctx = (authz_sqlite_t *)arg;
-	sqlite3_close_v2(ctx->db);
-	free(ctx);
+	authz_sqlite_t *mod = (authz_sqlite_t *)arg;
+	sqlite3_close_v2(mod->db);
+	free(mod);
 }
 
 static int authz_sqlite_updatefield(authz_sqlite_t *ctx, int userid, const char *field, int length, int group)
@@ -477,7 +477,8 @@ static int authmngt_sqlite_addissuer(void *arg, int userid, const char *issuer, 
 	SQLITE3_CHECK(ret, EREJECT, sql);
 
 	index = sqlite3_bind_parameter_index(statement, "@ISSUER");
-	ret = sqlite3_bind_text(statement, index, issuer, length, SQLITE_STATIC);
+	if (index > 0)
+		ret = sqlite3_bind_text(statement, index, issuer, length, SQLITE_STATIC);
 
 	auth_dbg("auth: sql query %s", sqlite3_expanded_sql(statement));
 	ret = sqlite3_step(statement);

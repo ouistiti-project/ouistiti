@@ -60,6 +60,7 @@ static const char str_authmngt[] = "authmngt";
 struct _mod_authmngt_s
 {
 	mod_authmngt_t *config;
+	void *rules_ctx;
 };
 
 typedef struct _mod_authmngt_ctx_s _mod_authmngt_ctx_t;
@@ -250,6 +251,13 @@ static void *mod_authmngt_create(http_server_t *server, mod_authmngt_t *config)
 
 	mod = calloc(1, sizeof(*mod));
 	mod->config = config;
+	mod->rules_ctx = mod->config->mngt.rules->create(&mod->config->issuer, mod->config->mngt.config);
+	if (mod->rules_ctx == NULL)
+	{
+		err("authmngt: %s not supported", mod->config->mngt.name);
+		free(mod);
+		return NULL;
+	}
 
 	httpserver_addmethod(server, METHOD(str_post), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
 	httpserver_addmethod(server, METHOD(str_put), MESSAGE_ALLOW_CONTENT | MESSAGE_PROTECTED);
@@ -275,9 +283,9 @@ static void mod_authmngt_freectx(void *arg)
 	_mod_authmngt_ctx_t *ctx = (_mod_authmngt_ctx_t *)arg;
 	_mod_authmngt_t *mod = ctx->mod;
 
-	if (ctx->ctx  && mod->config->mngt.rules->destroy)
+	if (ctx->ctx  && mod->config->mngt.rules->cleanup)
 	{
-		mod->config->mngt.rules->destroy(ctx->ctx);
+		mod->config->mngt.rules->cleanup(ctx->ctx);
 	}
 	free(ctx);
 }
@@ -285,6 +293,10 @@ static void mod_authmngt_freectx(void *arg)
 static void mod_authmngt_destroy(void *arg)
 {
 	_mod_authmngt_t *mod = (_mod_authmngt_t *)arg;
+	if (mod->rules_ctx  && mod->config->mngt.rules->destroy)
+	{
+		mod->config->mngt.rules->destroy(mod->rules_ctx);
+	}
 #ifdef FILE_CONFIG
 	free(mod->config);
 #endif
@@ -757,7 +769,10 @@ static int _authmngt_connector(void *arg, http_message_t *request, http_message_
 
 	if (ctx->ctx == NULL)
 	{
-		ctx->ctx = mod->config->mngt.rules->create(ctx->clt, &mod->config->issuer, mod->config->mngt.config);
+		if (mod->config->mngt.rules->setup)
+			ctx->ctx = mod->config->mngt.rules->setup(mod->rules_ctx, ctx->clt);
+		else
+			ctx->ctx = mod->rules_ctx;
 		if (ctx->ctx == NULL)
 		{
 			err("authmngt: %s not supported", mod->config->mngt.name);
