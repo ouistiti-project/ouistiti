@@ -58,6 +58,7 @@
 #include "daemonize.h"
 #include "../compliant.h"
 #include "ouistiti/httpserver.h"
+#include "ouistiti/hash.h"
 #include "ouistiti/log.h"
 
 #ifndef FILE_CONFIG
@@ -182,6 +183,32 @@ const char *auth_info(http_message_t *request, const char *key, size_t keylen)
 size_t auth_info2(http_message_t *request, const char *key, const char **value)
 {
 	return httpmessage_SESSION2(request, key, (const void **)value);
+}
+
+/******************************************************************************/
+const hash_t *ouistiti_findhash(const char *name, int nameid)
+{
+	const hash_t *hash_list[] =
+	{
+		hash_md5,
+		hash_sha1,
+		hash_sha224,
+		hash_sha256,
+		hash_sha512,
+		hash_macsha256,
+		NULL
+	};
+
+	static const hash_t *hash = NULL;
+	for (int i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
+	{
+		hash = hash_list[i];
+		if (hash != NULL &&
+			((name != NULL && !strcasecmp(name, hash->name)) ||
+				(nameid == hash->nameid)))
+			break;
+	}
+	return hash;
 }
 
 int ouistiti_setprocessowner(const char *user)

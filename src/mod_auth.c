@@ -124,37 +124,12 @@ struct _mod_auth_s
 	authz_t *authz;
 };
 
-static const hash_t *_mod_findhash(const char *name, int nameid)
-{
-	const hash_t *hash_list[] =
-	{
-		hash_md5,
-		hash_sha1,
-		hash_sha224,
-		hash_sha256,
-		hash_sha512,
-		hash_macsha256,
-		NULL
-	};
-
-	static const hash_t *hash = NULL;
-	for (int i = 0; i < (sizeof(hash_list) / sizeof(*hash_list)); i++)
-	{
-		hash = hash_list[i];
-		if (hash != NULL &&
-			((name != NULL && !strcasecmp(name, hash->name)) ||
-				(nameid == hash->nameid)))
-			break;
-	}
-	return hash;
-}
-
 static int _mod_sethash(mod_authn_t *config, const char *algo)
 {
 	int ret = EREJECT;
 	if (algo)
 	{
-		config->hash = _mod_findhash(algo, -1);
+		config->hash = ouistiti_findhash(algo, -1);
 	}
 	if (config->hash != NULL)
 	{
@@ -765,7 +740,7 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 		else
 			realm = NULL;
 
-		hash = _mod_findhash(NULL, hashtype);
+		hash = ouistiti_findhash(NULL, hashtype);
 
 		checkpasswd = strrchr(checkpasswd + 1, '$');
 		if (checkpasswd)

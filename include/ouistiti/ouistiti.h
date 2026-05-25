@@ -107,6 +107,8 @@ int ouistiti_issecure(server_t *server);
 http_server_t *ouistiti_httpserver(server_t *server);
 serverconfig_t *ouistiti_serverconfig(server_t *server);
 
+typedef struct hash_s hash_t;
+const hash_t *ouistiti_findhash(const char *name, int nameid);
 int ouistiti_setprocessowner(const char *user);
 
 int ouimessage_REQUEST(http_message_t *message, const char *key, string_t *value);
