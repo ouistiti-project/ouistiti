@@ -9,6 +9,7 @@ Location: /trust/signin.html?step=passwd&redirect_uri=https://www.ouistiti.local
 
  302 Found
 HTTP/1.1 200 OK
+Vary: Origin
 Content-Type: text/html
 
 <html>
@@ -17,6 +18,7 @@ Content-Type: text/html
 	</body>
 </html>
 HTTP/1.1 302 Found
+Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogIi9ob21lL2ZvbyIsICJzdGF0dXMiOiAiYWN0aXZhdGVkIiwgInJvbGVzIjogInVzZXJzIiwgImV4cCI6IDE4MDAsICJpc3MiOiAiYXV0aHBhc3MifQ.C4nXyupySDDU1h4iNTZsC71hOCf0fRbkDO7ngRvpYf8; Secure; Samesite=Lax; SameSite=strict; Path=/
 WWW-Authenticate: WWW-Form realm="auth.ouistiti.local:totp"
 Location: /trust/signin.html?step=totp&redirect_uri=https://www.ouistiti.local:8080/index.html
 
@@ -31,10 +33,17 @@ Content-Type: text/html
 </html>
 HTTP/1.1 307 Temporary Redirect
 Set-Cookie: X-Auth-Token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ1c2VyIjogImZvbyIsICJob21lIjogIi9ob21lL2ZvbyIsICJzdGF0dXMiOiAiYWN0aXZhdGVkIiwgInJvbGVzIjogInVzZXJzIiwgImV4cCI6IDE4MDAsICJpc3MiOiAiYXV0aHBhc3MrdG90cCJ9.nC1RL-BTemfLqAU6g1SKrFpZawRzDI474FVq4Uflr6o; Secure; Samesite=Lax; SameSite=strict; Path=/
+Set-Cookie: X-Remote-User=foo; SameSite=strict; Path=/
+Set-Cookie: X-Remote-Group=users; SameSite=strict; Path=/
+Set-Cookie: X-Remote-Home=~/; SameSite=strict; Path=/
 Location: https://www.ouistiti.local:8080/index.html
 
  307 Temporary Redirect
 HTTP/1.1 200 OK
+X-Remote-User: foo
+Access-Control-Expose-Headers: X-Remote-User
+X-Remote-Group: users
+X-Remote-Home: ~/
 Content-Type: text/html
 
 <html>

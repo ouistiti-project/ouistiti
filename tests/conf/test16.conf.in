@@ -26,7 +26,7 @@ servers= ({
 				   This may be present inside a X-TOKEN header field or inside a Cookie
 				 */
 				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
-				options = "jwt";
+				options = "jwt,cookie";
 				issuer = "authpass";
 				realm = "auth.ouistiti.local";
 			},{
