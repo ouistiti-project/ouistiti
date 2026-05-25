@@ -101,7 +101,7 @@ int _document_dochome(_mod_document_mod_t *mod,
 		home = user;
 	//check leading characters on user
 	while ((home[0] == '/' || home[0] == '.') && home[0] != '\0') home++;
-	mkdirat(mod->fdhome, home, 0640);
+	mkdirat(mod->fdhome, home, 0770);
 	fdroot = openat(mod->fdhome, home, O_DIRECTORY);
 	if (fdroot == -1)
 	{
@@ -257,6 +257,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 		return  EREJECT;
 	}
 	int fdroot = EREJECT;
+	const char *home = NULL;
 #ifdef DOCUMENTHOME
 	string_t tylde = {0};
 	string_store(&tylde, STRING_REF("/~"));
@@ -264,6 +265,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	{
 		string_slice(&uri, 2, 0);
 		fdroot = _document_dochome(mod, request, &uri);
+		home = auth_info(request, STRING_REF(str_home));
 	}
 	else
 #endif
@@ -318,6 +320,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	}
 	if (fdfile == 0)
 	{
+		err("document: $s/%s error %m", home?home:"", string_toc(&uri));
 		if (errno > 0)
 		{
 			switch (errno)
