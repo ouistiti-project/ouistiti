@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-OUISTITI_VERSION = 3.4.0
+OUISTITI_VERSION = 3.6.0
 #OUISTITI_SITE = $(call github,ouistiti-project,ouistiti,ouistiti-$(OUISTITI_VERSION))
 OUISTITI_SITE = https://github.com/ouistiti-project/ouistiti.git
 OUISTITI_SITE_METHOD = git

@@ -1,5 +1,4 @@
-/etc/ouistiti/*
-/srv/www/*
-/usr/lib/x86_64-linux-gnu/lib*
-/usr/lib/x86_64-linux-gnu/ouistiti/mod_*.so
-/usr/sbin/*
+etc/ouistiti/*
+usr/lib/*/liboui*.so*
+usr/lib/*/ouistiti/mod_*.so
+usr/sbin/ouistiti

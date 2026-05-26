@@ -4,28 +4,32 @@
 DESTDIR := $(shell pwd)/debian/tmp
 SRCDIR := .
 
-MAKE_OPTIONS := package=ouistiti
-CONFIG_FILE := threadpool_defconfig
-CONFIG_OPTIONS := MJPEG=y WEBCOMMON=y prefix=/usr sysconfdir=/etc/ouistiti
+CONFIG_OPTIONS := MJPEG=y WEBCOMMON=y FORWARD=y SIGNATURE=y DIRLISTING_MOD=y \
+		  PYTHON=y WEBSTREAM=y AUTHZ_TOTP=y AUTHN_WWFORM=y \
+                  DIRLISTING_ADD_CTIME=y prefix=/usr sysconfdir=/etc/ouistiti
 MAKE_OPTIONS := LIBHTTPSERVER_NAME=ouistiti
+
 %:
 	dh $@
 
 .PHONY: configure
 override_dh_auto_configure:
-	$(MAKE) -C $(SRCDIR) $(CONFIG_OPTIONS) $(MAKE_OPTIONS) $(CONFIG_FILE)
+	$(MAKE) -C $(SRCDIR) $(CONFIG_OPTIONS) $(MAKE_OPTIONS) threadpool_defconfig
 
 override_dh_auto_build-arch:
 	$(MAKE) -C $(SRCDIR) $(MAKE_OPTIONS)
 
 override_dh_auto_install:
 	$(MAKE) -C $(SRCDIR) DESTDIR=$(DESTDIR) $(MAKE_OPTIONS) install
-	mkdir -p $(DESTDIR)/srv/www/htdocs
-	mkdir -p $(DESTDIR)/srv/www/cgi-bin
-	mkdir -p $(DESTDIR)/srv/www/websocket
-	mkdir -p $(DESTDIR)/srv/www/webstream
+	rm -rf $(DESTDIR)/srv
+	chrpath --delete $(DESTDIR)/usr/sbin/*
+	chrpath --delete $(DESTDIR)/usr/libexec/ouistiti/*
 
 override_dh_auto_clean:
 	$(MAKE) -C $(SRCDIR) distclean
 
 override_dh_auto_test:
+
+override_dh_makeshlibs:
+
+override_dh_shlibdeps:

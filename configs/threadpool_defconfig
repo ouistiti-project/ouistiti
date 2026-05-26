@@ -80,7 +80,7 @@ AUTHN_BASIC=y
 AUTHN_DIGEST=y
 AUTHN_BEARER=y
 AUTHN_OAUTH2=n
-AUTHN_WWWFORM=n
+AUTHN_WWWFORM=y
 AUTHZ_SIMPLE=y
 AUTHZ_FILE=y
 AUTHZ_UNIX=y
@@ -124,7 +124,7 @@ UPGRADE_INET=n
 #support for filter uri select by user
 USERFILTER=y
 #support of simple python scripts (staging)
-PYTHON=n
+PYTHON=y
 #support of request forwarding
 FORWARD=y
 #support date field

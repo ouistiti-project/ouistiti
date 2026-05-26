@@ -1,5 +1,5 @@
 Name:           ouistiti
-Version:        3.4.0
+Version:        3.6.0
 Release:        0
 Summary:        HTTP server
 Group:          Application/Network
@@ -42,14 +42,20 @@ This offers:
 %prep
 %setup -q -c ouistiti
 rm -f .config
+cd ouistiti-%{version}
+CFLAGS="$RPM_OPT_FLAGS" make prefix=/usr sysconfdir=/etc/ouistiti\
+	libdir=/usr/lib64 pkglibdir=/usr/lib64/ouistiti \
+	MJPEG=y WEBCOMMON=y STATIC=n PYTHON=y WEBSTREAM=y AUTHZ_TOTP=y AUTHN_WWWFORM=y \
+	BUILDDIR=$PWD/build \
+	threadpool_defconfig
 
 %build
-cd ouistiti-%{version}
-CFLAGS="$RPM_OPT_FLAGS" make prefix=/usr sysconfdir=/etc/ouistiti libdir=/usr/lib64 pkglibdir=/usr/lib64/ouistiti MJPEG=y WEBCOMMON=y STATIC=n threadpool_defconfig
+cd ouistiti-%{version}/build/
+CFLAGS="$RPM_OPT_FLAGS" make
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-cd ouistiti-%{version}
+cd ouistiti-%{version}/build/
 CFLAGS="$RPM_OPT_FLAGS" make DESTDIR=$RPM_BUILD_ROOT install
 mkdir -p $RPM_BUILD_ROOT/srv/www/htdocs
 mkdir -p $RPM_BUILD_ROOT/srv/www/cgi-bin
@@ -57,15 +63,18 @@ mkdir -p $RPM_BUILD_ROOT/srv/www/py-bin
 mkdir -p $RPM_BUILD_ROOT/srv/www/websocket
 mkdir -p $RPM_BUILD_ROOT/srv/www/webstream
 mkdir -p $RPM_BUILD_ROOT%{_datadir}/doc/ouistiti
+cd ..
 cp README.md LICENSE $RPM_BUILD_ROOT%{_datadir}/doc/ouistiti
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-cd ouistiti-%{version}
+mkdir -p ouistiti-%{version}/build
+cd ouistiti-%{version}/build
 CFLAGS="$RPM_OPT_FLAGS" make clean
 
 %files
 %defattr(-,root,root)
+%define _sbindir %{_exec_prefix}/sbin
 %doc README.md LICENSE
 %{_sbindir}/ouistiti
 %{_libdir}/lib*.so*
