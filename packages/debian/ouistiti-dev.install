@@ -1,1 +1,3 @@
-/usr/include/ouistiti/*
+usr/include/ouistiti/*
+usr/lib/*/liboui*.a
+usr/lib/*/pkgconfig/ouistiti.pc

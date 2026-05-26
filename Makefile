@@ -1,5 +1,5 @@
 package=ouistiti
-version=3.5
+version=3.6
 includedir=$(prefix)/include/$(package)
 
 include scripts.mk

@@ -1,47 +1,133 @@
-ouistiti (3.5.0-1) stable; urgency=low
+ouistiti (3.6.0-1) stable; urgency=medium
 
-  * updated modules: python
+  * Token: improves token verification (unknown user, redundancy…), accepts
+    token time sliding.
+  * TOTP/MFA: support for Time-based One-Time Password (RFC 6238) with
+    registry URL, multi-issuer management per session, dedicated token
+    endpoint (token_ep), JWT vs generic token selection.
+  * www-form authentication: new mode via HTML form
+    (application/x-www-form-urlencoded).
+  * Secure cookies: Secure and SameSite flags; domain removed for localhost;
+    noredirect and signin options as unprotected URL.
+  * New module mod_signature: partial support for RFC 9421
+    (HTTP Message Signatures).
+  * WebStream stable: module promoted from staging to src; multi-configuration
+    support and htaccess API integration.
+  * Document: POST to modify a file, symlink creation via PUT, notime option
+    for directory listing.
+  * Dirlisting: home directory support, ctime added, split into independent
+    module.
+  * Vhost: multi-configuration file support, server groups, dynamic root
+    change during request.
+  * Userfilter: new reapproving role, allowed HTTP methods configurable per
+    server.
+  * authmngt: new backend lifecycle API (create/destroy/setup/cleanup),
+    full issuer management via REST, password encryption, password state in
+    responses.
+  * Python: Django API support, asynchronous response handling, module
+    reloaded on each request.
+  * Main application: new public cookie API (ouimessage_setcookie),
+    --logfile option with max size, dependency check on module load,
+    FILE_CONFIG=n support.
+  * Refactoring: string_t migration replacing searchexp in all modules
+    (auth, authmngt, document, redirect, vhost, cors, webstream, websocket,
+    cgi, userfilter, clientfilter, forward, htaccess, server). New
+    primitives: match, unroot, decodeurl, contain, replace, endwith,
+    compare, storage, browse, into, value, unquote, slice, writeable.
+  * Auth refactoring: mod/ctx separation for Basic, Digest, TOTP and JWT;
+    token managed as a dedicated object; SQLite opened per module.
+  * libhttpserver 3.6 update (OpenSSL 3.0, vhost fixes, CGI message length).
+  * Security: authentication refused if Host header is invalid; timing-safe
+    string comparison; .. and // sequences blocked via unroot; hostname
+    verified by regexp in vhost, cors and auth; stack-overflow fixed in
+    document module.
 
- -- Marc Chalain <marc.chalain@gmail.com> Tue, 31 Oct 2023 10:01:46 +0200
+ -- Marc Chalain <marc.chalain@gmail.com>  Mon, 25 May 2026 22:37:44 +0200
 
-ouistiti (3.4.0-1) stable; urgency=low
+ouistiti (3.4.0-1) stable; urgency=medium
 
-  * Quality Gate crossing
+  * New module mod_forward: forward requests to another server.
+  * WebSocket: periodic PING added (5s timeout); socket open/run separation;
+    protocol header transmitted on connection; TEXT data no longer includes
+    null terminator.
+  * WebStream: multipart/mixed stream support with random boundary, Date
+    header, delay between parts; mjpeg tools added.
+  * Document: new htaccess mechanism (deny/allow); defaultpage redirected
+    via redirect module; configuration list support.
+  * Vhost: support for multiple vhosts on the same server.
+  * CORS: Vary header added.
+  * CGI: separate IN/OUT stream handling; configurable timeout; binary data
+    support; path_info/cgipath fix.
+  * Python: new module (staging); request/response content handling.
+  * Auth: new authz context created per client; session storage reworked;
+    expired session removed.
+  * TLS/OpenSSL: openssl module promoted from staging to src; pemfile renamed
+    to keyfile.
+  * Refactoring: migration to length-aware APIs (INFO2, REQUEST2, auth_info2);
+    string_t in auth; unified configuration API for all modules.
+  * Fix nonce generation in Digest authentication.
+  * libhttpserver v3.4 update (TCP wait timeout).
 
- -- Marc Chalain <marc.chalain@gmail.com> Tue, 17 Oct 2023 14:10:11 +0200
+ -- Marc Chalain <marc.chalain@gmail.com>  Tue, 31 Oct 2023 13:49:34 +0100
 
-ouistiti (3.3.0-1) unstable; urgency=low
+ouistiti (3.2.0-1) stable; urgency=medium
 
-  * new modules: python, forward
-  * stabilized modules: openssl, webstream
+  * Vhost: new stable module (promoted from staging); new architecture;
+    multi-vhost support on the same server.
+  * Auth: user status management (approving, reapproving, activated); session
+    reset on logout; token verified from cookies (multi-cookie).
+  * New module authmngt: user management via REST (list, create, update,
+    delete); auto-generate DB if missing; user activation/deactivation.
+  * New module userfilter (stable): REST API for PUT/DELETE filters; GET
+    returns rule list; new default filters.
+  * CORS: Origin verified on protected methods; full request URL in
+    Allow-Origin header.
+  * New module upgrade: socket upgrade to unix/inet.
+  * Cookie: sameSite=strict flag added.
+  * Main application: OUISTITI_MODULES_PATH variable; -M option for multiple
+    module paths; init.d support; -C option to display config; -w option for
+    working directory; auto-load from PKGLIBDIR.
+  * WebSocket: TCP URI support; empty string send fix; proxy stopped on close
+    message.
+  * Refactoring: each module has its own configure function; unified setsession
+    API; systematic resource cleanup; loadserver/setmodules separation.
+  * Fix memory leaks in redirect, document, cgi, auth.
+  * Fix SQLite initialization (root id to 0, default status).
 
- -- Développeur <developper@Corto>  Fri, 02 Jun 2023 10:12:02 +0200
+ -- Marc Chalain <marc.chalain@gmail.com>  Sun, 10 Oct 2021 16:49:36 +0200
 
-ouistiti (3.2.1-1) stable; urgency=low
+ouistiti (3.0.0-1) stable; urgency=medium
 
-  * new libouistiti
-  * module configuration
-  * new vhost support
-  * path_info of cgi
-  * development sdk for external modules
-  * new entries in configuration: init_d, include
+  * New module authmngt with SQLite support; full REST API.
+  * Auth: JWT token signing; JWT verification (checktoken); SHA-256 password
+    storage; status field in JWT; protect option for 403; noredirect option;
+    redirect_uri for relocation (302); OAuth2 support.
+  * New module userfilter (staging): filtering by URI and group.
+  * New module upgrade: socket upgrade to unix.
+  * Main application: -M option for module paths; daemonize support; PID
+    file locking; socket kept open when daemonizing.
+  * Refactoring: configure function moved into each module; setsession API;
+    int replaced by size_t for lengths throughout codebase.
+  * Fix CGI: path_info/cgipath, out-of-bounds memory access.
+  * Fix JWT token length calculation (integer instead of float).
+  * Fix nonce generation in Digest authentication.
 
- -- Marc Chalain <marc.chalain@gmail.com>  Sun, 12 Dec 2021 23:09:57 +0100
-ouistiti (3.1.0-1) unstable; urgency=low
+ -- Marc Chalain <marc.chalain@gmail.com>  Thu, 02 Apr 2020 05:30:54 +0200
 
-  * libhttpserver renamed libouistiti
-  * libwebsocket renamed libouibsocket
-  * -W to set the working directory
-  * expiration managed by authentication
-  * dirlisting on / URI
-  * remove double / in the URI
+ouistiti (2.4.2-1) stable; urgency=low
 
- -- Marc Chalain <marc.chalain@gmail.com>  Thu, 11 Mar 2021 17:48:46 +0100
-ouistiti (3.0-1) stable; urgency=medium
+  * Auth: signed and verified tokens; JWT expiry check; full Digest support
+    (time-based nonce, faster parsing, MD5 by default, URL with query);
+    unix password expiry check; standalone bearer authentication; chown
+    option to change process owner.
+  * Document: PUT creates or appends to a file; 201 returned on REST success;
+    thread-safe dirlisting via readdir_r; openat for long paths.
+  * CGI: openat transition; response function separation; strict RFC 3875
+    compliance; environment variables duplicated from config file.
+  * WebStream: openat + fchdir transition; random boundary in multipart/mixed.
+  * Config: new option parser; MIME type list limit removed.
+  * Fix Digest: NULL character at end of username; nonce buffer large enough.
+  * Fix CGI: unexpected character at end of cgipath; data length.
+  * Fix bearer auth: user must be set by authz.
 
-  * authentication
-  * userfilter
-  * user management
-
- -- Marc Chalain <marc.chalain@gmail.com>  Thu, 11 Mar 2021 17:48:46 +0100
-
+ -- Marc Chalain <marc.chalain@gmail.com>  Sun, 08 Dec 2019 18:52:25 +0100

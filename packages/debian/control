@@ -1,37 +1,44 @@
 Source: ouistiti
-Section: universe/web
-Priority: extra
-Build-Depends: debhelper (>=9),
+Section: web
+Priority: optional
+Build-Depends: debhelper (>=13),
                libconfig-dev,
                libjansson-dev,
                libsqlite3-dev,
                libssl-dev (>=3.0.0),
                libpython3-dev (>=3.8)
-Standards-Version: 4.0.0
-Description: lightweight and fast HTTP server
+Standards-Version: 4.6.0
+Rules-Requires-Root: no
 Maintainer: Marc Chalain <marc.chalain@gmail.com>
 Homepage: https://github.com/ouistiti-project/ouistiti
+Vcs-Git: https://github.com/ouistiti-project/ouistiti.git
+Vcs-Browser: https://github.com/ouistiti-project/ouistiti
 
 Package: ouistiti
 Architecture: any
-Multi-Arch: same
+Multi-Arch: foreign
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Description: HTTP server for embedded devices
- Ouistiti is a small and fast HTTP server for embedded device.
- The goal of ouistiti is to host easily a server for configuration of the device.
- It offers services like authentication, websocket proxy or REST API on files.
+Recommends: ouistiti-utils
+Description: lightweight and fast HTTP server for embedded devices
+ Ouistiti is a small and fast HTTP server designed for embedded devices.
+ It offers services like authentication (Basic, Digest, JWT, TOTP/MFA),
+ websocket proxy, CGI, Python scripting, REST API on files, virtual hosting,
+ CORS, TLS via OpenSSL or mbedTLS, and HTTP message signature (RFC 9421).
 
 Package: ouistiti-dev
 Architecture: any
 Multi-Arch: same
 Section: devel
-Depends: ouistiti, ${misc:Depends}, ${shlibs:Depends}
+Depends: ouistiti (= ${binary:Version}), ${misc:Depends}
 Description: header files for ouistiti HTTP server
+ Development headers and pkg-config file to build external modules
+ for the ouistiti HTTP server.
 
 Package: ouistiti-utils
 Architecture: any
 Section: net
-Multi-Arch: same
-Depends: ouistiti, ${misc:Depends}, ${shlibs:Depends}
-Description: utils for ouistiti HTTP server
- Ouistiti-utils is a collection of sample applications for websocket server, password manager...
+Multi-Arch: foreign
+Depends: ouistiti (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Description: utilities and sample tools for ouistiti HTTP server
+ Collection of utilities for ouistiti: websocket tools, password manager,
+ TOTP URL generator, WebApp samples, and streaming tools.

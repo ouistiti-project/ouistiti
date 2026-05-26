@@ -1,3 +1,4 @@
 #!/bin/sh
+set -e
 
-[ ! -e /etc/ouistiti/ouistiti_ca.crt ] && /bin/sh /usr/share/ouistiti/certificate.sh || true
+[ ! -e /etc/ouistiti/ouistiti_ca.crt ] && /usr/share/ouistiti/certificate.sh || true
