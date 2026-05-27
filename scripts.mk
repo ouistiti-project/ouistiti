@@ -124,6 +124,7 @@ YACC?=yacc
 MOC?=moc$(QT:%=-%)
 UIC?=uic$(QT:%=-%)
 RANLIB?=ranlib
+CPPCHECK?=cppcheck
 
 TOOLCHAIN?=
 CROSS_COMPILE?=
@@ -224,13 +225,26 @@ SYSROOT_LDFLAGS+=-L=/usr/lib
 ifneq ($(strip $(includedir)),)
   SYSROOT_CFLAGS+=$(addprefix -I=,$(includedir))
 endif
+ifeq ($(DEBUG),y)
+CFLAGS+=-Wall
+rpath=$(libdir)
 ifneq ($(strip $(libdir)),)
-  RPATHFLAGS+=-Wl,-rpath,$(libdir)
+  RPATHFLAGS+=-Wl,-rpath,$(rpath)
   SYSROOT_LDFLAGS+=$(addprefix -L=,$(libdir))
 endif
 ifneq ($(strip $(pkglibdir)),)
-  RPATHFLAGS+=-Wl,-rpath,$(pkglibdir)
+  RPATHFLAGS+=-Wl,-rpath,$(rpath)
   SYSROOT_LDFLAGS+=$(addprefix -L=,$(pkglibdir))
+endif
+else
+ifneq ($(strip $(libdir)),)
+  RPATHFLAGS+=-Wl,--disable-new-dtags -Wl,--as-needed
+  SYSROOT_LDFLAGS+=$(addprefix -L=,$(libdir))
+endif
+ifneq ($(strip $(pkglibdir)),)
+  RPATHFLAGS+=-Wl,--disable-new-dtags -Wl,--as-needed
+  SYSROOT_LDFLAGS+=$(addprefix -L=,$(pkglibdir))
+endif
 endif
 
 ifneq ($(destdir),)
@@ -658,6 +672,12 @@ quiet_cmd_cc_o_c=CC $*
  cmd_cc_o_c=$(TARGETCC) $(CFLAGS) $(INTERN_CFLAGS) $(SYSROOT_CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_cpp=CXX $*
  cmd_cc_o_cpp=$(TARGETCXX) $(CXXFLAGS) $(CFLAGS) $(INTERN_CFLAGS) $(SYSROOT_CFLAGS) $($*_CXXFLAGS) $($*_CFLAGS) -c -o $@ $<
+quiet_cmd_cppcheck_c=CCHECK $*
+ cmd_cppcheck_c=$(TARGETCC) -E $(CFLAGS) $(INTERN_CFLAGS) $(SYSROOT_CFLAGS) $($*_CFLAGS) -c -o $(@:.o=.i) $< && \
+	$(CPPCHECK) --enable=all --inconclusive --language=c $(@:.o=.i)
+quiet_cmd_cppcheck_cpp=CCHECK $*
+ cmd_cppcheck_cpp=$(TARGETCXX) $(CXXFLAGS) $(CFLAGS) $(INTERN_CFLAGS) $(SYSROOT_CFLAGS) $($*_CXXFLAGS) $($*_CFLAGS) -c -o $(@:.o=.i) $< && \
+	$(CPPCHECK) --enable=all --inconclusive $(@:.o=.i)
 quiet_cmd_ld_bin=LD $*
  cmd_ld_bin=$(TARGETCC) $(LDFLAGS) $(INTERN_LDFLAGS) $(SYSROOT_LDFLAGS) $($*_LDFLAGS) $(RPATHFLAGS) -o $@ $(filter %.o,$(filter-out $(file),$^)) -Wl,--start-group $(LIBS:%=-l%) $($*_LIBS:%=-l%) -Wl,--end-group $(INTERN_LIBS:%=-l%)
 quiet_cmd_ld_slib=LD $*
@@ -741,34 +761,42 @@ $(objdir)%.o:%.s $(file) | $(objdir)
 
 $(objdir)%.o:$(objdir)%.c $(file) | $(objdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
+	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_c))
 	$(Q)$(call cmd,cc_o_c)
 
 $(objdir)%.o:%.c $(file) | $(objdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
+	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_c))
 	$(Q)$(call cmd,cc_o_c)
 
 $(objdir)%.o:$(objdir)%.cpp $(file) | $(objdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
+	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_cpp))
 	$(Q)$(call cmd,cc_o_cpp)
 
 $(objdir)%.o:%.cpp $(file) | $(objdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
+	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_cpp))
 	$(Q)$(call cmd,cc_o_cpp)
 
 $(hostobjdir)%.o:$(hostobjdir)%.c $(file) | $(hostobjdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
+	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_c))
 	$(Q)$(call cmd,hostcc_o_c)
 
 $(hostobjdir)%.o:%.c $(file) | $(hostobjdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
+	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_c))
 	$(Q)$(call cmd,hostcc_o_c)
 
 $(hostobjdir)%.o:$(hostobjdir)%.cpp $(file) | $(hostobjdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
+	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_cpp))
 	$(Q)$(call cmd,hostcc_o_cpp)
 
 $(hostobjdir)%.o:%.cpp $(file) | $(hostobjdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
+	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_cpp))
 	$(Q)$(call cmd,hostcc_o_cpp)
 
 $(lib-static-target): $(objdir)lib%$(slib-ext:%=.%): $$(addprefix $(objdir),$$(%-objs)) $(file)
