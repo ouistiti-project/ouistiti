@@ -258,11 +258,20 @@ static int _jwt_checkexpiration(const json_t *jinfo)
 			err("auth: jwt expired");
 			return EREJECT;
 		}
+		/// request token sliding
+		if (expire < now + (60 * 15))
+			return EINCOMPLETE;
 	}
 	else
 	{
 		warn("auth: jwt doesn't contain exp");
+#ifdef AUTHZ_JWT_UNLIMITED_TOKEN
+		/// if the token haven't,
+		/// this return will regenerate a new token with expiration
+		return EINCOMPLETE;
+#else
 		return EREJECT;
+#endif
 	}
 	return ESUCCESS;
 }
@@ -340,21 +349,18 @@ static void *authz_jwt_setup(void *arg, http_client_t *clt, struct sockaddr *add
 
 static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json_t *jinfo)
 {
-	int ret = EREJECT;
+	int ret = ESUCCESS;
 	if (jinfo != NULL)
 	{
-		if (_jwt_checkexpiration(jinfo) != ESUCCESS)
-		{
-			return EREJECT;
-		}
+		ret = _jwt_checkexpiration(jinfo);
+
 		string_t iss = {0};
 		_jwt_get(jinfo, "iss", &iss);
 		if (string_into(issuer, &iss, '+'))
 		{
 			err("auth: token with bad issuer: %s / %s",  string_toc(&iss), string_toc(issuer));
-			return EREJECT;
+			ret = EREJECT;
 		}
-		ret = ESUCCESS;
 	}
 #ifdef AUTHZ_JWT_CHECKHEADER
 	jinfo = jwt_decode_json(token, 1);

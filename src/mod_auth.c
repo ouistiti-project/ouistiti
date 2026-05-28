@@ -111,6 +111,8 @@ struct _mod_auth_ctx_s
 		authtoken_rule_check_t check;
 		enum {
 			TokenFromCookie_e = 1,
+			TokenSliding_e = 2,
+			TokenValid_e = 4,
 		} mode;
 	} token;
 };
@@ -265,6 +267,10 @@ static void authz_optionscb(void *arg, const char *option)
 	{
 		auth->authz.type |= AUTHZ_TOKEN_E;
 		auth->token.type = E_JWT;
+	}
+	if (strstr(option, "sliding") != NULL)
+	{
+		auth->authz.type |= AUTHZ_TOKENSLIDING_E;
 	}
 	if (strstr(option, "chown") != NULL)
 		auth->authz.type |= AUTHZ_CHOWN_E;
@@ -608,6 +614,8 @@ static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 		ctx->token.check = authz_jwt_checktoken;
 	}
 
+	if (mod->authz->type & AUTHZ_TOKENSLIDING_E)
+		ctx->token.mode |= TokenSliding_e;
 	if (mod->authz->type & AUTHZ_HOME_E)
 		httpclient_addconnector(clt, _home_connector, ctx, CONNECTOR_AUTH, str_auth);
 	httpclient_addconnector(clt, _authn_connector, ctx, CONNECTOR_AUTH, str_auth);
@@ -840,11 +848,11 @@ static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const 
 	length += 1; // the , separator
 	time_t expire = 0;
 	memcpy(&expire, &_nonce[length], sizeof(time_t));
-	free(_nonce);
 	length += sizeof(time_t);
 	if (expire < time(NULL))
 	{
 		err("auth: token expired");
+		free(_nonce);
 		return EREJECT;
 	}
 	length += 1; // the , separator
@@ -853,6 +861,7 @@ static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const 
 	string_store(&issuer, &_nonce[length], _noncelen - length);
 	string_split(&issuer, ',', &issuer, &user, NULL);
 	auth_dbg("auth: check issuer %.*s/%s", string_length(&issuer), string_toc(&issuer), string_toc(&config->issuer));
+	free(_nonce);
 	if (string_contain(&issuer, &config->issuer, '+'))
 	{
 		return EREJECT;
@@ -893,6 +902,7 @@ static int _authn_gettoken(_mod_auth_ctx_t *ctx, http_message_t *request, string
 	return EREJECT;
 }
 
+#if 0
 static const char *_authn_gettokenuser(const _mod_auth_ctx_t *ctx, http_message_t *request)
 {
 	const _mod_auth_t *mod = ctx->mod;
@@ -910,6 +920,7 @@ static const char *_authn_gettokenuser(const _mod_auth_ctx_t *ctx, http_message_
 		user = str_anonymous;
 	return user;
 }
+#endif
 
 static string_t *_authn_signtoken(const string_t *key,	const string_t *data)
 {
@@ -1329,7 +1340,7 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	string_t *token = NULL;
 	string_t *sign = NULL;
 #ifdef AUTH_TOKEN
-	if (config->authz.type & AUTHZ_TOKEN_E)
+	if (config->authz.type & AUTHZ_TOKEN_E && !(ctx->token.mode & TokenValid_e))
 	{
 		token = ctx->token.generate(ctx->token.ctx, request);
 	}
@@ -1458,6 +1469,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if ((ret == ECONTINUE) &&
 		(authn->type & AUTHN_TOKEN_E || authz->type & AUTHZ_TOKEN_E))
 	{
+		ctx->token.mode &= ~TokenValid_e;
 		_authn_gettoken(ctx, request, &token, &authorization);
 		auth_dbg("auth: gettoken %s / %s", string_toc(&token), string_toc(&authorization));
 		if (authn->ctx && !string_empty(&authorization) && !string_empty(&token))
@@ -1465,14 +1477,21 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 			/// the signature is concated to the end of token
 			/// only the token part must be checked
 			/// remove the signature and the leading dot to the tokenlen
-			if (authn_checktoken( ctx, authz, &token, &authorization, &user) == ESUCCESS)
+			int result = authn_checktoken( ctx, authz, &token, &authorization, &user);
+			if (result == EREJECT)
 			{
+				string_slice(&token, 0, 0);
+				ctx->token.mode &= ~TokenFromCookie_e;
+			}
+			else if (result == EINCOMPLETE && (ctx->token.mode & TokenSliding_e))
+			{
+				ctx->token.mode &= ~TokenFromCookie_e;
 				ret = EREJECT;
 			}
 			else
 			{
-				string_slice(&token, 0, 0);
-				ctx->token.mode &= ~TokenFromCookie_e;
+				ctx->token.mode |= TokenValid_e;
+				ret = EREJECT;
 			}
 			auth_dbg("auth: checktoken %d", ret);
 		}

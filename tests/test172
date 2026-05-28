@@ -1,0 +1,3 @@
+DESC="Auth Bearer sliding JWT"
+CONFIG=test13.conf
+TESTCODE=200
