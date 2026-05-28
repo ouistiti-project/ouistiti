@@ -680,7 +680,7 @@ static int _authmngt_postconnector(_mod_authmngt_ctx_t *ctx, string_t *user, htt
 	if (!ctx->isuser && !ctx->isroot)
 	{
 		const char *currentuser = auth_info(request, STRING_REF(str_user));
-		err("authmngt: user %s access denied (%s)", user, currentuser);		
+		err("authmngt: user %s access denied (%s)", string_toc(user), currentuser);
 		ctx->error = error_accessdenied;
 		return ret;
 	}

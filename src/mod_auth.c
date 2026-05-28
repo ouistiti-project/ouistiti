@@ -971,7 +971,7 @@ static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const string_t
 		}
 	}
 	else
-		err("auth: token with bad signature %.*s", string_length(sign), string_toc(sign));
+		err("auth: token with bad signature %.*s", (int)string_length(sign), string_toc(sign));
 	return ret;
 }
 #endif
@@ -994,8 +994,8 @@ static int _authn_getauthorization(const _mod_auth_ctx_t *ctx, http_message_t *r
 
 	if (!string_empty(authorization) && !string_startwith(authorization, &mod->type))
 	{
-		err("auth: type mismatch %.*s, %.*s", string_length(&mod->type), string_toc(authorization),
-			string_length(&mod->type), string_toc(&mod->type));
+		err("auth: type mismatch %.*s, %.*s", (int)string_length(&mod->type), string_toc(authorization),
+			(int)string_length(&mod->type), string_toc(&mod->type));
 		string_slice(authorization, 0, 0);
 	}
 	return (!string_empty(authorization))? ESUCCESS : EREJECT;
@@ -1414,7 +1414,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		(!string_startwith(&host, &service) ||
 		 string_cmp(&hostname, string_toc(&host) + string_length(&service) + 1, string_length(&hostname))))
 	{
-		err("auth: request for unknown host (%.*s)", string_length(&host), string_toc(&host));
+		err("auth: request for unknown host (%.*s)", (int)string_length(&host), string_toc(&host));
 		ret = ESUCCESS;
 	}
 

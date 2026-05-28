@@ -181,7 +181,7 @@ static int upgrade_connector(void *arg, http_message_t *request, http_message_t 
 
 		if (htaccess_check(&mod->config->htaccess, &uri, NULL) != ESUCCESS)
 		{
-			warn("upgrade: %s forbidden", uri);
+			warn("upgrade: %.*s forbidden", (int)string_length(&uri), string_toc(&uri));
 			httpmessage_result(response, RESULT_403);
 			return ESUCCESS;
 		}

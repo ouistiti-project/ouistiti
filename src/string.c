@@ -601,7 +601,7 @@ int string_decodeurl(string_t *dst, const string_t *src)
 	}
 	if (dst->size < src->size)
 	{
-		err("string: urldecode too small destination %d %d", dst->size, src->size);
+		err("string: urldecode too small destination %zu %zu", dst->size, src->size);
 		return EREJECT;
 	}
 	int dstindex = 0;
