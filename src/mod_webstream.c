@@ -471,7 +471,7 @@ static int _webstream_transferdata(_webstream_main_t *info, int multipart)
 			if (outlength == EINCOMPLETE)
 			{
 				tries++;
-				warn("webstream: send incomplete packet (%d bytes)", ret);
+				warn("webstream: send incomplete packet (%zd bytes)", ret);
 				if (tries < maxtries)
 				{
 					nanosleep(&waittime, NULL);

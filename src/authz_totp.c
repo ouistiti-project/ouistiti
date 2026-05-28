@@ -247,11 +247,11 @@ size_t otp_url(const string_t* key, const string_t *user, const string_t *issuer
 	while (keyb32[keyb32len - 1] == '=') keyb32len --;
 	size_t length = snprintf(output, OTP_MAXURL, "otpauth://totp/");
 	if (!string_empty(issuer))
-		length += snprintf(output + length, OTP_MAXURL - length, "%.*s:", string_length(issuer), string_toc(issuer));
-	length += snprintf(output + length, OTP_MAXURL - length, "%.*s?", string_length(user), string_toc(user));
+		length += snprintf(output + length, OTP_MAXURL - length, "%.*s:", (int)string_length(issuer), string_toc(issuer));
+	length += snprintf(output + length, OTP_MAXURL - length, "%.*s?", (int)string_length(user), string_toc(user));
 	length += snprintf(output + length, OTP_MAXURL - length, "secret=%.*s&", (int)keyb32len, keyb32);
 	if (!string_empty(issuer))
-		length += snprintf(output + length, OTP_MAXURL - length, "issuer=%.*s&", string_length(issuer), string_toc(issuer));
+		length += snprintf(output + length, OTP_MAXURL - length, "issuer=%.*s&", (int)string_length(issuer), string_toc(issuer));
 	if (hash && strncmp(hash->name, "hmac-sha1", 9))
 		length += snprintf(output + length, OTP_MAXURL - length, "algorithm=%s&", hash->name);
 	length += snprintf(output + length, OTP_MAXURL - length, "digits=%d", digits);
