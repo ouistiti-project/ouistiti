@@ -673,9 +673,9 @@ static int _authmngt_putconnector(_mod_authmngt_ctx_t *ctx, string_t *user, http
 	string_t currentrole = {0};
 	ouimessage_SESSION(request, str_group, &currentrole);
 	if (string_cmp(&currentrole, "root", -1) && !strncmp(info.group, "root", 4))
-		strncpy(info.group, str_group_users, sizeof(info.group));
+		strncpy(info.group, str_group_users, sizeof(info.group) - 1);
 	if (info.group[0] == '\0')
-		strncpy(info.group, str_group_anonymous, sizeof(info.group));
+		strncpy(info.group, str_group_anonymous, sizeof(info.group) - 1);
 	if (ret == ESUCCESS && mod->config->mngt.rules->adduser != NULL && info.user[0] != '\0')
 	{
 		ret = mod->config->mngt.rules->adduser(ctx->ctx, &info);
