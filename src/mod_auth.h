@@ -56,6 +56,7 @@ typedef enum
 	AUTHZ_JWT_E,
 	AUTHZ_CHOWN_E = 0x100,
 	AUTHZ_TLS_E = 0x200,
+	AUTHZ_TOKENSLIDING_E = 0x400,
 } authz_type_t;
 
 typedef void *(*authz_rule_config_t)(const void *, authz_type_t *type);
