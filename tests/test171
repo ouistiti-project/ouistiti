@@ -1,0 +1,4 @@
+DESC="Auth: Bearer/database with unknown user"
+CONFIG=test12.conf
+TESTCODE=500
+TESTRESPONSE=error500_rs.txt

@@ -1,0 +1,5 @@
+GET /index.html HTTP/1.1
+HOST: www.ouistiti.local
+Cookie: X-Auth-Token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYmFyIiwiaG9tZSI6Ii9ob21lL2JhciIsInN0YXR1cyI6ImFjdGl2YXRlZCIsInJvbGVzIjoidXNlcnMiLCJleHAiOjI4MDAsImlzcyI6InNxbGl0ZSt0b3RwIn0.6ZPPNBIUU4g5_UuTDz3fxy5khZY1vEKnVsFET1I6jHA; Secure; Samesite=Lax; SameSite=strict; Path=/;
+Connection: Close
+
