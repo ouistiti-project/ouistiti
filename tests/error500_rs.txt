@@ -1,0 +1,6 @@
+HTTP/1.1 500 Internal Server Error
+Content-Type: text/plain
+Content-Length: 28
+Connection: Close
+
+ 500 Internal Server Error
