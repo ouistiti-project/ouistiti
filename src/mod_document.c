@@ -188,6 +188,8 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 			fdroot = fdfile;
 			*connector = getfile_connector;
 			fdfile = openat(fdroot, config->defaultpage, O_RDONLY);
+			if (fdfile == -1)
+				err("document: file opening error %m");
 			close(fdroot);
 			*mime = utils_getmime(config->defaultpage);
 		}
@@ -210,6 +212,8 @@ static int _document_getconnnectorget(_mod_document_mod_t *mod,
 	{
 		*connector = getfile_connector;
 		fdfile = openat(fdroot, string_toc(resource), O_RDONLY);
+		if (fdfile == -1)
+			err("document: file opening error %m");
 		*mime = utils_getmime(string_toc(resource));
 	}
 	return fdfile;
