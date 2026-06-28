@@ -74,6 +74,8 @@
 
 #define tls_dbg(...)
 
+#define MAX_TRIES 5
+
 #define HANDSHAKE 0x01
 #define RECV_COMPLETE 0x02
 
@@ -299,11 +301,13 @@ static int _tls_handshake(_mod_mbedtls_t *ctx)
 	{
 		ctx->state &= ~RECV_COMPLETE;
 		tls_dbg("tls: handshake");
-		while((ret = mbedtls_ssl_handshake(&ctx->ssl)) != 0 )
+		int tries = 0;
+		do
 		{
-			if(ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
-				break;
-		}
+			ret = mbedtls_ssl_handshake(&ctx->ssl)
+		} while (++tries < MAX_TRIES &&
+			(ret == MBEDTLS_ERR_SSL_WANT_READ ||
+			ret == MBEDTLS_ERR_SSL_WANT_WRITE));
 		if (ret == ESUCCESS)
 		{
 			ctx->state |= HANDSHAKE;
@@ -441,7 +445,13 @@ static void _tls_disconnect(void *vctx)
 {
 	_mod_mbedtls_t *ctx = (_mod_mbedtls_t *)vctx;
 	int ret;
-	while ((ret = mbedtls_ssl_close_notify(&ctx->ssl)) == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE);
+	int tries = 0;
+	do
+	{
+		ret = mbedtls_ssl_close_notify(&ctx->ssl)
+	} while (++tries < MAX_TRIES &&
+		(ret == MBEDTLS_ERR_SSL_WANT_READ ||
+		ret == MBEDTLS_ERR_SSL_WANT_WRITE));
 	ctx->protocolops->disconnect(ctx->protocol);
 	tls_dbg("tls: disconnect");
 }
