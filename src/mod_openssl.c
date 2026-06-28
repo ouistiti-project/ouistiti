@@ -186,8 +186,9 @@ static int _tlsserver_start(void *arg)
 			ret = SSL_accept(ctx->ssl);
 			continue;
 		}
-		else
-			err("tls: create error %d", error);
+		err("tls: create error %d", error);
+		SSL_free(ctx->ssl);
+		ctx->ssl = NULL;
 		return EREJECT;
 	}
 	warn("tls: connection accepted for %p", ctx->clt);
