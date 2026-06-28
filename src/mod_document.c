@@ -77,7 +77,8 @@ int mod_send(document_connector_t *private, http_message_t *response);
 
 static void _document_close(document_connector_t *private)
 {
-	if (private->fdfile >= 0)
+	/// fdfile == 0 is semantic for "empty file, not opened"
+	if (private->fdfile > 0)
 		close(private->fdfile);
 	private->fdfile = 0;
 	if (private->fdroot > 0)
