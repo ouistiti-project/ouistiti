@@ -10,11 +10,6 @@ servers= ({
 		vhost =({
 			hostname = "auth.ouistiti.local";
 			auth = ({
-				type = "none";
-				secret = "kXp2s5v8y/B?E(H+KbPeShVmYq3t6w9z";
-				options = "jwt";
-				issuer = "";
-			},{
 				type = "Basic";
 				dbname="conf/passwd.db";
 				unprotect = "^/trust/*";
