@@ -96,7 +96,19 @@ void *authz_jwt_config(const void *configauth, authz_type_t *type)
 }
 #endif
 
-string_t *authz_jwt_generatetoken(authtoken_ctx_t *ctx, http_message_t *request)
+static authtoken_ctx_t *authtoken_jwt_create(authtoken_config_t *config)
+{
+	authtoken_ctx_t *ctx = calloc(1, sizeof(*ctx));
+	ctx->config = config;
+	return ctx;
+};
+
+static void authtoken_jwt_destroy(authtoken_ctx_t *ctx)
+{
+	free(ctx);
+}
+
+static string_t *authz_jwt_generatetoken(authtoken_ctx_t *ctx, http_message_t *request)
 {
 	const authtoken_config_t *config = ctx->config;
 #ifdef JWT_FORMATHEADER
@@ -268,6 +280,7 @@ static int _jwt_checkexpiration(const json_t *jinfo)
 #ifdef AUTHZ_JWT_UNLIMITED_TOKEN
 		/// if the token haven't,
 		/// this return will regenerate a new token with expiration
+		warn("auth: unlimited token accpeted");
 		return EINCOMPLETE;
 #else
 		return EREJECT;
@@ -504,8 +517,19 @@ authz_rules_t authz_jwt_rules =
 	.destroy = authz_jwt_destroy,
 };
 
-static const string_t authz_name = STRING_DCL("jwt");
+static const char str_jwt[] = "jwt";
+static const authtoken_rules_t authtoken_jwt =
+{
+	.name = STRING_DCL(str_jwt),
+	.create = authtoken_jwt_create,
+	.generate = authz_jwt_generatetoken,
+	.check = authz_jwt_checktoken,
+	.destroy = authtoken_jwt_destroy,
+};
+
+static const string_t authz_name = STRING_DCL(str_jwt);
 static void __attribute__ ((constructor)) _init()
 {
 	auth_registerauthz(&authz_name, &authz_jwt_rules);
+	auth_registeratokenmng(&authtoken_jwt);
 }

@@ -110,7 +110,7 @@ static const char *authn_bearer_check(void *arg, authz_t *authz, const char *met
 
 	const char *user = NULL;
 	if (!string_empty(&sign) &&
-		authn_checksignature(&mod->authn->config->token.secret, authorization, &sign) == ESUCCESS)
+		authn_checksignature(&mod->authn->config->token.config.secret, authorization, &sign) == ESUCCESS)
 	{
 		user = authz->rules->check(authz->ctx, NULL, NULL, string_toc(authorization));
 	}

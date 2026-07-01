@@ -33,8 +33,6 @@
 
 typedef struct authz_jwt_s authz_jwt_t;
 
-string_t *authz_jwt_generatetoken(authtoken_ctx_t *ctx, http_message_t *request);
-int authz_jwt_checktoken(authtoken_ctx_t *ctx, const string_t *token, const char **user);
 #if 0
 int authz_jwt_get(const char *id_token, const char *key, string_t *value);
 #endif

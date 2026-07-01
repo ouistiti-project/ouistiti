@@ -56,7 +56,6 @@ typedef enum
 	AUTHZ_JWT_E,
 	AUTHZ_CHOWN_E = 0x100,
 	AUTHZ_TLS_E = 0x200,
-	AUTHZ_TOKENSLIDING_E = 0x400,
 } authz_type_t;
 
 typedef void *(*authz_rule_config_t)(const void *, authz_type_t *type);
@@ -161,8 +160,9 @@ typedef struct authtoken_config_s authtoken_config_t;
 struct authtoken_config_s
 {
 	enum {
-		E_OUITOKEN,
+		E_OUITOKEN = 1,
 		E_JWT,
+		E_TOKEN_SLIDING = 0x100,
 	}type;
 	string_t secret;
 	string_t issuer;
@@ -176,14 +176,45 @@ struct authtoken_ctx_s
 	string_t *user;
 };
 
+typedef authtoken_ctx_t *(*authtoken_rule_create_t)(authtoken_config_t *config);
 typedef string_t *(*authtoken_rule_generate_t)(authtoken_ctx_t *ctx, http_message_t *request);
 typedef int (*authtoken_rule_check_t)(authtoken_ctx_t *ctx, const string_t *token, const char **cuser);
+typedef void (*authtoken_rule_destroy_t)(authtoken_ctx_t *ctx);
+typedef struct authtoken_rules_s authtoken_rules_t;
+struct authtoken_rules_s
+{
+	string_t name;
+	authtoken_rule_create_t create;
+	authtoken_rule_generate_t generate;
+	authtoken_rule_check_t check;
+	authtoken_rule_destroy_t destroy;
+};
+
+struct authtoken_s
+{
+	void *ctx;
+	const authtoken_rules_t *rules;
+	enum {
+		TokenFromCookie_e = 1,
+		TokenSliding_e = 2,
+		TokenValid_e = 4,
+	} mode;
+};
+typedef struct authtoken_s authtoken_t;
+
+struct mod_authtoken_s
+{
+	authtoken_config_t config;
+	const authtoken_rules_t *rules;
+	const hash_t *hash;
+};
+typedef struct mod_authtoken_s mod_authtoken_t;
 
 struct mod_auth_s
 {
 	mod_authn_t authn;
 	mod_authz_t authz;
-	authtoken_config_t token;
+	mod_authtoken_t token;
 	string_t algo;
 	string_t redirect;
 	string_t token_ep;
@@ -203,6 +234,7 @@ size_t auth_info2(http_message_t *request, const char *key, const char **value);
 
 void auth_registerauthn(const string_t *name, authn_rules_t *rules);
 void auth_registerauthz(const string_t *name, authz_rules_t *rules);
+void auth_registeratokenmng(const authtoken_rules_t *rules);
 
 #ifdef __cplusplus
 }

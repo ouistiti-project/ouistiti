@@ -89,11 +89,6 @@ static void _mod_auth_freectx(void *vctx);
 static int _home_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _forbidden_connector(void *arg, http_message_t *request, http_message_t *response);
 static int _authn_connector(void *arg, http_message_t *request, http_message_t *response);
-#ifdef AUTH_TOKEN
-static string_t *_mod_auth_generatetoken(authtoken_ctx_t *ctx, http_message_t *UNUSED(request));
-static int _authn_checktoken(authtoken_ctx_t *ctx, const string_t *token, const char **cuser);
-
-#endif
 
 static const char str_auth[] = "auth";
 
@@ -104,17 +99,7 @@ struct _mod_auth_ctx_s
 	char *authenticate;
 	authn_t authn;
 	authz_t authz;
-	struct
-	{
-		authtoken_ctx_t *ctx;
-		authtoken_rule_generate_t generate;
-		authtoken_rule_check_t check;
-		enum {
-			TokenFromCookie_e = 1,
-			TokenSliding_e = 2,
-			TokenValid_e = 4,
-		} mode;
-	} token;
+	authtoken_t token;
 };
 
 struct _mod_auth_s
@@ -208,8 +193,82 @@ void auth_registerauthz(const string_t *name, authz_rules_t *rules)
 	authz_list = entry;
 }
 
+struct _tokenmng_s
+{
+	const authtoken_rules_t *rules;
+	struct _tokenmng_s *next;
+};
 
+static struct _tokenmng_s *tokenmng_list = NULL;
+
+void auth_registeratokenmng(const authtoken_rules_t *rules)
+{
+	struct _tokenmng_s *entry = calloc(1, sizeof(*entry));
+	if (!entry)
+	{
+		err("auth: not enough memory");
+		return;
+	}
+	entry->rules = rules;
+	entry->next = tokenmng_list;
+	tokenmng_list = entry;
+}
+
+static const char str_ouitoken[] = "ouitoken";
+static const char str_jwt[] = "jwt";
 #ifdef FILE_CONFIG
+static int auth_configtoken(const config_setting_t *configauth,  mod_authtoken_t *mod)
+{
+	const char *name = NULL;
+	const char *options = NULL;
+	config_setting_lookup_string(configauth, "options", &options);
+	if (config_setting_lookup_string(configauth, "token", (const char **)&name) != CONFIG_TRUE && options)
+	{
+		if (strstr(options, "token") != NULL)
+			name = str_ouitoken;
+		if (strstr(options, "jwt") != NULL)
+			name = str_jwt;
+	};
+	if (name == NULL && config_setting_lookup_string(configauth, "authz", &name) != CONFIG_TRUE)
+		return -1;
+	struct _tokenmng_s *tokenmng = NULL;
+	for (tokenmng = tokenmng_list; tokenmng != NULL; tokenmng = tokenmng->next)
+	{
+		if (!string_cmp(&tokenmng->rules->name, name, -1))
+		{
+			mod->rules = tokenmng->rules;
+			break;
+		}
+	}
+	if (mod->rules == NULL)
+		return -1;
+	const char *data = NULL;
+	/**
+	 * secret is the secret used during the token generation. (see authz_jwt.c)
+	 */
+	if (config_setting_lookup_string(configauth, "secret", &data) != CONFIG_FALSE)
+		string_store(&mod->config.secret, data, -1);
+	int int_expire = 0;
+	if (config_setting_lookup_int(configauth, "expire", &int_expire) == CONFIG_FALSE)
+		mod->config.expire = 30;
+	else
+		mod->config.expire = (time_t)int_expire;
+	if (config_setting_lookup_string(configauth, str_issuer, &data) == CONFIG_TRUE)
+	{
+		string_store(&mod->config.issuer, data, -1);
+	}
+	else if (config_setting_lookup_string(configauth, "realm", &data) == CONFIG_TRUE)
+	{
+		string_store(&mod->config.issuer, data, -1);
+	}
+	if (options && strstr(options, "sliding") != NULL)
+	{
+		mod->config.type |= TokenSliding_e;
+	}
+
+	return 0;
+}
+
 static int authn_config(const config_setting_t *configauth, mod_authn_t *mod)
 {
 	int ret = EREJECT;
@@ -258,20 +317,6 @@ static void authz_optionscb(void *arg, const char *option)
 
 	if (strstr(option, "home") != NULL)
 		auth->authz.type |= AUTHZ_HOME_E;
-	if (strstr(option, "token") != NULL)
-	{
-		auth->authz.type |= AUTHZ_TOKEN_E;
-		auth->token.type = E_OUITOKEN;
-	}
-	if (strstr(option, "jwt") != NULL)
-	{
-		auth->authz.type |= AUTHZ_TOKEN_E;
-		auth->token.type = E_JWT;
-	}
-	if (strstr(option, "sliding") != NULL)
-	{
-		auth->authz.type |= AUTHZ_TOKENSLIDING_E;
-	}
 	if (strstr(option, "chown") != NULL)
 		auth->authz.type |= AUTHZ_CHOWN_E;
 	if (strstr(option, "session") != NULL)
@@ -357,25 +402,6 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	if (ret != CONFIG_FALSE)
 		string_store(&auth->unprotect, data, -1);
 
-	/**
-	 * secret is the secret used during the token generation. (see authz_jwt.c)
-	 */
-	if (config_setting_lookup_string(config, "secret", &data) != CONFIG_FALSE)
-		string_store(&auth->token.secret, data, -1);
-	const char *mode = NULL;
-	config_setting_lookup_string(config, "options", &mode);
-	if (ouistiti_issecure(server))
-		auth->authz.type |= AUTHZ_TLS_E;
-	if (mode != NULL)
-	{
-		authz_optionscb(auth, mode);
-	}
-	int int_expire = 0;
-	if (config_setting_lookup_int(config, "expire", &int_expire) == CONFIG_FALSE)
-		auth->token.expire = 30;
-	else
-		auth->token.expire = (time_t)int_expire;
-
 	if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
 		string_store(&auth->realm, data, -1);
 	else if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
@@ -386,29 +412,46 @@ static mod_auth_t *_auth_config(const config_setting_t *config, server_t *server
 	ret = authz_config(config, &auth->authz);
 	if (ret == EREJECT)
 	{
-		err("auth: %s authz config: is not set", string_toc(&auth->token.issuer));
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
-	if (config_setting_lookup_string(config, str_issuer, &data) == CONFIG_TRUE)
-		string_store(&auth->token.issuer, data, -1);
-	else if (config_setting_lookup_string(config, "realm", &data) == CONFIG_TRUE)
-		string_store(&auth->token.issuer, data, -1);
-	else
-		string_store(&auth->token.issuer, STRING_INFO(auth->authz.name));
-	if (auth->authz.type & AUTHZ_JWT_E)
-		auth->token.type = E_JWT;
 
 	ret = authn_config(config, &auth->authn);
 	if (ret == EREJECT)
 	{
-		err("auth: %s authn config: is not set", string_toc(&auth->token.issuer));
 		auth->authn.type = AUTHN_FORBIDDEN_E;
 	}
 
-	if (auth->token.secret.data == NULL && auth->authz.type & AUTHZ_TOKEN_E)
+	auth_configtoken(config, &auth->token);
+	if (string_empty(&auth->token.config.issuer))
+	{
+		string_store(&auth->token.config.issuer, STRING_INFO(auth->authz.name));
+	}
+	if (auth->token.rules != NULL && string_empty(&auth->token.config.secret))
 	{
 		err("auth: to enable the token, set the \"secret\" into configuration");
 		auth->authn.type = AUTHN_FORBIDDEN_E;
+	}
+	if (auth->token.rules == NULL && auth->authn.type & AUTHN_TOKEN_E)
+	{
+		err("auth: token manager required with authn");
+		auth->authn.type = AUTHN_FORBIDDEN_E;
+	}
+	if (auth->token.rules != NULL)
+		auth->authz.type |= AUTHZ_TOKEN_E;
+
+	const char *mode = NULL;
+	config_setting_lookup_string(config, "options", &mode);
+	if (ouistiti_issecure(server))
+		auth->authz.type |= AUTHZ_TLS_E;
+	if (mode != NULL)
+	{
+		authz_optionscb(auth, mode);
+	}
+
+	if (auth->authn.type == AUTHN_FORBIDDEN_E ||
+		auth->authn.type == AUTHN_FORBIDDEN_E)
+	{
+		err("auth: %s authz config: is not set", string_toc(&auth->token.config.issuer));
 	}
 	return auth;
 }
@@ -520,8 +563,8 @@ static void *mod_auth_create(http_server_t *server, mod_auth_t *config)
 		return NULL;
 
 	string_t *issuer = mod->authz->name;
-	if (!string_empty(&config->token.issuer))
-		issuer = &config->token.issuer;
+	if (!string_empty(&config->token.config.issuer))
+		issuer = &config->token.config.issuer;
 	mod->authz->ctx = mod->authz->rules->create(server, issuer, config->authz.config);
 	if (mod->authz->ctx == NULL)
 	{
@@ -596,26 +639,13 @@ static void *_mod_auth_getctx(void *arg, http_client_t *clt, struct sockaddr *ad
 	ctx->mod = mod;
 	ctx->clt = clt;
 
-	ctx->token.ctx = calloc(1, sizeof(*ctx->token.ctx));
-	if (! ctx->token.ctx)
+	if (config->token.rules)
 	{
-		err("auth: not enough memory");
-		return NULL;
-	}
-	ctx->token.ctx->config = &config->token;
-	if (config->token.type == E_OUITOKEN)
-	{
-		ctx->token.generate = _mod_auth_generatetoken;
-		ctx->token.check = _authn_checktoken;
-	}
-	else if (config->token.type == E_JWT)
-	{
-		ctx->token.generate = authz_jwt_generatetoken;
-		ctx->token.check = authz_jwt_checktoken;
+		ctx->token.ctx = config->token.rules->create(&config->token.config);
+		if (ctx->token.ctx)
+			ctx->token.rules = config->token.rules;
 	}
 
-	if (mod->authz->type & AUTHZ_TOKENSLIDING_E)
-		ctx->token.mode |= TokenSliding_e;
 	if (mod->authz->type & AUTHZ_HOME_E)
 		httpclient_addconnector(clt, _home_connector, ctx, CONNECTOR_AUTH, str_auth);
 	httpclient_addconnector(clt, _authn_connector, ctx, CONNECTOR_AUTH, str_auth);
@@ -650,7 +680,7 @@ static void _mod_auth_freectx(void *vctx)
 	if(ctx->authz.ctx && ctx->authz.rules->cleanup)
 		ctx->authz.rules->cleanup(ctx->authz.ctx);
 	if (ctx->token.ctx)
-		free(ctx->token.ctx);
+		ctx->token.rules->destroy(ctx->token.ctx);
 	if (ctx->authenticate)
 		free(ctx->authenticate);
 	free(ctx);
@@ -774,6 +804,18 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 }
 
 #ifdef AUTH_TOKEN
+static authtoken_ctx_t *authtoken_ouitoken_create(authtoken_config_t *config)
+{
+	authtoken_ctx_t *ctx = calloc(1, sizeof(*ctx));
+	ctx->config = config;
+	return ctx;
+};
+
+static void authtoken_ouitoken_destroy(authtoken_ctx_t *ctx)
+{
+	free(ctx);
+}
+
 static string_t *_mod_auth_generatetoken(authtoken_ctx_t *ctx, http_message_t *request)
 {
 	const authtoken_config_t *config = ctx->config;
@@ -957,17 +999,16 @@ int authn_checksignature(const string_t *key, const string_t *data, const string
 
 static int authn_checktoken(_mod_auth_ctx_t *ctx, authz_t *authz, const string_t *token, const string_t *sign, const char **user)
 {
-	int ret = ECONTINUE;
+	int ret = EREJECT;
 	_mod_auth_t *mod = ctx->mod;
 
-	ret = authn_checksignature(&mod->config->token.secret, token, sign);
-	if (ret == ESUCCESS)
+	if (authn_checksignature(&mod->config->token.config.secret, token, sign) == ESUCCESS)
 	{
 		/// some authz may join a token to an user
 		*user = authz->rules->check(authz->ctx, NULL, NULL, string_toc(sign));
 		if (*user == NULL)
 		{
-			ret = ctx->token.check(ctx->token.ctx, token, user);
+			ret = ctx->token.rules->check(ctx->token.ctx, token, user);
 		}
 	}
 	else
@@ -1340,16 +1381,16 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	string_t *token = NULL;
 	string_t *sign = NULL;
 #ifdef AUTH_TOKEN
-	if (config->authz.type & AUTHZ_TOKEN_E && !(ctx->token.mode & TokenValid_e))
+	if (ctx->token.rules && !(ctx->token.mode & TokenValid_e))
 	{
-		token = ctx->token.generate(ctx->token.ctx, request);
+		token = ctx->token.rules->generate(ctx->token.ctx, request);
 	}
 	if (!string_empty(token) && config->authz.type & AUTHZ_TOKEN_E)
 	{
-		sign = _authn_signtoken(&mod->config->token.secret, token);
+		sign = _authn_signtoken(&mod->config->token.config.secret, token);
 
 		char strexpire[100];
-		size_t lenexpire = snprintf(strexpire, 100, "max-age=%lu, must-revalidate", config->token.expire * 60);
+		size_t lenexpire = snprintf(strexpire, 100, "max-age=%lu, must-revalidate", config->token.config.expire * 60);
 		httpmessage_addheader(response, str_cachecontrol, strexpire, lenexpire);
 	}
 #endif
@@ -1402,7 +1443,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	string_t token = {0};
 	string_t issuer = {0};
 
-	dbg("auth: check for %s (%s)", string_toc(&config->token.issuer),string_toc(&config->authz.name));
+	dbg("auth: check for %s (%s)", string_toc(&config->token.config.issuer),string_toc(&config->authz.name));
 
 	string_t host = {0};
 	ouimessage_REQUEST(request, "host", &host);
@@ -1442,12 +1483,12 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 
 	ouimessage_SESSION(request, str_issuer, &issuer);
 	if ((ret == ECONTINUE) &&
-		!string_contain(&issuer, &config->token.issuer, '+'))
+		!string_contain(&issuer, &config->token.config.issuer, '+'))
 	{
 		ret = EREJECT;
 		auth_info2(request, str_user, &user);
-		string_store(&authorization, string_toc(&config->token.issuer), string_length(&config->token.issuer));
-		auth_dbg("auth: session already set for this %.*s issuer", string_length(&config->token.issuer), string_toc(&config->token.issuer));
+		string_store(&authorization, string_toc(&config->token.config.issuer), string_length(&config->token.config.issuer));
+		auth_dbg("auth: session already set for this %.*s issuer", string_length(&config->token.config.issuer), string_toc(&config->token.config.issuer));
 	}
 
 
@@ -1497,7 +1538,7 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 		}
 	}
 	else if (ret == ECONTINUE)
-		warn("auth: token not checked. Configure (%s) token or jwt", string_toc(&config->token.issuer));
+		warn("auth: token not checked. Configure (%s) token or jwt", string_toc(&config->token.config.issuer));
 #endif
 	if (ret == ECONTINUE)
 	{
@@ -1520,28 +1561,28 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	if (ret != EREJECT)
 	{
 		httpclient_dropsession(ctx->clt);
-		err("auth: %s rejects autorisation for %s", string_toc(&config->token.issuer), user);
+		err("auth: %s rejects autorisation for %s", string_toc(&config->token.config.issuer), user);
 		ret = _authn_challenge(ctx, request, response);
 	}
 	else if (!string_empty(&authorization) && user)
 	{
 		if (httpclient_setsession(ctx->clt, string_toc(&authorization), -1) >= 0)
 		{
-			auth_dbg("auth: set the session for %.*s", string_length(&config->token.issuer), string_toc(&config->token.issuer));
+			auth_dbg("auth: set the session for %.*s", string_length(&config->token.config.issuer), string_toc(&config->token.config.issuer));
 			// The first MFA authenticator must know the group, and status
 			// the next authenticator haven't to modify this values
 			if (authz->rules->setsession)
 				authz->rules->setsession(authz->ctx, user, string_toc(&token), auth_saveinfo, ctx->clt);
-			httpclient_session(ctx->clt, STRING_REF(str_issuer), STRING_INFO(config->token.issuer));
+			httpclient_session(ctx->clt, STRING_REF(str_issuer), STRING_INFO(config->token.config.issuer));
 			if (authz->rules->join)
 			{
-				authz->rules->join(authz->ctx, user, string_toc(&authorization), mod->config->token.expire);
+				authz->rules->join(authz->ctx, user, string_toc(&authorization), mod->config->token.config.expire);
 			}
 		}
-		else if (string_contain(&issuer, &config->token.issuer, '+'))
+		else if (string_contain(&issuer, &config->token.config.issuer, '+'))
 		{
 			httpclient_appendsession(ctx->clt, str_issuer, "+", 1);
-			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.issuer));
+			httpclient_appendsession(ctx->clt, str_issuer, STRING_INFO(config->token.config.issuer));
 			if (authz->rules->setsession && config->authz.type & AUTHZ_SESSION_E)
 			{
 				authz->rules->setsession(authz->ctx, user, string_toc(&token), auth_saveinfo, ctx->clt);
@@ -1598,6 +1639,19 @@ const module_t mod_auth =
 	.destroy = &mod_auth_destroy
 };
 
+static const authtoken_rules_t authtoken_ouitoken =
+{
+	.name = STRING_DCL(str_ouitoken),
+	.create = authtoken_ouitoken_create,
+	.generate = _mod_auth_generatetoken,
+	.check = _authn_checktoken,
+	.destroy = authtoken_ouitoken_destroy,
+};
+
 #ifdef MODULES
 extern module_t mod_info __attribute__ ((weak, alias ("mod_auth")));
 #endif
+static void __attribute__ ((constructor)) _init()
+{
+	auth_registeratokenmng(&authtoken_ouitoken);
+}
