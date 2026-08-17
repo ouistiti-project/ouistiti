@@ -37,9 +37,6 @@
 #include <sched.h>
 #include <dirent.h>
 #include <limits.h>
-#ifdef BACKTRACE
-#include <execinfo.h> // for backtrace
-#endif
 #ifdef USE_STDARG
 #include <stdarg.h>
 #endif
@@ -380,72 +377,9 @@ static int _ouistiti_chown(int fd, const char *owner)
 #endif
 	return -1;
 }
-static const char *g_logfile = NULL;
-static int g_logfd = 0;
-size_t g_logmax = LOG_MAXFILESIZE;
-int ouistiti_setlogfile(const char *logfile, size_t logmax, const char *owner)
-{
-	if (g_logfile != NULL)
-		logfile = g_logfile;
-	if (logfile != NULL && logfile[0] != '\0' && logfile[0] != '-')
-	{
-		const char *logmaxenv = getenv("LOG_MAXFILESIZE");
-		if (logmaxenv)
-			logmax = strtoul(logmaxenv, NULL, 10);
-		if (logmax)
-			g_logmax = logmax;
-		g_logfile = logfile;
-		g_logfd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 00660);
-		if (g_logfd > 0)
-		{
-			if (owner && _ouistiti_chown(g_logfd, owner) == -1)
-				warn("main: impossible to change logfile owner");
-			dup2(g_logfd, 1);
-			dup2(g_logfd, 2);
-			close(g_logfd);
-		}
-		else
-			err("log file error %s", strerror(errno));
-	}
-	else
-		g_logfile = NULL;
-	return (g_logfd > 0);
-}
 
-#undef BACKTRACE
 static server_t *g_first = NULL;
-static char run = 0;
 static int g_default_port = 80;
-#ifdef HAVE_SIGACTION
-static void handler(int sig, siginfo_t *UNUSED(si), void *UNUSED(arg))
-#else
-static void handler(int sig)
-#endif
-{
-	err("main: signal %d", sig);
-	if (sig == SIGSEGV)
-	{
-#ifdef BACKTRACE
-		void *array[10];
-		size_t size;
-
-		// get void*'s for all entries on the stack
-		size = backtrace(array, 10);
-
-		// print out all the frames to stderr
-		backtrace_symbols_fd(array, size, STDERR_FILENO);
-#endif
-#ifdef DEBUG
-		err("main: pausing");
-		pause();
-#else
-		exit(1);
-#endif
-	}
-	if (sig != SIGPIPE)
-		run = 'q';
-}
-
 http_server_t *ouistiti_httpserver(server_t *server)
 {
 	return server->server;
@@ -647,18 +581,10 @@ static int main_run(server_t *first)
 		httpserver_connect(server->server);
 	}
 
-	while(run != 'q' && first != NULL && first->server != NULL)
+	while(isrunning() && first != NULL && first->server != NULL)
 	{
 		if (httpserver_run(first->server) != ECONTINUE)
 			break;
-#if LOG_MAXFILESIZE != -1
-		struct stat logstat = {0};
-		if (g_logfile && !stat(g_logfile, &logstat) && (logstat.st_size > g_logmax))
-		{
-			ouistiti_setlogfile(g_logfile, g_logmax, NULL);
-			warn("main: reset logfile");
-		}
-#endif
 	}
 	return 0;
 }
@@ -718,15 +644,12 @@ int main(int argc, char * const *argv)
 {
 	const char *configfile = DEFAULT_CONFIGPATH;
 	const char *pidfile = NULL;
+	const char *logfile = NULL;
+	const char *user = NULL;
 	const char *workingdir = NULL;
 	int mode = 0;
 	int serverid = -1;
 	const char *pkglib = PKGLIBDIR;
-
-//	setlinebuf /( stdout /);
-//	setlinebuf /( stderr /);
-	setvbuf(stdout, NULL, _IONBF, 0);
-	setvbuf(stderr, NULL, _IONBF, 0);
 
 	httpserver_software = servername;
 
@@ -771,30 +694,13 @@ int main(int argc, char * const *argv)
 				 workingdir = optarg;
 			break;
 			case 'L':
-				 g_logfile = optarg;
+				 logfile = optarg;
 			break;
 			default:
 			break;
 		}
 	} while(opt != -1);
 #endif
-
-	if (mode & KILLDAEMON)
-	{
-		if (pidfile)
-			killdaemon(pidfile);
-		return 0;
-	}
-
-	if ((mode & DAEMONIZE) && daemonize(pidfile) == -1)
-	{
-		/**
-		 * if main is destroyed, it close the server socket here
-		 * and the true process is not able to receive any connection
-		 */
-		// main_destroy /( first /) /;
-		return 0;
-	}
 
 	ouistiti_initmodules(pkglib);
 #ifdef MODULES
@@ -803,18 +709,13 @@ int main(int argc, char * const *argv)
 		ouistiti_initmodules(modules_path);
 #endif
 
-	if (workingdir != NULL)
+	daemon_setroot(workingdir);
+
+	if (mode & KILLDAEMON)
 	{
-		if (chroot(workingdir) == 0)
-		{
-			chdir("/");
-			warn("main: daemon run inside sandbox");
-		}
-		else if (chdir(workingdir) != 0)
-		{
-			err("%s directory is not accessible", workingdir);
-			return 1;
-		}
+		if (pidfile)
+			killdaemon(pidfile);
+		return 0;
 	}
 
 	ouistiticonfig_t *ouistiticonfig = NULL;
@@ -837,34 +738,35 @@ int main(int argc, char * const *argv)
 		main_initat(rootfd, ouistiticonfig->init_d, 0);
 	}
 
+	if (logfile == NULL)
+		logfile = ouistiticonfig->logfile;
+	daemon_setlogfile(logfile);
+
+	/// daemon process must be created before the servers creation
+	if (daemonize((mode & DAEMONIZE) == DAEMONIZE, NULL, pidfile, NULL, NULL) == -1)
+	{
+		return -1;
+	}
+
 	g_first = ouistiti_loadservers(ouistiticonfig, serverid);
 
 #ifdef HAVE_SIGACTION
-	struct sigaction action;
-	action.sa_flags = SA_SIGINFO;
-	sigemptyset(&action.sa_mask);
-	action.sa_sigaction = handler;
-	sigaction(SIGTERM, &action, NULL);
-	sigaction(SIGINT, &action, NULL);
-#ifdef BACKTRACE
-	sigaction(SIGSEGV, &action, NULL);
-#endif
-
 	/// ignore sigpipe for multithreading
 	struct sigaction unaction;
 	unaction.sa_handler = SIG_IGN;
 	sigaction(SIGPIPE, &unaction, NULL);
 #else
-	signal(SIGTERM, handler);
-	signal(SIGINT, handler);
-#ifdef BACKTRACE
-	signal(SIGSEGV, handler);
-#endif
-
 	signal(SIGPIPE, SIG_IGN);
 #endif
 
-	if (ouistiticonfig->user == NULL || ouistiti_setprocessowner(ouistiticonfig->user) == EREJECT)
+	/// daemon owner must change after the servers creation
+	if (user == NULL)
+		user = ouistiticonfig->user;
+#if AUTHZ_CHOWN == y
+	if (daemon_setowner(user, 0))
+#else
+	if (daemon_setowner(user, 1))
+#endif
 		err("Error: user %s not found", ouistiticonfig->user);
 	else
 		warn("%s run as %s", argv[0], ouistiticonfig->user);
@@ -880,7 +782,5 @@ int main(int argc, char * const *argv)
 	}
 	ouistiticonfig_destroy(ouistiticonfig);
 	warn("good bye");
-	if (g_logfd > 0)
-		close(g_logfd);
 	return 0;
 }

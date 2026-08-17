@@ -332,7 +332,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	struct stat filestat;
 	if (fstatat(ctx->fdroot, string_toc(resource), &filestat, AT_EMPTY_PATH | AT_NO_AUTOMOUNT) == -1)
 	{
-		return EREJECT;
+		goto close_fdroot;
 	}
 	const char *X_Requested_With = httpmessage_REQUEST(request, "X-Requested-With");
 	if (S_ISDIR(filestat.st_mode) &&
@@ -340,7 +340,11 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	{		
 		document_dbg("document: %s is directory", string_toc(resource));
 		ctx->fdfile = openat(ctx->fdroot, string_toc(resource), O_DIRECTORY);
+		return EREJECT;
 	}
+close_fdroot:
+	close(ctx->fdroot);
+	ctx->fdroot = -1;
 	return EREJECT;
 }
 
