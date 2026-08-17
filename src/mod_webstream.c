@@ -134,7 +134,7 @@ static int _webstream_socket(_mod_webstream_ctx_t *ctx, int sock, const char *fi
 		warn("webstream: stream socket");
 		sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	}
-	if (sock > 0)
+	if (sock >= 0)
 	{
 		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
 		if (ret < 0)

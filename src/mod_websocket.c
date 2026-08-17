@@ -502,7 +502,7 @@ static int _websocket_unix(const char *filepath)
 
 	dbg("websocket: open %s", addr.sun_path);
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock > 0)
+	if (sock >= 0)
 	{
 		int ret = connect(sock, (struct sockaddr *) &addr, sizeof(addr));
 		if (ret < 0)
