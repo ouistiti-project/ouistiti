@@ -166,7 +166,6 @@ static int _tlsserver_start(void *arg)
 	ctx->ssl = SSL_new(ctx->mod->openssl_ctx);
 	if (ctx->ssl == NULL)
 	{
-		free(ctx);
 		return EREJECT;
 	}
 	int sock = httpclient_socket(ctx->clt);
