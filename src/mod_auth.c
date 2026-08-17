@@ -318,7 +318,11 @@ static void authz_optionscb(void *arg, const char *option)
 	if (strstr(option, "home") != NULL)
 		auth->authz.type |= AUTHZ_HOME_E;
 	if (strstr(option, "chown") != NULL)
+#if AUTHZ_CHOWN == y
 		auth->authz.type |= AUTHZ_CHOWN_E;
+#else
+		warn("auth: change owner is not supported");
+#endif
 	if (strstr(option, "session") != NULL)
 		auth->authz.type |= AUTHZ_SESSION_E;
 
@@ -1404,11 +1408,13 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 		_authn_setauthorization_cookie(ctx, authorization, token, sign, response);
 	}
 
+#if AUTHZ_CHOWN == y
 	if (mod->authz->type & AUTHZ_CHOWN_E)
 	{
 		const char *user = auth_info(request, STRING_REF(str_user));
 		ouistiti_setprocessowner(user);
 	}
+#endif
 	if (token)
 		string_destroy(token);
 	if (sign)

@@ -28,6 +28,9 @@ ifneq ($(MODULES),y)
 $(TARGET)_SOURCES-$(STATIC)+=ouistiti_static.c
 endif
 $(TARGET)_SOURCES-$(MODULES)+=ouistiti_modules.c
+ifneq ($(VTHREAD)$(VTHREAD_TYPE),yfork)
+  $(TARGET)_CFLAGS+=-UAUTHZ_CHOWN
+endif
 $(TARGET)_SOURCES+=daemonize.c
 $(TARGET)_LIBS+=$(LIBHTTPSERVER_NAME)
 $(TARGET)_LIBS+=ouistiti
