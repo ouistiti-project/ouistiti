@@ -97,6 +97,8 @@ int _document_dochome(_mod_document_mod_t *mod,
 	const char *home = auth_info(request, STRING_REF(str_home));
 	if (home == NULL)
 		home = user;
+	if (home == NULL)
+		return mod->fdhome;
 	while ((home[0] == '/' || home[0] == '.') && home[0] != '\0') home++;
 	if (home[0] == '\0')
 		home = user;
@@ -266,7 +268,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 #ifdef DOCUMENTHOME
 	string_t tylde = {0};
 	string_store(&tylde, STRING_REF("/~"));
-	if (string_startwith(&uri, &tylde))
+	if ((config->options & DOCUMENT_HOME) && string_startwith(&uri, &tylde))
 	{
 		string_slice(&uri, 2, 0);
 		fdroot = _document_dochome(mod, request, &uri);
@@ -325,7 +327,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	}
 	if (fdfile == 0)
 	{
-		err("document: $s/%s error %m", home?home:"", string_toc(&uri));
+		err("document: %s/%s error %m", home?home:"", string_toc(&uri));
 		if (errno > 0)
 		{
 			switch (errno)
