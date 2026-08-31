@@ -234,7 +234,7 @@ static int _dirlisting_connectorcontent(document_connector_t *private, http_mess
 		}
 		if (ent)
 		{
-			httpmessage_addcontent(response, NULL, ",", 1);
+			httpmessage_appendcontent(response, ",", 1);
 			ret = _dirlisting_getentity(private, ent, response);
 			private->nbents--;
 		}
@@ -242,7 +242,7 @@ static int _dirlisting_connectorcontent(document_connector_t *private, http_mess
 		{
 			char data[sizeof(DIRLISTING_FOOTER) + 1];
 			size_t length = snprintf(data, sizeof(data) -1, DIRLISTING_FOOTER, "OK");
-			httpmessage_addcontent(response, NULL, data, length);
+			httpmessage_appendcontent(response, data, length);
 			close(private->fdfile);
 			private->fdfile = 0;
 			ret = ECONTINUE;
@@ -314,7 +314,7 @@ static int _document_connector(void *arg, http_message_t *request, http_message_
 	}
 #ifdef DOCUMENTHOME
 	string_t tylde = STRING_DCL("/~");
-	if (string_startwith(&uri, &tylde))
+	if ((mod->config->options & DOCUMENT_HOME) && string_startwith(&uri, &tylde))
 	{
 		string_slice(&uri, 2, 0);
 		ctx->fdroot = _document_dochome(mod, request, &uri);
