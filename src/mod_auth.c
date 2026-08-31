@@ -1320,6 +1320,29 @@ static int _authn_challenge(_mod_auth_ctx_t *ctx, http_message_t *request, http_
 	return ret;
 }
 
+#ifdef AUTH_CHECKHOST
+static int _authn_checkhost(_mod_auth_ctx_t *ctx, http_message_t *request, http_message_t *response)
+{
+	int ret = ECONTINUE;
+	const _mod_auth_t *mod = ctx->mod;
+	string_t host = {0};
+	ouimessage_REQUEST(request, "host", &host);
+	string_t hostname = {0};
+	ouiserver_INFO(mod->server, "hostname", &hostname);
+	string_t service = {0};
+	ouiserver_INFO(mod->server, "service", &service);
+	if (!(httpclient_state(httpmessage_client(request)) & CLIENT_LOCALHOST) &&
+		(!string_startwith(&host, &service) ||
+		 string_cmp(&hostname, string_toc(&host) + string_length(&service) + 1, string_length(&hostname))))
+	{
+		err("auth: request for unknown host (%.*s)", (int)string_length(&host), string_toc(&host));
+		httpmessage_result(response, RESULT_403);
+		ret = ESUCCESS;
+	}
+	return ret;
+}
+#endif
+
 static int _authn_checkuri(const mod_auth_t *config, http_message_t *request, http_message_t *response)
 {
 	string_t uri = {0};
@@ -1450,21 +1473,9 @@ static int _authn_connector(void *arg, http_message_t *request, http_message_t *
 	string_t issuer = {0};
 
 	dbg("auth: check for %s (%s)", string_toc(&config->token.config.issuer),string_toc(&config->authz.name));
-
-	string_t host = {0};
-	ouimessage_REQUEST(request, "host", &host);
-	string_t hostname = {0};
-	ouiserver_INFO(mod->server, "hostname", &hostname);
-	string_t service = {0};
-	ouiserver_INFO(mod->server, "service", &service);
-	if (!(httpclient_state(httpmessage_client(request)) & CLIENT_LOCALHOST) &&
-		(!string_startwith(&host, &service) ||
-		 string_cmp(&hostname, string_toc(&host) + string_length(&service) + 1, string_length(&hostname))))
-	{
-		err("auth: request for unknown host (%.*s)", (int)string_length(&host), string_toc(&host));
-		ret = ESUCCESS;
-	}
-
+#ifdef AUTH_CHECKHOST
+	ret = _authn_checkhost(ctx, request, response);
+#endif
 	if (ret == ECONTINUE)
 	{
 		/// check uri before all otherwise a token may be generated
