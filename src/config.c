@@ -189,7 +189,7 @@ static void ouistiticonfig_subconfigfile(const char *filepath, ouistiticonfig_t 
 	int ret = config_read_file(configfile, filepath);
 	if (ret != CONFIG_TRUE)
 	{
-		err("config: %s %s", filepath, config_error_text(configfile));
+		err("config: %s(%d) %s", config_error_file(configfile), config_error_line(configfile), config_error_text(configfile));
 		free(configfile);
 		return;
 	}
@@ -215,7 +215,7 @@ ouistiticonfig_t *ouistiticonfig_create(const char *filepath)
 	ret = config_read_file(configfile, filepath);
 	if (ret != CONFIG_TRUE)
 	{
-		err("config: %s %s", filepath, config_error_text(configfile));
+		err("config: %s(%d) %s", config_error_file(configfile), config_error_line(configfile), config_error_text(configfile));
 		free(configfile);
 		return NULL;
 	}
