@@ -348,11 +348,11 @@ if [ ${ALL} -eq 1 ]; then
 	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -h
 	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -V
 	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -C -f ${TESTDIR}conf/test1.conf
-	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -W ${TESTDIR} -f ${TESTDIR}conf/test.conf -p $TMPRESPONSE.pid -D
+	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -W ${TESTDIR} -f conf/test.conf -p ouistiti.pid -D
 	sleep 1
 	$WGET --no-check-certificate -S -q -O - http://127.0.0.1:8080/index.html 2> $TMPRESPONSE.tmp
 	sleep 1
-	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -p $TMPRESPONSE.pid -K
+	${BUILDDIR}src/${TARGET} ${ARGUMENTS} -W $TESTDIR -p ouistiti.pid -K
 fi
 if [ ${GCOV} -eq 1 ]; then
 	make DEBUG=y gcov
