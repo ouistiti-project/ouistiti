@@ -141,6 +141,12 @@ HOST_UTILS=y
 
 #few web client utils to develop simple site
 WEBCOMMON=n
+WEBCOMMON_EXTRA=n
+WEBCOMMON_PATH=www-common
+EXAMPLES=n
+EXAMPLES_PATH=www-examples
+SIMPLEEXAMPLES=n
+OLDEXAMPLES=n
 JQUERY=y
 BOOTSTRAP=y
 GLYPHICONS=y

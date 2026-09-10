@@ -7,25 +7,35 @@
 		<!--<link type="text/css" rel="stylesheet" href="/trust/css/bootstrap.min.css">
 		<script type="text/javascript" src="/trust/js/bootstrap.min.js"></script>!-->
 		<link type="text/css" rel="stylesheet" href="/trust/css/glyphicons.css">
-		<link type="text/css" rel="stylesheet" href="/trust/bootstrap-5/css/bootstrap.min.css">
-		<script type="text/javascript" src="/trust/bootstrap-5/js/bootstrap.min.js"></script>
-		<script type="text/javascript" src="/trust/js/jquery.min.js"></script>
-		<script type="text/javascript" src="/common/js/cmdbar.js"></script>
-		<script type="text/javascript" src="/common/js/auth.js"></script>
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+		<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+		<script type="text/javascript" src="/trust/js/ouistiti/cmdbar.js"></script>
+		<script type="text/javascript" src="/trust/js/ouistiti/auth.js"></script>
 		<script type="text/javascript">
 
 class MainView {
-	$cmdbar = undefined;
+	$cmdbar;
 	#cmdbarinit = "initialize";
-	#url = undefined;
+	#url;
 	#secure = false;
-	#auth = undefined;
-	constructor(url) {
+	#auth;
+	#oauth2;
+	#connect = true;
+	#search;
+	defaultapp;
+	constructor(url, search) {
 		this.controle_viewport();
 		this.$cmdbar = new CmdBarServer('cmdbar', 'mainmenu');
 		this.$cmdbar.attachFrame('appsframe');
+		this.#search = search;
+		this.defaultapp = search.app;
 		this.checkapps(url);
 		this.#url = url;
+		setInterval(() => {
+			this.checkauth();
+		}, 300000);
+		this.#connect = search.connect;
 	}
 	controle_viewport() {
 		var navbar_height = 70;
@@ -43,46 +53,117 @@ class MainView {
 		var frame_height = height - navbar_height - padding;
 		$('#appsframe').css('height', frame_height);
 	}
-
+	checkauth() {
+		this.#auth.check({noredirect:true,}).then(undefined, (data) => {
+			this.#auth.logout();
+			document.location.reload();
+		});
+	}
 	checkapps(url) {
 		$.ajax({
 			url: url
 		}).done(this.load.bind(this))
 		.fail(function(data) {
-			var object = JSON.parse(data.responseText);
 			console.log( "error "+data.responseText);
 		});
 	}
+	authenticate(user, group)
+	{
+		console.log("user "+ user);
+		if (user == null)
+		{
+			$("#sign").removeClass("d-none");
+			if (! $("#user").hasClass("d-none"))
+				window.location.reload();
+			$("#user").addClass("d-none");
+			$(".secure").addClass("d-none");
+			$(".group").addClass("d-none");
+		}
+		else
+		{
+			$("#user").removeClass("d-none");
+			$("#sign").addClass("d-none");
+			$("#username").text(user);
+			$(".secure").removeClass("d-none");
+			$(".group_"+group).removeClass("d-none");
+		}
+	}
 	load(data, textStatus, request) {
 		var menuconnect = undefined;
+		var menuuser = undefined;
 		if (data.authentication) {
-			this.#auth = new Auth("/token");
-			this.#auth.onPermission = function (user, group) {
-				console.log("user "+ user);
-			};
+			if (data.authentication.token_ep == undefined)
+				data.authentication.token_ep = "/token";
+			this.#auth = new AuthBearer(data.authentication, this.authenticate.bind(this));
 			menuconnect = {
 				name:"connect",
 				id: "sign",
 				click: false,
 				href: "#",
-				classes: "ms-lg-auto order-last",
-				buttons: [{
-					name: "signin",
-					id: "signin",
-					click: "mainview.signin()",
-					classes: ""
-				},{
+				classes: "ms-lg-auto order-last dropstart",
+				buttons: [],
+			};
+			if (data.authentication.hidden == true && this.#connect == undefined)
+				menuconnect.classes += " d-none";
+			if (data.authentication.signin)
+			{
+				var signins = data.authentication.signin;
+				if (Array.isArray(signins))
+				{
+					for (let signin of signins)
+						menuconnect.buttons.push(this.#createmenuconnect(signin));
+				}
+				else
+					menuconnect.buttons.push(this.#createmenuconnect(signins));
+			}
+			if (data.authentication.Oauth2)
+			{
+				this.#oauth2 = data.authentication.Oauth2;
+				menuconnect.buttons.push({
+					name: this.#oauth2.name,
+					id: this.#oauth2.name,
+					data: this.#oauth2,
+					click: "mainview.oauthsignin()",
+				});
+			}
+			if (data.authentication.signup)
+			{
+				menuconnect.buttons.push({
 					name: "signup",
 					id: "signin",
 					click: "mainview.signup()",
 					classes: ""
-				},{
-					name: "signout",
-					id: "signin",
-					click: "mainview.signout()",
-					classes: "d-none"
+				});
+			}
+			menuuser = {
+				name:"user",
+				id:"user",
+				glyphicon: "user",
+				click: false,
+				href: "#",
+				classes: "mg-lg-auto order-last d-none",
+				buttons:[{
+					name: "username",
+					id: "username",
+					href: "#",
+					classes: "h3",
 				}],
 			};
+			if (data.authentication.profile)
+			{
+				menuuser.buttons.push({
+					name: "profile",
+					glyphicon: "pencil",
+					id: "signin",
+					click: "mainview.profile()",
+				});
+			}
+			menuuser.buttons.push({
+				name: "signout",
+				id: "signout",
+				click: "mainview.signout()",
+			});
+			this.#auth.check({noredirect:true,});
 		}
 		else {
 			this.#secure = true;
@@ -92,31 +173,47 @@ class MainView {
 		}
 		var menuapps = undefined;
 		if (data.apps) {
-			if (data.apps.length > 1) {
-				menuapps = {
-					name:"apps",
-					href:"#",
-					buttons:[],
-					classes: "ms-lg-auto order-last",
+			menuapps = {
+				name:"apps",
+				href:"#",
+				buttons:[],
+				classes: ["ms-lg-auto","order-last"],
+			};
+			for (let app of data.apps) {
+				if (app.default)
+					menuapps.href = app.src;
+				var button = {
+					name:app.name,
+					href:app.src,
+					click:"mainview.clean();",
+					classes:[],
 				};
-				for (let app of data.apps) {
-					if (app.default)
-						menuapps.href = app.src;
-					var button = {
-						name:app.name,
-						href:app.src,
-						click:"mainview.clean();",
-						};
-					if ((app.secure != undefined && app.secure == false) || this.#secure)
-						menuapps.buttons.push(button);
+				if ((app.secure != undefined && app.secure == true) || this.#secure)
+				{
+					button.classes.push("secure");
+					button.classes.push("d-none");
 				}
+				if (app.group != undefined)
+				{
+					button.classes.push("group_"+app.group);
+					button.classes.push("group");
+					button.classes.push("d-none");
+				}
+				menuapps.buttons.push(button);
+			}
+			if (menuapps.buttons.length < 2) {
+				menuapps.classes.push("d-none");
 			}
 
+			let appsrc = "#_blank";
 			for (let app of data.apps) {
-				if (app.default) {
-					$('#appsframe').attr('src', app.src);
+				if (this.defaultapp && app.name == this.defaultapp)
+					appsrc = app.src;
+				else if (appsrc == "#_blank" && app.default) {
+					appsrc = app.src;
 				}
 			}
+			$('#appsframe').attr('src', appsrc);
 		}
 		var cmdbarctl = new CmdBarControl(false, this.#cmdbarinit);
 		if (data.cmdbar) {
@@ -125,31 +222,73 @@ class MainView {
 		}
 		if (menuapps) {
 			this.#cmdbarinit = false;
-			cmdbarctl.addmenu(menuapps);
+			//cmdbarctl.addmenu(menuapps);
+			cmdbarctl.addgroup(menuapps.buttons);
 		}
 		if (menuconnect) {
 			this.#cmdbarinit = false;
 			cmdbarctl.addmenu(menuconnect);
+			cmdbarctl.addmenu(menuuser);
 		}
 		if (data.theme) {
 			cmdbarctl.theme = data.theme;
 		}
 		this.$cmdbar.load(cmdbarctl);
 	}
+	#createmenuconnect(signin)
+	{
+		var name = "signin";
+		var id = "signin";
+		var token_ep = signin;
+		if (typeof signin === "object")
+		{
+			if (signin.name)
+				name = signin.name;
+			if (signin.token_ep)
+				token_ep = signin.token_ep;
+		}
+		return {
+			name: name,
+			id: "signin",
+			click: "mainview.signin(\""+token_ep+"\")",
+			classes: ""
+		};
+	}
 	clean() {
+		this.checkauth();
 		this.$cmdbar.cleanFrame();
 	}
 	signup() {
 		$('#appsframe').attr('src', "/apps/signup.html");
 	}
 	signin() {
-		this.#auth.check();
+		this.#auth.login();
+	}
+	signout() {
+		this.#auth.logout();
+		window.location.reload();
+	}
+	async oauthsignin() {
+		await this.#auth.oauth2();
+	}
+	profile() {
+		this.#auth.profile();
 	}
 };
 var mainview = undefined;
 $(document).ready(function()
 {
-	mainview = new MainView("/apps/apps.json");
+	var search = {};
+	var searchparts = location.search.substring(1).split("&");
+	if ( searchparts.length > 0 ) {
+		for (let entry of searchparts ) {
+			let parts = entry.split("=");
+			search[parts[0]] = undefined;
+			if (parts[1])
+				search[parts[0]] = parts[1];
+		}
+	}
+	mainview = new MainView("/apps.json", search);
 });
 
 window.addEventListener('unload', function(event) {
@@ -179,10 +318,10 @@ window.addEventListener('resize', function(event) {
 	<body class="">
 		<nav class="navbar sticky-top navbar-expand-lg navbar-light">
 			<div class="container-fluid">
-				<a href="/apps/signin.html?redirect_uri=index.html" class="navbar-brand brand" data-bs-toggle="collapse" data-bs-target="#mainmenu" aria-controls="mainmenu" aria-expanded="false" aria-label="Toggle navigation">Ouistiti</a>
-				<div id='cmdbar' class="navbar-nav navbar-form me-auto">
+				<a href="#" class="navbar-brand brand" data-bs-toggle="collapse" data-bs-target="#cmdbar" aria-controls="cmdbar" aria-expanded="false" aria-label="Toggle navigation">Ouistiti</a>
+				<div id='cmdbar' class="navbar-collapse collapse navbar-form me-auto" aria-expanded="true">
 				</div>
-				<div id='mainmenu' class="navbar-collapse collapse ms-1 text-light" aria-expanded="true">
+				<div id='mainmenu' class="navbar-nav ms-1 justify-content-end" >
 				</div>
 			</div>
 		</nav>

@@ -41,8 +41,8 @@ sysconf-${FILE_CONFIG}+=ouistiti.d/default.conf
 
 subdir-$(CERTIFICATE)+=certificate.mk
 
-data-y+=certificate.mk
-data-y+=certificate.sh
-data-y+=ca.conf
+sysconf-y+=certificate.mk
+sysconf-y+=certificate.sh
+sysconf-y+=ca.conf
 
 subdir-y+=samples.mk

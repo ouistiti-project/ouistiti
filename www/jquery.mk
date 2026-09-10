@@ -1,3 +1,4 @@
+datadir:=$(datadir)/$(WEBCOMMON_PATH)
 JQUERY_VERSION=3.6.0
 JQUERY_DOCS?=htdocs
 JQUERY_FILES+=$(JQUERY_DOCS)/js/jquery-$(JQUERY_VERSION).min.js
@@ -11,4 +12,4 @@ $(JQUERY_FILES): jquery-$(JQUERY_VERSION).min.js
 	$(Q)mkdir -p $(@D)
 	$(Q)mv -f $< $@
 
-$(JQUERY_DOCS)/js/jquery-$(JQUERY_VERSION).min.js_ALIAS+=jquery.min.js
+$(JQUERY_DOCS)/js/jquery-$(JQUERY_VERSION).min.js_ALIAS+=$(JQUERY_DOCS)/js/jquery.min.js

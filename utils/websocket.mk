@@ -54,7 +54,7 @@ ifeq ($(MODULES),y)
 bin-$(WS_JSONRPC)+=websocket_jsonrpc
 websocket_jsonrpc_INSTALL:=libexec
 websocket_jsonrpc_SOURCES+=$(WS_SRC)jsonrpc.c
-websocket_jsonrpc_SOURCES+=jsonrpc/jsonrpc.c
+websocket_jsonrpc_SOURCES+=$(WS_SRC)lib/jsonrpc.c
 websocket_jsonrpc_LDFLAGS-$(WEBSOCKET_RT)+=$(LIBHTTPSERVER_LDFLAGS)
 websocket_jsonrpc_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket c
 websocket_jsonrpc_LIBS+=jansson
@@ -83,7 +83,7 @@ else
 bin-$(WS_JSONRPC)+=websocket_authrpc
 websocket_authrpc_INSTALL:=libexec
 websocket_authrpc_SOURCES+=$(WS_SRC)jsonrpc.c
-websocket_authrpc_SOURCES+=jsonrpc/jsonrpc.c
+websocket_authrpc_SOURCES+=$(WS_SRC)lib/jsonrpc.c
 websocket_authrpc_SOURCES+=$(WS_SRC)authrpc.c
 websocket_authrpc_LIBS-$(WEBSOCKET_RT)+=ouistiti_ws ouibsocket c
 websocket_authrpc_LIBS+=jansson
@@ -109,4 +109,4 @@ websocket_syslogd_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
 subdir-$(THRIFT)+=$(WS_SRC)thrift.mk
 
-subdir-y+=$(WS_SRC)/htdocs.mk
+subdir-$(EXAMPLES)+=$(WS_SRC)/htdocs.mk

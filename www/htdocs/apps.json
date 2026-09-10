@@ -1,0 +1,8 @@
+{
+ "cmdbar":[],
+ "scripts":[],
+ "apps":[
+  {"secure":false,"src":"/apps/files.html","name":"Files"}
+ ],
+ "title":"Ouistiti"
+}

@@ -1,3 +1,4 @@
+datadir:=$(datadir)/$(WEBCOMMON_PATH)
 BOOTSTRAP_VERSION=5.0.2
 #BOOTSTRAP_EXTRA=bootstrap-5/
 BOOTSTRAP_FILES+=$(BOOTSTRAP_DOCS)/$(BOOTSTRAP_EXTRA)css/bootstrap.min.css

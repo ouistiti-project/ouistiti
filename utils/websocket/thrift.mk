@@ -1,3 +1,4 @@
+datadir:=$(datadir)/$(WEBCOMMON_PATH)
 bin-y+=thrift
 thrift_SOURCES+=thrift.cpp
 thrift_GENERATED+=gen-cpp/Calculator.cpp

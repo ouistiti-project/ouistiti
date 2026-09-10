@@ -44,3 +44,4 @@ subdir-y+=staging
 subdir-y+=src
 subdir-y+=utils
 subdir-$(WEBCOMMON)+=www
+subdir-$(EXAMPLES)+=examples

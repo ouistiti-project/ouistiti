@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Files manager</title>
+    <link type="text/css" rel="stylesheet" href="/trust/css/glyphicons.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet" ~integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" ~integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+  </head>
+  <body>
+
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+  <div class="container-fluid">
+    <div class="navbar-nav">
+      <ol class="breadcrumb" id="cwd">
+        <li class="breadcrumb-item active" aria-current="page"><a href="#" class="dir" data-index="0">Home</a></li>
+      </ol>
+    </div>
+    <div class="ms-auto">
+      <ul class="navbar-nav mb-2 mb-lg-0">
+        <!--li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">action</a>
+          <button class="btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="actionMenu">action</button>
+          <ul class="dropdown-menu" id="actionMenu"-->
+            <li class="nav-item pe-2"><button class="dropdown-item" type="button"  data-bs-toggle="modal" data-bs-target="#uploadModal">Upload</button></li>
+            <li class="nav-item pe-2"><button class="dropdown-item" type="button"  data-bs-toggle="modal" data-bs-target="#newDirModal">New directory</button></li>
+           <!--/ul>
+         </li-->
+      </ul>
+    </div>
+  </div>
+</nav>
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="uploadModalLabel">Upload</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3">
+          <label class="input-group-text" for="fileInput">Choice</label>
+          <input type="file" class="form-control" id="fileInput">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" data-bs-target="#progressModal" data-bs-toggle="modal" data-bs-dismiss="modal" id="uploadButton">
+          Upload
+          <span class="invisible spinner-border spinner-border-sm" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="deleteModalLabel">Delete</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3">
+          <label class="input-group-text" for="deleteInput">Name</label>
+          <input type="text" class="form-control" id="deleteInput">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="deleteButton">Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="shareModalLabel">Share</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3">
+          <label class="input-group-text" for="shareSource">Source</label>
+          <input type="text" class="form-control" id="shareSource" disabled>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" value="" id="radioPublic" name="public" checked>
+          <label class="form-check-label" for="public">public</label>
+	</div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" value="" id="radioPublic" name="public">
+          <label class="form-check-label" for="public">private</label>
+	</div>
+        <div class="input-group mb-3">
+          <label class="input-group-text" for="shareLink">Link</label>
+          <input type="text" class="form-control" id="shareLink" disabled>
+	  <button type="button" class="btn btn-outline-secondry" data-source="shareLinkg" id="copyShareLink"><span class="glyphicon glyphicon-copy"></span></button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="shareButton">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal fade" id="newDirModal" tabindex="-1" aria-labelledby="newDirModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="newDirModalLabel">Create directory</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3">
+          <label class="input-group-text" for="newDirInput">Name</label>
+          <input type="text" class="form-control" id="newDirInput">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="newDirButton">
+          Create
+          <div class="invisible spinner-border spinner-border-sm" role="status">
+            <span class="visually-hidden">Creating...</span>
+          </div>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal fade" id="progressModal" tabindex="-1" aria-labelledby="progressLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="progressLabel">Progress</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-center">
+          <span class="status"></span>
+          <span class="spinner-border" role="status">
+            <span class="visually-hidden">Wait please...</span>
+          </span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="imageViewer" tabindex="-1" aria-labelledby="imageViewerLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title fs-5 d-flex col-11" id="imageViewerLabel">
+          <h1 class="fs-5 col-3" id="mediaPlayerLabel">Image</h1>
+          <h2 class="fs-6 col-6 justify-content-center" id="imageViewerTitle"><h2>
+	</div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-center">
+	  <img src="#_blank" class="img-fluid" style="max-height: 80vh;"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="form-check">
+          <label class="form-check-label" for="checkrandom">random</label>
+          <input class="form-check-input" type="checkbox" value="" id="checkrandom">
+	</div>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="mediaPlayer" tabindex="-1" aria-labelledby="mediaPlayerLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title fs-5 d-flex col-11" id="mediaPlayerLabel">
+          <h1 class="fs-5 col-3" id="mediaPlayerLabel">Player</h1>
+          <h2 class="fs-6 col-6 justify-content-center" id="mediaPlayerTitle"><h2>
+	</div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-center">
+          <audio controls id="mediaAudio">
+            <source id="mediaAudioSource">
+              Your browser does not support the audio element.
+            </audio>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="form-check">
+          <label class="form-check-label" for="checkrandom">random</label>
+          <input class="form-check-input" type="checkbox" value="" id="checkrandom">
+	</div>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="table table-striped table-responsive">
+  <thead>
+    <tr>
+      <th class='d-xs-none' scope="col">#</th>
+      <th scope="col">name</th>
+      <th scope="col"></th>
+      <th class='d-xs-none' scope="col">size</th>
+      <th class='d-xs-none' scope="col">type</th>
+    </tr>
+  </thead>
+  <tbody id="directorylist">
+  </tbody>
+</table>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+<script>
+var g_cwd = undefined;
+buildpath = function(path, index) {
+	if (! Array.isArray(path))
+		path = path.split("/");
+	var url = "";
+	if (index == -1)
+		index = path.length - 1;
+	for (let i = 0; i < index + 1; i++)
+	{
+		let tmp = path[i];
+		if (typeof(tmp) == "string" && tmp.length > 0)
+			url += tmp + "/";
+	}
+	return url;
+}
+
+playaudio = function(index) {
+	var buttons = $("#directorylist").find(".audioplay");
+	buttons.removeClass("btn-primary");
+	var button;
+	for (let i = 0; i < buttons.length; i++)
+	{
+		if ($(buttons[i]).data("index") == index)
+		{
+			button = buttons[i];
+			break;
+		}
+	}
+	if (button == undefined)
+		return;
+	$(button).addClass("btn-primary");
+	var name = $(button).data("name");
+	var url = $(button).data("url");
+	var type = $(button).data("type");
+	$("#mediaAudio").data("index", index);
+	$("#mediaAudio").attr("src", url);
+	$("#mediaAudio").attr("type", type);
+	$("#mediaAudio")[0].play();
+	$("#mediaPlayerTitle").text(name);
+}
+
+generateShareLink = function(name, type, input) {
+	getRandomFileName = function() {
+return [...Array(12)].map((value) => (Math.random() * 1000000).toString(36).replace('.', '')).join('');
+	};
+	var base = document.location.protocol+"//";
+	base += document.location.host;
+	var link = "/none";
+	switch (type) {
+		case "public":
+			link = "/~/public/" + getRandomFileName();
+		break;
+		case "private":
+			link = "/~/shared/" + getRandomFileName();
+		break;
+	}
+	$(input).val(base+link);
+
+}
+
+createtool = function(entry) {
+	var tools = $("<td class='navbar navbar-expand-lg' role='navigation'><div class='container-fluid'></div></td>");
+	var toggler = $("<button class='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#tools"+entry.index+"' aria-controls='tools"+entry.index+"' aria-expanded='false' aria-label='tools list'><span class='navbar-toggler-icon'></span></button>");
+	var collapse = $("<div class='collapse navbar-collapse' id='tools"+entry.index+"'></div>");
+	var toolslist = $("<nav class= 'nav'></nav>");
+	collapse.append(toolslist);
+	tools.find("div").append(toggler);
+	tools.find("div").append(collapse);
+
+	var url = "/" + entry.filepath;
+	var downloadtool = $("<a role='button' class='btn' href='"+url+"' download='"+entry.name+"'><span class='glyphicon glyphicon-download' aria-hidden='true'></span></a>");
+	toolslist.append(downloadtool);
+
+	var sharetool = $("<a role='button' class='btn' href='#' ><span class='glyphicon glyphicon-share' aria-hidden='true'></span></a>");
+	sharetool.data('src', url);
+	sharetool.data('name', entry.name);
+	sharetool.on("click", function(event) {
+		var url = $(this).data("src");
+		$("#shareSource").val(url);
+		var name = $(this).data("name");
+		generateShareLink(name, "public", $("#shareLink"));
+		$("#shareModal").modal("show");
+	});
+	toolslist.append(sharetool);
+
+	var deletetool = $("<a role='button' class='btn deletetool' href='#'><span class='glyphicon glyphicon-trash' aria-hidden='true'></span></a>");
+	deletetool.data("url", url);
+	deletetool.on("click", function(event) {
+		var url = $(this).data("url");
+		$("#deleteInput").val(url);
+		$("#deleteModal").modal("show");
+	});
+	toolslist.append(deletetool);
+	if (entry.mime.startsWith("image/"))
+	{
+		var screentool = $("<a role='button' class='btn ms-auto fullscreen' aria-label='show'><span class='glyphicon glyphicon-fullscreen' aria-hidden='true'></span></a>");
+		screentool.data("index", entry.index);
+		screentool.data("url", url);
+		screentool.on("click", function(event){
+			var viewer = $("#imageViewer");
+			var image = viewer.find("img");
+			image.prop("src", $(this).data("url"));
+			viewer.modal("show");
+		});
+		toolslist.append(screentool);
+	}
+	if (entry.mime.startsWith("audio/"))
+	{
+		var playtool = $("<a role='button' class='btn ms-auto audioplay' aria-label='play'><span class='glyphicon glyphicon-play' aria-hidden='true'></span></a>");
+		playtool.data("index", entry.index);
+		playtool.data("url", url);
+		playtool.data("name", entry.name);
+		playtool.data("type", entry.type);
+		playtool.on("click", function(event) {
+			$("#mediaPlayer").modal("show");
+			playaudio($(this).data("index"));
+		});
+		toolslist.append(playtool);
+	}
+	return tools;
+}
+
+filltable = function(entry) {
+	var index = $("#directorylist").children("tr").length;
+	var dirindex = $("#directorylist").data("index");
+	var tr = $("<tr><th class='d-xs-none' scope='row'>"+index+"</th></tr>");
+	tr.data("index", index);
+	entry.index = index;
+	var name = entry.name;
+	var tool = $("<td></td>");
+	entry.filepath = encodeURI(buildpath(g_cwd, dirindex) + entry.name);
+	if (entry.mime == "inode/directory")
+	{
+		entry.filepath += "/";
+		var base = document.location.protocol+"//";
+		base += document.location.host;
+		base += document.location.pathname;
+		name = "<a href='"+base+"?cwd="+entry.filepath+"'>"+entry.name+"</a>";
+	}
+	else
+		tool = createtool(entry);
+	tr.append($("<td>"+name+"</td>"));
+	tr.append(tool);
+	tr.append($("<td class='d-xs-none'>"+entry.size+"</td>"));
+	tr.append($("<td class='d-xs-none'>"+entry.mime+"</td>"));
+	$("#directorylist").append(tr);
+}
+loaddir = function(path, index) {
+	var url = "/" + buildpath(path, index);
+	$.ajax({
+		method: "GET",
+		url: url,
+		headers: {
+			"X-Requested-With": "XMLHttpRequest",
+		},
+		cache: false,
+		async: true,
+		timeout: 60000,
+	}).done(function(data) {
+		if (data.content == undefined)
+		{
+			console.log("dirlisting returns corrupted data");
+			return;
+		}
+		$("#directorylist").empty();
+		$("#directorylist").data("index", index);
+		let contents = data.content.sort((a,b) => {
+			if (a.type < b.type)
+				return -1;
+			if (a.name < b.name)
+				return -1;
+			return 1;
+		});
+		for (let entry of contents)
+		{
+			if (entry.name != undefined)
+				filltable(entry);
+		}
+		if (!$("#mediaPlayer")[0].paused)
+		{
+			var audiobuttons = $("#directorylist").find(".audioplay");
+			var playingurl = $("#mediaPlayer").attr("src");
+			for (let entry in audiobuttons)
+			{
+				if ($(entry).data("url") == playingurl)
+					$(entry).addClass("btn-primary");
+			}
+		}
+	}).fail(function(data) {
+		if (data.text != undefined)
+			console.log(data.text);
+		else
+			console.log("error");
+	});
+}
+changepath = function(path) {
+	var path = path.split("/");
+	var $breadcrumb = undefined;
+	var id = 1;
+	for (let item of path)
+	{
+		if (item && item[0] != '~')
+		{
+			$breadcrumb = $("<li class='breadcrumb-item'><a href='#' data-index='"+id+"' class='dir'>"+item+"</a></li>");
+			$("#cwd").append($breadcrumb);
+			id++;
+		}
+	}
+	$("#cwd").removeClass("active");
+	$("#cwd").data("path", path);
+	if ($breadcrumb)
+		$breadcrumb.addClass("active");
+	$(".dir").on("click", function(elem){
+		loaddir($("#cwd").data("path"), $(this).data("index"));
+	});
+}
+updelete = function(url) {
+	return fetch(url, {
+		method: "DELETE",
+		headers: {
+			"X-Requested-With": "XMLHttpRequest",
+		},
+	});
+}
+upload = function(file, path, index) {
+	var url = "/" + buildpath(path, index);
+	var body = undefined;
+	if ( file.size != undefined)
+		body = file;
+	return fetch(url+file.name, {
+		method: "PUT",
+		headers: {
+			"Content-Type": file.type,
+			"X-Requested-With": "XMLHttpRequest",
+		},
+		body: body,
+	});
+}
+uplink = function(url, source) {
+	return fetch(url, {
+		method: "PUT",
+		headers: {
+			"Content-Type": "inode/symlink",
+			"Location": source,
+			"X-Requested-With": "XMLHttpRequest",
+		},
+	});
+}
+$(document).ready(function(){
+	var searchs = window.location.search.substring(1).split("&");
+	const isCWD = (elem) => elem.startsWith("cwd=");
+	var cwd = searchs.find(isCWD);
+	if (cwd)
+		g_cwd = decodeURI(cwd.split("=")[1]);
+	else
+		g_cwd = "~/";
+	//if (g_cwd[0] != '~')
+	//	g_cwd = "~/" + g_cwd;
+	changepath(g_cwd);
+	loaddir(g_cwd, -1);
+
+	$("#progressModal").on('hidden.bs.modal', function () {
+		//$(".modal-backdrop").remove();
+		$("#progressModal").modal("hide");
+		var index = $("#directorylist").data("index");
+		loaddir(g_cwd, index);
+	});
+	$("#uploadModal").on('hidden.bs.modal', function () {
+		if ($(this).data("action") != "create")
+			return;
+		$(this).data("action", "");
+		var files = $("#fileInput")[0].files;
+		$("#progressModal").find(".spinner-border").removeClass("invisible");
+		var progress = $("#progressModal");
+		$(progress).find(".status").text("uploading");
+		var items = $(progress).data("items");
+		if (items == undefined)
+			items = 0;
+		items += files.length;
+		$(progress).data("items",items);
+		var checkprogress = setInterval(function() {
+			var progress = $("#progressModal");
+			var items = $(progress).data("items");
+			if (items == 0)
+			{
+				clearInterval(checkprogress);
+				var status = $(progress).data("status");
+				$(progress).find(".status").text(status);
+				$("#progressModal").find(".spinner-border").addClass("invisible");
+			}
+		}, 200);
+		$("#uploadModal").modal("hide");
+		for (id in files)
+		{
+			if (files[id].type == undefined)
+				continue;
+			var index = $("#directorylist").data("index");
+			upload(files[id], g_cwd, index).then((data) => {
+				var progress = $("#progressModal");
+				var items = $(progress).data("items");
+				items--;
+				$(progress).data("items", items);
+				$(progress).data("status", files.length+" items uploaded");
+			},(data)=> {
+				var progress = $("#progressModal");
+				$(progress).data("items", 0);
+				$(progress).data("status", "failed");
+			});
+		}
+	});
+
+	$("#uploadButton").on("click", function(event) {
+		$("#uploadModal").data("action", "create");
+	});
+	$("#newDirButton").on("click", function(event) {
+		$("#newDirModal").modal('hide');
+		var newDir = {}
+		newDir.name = $("#newDirInput").val();
+		newDir.type = "inode/directory";
+		var index = $("#directorylist").data("index");
+		upload(newDir, g_cwd, index).then((data) => {
+			loaddir(g_cwd, index);
+		});
+	});
+	$("#mediaAudio").on("ended", function(event) {
+		var index = $(this).data("index") + 1;
+		if ($("#checkrandom").is(":checked"))
+		{
+			var buttons = $("#directorylist").find(".audioplay");
+			var maxaudio = buttons.length;
+			index = Math.floor(Math.random() * maxaudio);
+		}
+		playaudio(index);
+	});
+	$("#deleteButton").on("click", function(event) {
+		var url = $("#deleteInput").val();
+		updelete(url).then((data) => {
+			loaddir(g_cwd, $("#directorylist").data("index"));
+		});
+		$("#deleteModal").modal("hide");
+	});
+	$("#copyShareLink").on("click", function(event) {
+		$("#shareLink").select();
+		document.execCommand("copy");
+	});
+	$("#shareButton").on("click", function(event) {
+		var url = $("#shareLink").val();
+		var src = $("#shareSource").val();
+		uplink(url, src).then((data) => {
+			loaddir(g_cwd, $("#directorylist").data("index"));
+		});
+		$("#shareModal").modal("hide");
+	});
+});
+</script>
+</body>
+</html>
+

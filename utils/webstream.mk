@@ -22,4 +22,4 @@ mjpeg_SOURCES+=$(WS_DIR)mjpeg.c utils.c
 mjpeg_LIBS+=pthread
 mjpeg_CFLAGS-$(DEBUG)+=-g -DDEBUG
 
-subdir-y+=$(WS_DIR)/htdocs.mk
+subdir-$(EXAMPLES)+=$(WS_DIR)/htdocs.mk

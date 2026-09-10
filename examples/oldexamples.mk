@@ -1,0 +1,13 @@
+datadir:=$(datadir)/$(WEBEXAMPLE_PATH)
+data-y+=htdocs/apps/ouiweb.json
+data-y+=htdocs/apps/ouiweb.html
+data-y+=htdocs/apps/ouialbum.html
+data-y+=htdocs/apps/ouichat.html
+data-y+=htdocs/apps/ouicloud.html
+data-y+=htdocs/apps/ouiplaymusic.html
+data-y+=htdocs/apps/images/ouialbum.png
+data-y+=htdocs/apps/images/ouicloud.png
+data-y+=htdocs/apps/images/ouiplaymusic.png
+data-y+=htdocs/apps/js/ouichat.js
+data-y+=htdocs/apps/js/ouishell.js
+data-y+=cgi-bin/ouiweb.json
