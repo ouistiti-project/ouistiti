@@ -102,8 +102,14 @@ hostobjdir:=$(hostbuilddir)$(cwdir)
 ifneq ($(file),)
   include $(file)
 endif
+ifneq ($(TOOLCHAIN),)
+  PATH:=$(value PATH):$(TOOLCHAIN)/bin
+  export TOOLCHAIN
+endif
 
 PATH:=$(value PATH):$(hostobjdir)
+export PATH
+
 TMPDIR:=/tmp
 TESTFILE:=makemore_test
 ##
@@ -124,9 +130,7 @@ YACC?=yacc
 MOC?=moc$(QT:%=-%)
 UIC?=uic$(QT:%=-%)
 RANLIB?=ranlib
-CPPCHECK?=cppcheck
 
-TOOLCHAIN?=
 CROSS_COMPILE?=
 
 HOSTCC=cc
@@ -155,12 +159,16 @@ ifneq ($(dir $(CC)),./)
 else
   ifneq ($(CROSS_COMPILE),)
     ifeq ($(findstring $(CROSS_COMPILE),$(CC)),)
-      TARGETPREFIX=$(CROSS_COMPILE:%-=%)-
+      TARGETPREFIX:=$(CROSS_COMPILE:%-=%)-
+    endif
+    ifneq ($(wildcard $(TOOLCHAIN)/bin/$(TARGETPREFIX)$(CC)),)
+      TARGETPREFIX:=$(TOOLCHAIN)/bin/$(TARGETPREFIX)
     endif
   else
     TARGETPREFIX=
   endif
 endif
+
 TARGETCC:=$(TARGETPREFIX)$(CC)
 TARGETLD:=$(TARGETPREFIX)$(LD)
 TARGETAS:=$(TARGETPREFIX)$(AS)
@@ -185,11 +193,7 @@ ifeq ($(HOST_COMPILE),$(ARCH))
   RANLIB?=$(HOSTRANLIB)
   STRIP?=$(HOSTSTRIP)
 else
-  TOOLCHAIN?=$(dir $(dir $(realpath $(shell which $(TARGETCC)))))
-endif
-
-ifneq ($(TOOLCHAIN),)
-  export PATH:=$(TOOLCHAIN):$(TOOLCHAIN)/bin:$(PATH)
+  TOOLCHAIN?=$(dir $(abspath $(dir $(realpath $(shell which $(TARGETCC))))))
 endif
 
 ifeq ($(findstring gcc,$(TARGETCC)),gcc)
@@ -205,10 +209,6 @@ endif
 ifeq ($(destdir),)
   destdir:=$(abspath $(DESTDIR))
   export destdir
-endif
-
-ifneq ($(CROSS_COMPILE),)
-  destdir?=$(sysroot)
 endif
 
 ifneq ($(SYSROOT),)
@@ -245,12 +245,6 @@ ifneq ($(strip $(pkglibdir)),)
   RPATHFLAGS+=-Wl,--disable-new-dtags -Wl,--as-needed
   SYSROOT_LDFLAGS+=$(addprefix -L=,$(pkglibdir))
 endif
-endif
-
-ifneq ($(destdir),)
-  SYSROOT_CFLAGS+=$(addprefix -I$(destdir),$(includedir))
-  SYSROOT_LDFLAGS+=$(addprefix -L$(destdir),$(libdir))
-  SYSROOT_LDFLAGS+=$(addprefix -L$(destdir),$(pkglibdir))
 endif
 
 SYSROOT_LDFLAGS:=$(sort $(SYSROOT_LDFLAGS))
@@ -393,9 +387,10 @@ $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostslib-y) $(h
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostslib-y) $(hostbin-y), $(eval $(t)_GENERATED+=$(patsubst %.y,%.tab.c,$(filter %.y,$($(t)_SOURCES)))))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostslib-y) $(hostbin-y), $(eval $(t)_SOURCES:=$(filter-out %.y,$($(t)_SOURCES))))
 
+# create object list for each binaries
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostslib-y) $(hostbin-y), $(eval $(t)-objs+=$(addsuffix .o,$(call notext,$($(t)_GENERATED)))))
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostslib-y) $(hostbin-y), $(eval $(t)-objs+=$(addsuffix .o,$(call notext,$($(t)_SOURCES)))))
-
+# case where the SOURCES is not defined and the binary name is the same as the source
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostslib-y) $(hostbin-y), $(if $($(t)-objs),,$(eval $(t)-objs+=$(t))))
 
 $(foreach t,$(slib-y) $(lib-y) $(bin-y) $(sbin-y) $(modules-y) $(hostbin-y),$(eval $(t)_CFLAGS:=$($(t)_CFLAGS) $($(t)_CFLAGS-y)))
@@ -410,7 +405,7 @@ $(foreach t,$(lib-y) $(modules-y),$(eval $(t)_CFLAGS+=-fPIC))
 $(foreach t,$(slib-y) $(lib-y),$(eval include-y+=$($(t)_HEADERS)))
 
 define cmd_pkgconfig
-	$(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(builddir) $(PKGCONFIG) --silence-errors $(2) $(1))
+	$(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) --silence-errors $(2) $(1))
 endef
 # LIBRARY may contain libraries name to check
 # The name may terminate with {<version>} informations like LIBRARY+=usb{1.0}
@@ -501,6 +496,15 @@ hook-target:=$(hook-$(action:_%=%)) $(hook-$(action:_%=%)-y)
 ###############################################################################
 # scripts extensions
 ##
+
+ifneq ($(wildcard $(dir $(makemore))scripts/deps.mk),)
+  include $(dir $(makemore))scripts/deps.mk
+endif
+
+ifneq ($(wildcard $(dir $(makemore))scripts/cppcheck.mk),)
+  include $(dir $(makemore))scripts/cppcheck.mk
+endif
+
 ifneq ($(wildcard $(dir $(makemore))scripts/download.mk),)
   include $(dir $(makemore))scripts/download.mk
 endif
@@ -513,6 +517,10 @@ ifneq ($(wildcard $(dir $(makemore))scripts/qt.mk),)
   include $(dir $(makemore))scripts/qt.mk
 endif
 
+ifneq ($(wildcard $(dir $(makemore))scripts/wayland.mk),)
+  include $(dir $(makemore))scripts/wayland.mk
+endif
+
 ##
 # install recipes generation
 ##
@@ -520,10 +528,10 @@ ifneq ($(CROSS_COMPILE),)
   destdir?=$(sysroot)
 endif
 
-sysconf-install:=$(addprefix $(destdir)$(sysconfdir:%/=%)/,$(sysconf-y))
-data-install:=$(addprefix $(destdir)$(datadir:%/=%)/,$(data-target))
-doc-install:=$(addprefix $(destdir)$(docdir:%/=%)/,$(doc-y))
-include-install:=$(addprefix $(destdir)$(includedir:%/=%)/,$(include-y))
+sysconf-install:=$(addprefix $(destdir)$(sysconfdir:%/=%)/,$(sort $(sysconf-y)))
+data-install:=$(addprefix $(destdir)$(datadir:%/=%)/,$(sort $(data-target)))
+doc-install:=$(addprefix $(destdir)$(docdir:%/=%)/,$(sort $(doc-y)))
+include-install:=$(addprefix $(destdir)$(includedir:%/=%)/,$(sort $(include-y)))
 lib-static-install:=$(addprefix $(destdir)$(libdir:%/=%)/,$(addsuffix $(slib-ext:%=.%),$(addprefix lib,$(slib-y))))
 lib-dynamic-install:=$(addprefix $(destdir)$(libdir:%/=%)/,$(addsuffix $(version:%=.%),$(addsuffix $(dlib-ext:%=.%),$(addprefix lib,$(lib-y)))))
 modules-install:=$(addprefix $(destdir)$(pkglibdir:%/=%)/,$(addsuffix $(dlib-ext:%=.%),$(modules-y)))
@@ -672,12 +680,6 @@ quiet_cmd_cc_o_c=CC $*
  cmd_cc_o_c=$(TARGETCC) $(CFLAGS) $(INTERN_CFLAGS) $(SYSROOT_CFLAGS) $($*_CFLAGS) -c -o $@ $<
 quiet_cmd_cc_o_cpp=CXX $*
  cmd_cc_o_cpp=$(TARGETCXX) $(CXXFLAGS) $(CFLAGS) $(INTERN_CFLAGS) $(SYSROOT_CFLAGS) $($*_CXXFLAGS) $($*_CFLAGS) -c -o $@ $<
-quiet_cmd_cppcheck_c=CCHECK $*
- cmd_cppcheck_c=$(TARGETCC) -E $(CFLAGS) $(INTERN_CFLAGS) $(SYSROOT_CFLAGS) $($*_CFLAGS) -c -o $(@:.o=.i) $< && \
-	$(CPPCHECK) --enable=all --inconclusive --language=c $(@:.o=.i)
-quiet_cmd_cppcheck_cpp=CCHECK $*
- cmd_cppcheck_cpp=$(TARGETCXX) $(CXXFLAGS) $(CFLAGS) $(INTERN_CFLAGS) $(SYSROOT_CFLAGS) $($*_CXXFLAGS) $($*_CFLAGS) -c -o $(@:.o=.i) $< && \
-	$(CPPCHECK) --enable=all --inconclusive $(@:.o=.i)
 quiet_cmd_ld_bin=LD $*
  cmd_ld_bin=$(TARGETCC) $(LDFLAGS) $(INTERN_LDFLAGS) $(SYSROOT_LDFLAGS) $($*_LDFLAGS) $(RPATHFLAGS) -o $@ $(filter %.o,$(filter-out $(file),$^)) -Wl,--start-group $(LIBS:%=-l%) $($*_LIBS:%=-l%) -Wl,--end-group $(INTERN_LIBS:%=-l%)
 quiet_cmd_ld_slib=LD $*
@@ -712,6 +714,7 @@ quiet_cmd_generate_makefile=MAKEFILE $(notdir $@/Makefile)
  define cmd_generate_makefile
   $(file >  $@,BUILDDIR=$$(realpath $$(dir $$(firstword $$(MAKEFILE_LIST)))))
   $(file >> $@,srcdir=$(srcdir))
+  $(if $(TOOLCHAIN),$(file >>  $@,TOOLCHAIN=$(TOOLCHAIN)))
   $(if $(CROSS_COMPILE),$(file >> $@,MAKE_OPTS+=CROSS_COMPILE=$(CROSS_COMPILE)))
   $(if $(SYSROOT),$(file >> $@,MAKE_OPTS+=SYSROOT=$(SYSROOT)))
   $(if $(ARCH),$(file >> $@,MAKE_OPTS+=ARCH=$(ARCH)))
@@ -729,13 +732,14 @@ quiet_cmd_generate_makefile=MAKEFILE $(notdir $@/Makefile)
   $(if $(CPPFLAGS),$(file >> $@,MAKE_OPTS+=CPPFLAGS="$(CPPFLAGS)"))
   $(if $(LDFLAGS),$(file >> $@,MAKE_OPTS+=LDFLAGS="$(LDFLAGS)"))
   $(file >> $@,all:)
-  $(file >> $@,	make -C $$(srcdir) BUILDDIR=$$(BUILDDIR) $$(MAKE_OPTS) $$@)
+  $(file >> $@,	make -C $$(srcdir) BUILDDIR=$$(BUILDDIR) TOOLCHAIN=$$(TOOLCHAIN) $$(MAKE_OPTS) $$@)
   $(file >> $@,%:)
-  $(file >> $@,	make -C $$(srcdir) BUILDDIR=$$(BUILDDIR) $$(MAKE_OPTS) $$@)
+  $(file >> $@,	make -C $$(srcdir) BUILDDIR=$$(BUILDDIR) TOOLCHAIN=$$(TOOLCHAIN) $$(MAKE_OPTS) $$@)
  endef
 ##
 # build rules
 ##
+
 .SECONDEXPANSION:
 $(sort $(hostobjdir) $(objdir) $(builddir) $(buildpath)): $(file)
 	$(Q)$(call cmd,mkdir,$@)
@@ -761,42 +765,34 @@ $(objdir)%.o:%.s $(file) | $(objdir)
 
 $(objdir)%.o:$(objdir)%.c $(file) | $(objdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
-	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_c))
 	$(Q)$(call cmd,cc_o_c)
 
 $(objdir)%.o:%.c $(file) | $(objdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
-	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_c))
 	$(Q)$(call cmd,cc_o_c)
 
 $(objdir)%.o:$(objdir)%.cpp $(file) | $(objdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
-	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_cpp))
 	$(Q)$(call cmd,cc_o_cpp)
 
 $(objdir)%.o:%.cpp $(file) | $(objdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
-	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_cpp))
 	$(Q)$(call cmd,cc_o_cpp)
 
 $(hostobjdir)%.o:$(hostobjdir)%.c $(file) | $(hostobjdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
-	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_c))
 	$(Q)$(call cmd,hostcc_o_c)
 
 $(hostobjdir)%.o:%.c $(file) | $(hostobjdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
-	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_c))
 	$(Q)$(call cmd,hostcc_o_c)
 
 $(hostobjdir)%.o:$(hostobjdir)%.cpp $(file) | $(hostobjdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
-	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_cpp))
 	$(Q)$(call cmd,hostcc_o_cpp)
 
 $(hostobjdir)%.o:%.cpp $(file) | $(hostobjdir)
 	$(Q)$(call qcmd,mkdir,$(dir $@))
-	$(Q)$(if $(findstring y,$(SOURCECHECK)),$(call cmd,cppcheck_cpp))
 	$(Q)$(call cmd,hostcc_o_cpp)
 
 $(lib-static-target): $(objdir)lib%$(slib-ext:%=.%): $$(addprefix $(objdir),$$(%-objs)) $(file)
@@ -871,6 +867,7 @@ $(TMPDIR)/$(TESTFILE:%=%.c):
 	$(Q)echo "int main(){return 0;}" > $@
 
 $(lib-deps-target): deps_%: $(TMPDIR)/$(TESTFILE:%=%.c) FORCE
+	$(Q)echo check libs
 	$(Q)$(call cmd,check_lib,$*)
 	$(Q)$(if $(findstring $(HAVE_result),y,$(call cmd,test_lib, $(CHECKLIB))),/bin/true)
 	$(eval HAVE=HAVE_$(shell echo $(firstword $(subst {, ,$(subst },,$*))) | tr '[:lower:]' '[:upper:]' | sed 's/[.-]/_/g'))
