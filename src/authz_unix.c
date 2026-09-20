@@ -41,10 +41,10 @@
 #include <crypt.h>
 #include <time.h>
 
-#include "../compliant.h"
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
 #include "mod_auth.h"
+#include "daemonize.h"
 
 #define auth_dbg(...)
 
@@ -63,8 +63,6 @@
 #  define USE_PASSWD_R
 # endif
 #endif
-
-#ifdef HAVE_PWD
 
 typedef struct authz_file_config_s authz_file_config_t;
 struct authz_file_config_s
@@ -93,10 +91,17 @@ struct authz_ctx_s
 void *authz_unix_config(const void *configauth, authz_type_t * type)
 {
 	authz_file_config_t *authz_config = NULL;
-	char *path = NULL;
+	const char *path = NULL;
+	const char *name = NULL;
 
 	config_setting_lookup_string(configauth, "file", (const char **)&path);
-	if (path != NULL && path[0] != '0' && strstr(path, "shadow"))
+	int ret = config_setting_lookup_string(configauth, "authz", &name);
+	if (ret == CONFIG_TRUE && strstr(name, "unix") != NULL)
+	{
+		authz_config = calloc(1, sizeof(*authz_config));
+		authz_config->path = path;
+	}
+	else if (path != NULL && path[0] != '0' && strstr(path, "shadow"))
 	{
 		authz_config = calloc(1, sizeof(*authz_config));
 		authz_config->path = path;
@@ -126,76 +131,84 @@ static void *authz_unix_setup(void *arg, http_client_t *clt, struct sockaddr *ad
 	return ctx;
 }
 
-static struct spwd *_authz_getspnam(authz_ctx_t *ctx, const char *user, struct spwd *spwdstore, char *shadow, int shadowlen)
+typedef struct authz_shadow_s authz_shadow_t;
+struct authz_shadow_s
 {
-	struct spwd *spasswd;
+	authz_ctx_t *ctx;
+	string_t *user;
+	string_t *passwd;
+};
+
+static int _authz_unix_checkshadow(void *arg)
+{
+	int ret = EREJECT;
+	authz_shadow_t *shadow = (authz_shadow_t *)arg;
+	authz_ctx_t *ctx = shadow->ctx;
+	struct spwd *pw = NULL;
+	string_t status = STRING_DCL(str_status_activated);
+
 #ifdef USE_PASSWD_R
-	getspnam_r(user, spwdstore, shadow, shadowlen, &spasswd);
+	struct spwd spwdstore;
+	char shadowdata[NSS_BUFLEN_PASSWD];
+	getspnam_r(string_toc(shadow->user), &spwdstore, shadowdata, sizeof(shadowdata), &pw);
 #else
-	spasswd = getspnam(user);
-	memcpy(shadow, spasswd->, shadowlen);
-	spwdstore->sp_pwdp = shadow;
-	spwdstore->sp_expire = 0;
+	pw = getspnam(string_toc(shadow->user));
 #endif
-	return spasswd;
+	if (pw)
+	{
+		const char *testpasswd = NULL;
+		const char *cryptpasswd = pw->sp_pwdp;
+#ifdef USE_CRYPT_R
+		struct crypt_data crdata = {0};
+		testpasswd = crypt_r(string_toc(shadow->passwd), cryptpasswd, &crdata);
+#else
+		testpasswd = crypt(string_toc(shadow->passwd), cryptpasswd);
+#endif
+		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
+		{
+			time_t now = time(NULL);
+			long day = now / (60 * 60 * 24);
+			if (pw->sp_max > 0 && day > (pw->sp_lstchg + pw->sp_max))
+				string_store(&status, STRING_REF(str_status_reapproving));
+			if (pw->sp_expire > 0 && day > pw->sp_expire)
+				string_store(&status, STRING_REF(str_status_repudiated));
+			else
+				ret = ESUCCESS;
+			string_store(&ctx->status, STRING_INFO(status));
+		}
+	}
+	return ret;
 }
 
 static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const char *passwd)
 {
-	int ret = 0;
-	string_t status = STRING_DCL(str_status_activated);
+	int ret = EREJECT;
 	struct passwd *pw = NULL;
-	struct spwd spwdstore;
-	char shadow[NSS_BUFLEN_PASSWD];
 
 #ifdef USE_PASSWD_R
 	getpwnam_r(user, &ctx->pwstore, ctx->passwd, sizeof(ctx->passwd), &pw);
 #else
 	pw = getpwnam(user);
 #endif
-	if (passwd && pw)
+	const char *cryptpasswd = NULL;
+	if (pw)
+		cryptpasswd = pw->pw_passwd;
+	if (cryptpasswd && !strcmp(cryptpasswd, "x"))
 	{
-		const char *cryptpasswd = pw->pw_passwd;
-		/* get the shadow password if possible */
-
-		if (!strcmp(cryptpasswd, "x"))
-		{
-			uid_t uid;
-			uid = geteuid();
-			/**
-			 * change user to root to request shadow file to the system
-			 */
-			if (seteuid(0) < 0)
-				warn("not enought rights to change user to root");
-			struct spwd *spasswd = _authz_getspnam(ctx, user, &spwdstore, shadow, sizeof(shadow));
-			/**
-			 * enable again the user
-			 */
-			if (seteuid(uid) < 0)
-				warn("not enought rights to change user");
-			if (spasswd && (spasswd->sp_expire > 0) &&
-				(spasswd->sp_expire < (time(NULL) / (60 * 60 * 24))))
-			{
-				warn("authz: user %s password expired", user);
-				return 0;
-			}
-			if (spasswd && spasswd->sp_pwdp)
-			{
-				cryptpasswd = spasswd->sp_pwdp;
-			}
-			else
-			{
-				warn("authz unix: unaccessible user");
-				return 0;
-			}
-			time_t now = time(NULL);
-			long day = now / (60 * 60 * 24);
-			if (spasswd->sp_max > 0 && day > (spasswd->sp_lstchg + spasswd->sp_max))
-				string_store(&status, STRING_REF(str_status_reapproving));
-			if (spasswd->sp_expire > 0 && day > spasswd->sp_expire)
-				string_store(&status, STRING_REF(str_status_repudiated));
-		}
-		else if (cryptpasswd[0] == '!')
+		string_t string_user;
+		string_t string_passwd;
+		string_store(&string_user, user, -1);
+		string_store(&string_passwd, passwd, -1);
+		authz_shadow_t shadow = {0};
+		shadow.ctx= ctx;
+		shadow.user = &string_user;
+		shadow.passwd = &string_passwd;
+		ret = daemonize_supercall(_authz_unix_checkshadow, &shadow);
+	}
+	else if (cryptpasswd)
+	{
+		string_t status = STRING_DCL(str_status_activated);
+		if (cryptpasswd[0] == '!')
 		{
 			string_store(&status, STRING_REF(str_status_repudiated));
 			cryptpasswd += 1;
@@ -210,7 +223,7 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 #endif
 		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
 		{
-			ret = 1;
+			ret = ESUCCESS;
 			string_store(&ctx->status, STRING_INFO(status));
 		}
 		else
@@ -218,14 +231,9 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 			auth_dbg("authz unix: passwd error");
 		}
 	}
-	else if (pw)
-	{
-		/// check only the presence of user
-		ret = ESUCCESS;
-	}
 	else
 	{
-		auth_dbg("authz unix: user %s not found", user);
+		warn("authz unix: user %s not found %m", user);
 	}
 	return ret;
 }
@@ -234,8 +242,18 @@ static const char *authz_unix_check(void *arg, const char *user, const char *pas
 {
 	authz_ctx_t *ctx = (authz_ctx_t *)arg;
 
-	if (user != NULL && _authz_unix_checkpasswd(ctx, user, passwd))
-		return user;
+	if (user != NULL)
+	{
+		if (passwd != NULL && _authz_unix_checkpasswd(ctx, user, passwd) == ESUCCESS)
+			return user;
+		else if (passwd == NULL)
+		{
+			if (getpwnam(user) != NULL)
+				return user;
+			else
+				auth_dbg("authz unix: user %s not found", user);
+		}
+	}
 	return NULL;
 }
 
@@ -292,4 +310,3 @@ static void __attribute__ ((constructor)) _init()
 {
 	auth_registerauthz(&authz_name, &authz_unix_rules);
 }
-#endif
