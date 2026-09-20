@@ -4,6 +4,7 @@
 int daemon_setlogfile(const char *logfile);
 int daemon_setroot(const char *rootfs);
 int daemon_setowner(const char *user, int fortify);
+int daemonize_supercall(int (*func)(void *), void * func_arg);
 int daemonize(unsigned char onoff, const char *logfile, const char *pidfile, const char *owner, const char *rootfs);
 void killdaemon(const char *pidfile);
 unsigned char isrunning();

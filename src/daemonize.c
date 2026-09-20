@@ -233,6 +233,30 @@ static void _dropcapabilities(void)
 		warn("capset failed: %m");
 }
 
+/**
+ * @brief change the effective uid of the calling thread only
+ *
+ * The POSIX "seteuid" affects all threads and glibc generate a signal
+ * to propagate the change.
+ * The linux System Call "seteuid" affects only the calling thread.
+ */
+static int _deamonize_seteuid(uid_t euid)
+{
+	return syscall(SYS_setresuid, -1, euid, -1);
+}
+
+int daemonize_supercall(int (*func)(void *), void * func_arg)
+{
+	uid_t uid = geteuid();
+	if (_deamonize_seteuid(0))
+	{
+		return -1;
+	}
+	int ret = func(func_arg);
+	_deamonize_seteuid(uid);
+	return ret;
+}
+
 int daemon_setowner(const char *user, int fortify)
 {
 	if (user == NULL)
