@@ -77,7 +77,7 @@ int daemon_setlogfile(const char *logfile)
 {
 	int logfd = -1;
 
-	if (strcmp(logfile,"-"))
+	if (logfile && strcmp(logfile,"-"))
 	{
 #if LOG_MAXFILESIZE != -1
 		unsigned long logmax = 0;
@@ -103,6 +103,8 @@ int daemon_setlogfile(const char *logfile)
 			err("log file error %m");
 		}
 	}
+	else
+		return 0;
 	return (logfd == -1);
 }
 
@@ -370,15 +372,14 @@ int daemonize(unsigned char onoff, const char *logfile, const char *pidfile, con
 
 void killdaemon(const char *pidfile)
 {
+	_run = 's';
 	if (_pidfd > 0)
 	{
 		close(_pidfd);
 		_pidfd = -1;
-		_run = 's';
 	}
 	else if (pidfile != NULL)
 	{
-		_run = 's';
 		_pidfd = open(pidfile,O_RDWR);
 		if (_pidfd > 0)
 		{
