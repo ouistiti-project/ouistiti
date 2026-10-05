@@ -627,6 +627,12 @@ static int authn_digest_checkuser(void *data, const char *user, size_t length)
 static char *str_empty = "";
 static const char *authn_digest_check(void *arg, authz_t *authz, const char *method, size_t methodlen, const char *uri, size_t urilen, const char *string, size_t stringlen)
 {
+	if (authz->rules->passwd == NULL)
+	{
+		err("auth: bad authz configuration for digest");
+		return NULL;
+	}
+
 	const char *user_ret = NULL;
 	authn_ctx_t *ctx = (authn_ctx_t *)arg;
 	authn_mod_t *mod = ctx->mod;
