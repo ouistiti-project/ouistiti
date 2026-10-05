@@ -134,7 +134,6 @@ static void *authz_unix_setup(void *arg, http_client_t *clt, struct sockaddr *ad
 typedef struct authz_shadow_s authz_shadow_t;
 struct authz_shadow_s
 {
-	authz_ctx_t *ctx;
 	string_t *user;
 	string_t *passwd;
 };
@@ -143,7 +142,6 @@ static int _authz_unix_checkshadow(void *arg)
 {
 	int ret = EREJECT;
 	authz_shadow_t *shadow = (authz_shadow_t *)arg;
-	authz_ctx_t *ctx = shadow->ctx;
 	struct spwd *pw = NULL;
 	string_t status = STRING_DCL(str_status_activated);
 
@@ -168,18 +166,18 @@ static int _authz_unix_checkshadow(void *arg)
 		{
 			time_t now = time(NULL);
 			long day = now / (60 * 60 * 24);
-			if (pw->sp_max > 0 && day > (pw->sp_lstchg + pw->sp_max))
-				string_store(&status, STRING_REF(str_status_reapproving));
 			if (pw->sp_expire > 0 && day > pw->sp_expire)
-				string_store(&status, STRING_REF(str_status_repudiated));
+				ret = ECONTINUE;
 			else
 				ret = ESUCCESS;
-			string_store(&ctx->status, STRING_INFO(status));
+			if (ret == ESUCCESS && pw->sp_max > 0 && day > (pw->sp_lstchg + pw->sp_max))
+				ret = EINCOMPLETE;
 		}
 	}
 	return ret;
 }
 
+static char str_x[] = "x";
 static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const char *passwd)
 {
 	int ret = EREJECT;
@@ -190,7 +188,7 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 #else
 	pw = getpwnam(user);
 #endif
-	const char *cryptpasswd = NULL;
+	const char *cryptpasswd = str_x;
 	if (pw)
 		cryptpasswd = pw->pw_passwd;
 	if (cryptpasswd && !strcmp(cryptpasswd, "x"))
@@ -200,17 +198,15 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 		string_store(&string_user, user, -1);
 		string_store(&string_passwd, passwd, -1);
 		authz_shadow_t shadow = {0};
-		shadow.ctx= ctx;
 		shadow.user = &string_user;
 		shadow.passwd = &string_passwd;
 		ret = daemonize_supercall(_authz_unix_checkshadow, &shadow);
 	}
 	else if (cryptpasswd)
 	{
-		string_t status = STRING_DCL(str_status_activated);
 		if (cryptpasswd[0] == '!')
 		{
-			string_store(&status, STRING_REF(str_status_repudiated));
+			ret = ECONTINUE;
 			cryptpasswd += 1;
 		}
 
@@ -221,10 +217,9 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 #else
 		testpasswd = crypt(passwd, cryptpasswd);
 #endif
-		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
+		if (testpasswd && !strcmp(testpasswd, cryptpasswd) && ret == EREJECT)
 		{
 			ret = ESUCCESS;
-			string_store(&ctx->status, STRING_INFO(status));
 		}
 		else
 		{
@@ -234,6 +229,18 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 	else
 	{
 		warn("authz unix: user %s not found %m", user);
+	}
+	switch (ret)
+	{
+		case ESUCCESS:
+			string_store(&ctx->status, STRING_REF(str_status_activated));
+		break;
+		case EINCOMPLETE:
+			string_store(&ctx->status, STRING_REF(str_status_reapproving));
+		break;
+		case ECONTINUE:
+			string_store(&ctx->status, STRING_REF(str_status_repudiated));
+		break;
 	}
 	return ret;
 }
