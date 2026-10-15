@@ -1074,6 +1074,25 @@ string_t *authn_sign(const string_t *key,	const string_t *data)
 	return _authn_signtoken(key, data);
 }
 
+const char *authn_signalgo(const string_t *key)
+{
+	if (key == NULL || string_empty(key))
+		return NULL;
+	if (!_authn_isasymkey(key))
+		return "HS256";
+	if (sign_sha256 == NULL)
+		return NULL;
+	const char *algo = NULL;
+	void *ctx = sign_sha256->initkey(string_toc(key), string_length(key));
+	if (ctx)
+	{
+		/// the name is a static string, it is still valid after freekey
+		algo = sign_sha256->algo(ctx);
+		sign_sha256->freekey(ctx);
+	}
+	return algo;
+}
+
 static int _authn_checksignature_asym(const string_t *key, const string_t *data, const string_t *sign)
 {
 	if (sign_sha256 == NULL)
