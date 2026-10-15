@@ -214,6 +214,27 @@ void auth_registeratokenmng(const authtoken_rules_t *rules)
 	tokenmng_list = entry;
 }
 
+#ifdef FILE_CONFIG
+static string_t *_auth_loadkey(const char *path)
+{
+	FILE *file = fopen(path, "r");
+	if (file == NULL)
+		return NULL;
+	string_t *pem = NULL;
+	struct stat filestat;
+	if (fstat(fileno(file), &filestat) == 0 && filestat.st_size > 0 && filestat.st_size < 16384)
+	{
+		pem = string_create(filestat.st_size + 1);
+		size_t length = fread(string_storage(pem), 1, filestat.st_size, file);
+		string_slice(pem, 0, length);
+	}
+	fclose(file);
+	if (pem == NULL)
+		err("auth: key file %s not readable", path);
+	return pem;
+}
+#endif
+
 static const char str_ouitoken[] = "ouitoken";
 static const char str_jwt[] = "jwt";
 #ifdef FILE_CONFIG
@@ -247,7 +268,19 @@ static int auth_configtoken(const config_setting_t *configauth,  mod_authtoken_t
 	 * secret is the secret used during the token generation. (see authz_jwt.c)
 	 */
 	if (config_setting_lookup_string(configauth, "secret", &data) != CONFIG_FALSE)
-		string_store(&mod->config.secret, data, -1);
+	{
+		/**
+		 * secret may be the path to a PEM file (RSA or EC key) for asymmetric signature:
+		 *  - the private key to generate and to check the tokens,
+		 *  - the public key to only check the tokens.
+		 */
+		string_t *pem = NULL;
+		/// the key buffer is kept during all the life of the server
+		if (data[0] == '/' && (pem = _auth_loadkey(data)) != NULL)
+			string_store(&mod->config.secret, string_toc(pem), string_length(pem));
+		else
+			string_store(&mod->config.secret, data, -1);
+	}
 	int int_expire = 0;
 	if (config_setting_lookup_int(configauth, "expire", &int_expire) == CONFIG_FALSE)
 		mod->config.expire = 30;
@@ -968,11 +1001,31 @@ static const char *_authn_gettokenuser(const _mod_auth_ctx_t *ctx, http_message_
 }
 #endif
 
-static string_t *_authn_signtoken(const string_t *key,	const string_t *data)
+/**
+ * the key may be a symmetric secret (HMAC-SHA256)
+ * or a PEM key (RSA or EC) for asymmetric signature with SHA256
+ */
+static int _authn_isasymkey(const string_t *key)
+{
+	string_t pemheader = STRING_DCL("-----BEGIN ");
+	return string_startwith(key, &pemheader);
+}
+
+static string_t *_authn_encodesign(const char *signature, size_t signlen)
+{
+	string_t *sign = string_create((int)(signlen * 1.5) + 4);
+	size_t length = 0;
+	length = base64_urlencoding->encode(signature, signlen, string_storage(sign), string_size(sign));
+	string_slice(sign, 0, length);
+	auth_dbg("auth: signature %.*s", (int)string_length(sign), string_toc(sign));
+	return sign;
+}
+
+static string_t *_authn_signtoken_hmac(const string_t *key, const string_t *data)
 {
 	string_t *sign = NULL;
 
-	if (hash_macsha256 != NULL && key != NULL)
+	if (hash_macsha256 != NULL)
 	{
 		void *ctx = hash_macsha256->initkey(string_toc(key), string_length(key));
 		if (ctx)
@@ -980,20 +1033,82 @@ static string_t *_authn_signtoken(const string_t *key,	const string_t *data)
 			hash_macsha256->update(ctx, string_toc(data), string_length(data));
 			char signature[HASH_MAX_SIZE];
 			size_t signlen = hash_macsha256->finish(ctx, signature);
-			sign = string_create((int)(HASH_MAX_SIZE * 1.5) + 1);
-			size_t length = 0;
-			length = base64_urlencoding->encode(signature, signlen, string_storage(sign), string_size(sign));
-			string_slice(sign, 0, length);
-			auth_dbg("auth: signature %.*s", string_size(sign), string_toc(sign));
+			sign = _authn_encodesign(signature, signlen);
 		}
 	}
 	return sign;
 }
 
+static string_t *_authn_signtoken_asym(const string_t *key, const string_t *data)
+{
+	string_t *sign = NULL;
+
+	if (sign_sha256 == NULL)
+	{
+		err("auth: asymmetric signature not supported");
+		return NULL;
+	}
+	void *ctx = sign_sha256->initkey(string_toc(key), string_length(key));
+	if (ctx)
+	{
+		char signature[SIGN_MAX_SIZE];
+		int signlen = sign_sha256->sign(ctx, string_toc(data), string_length(data), signature, sizeof(signature));
+		if (signlen > 0)
+			sign = _authn_encodesign(signature, signlen);
+		sign_sha256->freekey(ctx);
+	}
+	return sign;
+}
+
+static string_t *_authn_signtoken(const string_t *key,	const string_t *data)
+{
+	if (key == NULL || string_empty(key))
+		return NULL;
+	if (_authn_isasymkey(key))
+		return _authn_signtoken_asym(key, data);
+	return _authn_signtoken_hmac(key, data);
+}
+
+string_t *authn_sign(const string_t *key,	const string_t *data)
+{
+	return _authn_signtoken(key, data);
+}
+
+static int _authn_checksignature_asym(const string_t *key, const string_t *data, const string_t *sign)
+{
+	if (sign_sha256 == NULL)
+	{
+		err("auth: asymmetric signature not supported");
+		return EREJECT;
+	}
+	/// the decoder requires a larger buffer than the decoded data
+	char signature[SIGN_MAX_SIZE * 2];
+	if (string_length(sign) > SIGN_MAX_SIZE * 4 / 3 + 4)
+		return EREJECT;
+	int signlen = base64_urlencoding->decode(string_toc(sign), string_length(sign), signature, sizeof(signature));
+	if (signlen <= 0)
+		return EREJECT;
+	void *ctx = sign_sha256->initkey(string_toc(key), string_length(key));
+	if (ctx == NULL)
+		return EREJECT;
+	int ret = sign_sha256->verify(ctx, string_toc(data), string_length(data), signature, signlen);
+	sign_sha256->freekey(ctx);
+	return ret?EREJECT:ESUCCESS;
+}
+
 int authn_checksignature(const string_t *key, const string_t *data, const string_t *sign)
 {
+	if (key == NULL || string_empty(key) || sign == NULL || string_empty(sign))
+		return EREJECT;
+	/**
+	 * the algorithm is selected by the type of the key, never by the token,
+	 * an attacker cannot use a public key as HMAC secret.
+	 */
+	if (_authn_isasymkey(key))
+		return _authn_checksignature_asym(key, data, sign);
+
 	string_t *signature = NULL;
-	signature = _authn_signtoken(key, data);
+	signature = _authn_signtoken_hmac(key, data);
 	if (signature == NULL)
 		return EREJECT;
 	int ret = string_compare(signature, sign);
@@ -1414,7 +1529,7 @@ static int _auth_prepareresponse(_mod_auth_ctx_t *ctx, http_message_t *request, 
 	}
 	if (!string_empty(token) && config->authz.type & AUTHZ_TOKEN_E)
 	{
-		sign = _authn_signtoken(&mod->config->token.config.secret, token);
+		sign = authn_sign(&mod->config->token.config.secret, token);
 
 		char strexpire[100];
 		size_t lenexpire = snprintf(strexpire, 100, "max-age=%lu, must-revalidate", config->token.config.expire * 60);
