@@ -1,0 +1,7 @@
+if [ "$OPENSSL" != "y" -a "$MBEDTLS" != "y" ]; then
+	echo "asymmetric signature requires openssl or mbedtls"
+	DISABLED=1
+fi
+DESC="Auth Bearer: JWT signed with an EC key, checked with a RSA public key"
+CONFIG=test22.conf
+TESTCODE=302

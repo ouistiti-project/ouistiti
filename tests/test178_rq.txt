@@ -1,0 +1,5 @@
+GET /index.html HTTP/1.1
+HOST: auth.ouistiti.local
+Authorization: Basic Zm9vOmJhcg==
+Connection: Close
+

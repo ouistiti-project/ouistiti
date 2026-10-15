@@ -1,0 +1,28 @@
+if [ "$OPENSSL" != "y" -a "$MBEDTLS" != "y" ]; then
+	echo "asymmetric signature requires openssl or mbedtls"
+	DISABLED=1
+fi
+if [ -z "$(which openssl)" ]; then
+	echo "openssl command is required to check the signature"
+	DISABLED=1
+fi
+DESC="Auth Basic: JWT generated and signed with RSA private key"
+CONFIG=test22.conf
+TESTCODE=200
+
+test178_checksign () {
+	TOKEN=$(${SED} -n 's/^Set-Cookie: X-Auth-Token=\([^;]*\).*$/\1/p' ${TMPRESPONSE} | tr -d '\r' | head -n 1)
+	if [ -z "$TOKEN" ]; then
+		echo "no token generated"
+		return 1
+	fi
+	DATA=${TOKEN%.*}
+	SIGN=$(echo ${TOKEN##*.} | tr '_-' '/+')
+	case $(( ${#SIGN} % 4 )) in
+		2) SIGN="${SIGN}==" ;;
+		3) SIGN="${SIGN}=" ;;
+	esac
+	echo $SIGN | base64 -d > ${TMPRESPONSE}.sig
+	printf '%s' "$DATA" | openssl dgst -sha256 -verify ${TESTDIR}conf/test22_rsa.pub -signature ${TMPRESPONSE}.sig
+}
+TESTCUSTOM=test178_checksign
