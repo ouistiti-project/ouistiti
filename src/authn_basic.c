@@ -110,7 +110,15 @@ static const char *authn_basic_check(void *arg, authz_t *authz, const char *meth
 		return NULL;
 
 	auth_dbg("auth: basic check: %s", string);
-	base64->decode(string_toc(authorization), string_length(authorization), ctx->user, sizeof(ctx->user));
+	int declen = base64->decode(string_toc(authorization), string_length(authorization), ctx->user, sizeof(ctx->user));
+	if (declen < 0)
+	{
+		/// credentials too long or malformed: reject instead of using stale buffer
+		return NULL;
+	}
+	if ((size_t)declen >= sizeof(ctx->user))
+		declen = sizeof(ctx->user) - 1;
+	ctx->user[declen] = '\0';
 	passwd = strchr(ctx->user, ':');
 	if (passwd != NULL)
 	{
