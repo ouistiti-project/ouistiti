@@ -827,15 +827,22 @@ int authz_checkpasswd(const char *checkpasswd,  const string_t *user,
 						realm, passwd, b64passwd, sizeof(b64passwd));
 
 			auth_dbg("auth: check %s %s", b64passwd, checkpasswd);
-			if (!strncmp(b64passwd, checkpasswd, length))
+			string_t computed = {0};
+			string_store(&computed, b64passwd, length);
+			string_t stored = {0};
+			string_store(&stored, checkpasswd, -1);
+			if (string_is(&computed, &stored))
 				ret = ESUCCESS;
 		}
 		else
 			err("auth: %.3s not supported change password encryption", checkpasswd);
 	}
-	else if (!string_cmp(passwd, checkpasswd, -1))
+	else
 	{
-		ret = ESUCCESS;
+		string_t stored = {0};
+		string_store(&stored, checkpasswd, -1);
+		if (string_is(passwd, &stored))
+			ret = ESUCCESS;
 	}
 	return ret;
 }
