@@ -208,9 +208,13 @@ static PyObject *_mod_python_modulize(string_t *uri)
 //		pymodule = PyImport_ImportModuleLevelObject(module_name, NULL, NULL, NULL, 0);
 	}
 #if 1
-	PyObject *tmp = PyImport_ReloadModule(pymodule);
-	Py_DECREF(pymodule);
-	pymodule = tmp;
+	/// the import may fail: PyImport_ReloadModule(NULL) and Py_DECREF(NULL) crash
+	if (pymodule != NULL)
+	{
+		PyObject *tmp = PyImport_ReloadModule(pymodule);
+		Py_DECREF(pymodule);
+		pymodule = tmp;
+	}
 #endif
 	Py_DECREF(module_name);
 	Py_DECREF(script2_name);
@@ -785,13 +789,24 @@ extern module_t mod_info __attribute__ ((weak, alias ("mod_python")));
 static void __attribute__ ((constructor)) _mod_python_init(void);
 static void __attribute__ ((destructor)) _mod_python_finalize(void);
 
+static PyThreadState *g_python_mainstate = NULL;
+
 static void _mod_python_init(void)
 {
 	// Py_SetProgramName L"ouistiti"
 	Py_Initialize();
+	/**
+	 * Prepare python libraries before any chroot of the server.
+	 */
+	PyObject *pyimportlib = PyImport_ImportModule("importlib");
+	if (pyimportlib == NULL)
+		PyErr_Print();
+	Py_XDECREF(pyimportlib);
+	g_python_mainstate = PyEval_SaveThread();
 }
 
 static void _mod_python_finalize(void)
 {
+	PyEval_RestoreThread(g_python_mainstate);
 	Py_Finalize();
 }
