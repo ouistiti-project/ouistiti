@@ -1193,14 +1193,14 @@ static int _authn_setauthorization_cookie(const _mod_auth_ctx_t *ctx,
 			http_message_t *response)
 {
 	string_t tsecure = STRING_DCL("; Secure");
-	string_t tsamesitelax = STRING_DCL("; Samesite=Lax");
+	string_t thttponly = STRING_DCL("; HttpOnly");
 
 	if (!string_empty(token) && !(ctx->token.mode & TokenFromCookie_e))
 	{
 		if (string_empty(sign))
-			ouimessage_setcookie(response, str_xtoken, token, &tsecure, &tsamesitelax, NULL);
+			ouimessage_setcookie(response, str_xtoken, token, &tsecure, &thttponly, NULL);
 		else
-			ouimessage_setcookie(response, str_xtoken, token, &string_dot, sign, &tsecure, &tsamesitelax, NULL);
+			ouimessage_setcookie(response, str_xtoken, token, &string_dot, sign, &tsecure, &thttponly, NULL);
 	}
 
 	const char *user = NULL;
