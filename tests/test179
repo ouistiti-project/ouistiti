@@ -1,0 +1,6 @@
+DESC="Auth Basic: over-long credentials are rejected"
+# 285 decoded bytes ("test:test", NUL, padding) for a 256-byte buffer: the old
+# base64 decoder wrote past the buffer and authenticated the user "test".
+CONFIG=test10.conf
+TESTCODE=401
+TESTRESPONSE=none

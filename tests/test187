@@ -1,0 +1,12 @@
+if [ "$AUTHZ_MANAGER" != "y" ]; then
+	echo "authmngt module disabled"
+	DISABLED=1
+fi
+DESC="Auth Basic from database: a wrong password is rejected"
+# Any non-empty password authenticated an existing user of the database: the
+# stored password was read empty when the user has no password for the issuer,
+# and the length returned by the lookup was taken for a success.
+PREPARE="rm -f ${TESTDIR}/conf/passwd.db"
+CONFIG=test12.conf
+TESTCODE=302
+TESTRESPONSE=none

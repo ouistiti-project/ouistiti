@@ -1,0 +1,22 @@
+DESC="Auth: the session token cookie is HttpOnly, with one SameSite"
+CONFIG=test22.conf
+TESTREQUEST=test178_rq.txt
+TESTCODE=200
+TESTRESPONSE=none
+test185_cookie() {
+	COOKIE=$(grep -a "^Set-Cookie: X-Auth-Token=" ${TMPRESPONSE} | head -n 1)
+	if [ -z "$COOKIE" ]; then
+		echo "no token cookie"
+		return 1
+	fi
+	if ! echo "$COOKIE" | grep -q "; HttpOnly"; then
+		echo "token cookie without HttpOnly"
+		return 1
+	fi
+	if [ $(echo "$COOKIE" | grep -io "samesite=" | wc -l) -ne 1 ]; then
+		echo "SameSite attribute duplicated"
+		return 1
+	fi
+	return 0
+}
+TESTCUSTOM=test185_cookie

@@ -1,0 +1,23 @@
+if [ "$AUTHZ_MANAGER" != "y" ]; then
+	echo "authmngt module disabled"
+	DISABLED=1
+fi
+DESC="authmngt: a too long group does not overflow into the next field"
+# The group (32 bytes max) was copied with the length of the parameter: the
+# extra characters were written into the home field ("home=ggggggg").
+PREPARE="rm -f ${TESTDIR}/conf/passwd.db"
+CONFIG=test12.conf
+TESTREQUEST="test186a_rq.txt test186b_rq.txt"
+TESTRESPONSE=none
+test186_overflow() {
+	if ! grep -aq "HTTP/1.1 200" ${TMPRESPONSE}; then
+		echo "user not modified"
+		return 1
+	fi
+	if grep -aq "home=g" ${TMPRESPONSE}; then
+		echo "the group overflowed into the home field"
+		return 1
+	fi
+	return 0
+}
+TESTCUSTOM=test186_overflow
