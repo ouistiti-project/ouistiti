@@ -508,8 +508,7 @@ static int authz_sqlite_passwd(void *arg, const string_t *user, string_t *passwd
 	if (userid == EREJECT)
 		return (passwd)? EREJECT:0;
 	ret = authz_sqlite_passwd_byID(ctx, userid, ctx->issuer, passwd, NULL);
-	if ((!string_empty(passwd) && ret != ESUCCESS) ||
-		(string_empty(passwd) && ret == ESUCCESS))
+	if ((passwd == NULL && ret == 0) || (passwd != NULL && ret == EREJECT))
 	{
 		string_t empty = STRING_DCL("");
 		ret = authz_sqlite_passwd_byID(ctx, userid, &empty, passwd, NULL);
@@ -574,14 +573,14 @@ static int _authz_sqlite_checkpasswd(authz_sqlite_t *ctx, const string_t *user, 
 	}
 	if (checkpasswd)
 	{
-		if (authz_checkpasswd(string_toc(checkpasswd), user, NULL, passwd) == ESUCCESS)
+		if (!ret && authz_checkpasswd(string_toc(checkpasswd), user, NULL, passwd) == ESUCCESS)
 			ret = 1;
 		string_cleansafe(checkpasswd);
 		string_destroy(checkpasswd);
 	}
 	else
 		err("auth: user %s not found in DB", string_toc(user));
-	return ret;
+	return (ret == 1);
 }
 
 static const char *authz_sqlite_check(void *arg, const char *user, const char *passwd, const char *token)
