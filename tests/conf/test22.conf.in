@@ -1,0 +1,55 @@
+user="%USER%";
+log-file="%LOGFILE%";
+servers= ({
+		hostname = "www.ouistiti.local";
+		addr="127.0.0.1";
+		port = 8080;
+		keepalivetimeout = 5;
+		version="HTTP11";
+		auth = {
+			type="Bearer";
+			options = "jwt,cookie";
+			secret = "%PWD%/%TESTDIR%conf/test22_rsa.pub";
+			issuer = "sqlite";
+			realm = "www.ouistiti.local";
+			token_ep = "https://auth.ouistiti.local:8080/token";
+		};
+		document = {
+			docroot = "htdocs";
+			allow = ".html,.htm,.css,.js,.txt,*";
+			deny = ".htaccess,.php";
+		};
+		vhost =({
+			hostname = "ec.ouistiti.local";
+			auth = {
+				type="Bearer";
+				options = "jwt,cookie";
+				secret = "%PWD%/%TESTDIR%conf/test22_ec.key";
+				issuer = "sqlite";
+				realm = "ec.ouistiti.local";
+				token_ep = "https://auth.ouistiti.local:8080/token";
+			};
+			document = {
+				docroot = "htdocs";
+				allow = ".html,.htm,.css,.js,.txt,*";
+				deny = ".htaccess,.php";
+			};
+		},{
+			hostname = "auth.ouistiti.local";
+			auth = {
+				type = "Basic";
+				user = "foo";
+				passwd = "bar";
+				group = "users";
+				home = "/home/foo";
+				options = "jwt,cookie";
+				secret = "%PWD%/%TESTDIR%conf/test22_rsa.key";
+				realm = "auth.ouistiti.local";
+			};
+			document = {
+				docroot = "htdocs";
+				allow = ".html,.htm,.css,.js,.txt,*";
+				deny = ".htaccess,.php";
+			};
+		});
+	});

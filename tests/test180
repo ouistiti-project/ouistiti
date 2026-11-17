@@ -1,0 +1,5 @@
+DESC="Auth Basic: the password comparison is case-sensitive"
+# "test:TEST" was accepted for the password "test".
+CONFIG=test10.conf
+TESTCODE=401
+TESTRESPONSE=none

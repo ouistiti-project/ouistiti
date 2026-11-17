@@ -1,0 +1,6 @@
+DESC="Auth Digest: a response truncated to its first character is rejected"
+# test017 sends the whole response "753927fa..." and is accepted; the length of
+# the response sent by the client was used for the comparison.
+CONFIG=test4.conf
+TESTCODE=401
+TESTRESPONSE=error401Digest_rs.txt

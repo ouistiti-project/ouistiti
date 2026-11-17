@@ -227,6 +227,8 @@ extern const module_t mod_auth;
 
 int authz_checkpasswd(const char *checkpasswd, const string_t *user,
 		const string_t *realm, const string_t *passwd);
+string_t *authn_sign(const string_t *key, const string_t *data);
+const char *authn_signalgo(const string_t *key);
 int authn_checksignature(const string_t *key, const string_t *data, const string_t *sign);
 
 const char *auth_info(http_message_t *request, const char *key, size_t keylen);

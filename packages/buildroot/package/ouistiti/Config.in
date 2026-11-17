@@ -68,6 +68,18 @@ config BR2_PACKAGE_OUISTITI_AUTH_UNIX
 	help
 	  Enable password storage from UNIX password system.
 
+config BR2_PACKAGE_OUISTITI_AUTH_PAM
+	bool "PAM authentication"
+	depends on BR2_PACKAGE_LINUX_PAM
+	depends on BR2_PACKAGE_OUISTITI_AUTH
+	help
+	  Check the login/password against the host PAM stack
+	  (/etc/pam.d/<service>) instead of ouistiti's own storage.
+
+comment "PAM authentication needs Linux-PAM"
+	depends on BR2_PACKAGE_OUISTITI_AUTH
+	depends on !BR2_PACKAGE_LINUX_PAM
+
 config BR2_PACKAGE_OUISTITI_AUTH_TOKEN
 	bool "Token exchange"
 	depends on BR2_PACKAGE_OUISTITI_AUTH

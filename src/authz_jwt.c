@@ -111,16 +111,23 @@ static void authtoken_jwt_destroy(authtoken_ctx_t *ctx)
 static string_t *authz_jwt_generatetoken(authtoken_ctx_t *ctx, http_message_t *request)
 {
 	const authtoken_config_t *config = ctx->config;
+	/// the algorithm of the header depends on the key (HS256, RS256 or ES256)
+	const char *alg = authn_signalgo(&config->secret);
+	if (alg == NULL)
+	{
+		err("auth: jwt signature algorithm not supported");
+		return NULL;
+	}
 #ifdef JWT_FORMATHEADER
 	json_t *jheader = json_object();
-	json_object_set(jheader, "alg", json_string("HS256"));
-	json_object_set(jheader, "typ", json_string("JWT"));
+	json_object_set_new(jheader, "alg", json_string(alg));
+	json_object_set_new(jheader, "typ", json_string("JWT"));
 	char *theader = json_dumps(jheader, 0);
 	size_t theaderlen = strlen(theader);
 	json_decref(jheader);
 #else
-	char theader[] = "{\"alg\": \"HS256\", \"typ\": \"JWT\"}";
-	size_t theaderlen = sizeof(theader) - 1;
+	char theader[40];
+	size_t theaderlen = snprintf(theader, sizeof(theader), "{\"alg\": \"%s\", \"typ\": \"JWT\"}", alg);
 #endif
 
 	size_t len = 0;
@@ -360,7 +367,41 @@ static void *authz_jwt_setup(void *arg, http_client_t *clt, struct sockaddr *add
 	return ctx;
 }
 
-static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json_t *jinfo)
+#ifdef AUTHZ_JWT_CHECKHEADER
+/**
+ * alg is the algorithm required by the key,
+ * NULL when the key is unknown here (the signature is already checked by mod_auth).
+ */
+static int _jwt_checkheader(const char *token, const char *alg)
+{
+	int ret = ESUCCESS;
+	json_t *jheader = jwt_decode_json(token, 1);
+	if (jheader == NULL)
+		return EREJECT;
+	const json_t *jtype = json_object_get(jheader, "typ");
+	if (jtype == NULL || !json_is_string(jtype) || strcmp(json_string_value(jtype), "JWT"))
+	{
+		err("auth: token is not jwt");
+		ret = EREJECT;
+	}
+	const json_t *jalg = json_object_get(jheader, "alg");
+	const char *talg = (jalg && json_is_string(jalg))? json_string_value(jalg) : "none";
+	if (alg != NULL && strcmp(talg, alg))
+	{
+		err("auth: jwt alg %s doesn't match the key (%s)", talg, alg);
+		ret = EREJECT;
+	}
+	else if (alg == NULL && strcmp(talg, "HS256") && strcmp(talg, "RS256") && strcmp(talg, "ES256"))
+	{
+		err("auth: jwt alg %s not supported", talg);
+		ret = EREJECT;
+	}
+	json_decref(jheader);
+	return ret;
+}
+#endif
+
+static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json_t *jinfo, const char *alg)
 {
 	int ret = ESUCCESS;
 	if (jinfo != NULL)
@@ -376,26 +417,10 @@ static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json
 		}
 	}
 #ifdef AUTHZ_JWT_CHECKHEADER
-	jinfo = jwt_decode_json(token, 1);
-	if (jinfo != NULL)
-	{
-		const json_t *jtype = json_object_get(jinfo, "typ");
-		if (jtype == NULL || !json_is_string(jtype) || strncmp(json_string_value(jtype), "JWT", 3))
-		{
-			err("auth: token is not jwt");
-			json_decref(jinfo);
-			ret = EREJECT;
-		}
-		const json_t *jalg = json_object_get(jinfo, "alg");
-		if (jalg == NULL || !json_is_string(jalg) || strncmp(json_string_value(jalg), "HS256", 5))
-		{
-			err("auth: jwt support only Hmac sha256");
-			json_decref(jinfo);
-			ret = EREJECT;
-		}
-	}
-	else
+	if (_jwt_checkheader(token, alg) != ESUCCESS)
 		ret = EREJECT;
+#else
+	(void)alg;
 #endif
 	return ret;
 }
@@ -403,7 +428,7 @@ static int _authn_jwt_checktoken(const string_t *issuer, const char *token, json
 int authz_jwt_checktoken(authtoken_ctx_t *ctx, const string_t *token, const char **user)
 {
 	json_t *jinfo = jwt_decode_json(string_toc(token), 0);
-	int ret = _authn_jwt_checktoken(&ctx->config->issuer, string_toc(token), jinfo);
+	int ret = _authn_jwt_checktoken(&ctx->config->issuer, string_toc(token), jinfo, authn_signalgo(&ctx->config->secret));
 	string_t tuser = {0};
 	_jwt_getuser(jinfo, &tuser);
 	ctx->user = string_dup(&tuser);
@@ -417,7 +442,8 @@ static const char *authz_jwt_check(void *arg, const char *UNUSED(user), const ch
 {
 	authz_ctx_t *ctx = (authz_ctx_t *)arg;
 	json_t *jinfo = jwt_decode_json(token, 0);
-	if (_authn_jwt_checktoken(ctx->mod->issuer, token, jinfo) == ESUCCESS)
+	/// the key is unknown here, the signature is already checked by mod_auth with the key type
+	if (_authn_jwt_checktoken(ctx->mod->issuer, token, jinfo, NULL) == ESUCCESS)
 	{
 		ctx->token = token;
 		_jwt_getuser(jinfo, ctx->user);

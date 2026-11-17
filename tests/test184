@@ -1,0 +1,16 @@
+DESC="URI with encoded CR LF is rejected without header injection"
+# The URI is copied into the Location header of the token_ep redirection.
+CONFIG=test13.conf
+TESTRESPONSE=none
+test184_noinjection() {
+	if grep -aq "^Set-Cookie: injected" ${TMPRESPONSE}; then
+		echo "header injected into the response"
+		return 1
+	fi
+	if ! grep -aq "^HTTP/1.1 4" ${TMPRESPONSE}; then
+		echo "the request is not rejected"
+		return 1
+	fi
+	return 0
+}
+TESTCUSTOM=test184_noinjection

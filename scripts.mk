@@ -57,15 +57,10 @@ srcdir?=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 cwdir=$(subst $(srcdir),,$(dir $(realpath $(file))))
 export srcdir
 
-#ifneq ($(findstring -arch,$(CFLAGS)),)
-#ARCH=$(shell echo $(CFLAGS) 2>&1 | $(AWK) 'BEGIN {FS="[- ]"} {print $$2}')
-#buildpath=$(join $(srcdir),$(ARCH))
-#endif
 ifneq ($(CROSS_COMPILE),)
-ifeq ($(BUILDDIR),)
   triplet=$(notdir $(CROSS_COMPILE:%-=%))
-  BUILDDIR:=$(srcdir)$(triplet)/
-endif
+  BUILDDIR?=$(srcdir)$(triplet)/
+  export BUILDDIR
 endif
 ifneq ($(BUILDDIR),)
   builddir:=$(if $(findstring ./,$(dir $(BUILDDIR:%/=%))),$(PWD)/)$(BUILDDIR:%/=%)/
@@ -103,11 +98,11 @@ ifneq ($(file),)
   include $(file)
 endif
 ifneq ($(TOOLCHAIN),)
-  PATH:=$(value PATH):$(TOOLCHAIN)/bin
-  export TOOLCHAIN
+  PATH:=$(TOOLCHAIN:%/=%)/bin:$(value PATH)
+  TOOLBIN=$(TOOLCHAIN:%/=%)/bin/
 endif
 
-PATH:=$(value PATH):$(hostobjdir)
+PATH:=$(hostobjdir):$(value PATH)
 export PATH
 
 TMPDIR:=/tmp
@@ -178,7 +173,7 @@ TARGETRANLIB:=$(TARGETPREFIX)$(RANLIB)
 TARGETSTRIP:=$(TARGETPREFIX)$(STRIP)
 
 ifneq ($(TARGETCC),)
-  CCVERSION:=$(shell $(TARGETCC) -\#\#\#  2>&1 | $(GREP) -i " version ")
+  CCVERSION:=$(shell $(TARGETCC) -\#\#\#  2>&1)
   ARCH:=$(shell LANG=C $(TARGETCC) -dumpmachine | $(AWK) -F- '{print $$1}')
 endif
 
@@ -196,7 +191,7 @@ else
   TOOLCHAIN?=$(dir $(abspath $(dir $(realpath $(shell which $(TARGETCC))))))
 endif
 
-ifeq ($(findstring gcc,$(TARGETCC)),gcc)
+ifneq ($(findstring gcc,$(CCVERSION)),)
   SYSROOT?=$(shell $(TARGETCC) -print-sysroot)
 endif
 
@@ -208,7 +203,10 @@ endif
 
 ifeq ($(destdir),)
   destdir:=$(abspath $(DESTDIR))
-  export destdir
+endif
+
+ifneq ($(CROSS_COMPILE),)
+  destdir?=$(sysroot)
 endif
 
 ifneq ($(SYSROOT),)
@@ -265,16 +263,16 @@ else
 endif
 
 ## Configure the pkg-config tool to find *.pc files
-PKG_CONFIG_PATH+=:$(sysroot)/usr/lib/pkg-config
-ifneq ($(wildcard $(sysroot)/usr/lib$(libsuffix)/pkg-config/),)
-  PKG_CONFIG_PATH+=:$(sysroot)/usr/lib$(libsuffix)/pkg-config
-endif
+PKG_CONFIG_PATH+=:$(sysroot)/usr/lib/pkgconfig
 ifneq ($(wildcard $(sysroot)/usr/lib$(libsuffix)/pkgconfig/),)
   PKG_CONFIG_PATH+=:$(sysroot)/usr/lib$(libsuffix)/pkgconfig
 endif
 ifneq ($(wildcard $(sysroot)/usr/share/pkgconfig/),)
   PKG_CONFIG_PATH+=:$(sysroot)/usr/share/pkgconfig
 endif
+PKG_CONFIG_SYSROOT_DIR=$(sysroot)
+$(foreach path,$(subst :, ,$(PKG_CONFIG_LIBDIR)),$(eval PKG_CONFIG_SYSTEM_INCLUDE_PATH=:$(path:%/pkgconfig=%)/include))
+$(foreach path,$(subst :, ,$(PKG_CONFIG_LIBDIR)),$(eval PKG_CONFIG_SYSTEM_LIB_PATH=:$(path:%/pkgconfig=%)/lib))
 PKG_CONFIG_PATH+=:$(builddir)
 PKG_CONFIG_PATH:=$(subst $(space),,$(PKG_CONFIG_PATH))
 
@@ -405,7 +403,12 @@ $(foreach t,$(lib-y) $(modules-y),$(eval $(t)_CFLAGS+=-fPIC))
 $(foreach t,$(slib-y) $(lib-y),$(eval include-y+=$($(t)_HEADERS)))
 
 define cmd_pkgconfig
-	$(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) --silence-errors $(2) $(1))
+	$(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
+		PKG_CONFIG_SYSROOT_DIR=$(PKG_CONFIG_SYSROOT_DIR) \
+		PKG_CONFIG_SYSTEM_INCLUDE_PATH=$(PKG_CONFIG_SYSTEM_INCLUDE_PATH) \
+		PKG_CONFIG_SYSTEM_INCLUDE_PATH=$(PKG_CONFIG_SYSTEM_INCLUDE_PATH) \
+		PKG_CONFIG_SYSTEM_LIBRARY_PATH=$(PKG_CONFIG_SYSTEM_LIBRARY_PATH) \
+		$(PKGCONFIG) --silence-errors $(2) $(1))
 endef
 # LIBRARY may contain libraries name to check
 # The name may terminate with {<version>} informations like LIBRARY+=usb{1.0}
@@ -867,7 +870,6 @@ $(TMPDIR)/$(TESTFILE:%=%.c):
 	$(Q)echo "int main(){return 0;}" > $@
 
 $(lib-deps-target): deps_%: $(TMPDIR)/$(TESTFILE:%=%.c) FORCE
-	$(Q)echo check libs
 	$(Q)$(call cmd,check_lib,$*)
 	$(Q)$(if $(findstring $(HAVE_result),y,$(call cmd,test_lib, $(CHECKLIB))),/bin/true)
 	$(eval HAVE=HAVE_$(shell echo $(firstword $(subst {, ,$(subst },,$*))) | tr '[:lower:]' '[:upper:]' | sed 's/[.-]/_/g'))

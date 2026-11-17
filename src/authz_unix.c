@@ -40,6 +40,11 @@
 #include <errno.h>
 #include <crypt.h>
 #include <time.h>
+#ifdef AUTHZ_UNIX_PROCESS
+#include <semaphore.h>
+#include <signal.h>
+#include <sys/wait.h>
+#endif
 
 #include "ouistiti/httpserver.h"
 #include "ouistiti/log.h"
@@ -134,7 +139,6 @@ static void *authz_unix_setup(void *arg, http_client_t *clt, struct sockaddr *ad
 typedef struct authz_shadow_s authz_shadow_t;
 struct authz_shadow_s
 {
-	authz_ctx_t *ctx;
 	string_t *user;
 	string_t *passwd;
 };
@@ -143,7 +147,6 @@ static int _authz_unix_checkshadow(void *arg)
 {
 	int ret = EREJECT;
 	authz_shadow_t *shadow = (authz_shadow_t *)arg;
-	authz_ctx_t *ctx = shadow->ctx;
 	struct spwd *pw = NULL;
 	string_t status = STRING_DCL(str_status_activated);
 
@@ -168,18 +171,100 @@ static int _authz_unix_checkshadow(void *arg)
 		{
 			time_t now = time(NULL);
 			long day = now / (60 * 60 * 24);
-			if (pw->sp_max > 0 && day > (pw->sp_lstchg + pw->sp_max))
-				string_store(&status, STRING_REF(str_status_reapproving));
 			if (pw->sp_expire > 0 && day > pw->sp_expire)
-				string_store(&status, STRING_REF(str_status_repudiated));
+				ret = ECONTINUE;
 			else
 				ret = ESUCCESS;
-			string_store(&ctx->status, STRING_INFO(status));
+			if (ret == ESUCCESS && pw->sp_max > 0 && day > (pw->sp_lstchg + pw->sp_max))
+				ret = EINCOMPLETE;
 		}
 	}
 	return ret;
 }
 
+#ifdef AUTHZ_UNIX_PROCESS
+#define NSLOTS 64
+#define SLOT_SIZE  256
+
+typedef struct {
+    sem_t dispo;
+    int   state;
+    union {
+		struct {
+			char user[SLOT_SIZE/2];
+			char passwd[SLOT_SIZE/2];
+		} req;
+		int res;
+		char  buffer[SLOT_SIZE];
+	};
+} slot_t;
+
+typedef struct {
+    sem_t mutex;
+    sem_t pret;
+    sem_t libre;
+    slot_t slot[NSLOTS];
+} shm_t;
+
+static shm_t *g_shm;
+
+static void *_authz_unix_process(void *arg)
+{
+	shm_t *shm = (shm_t *)arg;
+	for(;;)
+	{
+		sem_wait(&shm->pret);
+		for (int i = 0; i < NSLOTS; i++)
+		{
+			if (shm->slot[i].state != 1) continue;
+			shm->slot[i].state = 3;
+			authz_shadow_t shadow = {0};
+			string_t user = {0};
+			string_store(&user, STRING_REF(shm->slot[i].req.user));
+			shadow.user = &user;
+			string_t passwd = {0};
+			string_store(&passwd, STRING_REF(shm->slot[i].req.passwd));
+			shadow.passwd = &passwd;
+			int ret = _authz_unix_checkshadow(&shadow);
+			memset(shm->slot[i].buffer, 0xA5, sizeof(shm->slot[i].buffer));
+			shm->slot[i].res = ret;
+			shm->slot[i].state = 2;
+			sem_post(&shm->slot[i].dispo);
+		}
+	}
+	return NULL;
+}
+
+static int _authz_unix_processshadow(void *arg)
+{
+	int ret = EREJECT;
+	authz_shadow_t *shadow = (authz_shadow_t *)arg;
+	shm_t *shm = g_shm;
+
+	sem_wait(&shm->libre);
+	sem_wait(&shm->mutex);
+	int i = 0;
+	while (shm->slot[i].state != 0 && i < NSLOTS) i++;
+	if (i == NSLOTS)
+	{
+		sem_post(&shm->mutex);
+		return ETIMEOUT;
+	}
+	shm->slot[i].state = 1;
+	sem_post(&shm->mutex);
+
+	strncpy(shm->slot[i].req.user, string_toc(shadow->user), sizeof(shm->slot[i].req.user));
+	strncpy(shm->slot[i].req.passwd, string_toc(shadow->passwd), sizeof(shm->slot[i].req.passwd));
+	sem_post(&shm->pret);
+	sem_wait(&shm->slot[i].dispo);
+	ret = shm->slot[i].res;
+	shm->slot[i].state = 0;
+	sem_post(&shm->libre);
+	return ret;
+}
+#endif
+
+static char str_x[] = "x";
 static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const char *passwd)
 {
 	int ret = EREJECT;
@@ -190,27 +275,29 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 #else
 	pw = getpwnam(user);
 #endif
-	const char *cryptpasswd = NULL;
+	const char *cryptpasswd = str_x;
 	if (pw)
 		cryptpasswd = pw->pw_passwd;
-	if (cryptpasswd && !strcmp(cryptpasswd, "x"))
+	if (cryptpasswd && !strcmp(cryptpasswd, str_x))
 	{
 		string_t string_user;
 		string_t string_passwd;
 		string_store(&string_user, user, -1);
 		string_store(&string_passwd, passwd, -1);
 		authz_shadow_t shadow = {0};
-		shadow.ctx= ctx;
 		shadow.user = &string_user;
 		shadow.passwd = &string_passwd;
+#ifdef AUTHZ_UNIX_PROCESS
+		ret = _authz_unix_processshadow(&shadow);
+#else
 		ret = daemonize_supercall(_authz_unix_checkshadow, &shadow);
+#endif
 	}
 	else if (cryptpasswd)
 	{
-		string_t status = STRING_DCL(str_status_activated);
 		if (cryptpasswd[0] == '!')
 		{
-			string_store(&status, STRING_REF(str_status_repudiated));
+			ret = ECONTINUE;
 			cryptpasswd += 1;
 		}
 
@@ -221,10 +308,9 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 #else
 		testpasswd = crypt(passwd, cryptpasswd);
 #endif
-		if (testpasswd && !strcmp(testpasswd, cryptpasswd))
+		if (testpasswd && !strcmp(testpasswd, cryptpasswd) && ret == EREJECT)
 		{
 			ret = ESUCCESS;
-			string_store(&ctx->status, STRING_INFO(status));
 		}
 		else
 		{
@@ -234,6 +320,18 @@ static int _authz_unix_checkpasswd(authz_ctx_t *ctx, const char *user, const cha
 	else
 	{
 		warn("authz unix: user %s not found %m", user);
+	}
+	switch (ret)
+	{
+		case ESUCCESS:
+			string_store(&ctx->status, STRING_REF(str_status_activated));
+		break;
+		case EINCOMPLETE:
+			string_store(&ctx->status, STRING_REF(str_status_reapproving));
+		break;
+		case ECONTINUE:
+			string_store(&ctx->status, STRING_REF(str_status_repudiated));
+		break;
 	}
 	return ret;
 }
@@ -310,3 +408,43 @@ static void __attribute__ ((constructor)) _init()
 {
 	auth_registerauthz(&authz_name, &authz_unix_rules);
 }
+
+#ifdef AUTHZ_UNIX_PROCESS
+static pid_t  srv_pid;
+
+static void __attribute__ ((constructor)) _ipc_init(void)
+{
+    g_shm = mmap(NULL, sizeof(shm_t), PROT_READ | PROT_WRITE,
+               MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (g_shm == MAP_FAILED)
+		abort();
+
+    sem_init(&g_shm->mutex, 1, 1);
+    sem_init(&g_shm->pret,  1, 0);
+    sem_init(&g_shm->libre, 1, NSLOTS);
+    for (int i = 0; i < NSLOTS; i++)
+    {
+        sem_init(&g_shm->slot[i].dispo, 1, 0);
+        g_shm->slot[i].state = 0;
+    }
+
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        _authz_unix_process(g_shm);
+        _exit(1);
+    }
+    srv_pid = pid;
+}
+
+static void __attribute__((destructor)) _ipc_fini(void)
+{
+    if (srv_pid > 0)
+    {
+        kill(srv_pid, SIGTERM);
+        waitpid(srv_pid, NULL, 0);
+        sem_post(&g_shm->pret);
+        munmap(g_shm, sizeof(shm_t));
+    }
+}
+#endif

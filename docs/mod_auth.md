@@ -24,6 +24,7 @@ The module may store the password into several formats:
  3. sqlite database: the database may replace the file with some advantages about the users management. See below for more information
  4. unix password system: the module uses directly the login informations of the host's users.
  5. jwt token: if the JWT support is available on *Ouistiti*, and any other storage system is configurated, the user information are stored inside the JWT token.
+ 6. PAM: the module delegates the login/password check to the host's PAM stack (`/etc/pam.d/<service>`), then reuses the system user's "group" and "home" like the unix password system.
 
 The module allows some other features:
 
@@ -46,6 +47,7 @@ The module allows some other features:
  - AUTHZ_FILE :  add support of password storage into text file.
  - AUTHZ_SQLITE : add support of password storage into sqlite database.
  - AUTHZ_UNIX : add support of unix login system.
+ - AUTHZ_PAM : add support of PAM login system (needs `libpam0g-dev`/`pam-dev` at build time).
  - AUTHZ_JWT : add support of JWT token containing user information.
 
 # Configuration:

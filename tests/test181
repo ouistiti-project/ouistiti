@@ -1,0 +1,5 @@
+DESC="Auth Basic: a password longer than the right one is rejected"
+# "test:testX" was accepted: only the length of the stored password was compared.
+CONFIG=test10.conf
+TESTCODE=401
+TESTRESPONSE=none
