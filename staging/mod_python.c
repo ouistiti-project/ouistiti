@@ -278,6 +278,8 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 		err("python: %s not a directory", string_toc(&modconfig->docroot));
 		return NULL;
 	}
+	/// mod_python_create() runs after _mod_python_init() released the GIL
+	PyGILState_STATE gstate = PyGILState_Ensure();
 	PyObject *sys = PyImport_ImportModule("sys");
 	PyObject *path = PyObject_GetAttrString(sys, "path");
 	PyObject *pwd = PyUnicode_FromString(string_toc(&modconfig->docroot));
@@ -318,6 +320,7 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 		script = script->next;
 	}
 	PyErr_Clear();
+	PyGILState_Release(gstate);
 	httpserver_addconnector(server, _python_connector, mod, CONNECTOR_DOCUMENT, str_python);
 
 	return mod;
@@ -716,7 +719,8 @@ static int _python_responsecontent(mod_python_ctx_t *ctx, http_message_t *respon
 	}
 	return ret;
 }
-static int _python_connector(void *arg, http_message_t *request, http_message_t *response)
+
+static int _python_connectorgil(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EINCOMPLETE;
 	mod_python_ctx_t *ctx = httpmessage_private(request, NULL);
@@ -771,6 +775,14 @@ static int _python_connector(void *arg, http_message_t *request, http_message_t 
 	/* this mod returns EINCOMPLETE
 	 * because it needs to wait the end
 	 * to know the length of the content */
+	return ret;
+}
+
+static int _python_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	PyGILState_STATE gstate = PyGILState_Ensure();
+	int ret = _python_connectorgil(arg, request, response);
+	PyGILState_Release(gstate);
 	return ret;
 }
 
