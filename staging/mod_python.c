@@ -372,10 +372,12 @@ static PyObject *_python_createPyRequest(PyObject *pymodule, const mod_python_co
 		char *pwd = getcwd(NULL, 0);
 		string_t strpwd = {0};
 		string_store(&strpwd, pwd, -1);
-		if (pwd && (string_contain(uri, &strpwd, ' ')))
+		if (pwd && string_startwith(uri, &strpwd))
 		{
-			size_t len = strnlen(pwd, string_length(uri));
-			string_slice(uri, len + 1, 0);
+			size_t len = string_length(&strpwd);
+			if (len > 0 && pwd[len - 1] != '/')
+				len++;
+			string_slice(uri, len, 0);
 		}
 		free(pwd);
 		python_dbg("python: module file %.*s", (int)string_length(uri), string_toc(uri));
@@ -699,7 +701,13 @@ static int _python_responsecontent(mod_python_ctx_t *ctx, http_message_t *respon
 		python_dbg("python: content %s", content);
 		if (content != NULL)
 		{
-			ctx->contentread += httpmessage_addcontent(response, "none", content + ctx->contentread, size - ctx->contentread);
+			int stored = httpmessage_appendcontent(response, content + ctx->contentread, size - ctx->contentread);
+			if (stored < 0)
+			{
+				err("python: content error");
+				stored = size - ctx->contentread;
+			}
+			ctx->contentread += stored;
 		}
 		if (ctx->contentread >= size)
 		{
