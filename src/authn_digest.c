@@ -689,12 +689,14 @@ static const char *authn_digest_check(void *arg, authz_t *authz, const char *met
 		auth_dbg("Digest:\n\t%.*s\n\t%s", (int)response.length, response.value, digest);
 		if (!string_empty(ctx->user))
 			string_destroy(ctx->user);
+		size_t digestlen = digest ? strlen(digest) : 0;
+		if (digest && response.length == digestlen &&
 #ifdef OPENSSL
-		if (digest && !CRYPTO_memcmp(digest, response.value, response.length))
+			!CRYPTO_memcmp(digest, response.value, digestlen))
 #elif defined(MBEDTLS)
-		if (digest && !mbedtls_ct_memcmp(digest, response.value, response.length))
+			!mbedtls_ct_memcmp(digest, response.value, digestlen))
 #else
-		if (digest && !memcmp(digest, response.value, response.length))
+			!memcmp(digest, response.value, digestlen))
 #endif
 		{
 			ctx->user = string_dup(&user.name);
