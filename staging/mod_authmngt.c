@@ -406,7 +406,11 @@ static int _authmngt_parsegroup(http_message_t *request, authsession_t *session)
 	size_t length = httpmessage_parameter(request, str_group, &group);
 	if (length > 0)
 	{
+		/// client-controlled length: cap to the destination buffer (FIELD_MAX+1)
+		if (length > FIELD_MAX)
+			length = FIELD_MAX;
 		strncpy(session->group, group, length);
+		session->group[length] = '\0';
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -419,7 +423,11 @@ static int _authmngt_parsehome(http_message_t *request, authsession_t *session)
 	size_t length = httpmessage_parameter(request, str_home, &home);
 	if (length > 0)
 	{
+		/// client-controlled length: cap to the destination buffer (PATH_MAX+1)
+		if (length > PATH_MAX)
+			length = PATH_MAX;
 		strncpy(session->home, home, length);
+		session->home[length] = '\0';
 		ret = ESUCCESS;
 	}
 	return ret;
@@ -452,7 +460,11 @@ static int _authmngt_parsestatus(http_message_t *request, authsession_t *session
 	size_t length = httpmessage_parameter(request, str_status, &status);
 	if (length > 0)
 	{
+		/// client-controlled length: cap to the destination buffer (FIELD_MAX+1)
+		if (length > FIELD_MAX)
+			length = FIELD_MAX;
 		strncpy(session->status, status, length);
+		session->status[length] = '\0';
 		ret = ESUCCESS;
 	}
 	return ret;
