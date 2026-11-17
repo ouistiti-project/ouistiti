@@ -208,9 +208,13 @@ static PyObject *_mod_python_modulize(string_t *uri)
 //		pymodule = PyImport_ImportModuleLevelObject(module_name, NULL, NULL, NULL, 0);
 	}
 #if 1
-	PyObject *tmp = PyImport_ReloadModule(pymodule);
-	Py_DECREF(pymodule);
-	pymodule = tmp;
+	/// the import may fail: PyImport_ReloadModule(NULL) and Py_DECREF(NULL) crash
+	if (pymodule != NULL)
+	{
+		PyObject *tmp = PyImport_ReloadModule(pymodule);
+		Py_DECREF(pymodule);
+		pymodule = tmp;
+	}
 #endif
 	Py_DECREF(module_name);
 	Py_DECREF(script2_name);
@@ -274,6 +278,8 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 		err("python: %s not a directory", string_toc(&modconfig->docroot));
 		return NULL;
 	}
+	/// mod_python_create() runs after _mod_python_init() released the GIL
+	PyGILState_STATE gstate = PyGILState_Ensure();
 	PyObject *sys = PyImport_ImportModule("sys");
 	PyObject *path = PyObject_GetAttrString(sys, "path");
 	PyObject *pwd = PyUnicode_FromString(string_toc(&modconfig->docroot));
@@ -314,6 +320,7 @@ static void *mod_python_create(http_server_t *server, mod_python_config_t *modco
 		script = script->next;
 	}
 	PyErr_Clear();
+	PyGILState_Release(gstate);
 	httpserver_addconnector(server, _python_connector, mod, CONNECTOR_DOCUMENT, str_python);
 
 	return mod;
@@ -365,10 +372,12 @@ static PyObject *_python_createPyRequest(PyObject *pymodule, const mod_python_co
 		char *pwd = getcwd(NULL, 0);
 		string_t strpwd = {0};
 		string_store(&strpwd, pwd, -1);
-		if (pwd && (string_contain(uri, &strpwd, ' ')))
+		if (pwd && string_startwith(uri, &strpwd))
 		{
-			size_t len = strnlen(pwd, string_length(uri));
-			string_slice(uri, len + 1, 0);
+			size_t len = string_length(&strpwd);
+			if (len > 0 && pwd[len - 1] != '/')
+				len++;
+			string_slice(uri, len, 0);
 		}
 		free(pwd);
 		python_dbg("python: module file %.*s", (int)string_length(uri), string_toc(uri));
@@ -692,7 +701,13 @@ static int _python_responsecontent(mod_python_ctx_t *ctx, http_message_t *respon
 		python_dbg("python: content %s", content);
 		if (content != NULL)
 		{
-			ctx->contentread += httpmessage_addcontent(response, "none", content + ctx->contentread, size - ctx->contentread);
+			int stored = httpmessage_appendcontent(response, content + ctx->contentread, size - ctx->contentread);
+			if (stored < 0)
+			{
+				err("python: content error");
+				stored = size - ctx->contentread;
+			}
+			ctx->contentread += stored;
 		}
 		if (ctx->contentread >= size)
 		{
@@ -712,7 +727,8 @@ static int _python_responsecontent(mod_python_ctx_t *ctx, http_message_t *respon
 	}
 	return ret;
 }
-static int _python_connector(void *arg, http_message_t *request, http_message_t *response)
+
+static int _python_connectorgil(void *arg, http_message_t *request, http_message_t *response)
 {
 	int ret = EINCOMPLETE;
 	mod_python_ctx_t *ctx = httpmessage_private(request, NULL);
@@ -770,6 +786,14 @@ static int _python_connector(void *arg, http_message_t *request, http_message_t 
 	return ret;
 }
 
+static int _python_connector(void *arg, http_message_t *request, http_message_t *response)
+{
+	PyGILState_STATE gstate = PyGILState_Ensure();
+	int ret = _python_connectorgil(arg, request, response);
+	PyGILState_Release(gstate);
+	return ret;
+}
+
 const module_t mod_python =
 {
 	.name = str_python,
@@ -785,13 +809,24 @@ extern module_t mod_info __attribute__ ((weak, alias ("mod_python")));
 static void __attribute__ ((constructor)) _mod_python_init(void);
 static void __attribute__ ((destructor)) _mod_python_finalize(void);
 
+static PyThreadState *g_python_mainstate = NULL;
+
 static void _mod_python_init(void)
 {
 	// Py_SetProgramName L"ouistiti"
 	Py_Initialize();
+	/**
+	 * Prepare python libraries before any chroot of the server.
+	 */
+	PyObject *pyimportlib = PyImport_ImportModule("importlib");
+	if (pyimportlib == NULL)
+		PyErr_Print();
+	Py_XDECREF(pyimportlib);
+	g_python_mainstate = PyEval_SaveThread();
 }
 
 static void _mod_python_finalize(void)
 {
+	PyEval_RestoreThread(g_python_mainstate);
 	Py_Finalize();
 }
